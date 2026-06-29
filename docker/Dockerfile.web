@@ -1,0 +1,36 @@
+# ── Office Web (Next.js) ───────────────────────────────────────
+# Multi-Stage Build für Produktion.
+
+FROM node:20-alpine AS base
+RUN corepack enable
+WORKDIR /app
+
+# ── Dependencies ───────────────────────────────────────────────
+FROM base AS deps
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+COPY apps/web/package.json apps/web/
+COPY packages/types/package.json packages/types/
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# ── Build ──────────────────────────────────────────────────────
+FROM base AS build
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+COPY --from=deps /app/node_modules ./node_modules
+COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+COPY . .
+RUN pnpm --filter @office/web build
+
+# ── Runtime ────────────────────────────────────────────────────
+FROM base AS runtime
+ENV NODE_ENV=production
+COPY --from=build /app/apps/web/.next ./apps/web/.next
+COPY --from=build /app/apps/web/public ./apps/web/public
+COPY --from=build /app/apps/web/package.json ./apps/web/package.json
+COPY --from=build /app/apps/web/next.config.mjs ./apps/web/next.config.mjs
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/apps/web/node_modules ./apps/web/node_modules
+
+EXPOSE 3800
+WORKDIR /app/apps/web
+CMD ["pnpm", "start"]

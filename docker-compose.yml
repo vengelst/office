@@ -1,0 +1,88 @@
+# ── Office – Produktions-Stack ─────────────────────────────────
+# Start: docker compose up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: office-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-office}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-office_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-office}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-office} -d ${POSTGRES_DB:-office}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: office-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-office_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-office_minio_pw}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    container_name: office-api
+    restart: unless-stopped
+    command: >
+      sh -c "pnpm prisma migrate deploy &&
+             pnpm prisma db seed &&
+             node apps/api/dist/main.js"
+    working_dir: /app
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-office}:${POSTGRES_PASSWORD:-office_dev_pw}@postgres:5432/${POSTGRES_DB:-office}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-office_minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-office_minio_pw}
+      MINIO_BUCKET: ${MINIO_BUCKET:-office-documents}
+      API_PORT: 3801
+      NODE_ENV: production
+    ports:
+      - "3801:3801"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3801/api}
+    container_name: office-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+    ports:
+      - "3800:3800"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  minio_data:

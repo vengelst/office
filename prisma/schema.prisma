@@ -1,0 +1,643 @@
+// Office – Prisma Schema
+// CRM, Projektverwaltung, Monteurverwaltung, Zeiterfassung, Stundenzettel, DMS
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ──────────────────────────────────────────────────────────────
+// Enums
+// ──────────────────────────────────────────────────────────────
+
+enum RoleCode {
+  SUPERADMIN
+  OFFICE
+  PROJECT_MANAGER
+  WORKER
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProjectStatus {
+  DRAFT
+  PLANNED
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELED
+}
+
+enum ServiceType {
+  VIDEO
+  ELECTRICAL
+  SERVICE
+  OTHER
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum BreakScopeType {
+  GLOBAL
+  PROJECT
+}
+
+enum TimeEntryType {
+  CLOCK_IN
+  CLOCK_OUT
+  MANUAL_ADJUSTMENT
+}
+
+enum GpsEventType {
+  CLOCK_IN
+  CLOCK_OUT
+  MANUAL
+}
+
+enum WeeklyTimesheetStatus {
+  DRAFT
+  WORKER_SIGNED
+  CUSTOMER_SIGNED
+  COMPLETED
+  LOCKED
+}
+
+enum SignerType {
+  WORKER
+  CUSTOMER
+}
+
+enum DocumentType {
+  PHOTO
+  DELIVERY_NOTE
+  INVOICE
+  PROJECT_DOC
+  OTHER
+}
+
+enum EquipmentCategory {
+  TOOL
+  PSA
+  ELECTRONICS
+  OTHER
+}
+
+// ──────────────────────────────────────────────────────────────
+// Identity / System
+// ──────────────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  notes        String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  roles            UserRole[]
+  auditLogs        AuditLog[]
+  sessions         Session[]
+  customerNotes    CustomerNote[]
+  customerCallLogs CustomerCallLog[]
+  projectNotes     ProjectNote[]
+  timeEntries      TimeEntry[]
+  worker           Worker?
+  documents        Document[]
+  managedProjects  Project[]         @relation("ProjectManager")
+}
+
+model Role {
+  id          String   @id @default(cuid())
+  code        RoleCode @unique
+  name        String
+  description String?
+
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model UserRole {
+  id     String @id @default(cuid())
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+}
+
+model Permission {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  id           String @id @default(cuid())
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  actorType   String
+  entityType  String
+  entityId    String
+  action      String
+  beforeJson  Json?
+  afterJson   Json?
+  createdAt   DateTime @default(now())
+
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  valueJson Json
+  updatedAt DateTime @updatedAt
+}
+
+// ──────────────────────────────────────────────────────────────
+// CRM
+// ──────────────────────────────────────────────────────────────
+
+model Customer {
+  id             String         @id @default(cuid())
+  customerNumber String         @unique
+  companyName    String
+  legalForm      String?
+  status         CustomerStatus @default(ACTIVE)
+  billingEmail   String?
+  phone          String?
+  email          String?
+  website        String?
+  vatId          String?
+  addressLine1   String?
+  addressLine2   String?
+  postalCode     String?
+  city           String?
+  country        String?
+  notes          String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+
+  branches  CustomerBranch[]
+  contacts  CustomerContact[]
+  customerNotes CustomerNote[]
+  callLogs  CustomerCallLog[]
+  projects  Project[]
+}
+
+model CustomerBranch {
+  id           String  @id @default(cuid())
+  customerId   String
+  name         String
+  addressLine1 String?
+  addressLine2 String?
+  postalCode   String?
+  city         String?
+  country      String?
+  phone        String?
+  email        String?
+  notes        String?
+  active       Boolean @default(true)
+
+  customer Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contacts CustomerContact[]
+  projects Project[]
+}
+
+model CustomerContact {
+  id                   String  @id @default(cuid())
+  customerId           String
+  branchId             String?
+  firstName            String
+  lastName             String
+  role                 String?
+  email                String?
+  phoneMobile          String?
+  phoneLandline        String?
+  isAccountingContact  Boolean @default(false)
+  isProjectContact     Boolean @default(false)
+  isSignatory          Boolean @default(false)
+  notes                String?
+
+  customer Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  branch   CustomerBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  callLogs CustomerCallLog[]
+  primaryForProjects Project[] @relation("PrimaryContact")
+}
+
+model CustomerNote {
+  id              String   @id @default(cuid())
+  customerId      String
+  body            String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdBy User     @relation(fields: [createdByUserId], references: [id])
+}
+
+model CustomerCallLog {
+  id              String   @id @default(cuid())
+  customerId      String
+  contactId       String?
+  projectId       String?
+  subject         String
+  callDate        DateTime
+  direction       String
+  summary         String
+  nextAction      String?
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  customer  Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  contact   CustomerContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  project   Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  createdBy User             @relation(fields: [createdByUserId], references: [id])
+}
+
+// ──────────────────────────────────────────────────────────────
+// Projects
+// ──────────────────────────────────────────────────────────────
+
+model Project {
+  id                        String        @id @default(cuid())
+  projectNumber             String        @unique
+  customerId                String
+  branchId                  String?
+  title                     String
+  description               String?
+  serviceType               ServiceType
+  status                    ProjectStatus @default(DRAFT)
+  priority                  Priority      @default(MEDIUM)
+  siteName                  String?
+  siteAddressLine1          String?
+  sitePostalCode            String?
+  siteCity                  String?
+  siteCountry               String?
+  accommodationAddress      String?
+  plannedStartDate          DateTime?
+  plannedEndDate            DateTime?
+  actualStartDate           DateTime?
+  actualEndDate             DateTime?
+  internalProjectManagerUserId String?
+  primaryCustomerContactId  String?
+  pauseRuleId               String?
+  notes                     String?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+  deletedAt                 DateTime?
+
+  customer              Customer         @relation(fields: [customerId], references: [id])
+  branch                CustomerBranch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  internalProjectManager User?           @relation("ProjectManager", fields: [internalProjectManagerUserId], references: [id], onDelete: SetNull)
+  primaryCustomerContact CustomerContact? @relation("PrimaryContact", fields: [primaryCustomerContactId], references: [id], onDelete: SetNull)
+  pauseRule             BreakRule?       @relation("ProjectPauseRule", fields: [pauseRuleId], references: [id], onDelete: SetNull)
+
+  notesList        ProjectNote[]
+  assignments      ProjectAssignment[]
+  emailRecipients  ProjectEmailRecipient[]
+  breakRules       BreakRule[]            @relation("ProjectBreakRules")
+  timeEntries      TimeEntry[]
+  gpsEvents        GpsEvent[]
+  weeklyTimesheets WeeklyTimesheet[]
+  callLogs         CustomerCallLog[]
+}
+
+model ProjectNote {
+  id              String   @id @default(cuid())
+  projectId       String
+  body            String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User    @relation(fields: [createdByUserId], references: [id])
+}
+
+model ProjectAssignment {
+  id        String    @id @default(cuid())
+  projectId String
+  workerId  String
+  roleName  String?
+  startDate DateTime
+  endDate   DateTime?
+  active    Boolean   @default(true)
+  notes     String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  worker  Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+model ProjectEmailRecipient {
+  id            String  @id @default(cuid())
+  projectId     String
+  email         String
+  recipientType String
+  name          String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Workers
+// ──────────────────────────────────────────────────────────────
+
+model Worker {
+  id                String   @id @default(cuid())
+  workerNumber      String   @unique
+  firstName         String
+  lastName          String
+  email             String?
+  phone             String?
+  addressLine1      String?
+  addressLine2      String?
+  postalCode        String?
+  city              String?
+  country           String?
+  nationality       String?
+  languageCode      String?
+  active            Boolean  @default(true)
+  photoPath         String?
+  emergencyContact  String?
+  qualifications    String?
+  hasDriversLicense Boolean  @default(false)
+  notes             String?
+  userId            String?  @unique
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user               User?                    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  pins               WorkerPin[]
+  assignments        ProjectAssignment[]
+  vehicleAssignments WorkerVehicleAssignment[]
+  equipmentIssues    WorkerEquipmentIssue[]
+  timeEntries        TimeEntry[]
+  gpsEvents          GpsEvent[]
+  weeklyTimesheets   WeeklyTimesheet[]
+}
+
+model WorkerPin {
+  id        String    @id @default(cuid())
+  workerId  String
+  pinHash   String
+  validFrom DateTime
+  validTo   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Vehicles / Equipment
+// ──────────────────────────────────────────────────────────────
+
+model Vehicle {
+  id           String  @id @default(cuid())
+  licensePlate String  @unique
+  make         String?
+  model        String?
+  internalName String?
+  active       Boolean @default(true)
+  notes        String?
+
+  assignments WorkerVehicleAssignment[]
+}
+
+model WorkerVehicleAssignment {
+  id           String    @id @default(cuid())
+  workerId     String
+  vehicleId    String
+  assignedFrom DateTime
+  assignedTo   DateTime?
+  notes        String?
+
+  worker  Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+}
+
+model EquipmentItem {
+  id           String            @id @default(cuid())
+  itemNumber   String            @unique
+  category     EquipmentCategory
+  name         String
+  serialNumber String?
+  trackable    Boolean           @default(false)
+  active       Boolean           @default(true)
+  notes        String?
+
+  issues WorkerEquipmentIssue[]
+}
+
+model WorkerEquipmentIssue {
+  id              String    @id @default(cuid())
+  workerId        String
+  equipmentItemId String
+  issuedAt        DateTime
+  returnedAt      DateTime?
+  conditionOut    String?
+  conditionIn     String?
+  notes           String?
+
+  worker        Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  equipmentItem EquipmentItem @relation(fields: [equipmentItemId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Time Tracking
+// ──────────────────────────────────────────────────────────────
+
+model BreakRule {
+  id                String         @id @default(cuid())
+  scopeType         BreakScopeType
+  projectId         String?
+  name              String
+  autoDeductEnabled Boolean        @default(true)
+  thresholdMinutes1 Int
+  breakMinutes1     Int
+  thresholdMinutes2 Int?
+  breakMinutes2     Int?
+  active            Boolean        @default(true)
+
+  project        Project?  @relation("ProjectBreakRules", fields: [projectId], references: [id], onDelete: Cascade)
+  pausedProjects Project[] @relation("ProjectPauseRule")
+}
+
+model TimeEntry {
+  id               String        @id @default(cuid())
+  workerId         String
+  projectId        String
+  entryType        TimeEntryType
+  occurredAtClient DateTime
+  occurredAtServer DateTime       @default(now())
+  latitude         Float?
+  longitude        Float?
+  accuracy         Float?
+  comment          String?
+  sourceDevice     String?
+  createdByUserId  String?
+  createdAt        DateTime       @default(now())
+
+  worker    Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy User?      @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  gpsEvents GpsEvent[]
+}
+
+model GpsEvent {
+  id                 String       @id @default(cuid())
+  workerId           String
+  projectId          String?
+  relatedTimeEntryId String?
+  latitude           Float
+  longitude          Float
+  accuracy           Float?
+  recordedAt         DateTime
+  eventType          GpsEventType
+
+  worker           Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  project          Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  relatedTimeEntry TimeEntry? @relation(fields: [relatedTimeEntryId], references: [id], onDelete: SetNull)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Timesheets
+// ──────────────────────────────────────────────────────────────
+
+model WeeklyTimesheet {
+  id                String                @id @default(cuid())
+  workerId          String
+  projectId         String
+  weekYear          Int
+  weekNumber        Int
+  status            WeeklyTimesheetStatus @default(DRAFT)
+  totalMinutesGross Int?
+  totalBreakMinutes Int?
+  totalMinutesNet   Int?
+  generatedAt       DateTime              @default(now())
+  lockedAt          DateTime?
+
+  worker     Worker                     @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  project    Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  days       WeeklyTimesheetDay[]
+  signatures WeeklyTimesheetSignature[]
+
+  @@unique([workerId, projectId, weekYear, weekNumber])
+}
+
+model WeeklyTimesheetDay {
+  id                 String   @id @default(cuid())
+  weeklyTimesheetId  String
+  workDate           DateTime
+  firstClockInAt     DateTime?
+  lastClockOutAt     DateTime?
+  grossMinutes       Int?
+  breakMinutes       Int?
+  netMinutes         Int?
+  summaryComment     String?
+  clockInLatitude    Float?
+  clockInLongitude   Float?
+  clockOutLatitude   Float?
+  clockOutLongitude  Float?
+
+  weeklyTimesheet WeeklyTimesheet @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+}
+
+model WeeklyTimesheetSignature {
+  id                String     @id @default(cuid())
+  weeklyTimesheetId String
+  signerType        SignerType
+  signerName        String
+  signerRole        String?
+  signatureImagePath String
+  signedAt          DateTime   @default(now())
+  ipAddress         String?
+  deviceInfo        String?
+
+  weeklyTimesheet WeeklyTimesheet @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Documents
+// ──────────────────────────────────────────────────────────────
+
+model Document {
+  id               String       @id @default(cuid())
+  storageKey       String
+  originalFilename String
+  mimeType         String
+  fileSize         Int
+  uploadedByUserId String?
+  documentType     DocumentType
+  title            String?
+  description      String?
+  createdAt        DateTime     @default(now())
+
+  uploadedBy User?          @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
+  links      DocumentLink[]
+}
+
+model DocumentLink {
+  id         String @id @default(cuid())
+  documentId String
+  entityType String
+  entityId   String
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Communication
+// ──────────────────────────────────────────────────────────────
+
+model EmailLog {
+  id                String    @id @default(cuid())
+  recipientEmail    String
+  subject           String
+  body              String?
+  attachmentPath    String?
+  sentAt            DateTime?
+  status            String
+  errorMessage      String?
+  relatedEntityType String?
+  relatedEntityId   String?
+  createdAt         DateTime  @default(now())
+}

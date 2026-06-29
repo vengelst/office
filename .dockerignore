@@ -1,0 +1,26 @@
+# Abhängigkeiten & Build-Artefakte – werden im Image frisch erzeugt
+node_modules
+**/node_modules
+.pnpm-store
+dist
+**/dist
+.next
+**/.next
+out
+
+# VCS / lokale Dateien
+.git
+.gitignore
+*.log
+
+# Umgebungs- & IDE-Dateien
+.env
+.env.*
+!.env.example
+.idea
+.vscode
+.DS_Store
+
+# Doku / sonstiges
+README.md
+docker/data

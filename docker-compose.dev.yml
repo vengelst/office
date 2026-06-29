@@ -1,0 +1,113 @@
+# ── Office – Entwicklungs-Stack (Hot-Reload) ───────────────────
+# Start: docker compose -f docker-compose.dev.yml up --build
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: office-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-office}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-office_dev_pw}
+      POSTGRES_DB: ${POSTGRES_DB:-office}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-office} -d ${POSTGRES_DB:-office}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: office-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-office_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-office_minio_pw}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    image: node:20-alpine
+    container_name: office-api
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "corepack enable &&
+             pnpm install &&
+             pnpm prisma generate &&
+             pnpm prisma migrate deploy &&
+             pnpm prisma db seed &&
+             pnpm --filter @office/api dev"
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-office}:${POSTGRES_PASSWORD:-office_dev_pw}@postgres:5432/${POSTGRES_DB:-office}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-8h}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio}
+      MINIO_PORT: ${MINIO_PORT:-9000}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-office_minio}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-office_minio_pw}
+      MINIO_BUCKET: ${MINIO_BUCKET:-office-documents}
+      API_PORT: 3801
+      NODE_ENV: development
+    ports:
+      - "3801:3801"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/apps/web/node_modules
+    healthcheck:
+      # API gilt erst als gesund, wenn Install + Migration + Seed durch sind und
+      # der Health-Endpoint antwortet. Dadurch installiert web erst danach
+      # (kein paralleler pnpm-install-Konflikt auf der gemounteten Lockfile).
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3801/api || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  web:
+    image: node:20-alpine
+    container_name: office-web
+    restart: unless-stopped
+    working_dir: /app
+    command: >
+      sh -c "corepack enable &&
+             pnpm install &&
+             pnpm --filter @office/web dev"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3801/api}
+      NODE_ENV: development
+    ports:
+      - "3800:3800"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/apps/web/node_modules
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  minio_data:
