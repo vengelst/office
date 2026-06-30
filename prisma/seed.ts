@@ -9,6 +9,9 @@ import {
   CustomerStatus,
   EquipmentCategory,
   GpsEventType,
+  InvoiceLineType,
+  InvoiceStatus,
+  InvoiceType,
   LanguageProficiency,
   PrismaClient,
   Priority,
@@ -1822,6 +1825,333 @@ async function seedTimesheetsModule(): Promise<void> {
   }
 }
 
+// ──────────────────────────────────────────────────────────────
+// Abrechnungsmodul (Aus-/Eingangsrechnungen mit Positionen + Zahlungen)
+// ──────────────────────────────────────────────────────────────
+
+interface SeedLine {
+  lineType: InvoiceLineType;
+  description: string;
+  quantity: number;
+  unit?: string;
+  unitPrice: number;
+}
+
+interface SeedPayment {
+  amount: number;
+  paidDate: Date;
+  method?: string;
+  reference?: string;
+}
+
+interface InvoiceSpec {
+  invoiceNumber: string;
+  invoiceType: InvoiceType;
+  status: InvoiceStatus;
+  projectNumber: string;
+  customerNumber?: string;
+  subcontractorName?: string;
+  periodFrom: Date;
+  periodTo: Date;
+  issueDate: Date;
+  paymentTermDays?: number;
+  isPartialInvoice?: boolean;
+  partialNumber?: number;
+  partialPercentage?: number;
+  notes?: string;
+  internalNotes?: string;
+  lines: SeedLine[];
+  payments?: SeedPayment[];
+}
+
+/** Kaufmännisch auf 2 Nachkommastellen runden. */
+function round2(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+// KW 24/2026: 08.06.–14.06., KW 25/2026: 15.06.–21.06.
+const KW24_FROM = new Date('2026-06-08');
+const KW25_FROM = new Date('2026-06-15');
+const KW25_TO = new Date('2026-06-21');
+const ISSUE = new Date('2026-06-22');
+
+const INVOICE_SPECS: InvoiceSpec[] = [
+  // ── Ausgangsrechnungen ─────────────────────────────────────
+  {
+    invoiceNumber: 'RE-2026-0001',
+    invoiceType: InvoiceType.OUTGOING,
+    status: InvoiceStatus.SENT,
+    projectNumber: 'PRJ-2026-0001', // Videoüberwachung Hafenterminal
+    customerNumber: 'K-2026-0001',
+    periodFrom: KW24_FROM,
+    periodTo: KW25_TO,
+    issueDate: ISSUE,
+    paymentTermDays: 14,
+    notes: 'Vielen Dank für Ihren Auftrag.',
+    lines: [
+      {
+        lineType: InvoiceLineType.WEEKLY_PACKAGE,
+        description: 'Wochenpaket KW 24/2026',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 3200,
+      },
+      {
+        lineType: InvoiceLineType.WEEKLY_PACKAGE,
+        description: 'Wochenpaket KW 25/2026',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 3200,
+      },
+      {
+        lineType: InvoiceLineType.OVERTIME,
+        description: 'Überstunden KW 25/2026: 6 Std',
+        quantity: 6,
+        unit: 'Std',
+        unitPrice: 65,
+      },
+    ],
+  },
+  {
+    invoiceNumber: 'RE-2026-0002',
+    invoiceType: InvoiceType.OUTGOING,
+    status: InvoiceStatus.PAID,
+    projectNumber: 'PRJ-2026-0002', // Elektroinstallation Neubau Süd
+    customerNumber: 'K-2026-0002',
+    periodFrom: KW25_FROM,
+    periodTo: KW25_TO,
+    issueDate: ISSUE,
+    paymentTermDays: 30,
+    notes: 'Einheitsbasierte Abrechnung gemäß Aufmaß.',
+    lines: [
+      {
+        lineType: InvoiceLineType.UNIT_BASED,
+        description: 'Verlegung NYM-J 3x1,5mm² Leitung',
+        quantity: 850,
+        unit: 'm',
+        unitPrice: 4.2,
+      },
+      {
+        lineType: InvoiceLineType.UNIT_BASED,
+        description: 'Montage Schalter & Steckdosen',
+        quantity: 120,
+        unit: 'Stk',
+        unitPrice: 18.5,
+      },
+      {
+        lineType: InvoiceLineType.CUSTOM,
+        description: 'An- und Abfahrt (Pauschale)',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 250,
+      },
+    ],
+    payments: [
+      {
+        amount: 7187.6,
+        paidDate: new Date('2026-06-28'),
+        method: 'Überweisung',
+        reference: 'SEPA-2026-0628',
+      },
+    ],
+  },
+  {
+    invoiceNumber: 'RE-2026-0003',
+    invoiceType: InvoiceType.OUTGOING,
+    status: InvoiceStatus.DRAFT,
+    projectNumber: 'PRJ-2026-0001', // Hafenterminal – 1. Abschlag
+    customerNumber: 'K-2026-0001',
+    periodFrom: new Date('2026-07-06'),
+    periodTo: new Date('2026-09-30'),
+    issueDate: new Date('2026-07-01'),
+    paymentTermDays: 14,
+    isPartialInvoice: true,
+    partialNumber: 1,
+    partialPercentage: 30,
+    notes: '1. Abschlagsrechnung (30% des Gesamtauftrags).',
+    lines: [
+      {
+        lineType: InvoiceLineType.PARTIAL_PAYMENT,
+        description: '1. Abschlagsrechnung (30% des Gesamtauftrags)',
+        quantity: 1,
+        unit: 'Pauschale',
+        unitPrice: 12000,
+      },
+    ],
+  },
+  // ── Eingangsrechnungen ─────────────────────────────────────
+  {
+    invoiceNumber: 'ER-2026-0001',
+    invoiceType: InvoiceType.INCOMING,
+    status: InvoiceStatus.SENT,
+    projectNumber: 'PRJ-2026-0001',
+    subcontractorName: 'Elektro Kovačević d.o.o.',
+    periodFrom: KW25_FROM,
+    periodTo: KW25_TO,
+    issueDate: ISSUE,
+    paymentTermDays: 14,
+    internalNotes: 'Leistungsnachweis über genehmigte Stundenzettel KW 25.',
+    lines: [
+      {
+        lineType: InvoiceLineType.CUSTOM,
+        description: 'Marko Kovačević, KW 25/2026: 38,5 Std × 42,00 €/Std',
+        quantity: 38.5,
+        unit: 'Std',
+        unitPrice: 42,
+      },
+      {
+        lineType: InvoiceLineType.CUSTOM,
+        description: 'Ivan Horvat, KW 25/2026: 40 Std × 28,00 €/Std',
+        quantity: 40,
+        unit: 'Std',
+        unitPrice: 28,
+      },
+    ],
+  },
+  {
+    invoiceNumber: 'ER-2026-0002',
+    invoiceType: InvoiceType.INCOMING,
+    status: InvoiceStatus.PAID,
+    projectNumber: 'PRJ-2026-0002',
+    subcontractorName: 'Baltic Power Solutions',
+    periodFrom: KW25_FROM,
+    periodTo: KW25_TO,
+    issueDate: ISSUE,
+    paymentTermDays: 14,
+    lines: [
+      {
+        lineType: InvoiceLineType.CUSTOM,
+        description: 'Piotr Wiśniewski, KW 25/2026: 40 Std × 40,00 €/Std',
+        quantity: 40,
+        unit: 'Std',
+        unitPrice: 40,
+      },
+      {
+        lineType: InvoiceLineType.CUSTOM,
+        description: 'Tomasz Kowalski, KW 25/2026: 40 Std × 26,00 €/Std',
+        quantity: 40,
+        unit: 'Std',
+        unitPrice: 26,
+      },
+    ],
+    payments: [
+      {
+        amount: 3141.6,
+        paidDate: new Date('2026-06-29'),
+        method: 'Überweisung',
+        reference: 'SEPA-2026-0629',
+      },
+    ],
+  },
+];
+
+async function seedInvoicesModule(): Promise<void> {
+  const TAX_RATE = 19;
+
+  for (const spec of INVOICE_SPECS) {
+    const project = await prisma.project.findUnique({
+      where: { projectNumber: spec.projectNumber },
+    });
+    if (!project) continue;
+
+    let customerId: string | null = null;
+    if (spec.customerNumber) {
+      const customer = await prisma.customer.findUnique({
+        where: { customerNumber: spec.customerNumber },
+      });
+      customerId = customer?.id ?? null;
+    }
+
+    let subcontractorId: string | null = null;
+    if (spec.subcontractorName) {
+      const sub = await prisma.subcontractor.findFirst({
+        where: { name: spec.subcontractorName },
+      });
+      subcontractorId = sub?.id ?? null;
+    }
+
+    // Beträge aus den Positionen ableiten.
+    const subtotal = round2(
+      spec.lines.reduce((sum, l) => sum + l.quantity * l.unitPrice, 0),
+    );
+    const taxAmount = round2((subtotal * TAX_RATE) / 100);
+    const total = round2(subtotal + taxAmount);
+
+    const paidAmount = spec.payments
+      ? round2(spec.payments.reduce((sum, p) => sum + p.amount, 0))
+      : null;
+
+    const dueDate =
+      spec.status === InvoiceStatus.DRAFT || spec.paymentTermDays == null
+        ? null
+        : new Date(
+            spec.issueDate.getTime() +
+              spec.paymentTermDays * 24 * 60 * 60 * 1000,
+          );
+
+    const paidDate =
+      spec.status === InvoiceStatus.PAID && spec.payments?.length
+        ? spec.payments[spec.payments.length - 1].paidDate
+        : null;
+
+    // Idempotent: bestehende Rechnung (inkl. Positionen/Zahlungen) entfernen.
+    const existing = await prisma.invoice.findUnique({
+      where: { invoiceNumber: spec.invoiceNumber },
+    });
+    if (existing) {
+      await prisma.invoice.delete({ where: { id: existing.id } });
+    }
+
+    await prisma.invoice.create({
+      data: {
+        invoiceNumber: spec.invoiceNumber,
+        invoiceType: spec.invoiceType,
+        status: spec.status,
+        projectId: project.id,
+        customerId,
+        subcontractorId,
+        periodFrom: spec.periodFrom,
+        periodTo: spec.periodTo,
+        subtotal,
+        taxRate: TAX_RATE,
+        taxAmount,
+        total,
+        isPartialInvoice: spec.isPartialInvoice ?? false,
+        partialNumber: spec.partialNumber ?? null,
+        partialPercentage: spec.partialPercentage ?? null,
+        paymentTermDays: spec.paymentTermDays ?? null,
+        issueDate: spec.issueDate,
+        dueDate,
+        paidDate,
+        paidAmount,
+        notes: spec.notes ?? null,
+        internalNotes: spec.internalNotes ?? null,
+        lines: {
+          create: spec.lines.map((l, index) => ({
+            lineType: l.lineType,
+            position: index,
+            description: l.description,
+            quantity: l.quantity,
+            unit: l.unit ?? null,
+            unitPrice: l.unitPrice,
+            total: round2(l.quantity * l.unitPrice),
+          })),
+        },
+        payments: spec.payments
+          ? {
+              create: spec.payments.map((p) => ({
+                amount: p.amount,
+                paidDate: p.paidDate,
+                method: p.method ?? null,
+                reference: p.reference ?? null,
+              })),
+            }
+          : undefined,
+      },
+    });
+  }
+}
+
 async function main(): Promise<void> {
   console.log('🌱 Seed startet …');
 
@@ -2092,6 +2422,12 @@ async function main(): Promise<void> {
   await seedTimesheetsModule();
   console.log(
     '   ✓ Zeiterfassung: PINs 001001–001006, Stempelungen (2 Wochen), Stundenzettel (Vorwoche APPROVED + aktuelle Woche DRAFT), Hafenterminal-Pausenregel',
+  );
+
+  // ── Abrechnung (Aus-/Eingangsrechnungen) ─────────────────────
+  await seedInvoicesModule();
+  console.log(
+    '   ✓ Abrechnung: 3 Ausgangsrechnungen (SENT/PAID/DRAFT-Abschlag), 2 Eingangsrechnungen (SENT/PAID) mit Positionen + Zahlungen',
   );
 
   console.log('✅ Seed abgeschlossen.');

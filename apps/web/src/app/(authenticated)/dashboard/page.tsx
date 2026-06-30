@@ -9,6 +9,8 @@ import {
   Clock,
   AlertTriangle,
   Timer,
+  Receipt,
+  FileWarning,
 } from 'lucide-react';
 import {
   Card,
@@ -26,6 +28,7 @@ import {
   type WorkerListItem,
 } from '@/lib/workers';
 import { timeEntriesApi } from '@/lib/timesheets';
+import { formatCurrency, invoicesApi, type InvoiceStats } from '@/lib/invoices';
 import { texts } from '@/lib/texts';
 
 interface DashboardStats {
@@ -63,6 +66,7 @@ export default function DashboardPage(): React.ReactNode {
   const [workers, setWorkers] = useState<WorkerListItem[] | null>(null);
   const [expiringCount, setExpiringCount] = useState<number | null>(null);
   const [clockedInCount, setClockedInCount] = useState<number | null>(null);
+  const [invoiceStats, setInvoiceStats] = useState<InvoiceStats | null>(null);
 
   useEffect(() => {
     apiClient
@@ -81,6 +85,10 @@ export default function DashboardPage(): React.ReactNode {
       .live()
       .then((r) => setClockedInCount(r.length))
       .catch(() => setClockedInCount(0));
+    invoicesApi
+      .stats()
+      .then(setInvoiceStats)
+      .catch(() => setInvoiceStats(null));
   }, []);
 
   return (
@@ -118,6 +126,8 @@ export default function DashboardPage(): React.ReactNode {
         total={workers?.length ?? null}
       />
 
+      <InvoicesWidget stats={invoiceStats} />
+
       <WorkersWidget workers={workers} expiringCount={expiringCount} />
     </div>
   );
@@ -153,6 +163,79 @@ function ClockedInCard({
         </CardContent>
       </Card>
     </Link>
+  );
+}
+
+function InvoicesWidget({
+  stats,
+}: {
+  stats: InvoiceStats | null;
+}): React.ReactNode {
+  const t = texts.dashboard.invoices;
+  const overdue = stats?.outgoing.overdueCount ?? null;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      {/* Offene Ausgangsrechnungen */}
+      <Link href="/invoices" className="block">
+        <Card className="transition-colors hover:bg-accent/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t.openTitle}
+            </CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {stats ? formatCurrency(stats.outgoing.openAmount) : '—'}
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {stats
+                ? `${t.count(stats.outgoing.openCount)} · ${t.openSubtitle}`
+                : t.openSubtitle}
+            </p>
+          </CardContent>
+        </Card>
+      </Link>
+
+      {/* Überfällige Rechnungen */}
+      <Link href="/invoices" className="block">
+        <Card className="transition-colors hover:bg-accent/50">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {t.overdueTitle}
+            </CardTitle>
+            <FileWarning
+              className={`h-4 w-4 ${
+                overdue ? 'text-red-500' : 'text-muted-foreground'
+              }`}
+            />
+          </CardHeader>
+          <CardContent>
+            {overdue === null ? (
+              <div className="text-2xl font-bold">—</div>
+            ) : overdue > 0 ? (
+              <>
+                <p className="text-2xl font-bold text-red-600 dark:text-red-400">
+                  {overdue}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t.overdueWarning(overdue)} ·{' '}
+                  {formatCurrency(stats?.outgoing.overdueAmount)}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl font-bold">0</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {t.overdueNone}
+                </p>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </Link>
+    </div>
   );
 }
 

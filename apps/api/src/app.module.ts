@@ -17,6 +17,7 @@ import { WorkerAuthModule } from './worker-auth/worker-auth.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { BreakRulesModule } from './break-rules/break-rules.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -38,6 +39,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     TimeEntriesModule,
     TimesheetsModule,
     BreakRulesModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [
