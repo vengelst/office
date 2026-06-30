@@ -89,6 +89,11 @@ enum DocumentType {
   LOGO
   CERTIFICATE
   NOTE_DOCUMENT
+  DRAWING
+  WORK_CONTRACT
+  SPECIFICATION
+  SITE_PHOTO
+  HANDOVER_PROTOCOL
   OTHER
 }
 
@@ -123,6 +128,7 @@ model User {
   worker           Worker?
   documents        Document[]
   managedProjects  Project[]         @relation("ProjectManager")
+  projectStatusChanges ProjectStatusHistory[]
 }
 
 model Role {
@@ -362,7 +368,24 @@ model Project {
   sitePostalCode            String?
   siteCity                  String?
   siteCountry               String?
-  accommodationAddress      String?
+  latitude                  Float?
+  longitude                 Float?
+  mapsUrl                   String?
+  siteAccessInfo            String?
+  siteWorkingHours          String?
+  billingMode               String? // HOURLY_PACKAGE | UNIT_BASED | MIXED
+  weeklyPackageHours        Float?
+  weeklyPackagePrice        Float?
+  overtimeRatePerHour       Float?
+  accommodationAddressLine1 String?
+  accommodationAddressLine2 String?
+  accommodationPostalCode   String?
+  accommodationCity         String?
+  accommodationCountry      String?
+  accommodationLatitude     Float?
+  accommodationLongitude    Float?
+  accommodationMapsUrl      String?
+  accommodationNotes        String?
   plannedStartDate          DateTime?
   plannedEndDate            DateTime?
   actualStartDate           DateTime?
@@ -384,11 +407,64 @@ model Project {
   notesList        ProjectNote[]
   assignments      ProjectAssignment[]
   emailRecipients  ProjectEmailRecipient[]
+  sites            ProjectSite[]
+  equipment        ProjectEquipment[]
+  statusHistory    ProjectStatusHistory[]
   breakRules       BreakRule[]            @relation("ProjectBreakRules")
   timeEntries      TimeEntry[]
   gpsEvents        GpsEvent[]
   weeklyTimesheets WeeklyTimesheet[]
   callLogs         CustomerCallLog[]
+}
+
+model ProjectSite {
+  id           String   @id @default(cuid())
+  projectId    String
+  name         String // z.B. "Gebäude A", "Tiefgarage", "Außenbereich"
+  addressLine1 String?
+  addressLine2 String?
+  postalCode   String?
+  city         String?
+  country      String?
+  latitude     Float?
+  longitude    Float?
+  mapsUrl      String?
+  accessInfo   String? // Zugangsinfos für diesen Standort
+  notes        String?
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectEquipment {
+  id              String    @id @default(cuid())
+  projectId       String
+  name            String // z.B. "Bohrmaschine Hilti TE 70", "Leiter 8m"
+  description     String?
+  quantity        Int       @default(1)
+  serialNumber    String? // Falls vorhanden
+  issuedAt        DateTime  @default(now()) // Ausgegeben am
+  returnedAt      DateTime? // Zurückgegeben am (null = noch draußen)
+  issuedTo        String? // An wen ausgegeben (Freitext oder Worker-Referenz)
+  condition       String? // Zustand bei Ausgabe
+  returnCondition String? // Zustand bei Rückgabe
+  notes           String?
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ProjectStatusHistory {
+  id              String   @id @default(cuid())
+  projectId       String
+  fromStatus      String?
+  toStatus        String
+  changedByUserId String?
+  comment         String?
+  changedAt       DateTime @default(now())
+
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  changedBy User?   @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
 }
 
 model ProjectNote {
@@ -410,6 +486,7 @@ model ProjectAssignment {
   startDate DateTime
   endDate   DateTime?
   active    Boolean   @default(true)
+  isLead    Boolean   @default(false)
   notes     String?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)

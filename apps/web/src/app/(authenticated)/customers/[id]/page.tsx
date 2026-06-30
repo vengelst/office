@@ -220,7 +220,7 @@ export default function CustomerDetailPage(): React.ReactNode {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab customerId={id} />
+          <DocumentsTab entityId={id} />
         </TabsContent>
       </Tabs>
 

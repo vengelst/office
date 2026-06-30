@@ -488,6 +488,436 @@ async function seedExampleCustomers(): Promise<void> {
   }
 }
 
+// ── Beispielprojekte-Definition ────────────────────────────────
+
+interface ProjectSiteSpec {
+  name: string;
+  addressLine1?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  accessInfo?: string;
+  notes?: string;
+  sortOrder?: number;
+}
+
+interface ProjectEquipmentSpec {
+  name: string;
+  description?: string;
+  quantity?: number;
+  serialNumber?: string;
+  issuedTo?: string;
+  condition?: string;
+  returned?: boolean;
+  notes?: string;
+}
+
+interface ProjectAssignmentSpec {
+  workerNumber: string;
+  roleName?: string;
+  isLead?: boolean;
+  active?: boolean;
+  notes?: string;
+}
+
+interface StatusHistorySpec {
+  fromStatus?: string | null;
+  toStatus: string;
+  comment?: string;
+}
+
+interface ProjectSpec {
+  projectNumber: string;
+  customerNumber: string;
+  branchName?: string;
+  title: string;
+  description?: string;
+  serviceType: ServiceType;
+  status: ProjectStatus;
+  priority: Priority;
+  siteName?: string;
+  siteAddressLine1?: string;
+  sitePostalCode?: string;
+  siteCity?: string;
+  siteCountry?: string;
+  latitude?: number;
+  longitude?: number;
+  siteAccessInfo?: string;
+  siteWorkingHours?: string;
+  billingMode?: string;
+  weeklyPackageHours?: number;
+  weeklyPackagePrice?: number;
+  overtimeRatePerHour?: number;
+  plannedStartDate?: string;
+  plannedEndDate?: string;
+  actualStartDate?: string;
+  actualEndDate?: string;
+  notes?: string;
+  sites: ProjectSiteSpec[];
+  equipment: ProjectEquipmentSpec[];
+  assignments: ProjectAssignmentSpec[];
+  statusHistory: StatusHistorySpec[];
+}
+
+/** Zusätzliche Beispielmonteure für Projektzuordnungen. */
+const EXAMPLE_WORKERS: { workerNumber: string; firstName: string; lastName: string }[] = [
+  { workerNumber: 'M-0002', firstName: 'Jonas', lastName: 'Berger' },
+  { workerNumber: 'M-0003', firstName: 'Sven', lastName: 'Krause' },
+];
+
+const EXAMPLE_PROJECTS: ProjectSpec[] = [
+  {
+    projectNumber: 'PRJ-2026-0001',
+    customerNumber: 'K-2026-0001',
+    branchName: 'Hauptsitz Hamburg',
+    title: 'Videoüberwachung Hafenterminal',
+    description: 'Komplettausstattung des Hafenterminals mit IP-Videotechnik.',
+    serviceType: ServiceType.VIDEO,
+    status: ProjectStatus.ACTIVE,
+    priority: Priority.HIGH,
+    siteName: 'Hafenterminal Hamburg',
+    siteAddressLine1: 'Hafenstraße 12',
+    sitePostalCode: '20457',
+    siteCity: 'Hamburg',
+    siteCountry: 'DE',
+    latitude: 53.5413,
+    longitude: 9.9846,
+    siteAccessInfo: 'Anmeldung an der Hafeneinfahrt, Werkschutz Tor 3.',
+    siteWorkingHours: 'Mo–Fr 07:00–16:00',
+    billingMode: 'HOURLY_PACKAGE',
+    weeklyPackageHours: 40,
+    weeklyPackagePrice: 3200,
+    overtimeRatePerHour: 65,
+    plannedStartDate: '2026-07-06',
+    plannedEndDate: '2026-09-30',
+    actualStartDate: '2026-07-06',
+    notes: 'Schlüsselprojekt, regelmäßige Abstimmung mit dem Werkschutz.',
+    sites: [
+      {
+        name: 'Gebäude A – Verwaltung',
+        addressLine1: 'Hafenstraße 12',
+        postalCode: '20457',
+        city: 'Hamburg',
+        country: 'DE',
+        latitude: 53.5413,
+        longitude: 9.9846,
+        accessInfo: 'Zutritt über Empfang, Besucherausweis erforderlich.',
+        sortOrder: 1,
+      },
+      {
+        name: 'Außenbereich – Kaikante',
+        addressLine1: 'Hafenstraße 12',
+        postalCode: '20457',
+        city: 'Hamburg',
+        country: 'DE',
+        accessInfo: 'PSA Pflicht (Helm, Warnweste).',
+        sortOrder: 2,
+      },
+    ],
+    equipment: [],
+    assignments: [
+      { workerNumber: 'M-0001', roleName: 'Teamleiter', isLead: true },
+      { workerNumber: 'M-0002', roleName: 'Monteur' },
+    ],
+    statusHistory: [
+      { fromStatus: null, toStatus: 'DRAFT', comment: 'Projekt angelegt.' },
+      { fromStatus: 'DRAFT', toStatus: 'PLANNED', comment: 'Terminierung abgeschlossen.' },
+      { fromStatus: 'PLANNED', toStatus: 'ACTIVE', comment: 'Montage gestartet.' },
+    ],
+  },
+  {
+    projectNumber: 'PRJ-2026-0002',
+    customerNumber: 'K-2026-0002',
+    branchName: 'Zentrale München',
+    title: 'Elektroinstallation Neubau Süd',
+    description: 'Elektrische Erstinstallation für den Bürokomplex Neubau Süd.',
+    serviceType: ServiceType.ELECTRICAL,
+    status: ProjectStatus.PLANNED,
+    priority: Priority.MEDIUM,
+    siteName: 'Neubau Süd',
+    siteAddressLine1: 'Lindwurmstraße 88',
+    sitePostalCode: '80337',
+    siteCity: 'München',
+    siteCountry: 'DE',
+    latitude: 48.1278,
+    longitude: 11.5614,
+    siteWorkingHours: 'Mo–Fr 08:00–17:00',
+    billingMode: 'UNIT_BASED',
+    plannedStartDate: '2026-08-03',
+    plannedEndDate: '2026-11-13',
+    sites: [
+      {
+        name: 'Etage EG–3',
+        addressLine1: 'Lindwurmstraße 88',
+        postalCode: '80337',
+        city: 'München',
+        country: 'DE',
+        latitude: 48.1278,
+        longitude: 11.5614,
+        sortOrder: 1,
+      },
+    ],
+    equipment: [
+      {
+        name: 'Bohrhammer Hilti TE 70',
+        description: 'Kombihammer für Kernbohrungen',
+        quantity: 1,
+        serialNumber: 'HIL-TE70-4471',
+        issuedTo: 'Jonas Berger',
+        condition: 'Sehr gut',
+      },
+      {
+        name: 'Kabeltrommel 50m',
+        description: 'CEE 400V Baustromtrommel',
+        quantity: 2,
+        issuedTo: 'Sven Krause',
+        condition: 'Gebrauchsspuren',
+      },
+    ],
+    assignments: [
+      { workerNumber: 'M-0002', roleName: 'Teamleiter', isLead: true },
+      { workerNumber: 'M-0003', roleName: 'Monteur' },
+    ],
+    statusHistory: [
+      { fromStatus: null, toStatus: 'DRAFT', comment: 'Projekt angelegt.' },
+      { fromStatus: 'DRAFT', toStatus: 'PLANNED', comment: 'Material disponiert.' },
+    ],
+  },
+  {
+    projectNumber: 'PRJ-2026-0003',
+    customerNumber: 'K-2026-0003',
+    branchName: 'Standort Köln',
+    title: 'Wartung Schließanlage Rheinblick',
+    description: 'Jährliche Wartung der Zutritts- und Schließanlage.',
+    serviceType: ServiceType.SERVICE,
+    status: ProjectStatus.COMPLETED,
+    priority: Priority.LOW,
+    siteName: 'Objekt Rheinblick',
+    siteAddressLine1: 'Rheinuferstraße 3',
+    sitePostalCode: '50678',
+    siteCity: 'Köln',
+    siteCountry: 'DE',
+    latitude: 50.9233,
+    longitude: 6.9606,
+    billingMode: 'HOURLY_PACKAGE',
+    weeklyPackageHours: 16,
+    weeklyPackagePrice: 1200,
+    plannedStartDate: '2026-05-04',
+    plannedEndDate: '2026-05-15',
+    actualStartDate: '2026-05-04',
+    actualEndDate: '2026-05-14',
+    notes: 'Abnahme durch Objektleiter erfolgt.',
+    sites: [],
+    equipment: [],
+    assignments: [
+      { workerNumber: 'M-0003', roleName: 'Monteur', active: false },
+    ],
+    statusHistory: [
+      { fromStatus: null, toStatus: 'DRAFT', comment: 'Projekt angelegt.' },
+      { fromStatus: 'DRAFT', toStatus: 'PLANNED', comment: 'Wartungstermin vereinbart.' },
+      { fromStatus: 'PLANNED', toStatus: 'ACTIVE', comment: 'Wartung gestartet.' },
+      { fromStatus: 'ACTIVE', toStatus: 'COMPLETED', comment: 'Abnahme erfolgt, Projekt abgeschlossen.' },
+    ],
+  },
+  {
+    projectNumber: 'PRJ-2026-0004',
+    customerNumber: 'K-2026-0001',
+    branchName: 'Lager Bremen',
+    title: 'Standortvernetzung Lager Bremen',
+    description: 'Geplante Netzwerk- und Sicherheitsinfrastruktur für das Bremer Lager.',
+    serviceType: ServiceType.OTHER,
+    status: ProjectStatus.DRAFT,
+    priority: Priority.URGENT,
+    siteName: 'Lager Bremen',
+    siteAddressLine1: 'Industrieweg 5',
+    sitePostalCode: '28197',
+    siteCity: 'Bremen',
+    siteCountry: 'DE',
+    billingMode: 'MIXED',
+    notes: 'Noch in der Angebotsphase.',
+    sites: [],
+    equipment: [],
+    assignments: [],
+    statusHistory: [
+      { fromStatus: null, toStatus: 'DRAFT', comment: 'Projekt angelegt.' },
+    ],
+  },
+];
+
+/** Legt die Beispielprojekte idempotent inkl. Unter-Entities an. */
+async function seedExampleProjects(): Promise<void> {
+  const pmUser = await prisma.user.findUnique({
+    where: { email: 'pl@office.local' },
+  });
+
+  // Zusätzliche Monteure
+  const workerByNumber = new Map<string, string>();
+  for (const w of EXAMPLE_WORKERS) {
+    const worker = await prisma.worker.upsert({
+      where: { workerNumber: w.workerNumber },
+      update: {},
+      create: {
+        workerNumber: w.workerNumber,
+        firstName: w.firstName,
+        lastName: w.lastName,
+        languageCode: 'de',
+        active: true,
+      },
+    });
+    workerByNumber.set(w.workerNumber, worker.id);
+  }
+  // Bestehenden Beispielmonteur M-0001 ebenfalls referenzierbar machen
+  const m1 = await prisma.worker.findUnique({ where: { workerNumber: 'M-0001' } });
+  if (m1) workerByNumber.set('M-0001', m1.id);
+
+  for (const spec of EXAMPLE_PROJECTS) {
+    const customer = await prisma.customer.findUnique({
+      where: { customerNumber: spec.customerNumber },
+    });
+    if (!customer) continue;
+
+    let branchId: string | undefined;
+    if (spec.branchName) {
+      const branch = await prisma.customerBranch.findFirst({
+        where: { customerId: customer.id, name: spec.branchName },
+      });
+      branchId = branch?.id;
+    }
+
+    const primaryContact = await prisma.customerContact.findFirst({
+      where: { customerId: customer.id, isProjectContact: true },
+    });
+
+    const project = await prisma.project.upsert({
+      where: { projectNumber: spec.projectNumber },
+      update: {},
+      create: {
+        projectNumber: spec.projectNumber,
+        customerId: customer.id,
+        branchId,
+        title: spec.title,
+        description: spec.description,
+        serviceType: spec.serviceType,
+        status: spec.status,
+        priority: spec.priority,
+        siteName: spec.siteName,
+        siteAddressLine1: spec.siteAddressLine1,
+        sitePostalCode: spec.sitePostalCode,
+        siteCity: spec.siteCity,
+        siteCountry: spec.siteCountry,
+        latitude: spec.latitude,
+        longitude: spec.longitude,
+        siteAccessInfo: spec.siteAccessInfo,
+        siteWorkingHours: spec.siteWorkingHours,
+        billingMode: spec.billingMode,
+        weeklyPackageHours: spec.weeklyPackageHours,
+        weeklyPackagePrice: spec.weeklyPackagePrice,
+        overtimeRatePerHour: spec.overtimeRatePerHour,
+        plannedStartDate: spec.plannedStartDate ? new Date(spec.plannedStartDate) : undefined,
+        plannedEndDate: spec.plannedEndDate ? new Date(spec.plannedEndDate) : undefined,
+        actualStartDate: spec.actualStartDate ? new Date(spec.actualStartDate) : undefined,
+        actualEndDate: spec.actualEndDate ? new Date(spec.actualEndDate) : undefined,
+        internalProjectManagerUserId: pmUser?.id,
+        primaryCustomerContactId: primaryContact?.id,
+        notes: spec.notes,
+      },
+    });
+
+    // Sites
+    for (const s of spec.sites) {
+      const existing = await prisma.projectSite.findFirst({
+        where: { projectId: project.id, name: s.name },
+      });
+      if (!existing) {
+        await prisma.projectSite.create({
+          data: {
+            projectId: project.id,
+            name: s.name,
+            addressLine1: s.addressLine1,
+            postalCode: s.postalCode,
+            city: s.city,
+            country: s.country,
+            latitude: s.latitude,
+            longitude: s.longitude,
+            accessInfo: s.accessInfo,
+            notes: s.notes,
+            sortOrder: s.sortOrder ?? 0,
+          },
+        });
+      }
+    }
+
+    // Equipment
+    for (const e of spec.equipment) {
+      const existing = await prisma.projectEquipment.findFirst({
+        where: { projectId: project.id, name: e.name },
+      });
+      if (!existing) {
+        await prisma.projectEquipment.create({
+          data: {
+            projectId: project.id,
+            name: e.name,
+            description: e.description,
+            quantity: e.quantity ?? 1,
+            serialNumber: e.serialNumber,
+            issuedTo: e.issuedTo,
+            condition: e.condition,
+            returnedAt: e.returned ? new Date() : undefined,
+            notes: e.notes,
+          },
+        });
+      }
+    }
+
+    // Assignments
+    for (const a of spec.assignments) {
+      const workerId = workerByNumber.get(a.workerNumber);
+      if (!workerId) continue;
+      const existing = await prisma.projectAssignment.findFirst({
+        where: { projectId: project.id, workerId },
+      });
+      if (!existing) {
+        await prisma.projectAssignment.create({
+          data: {
+            projectId: project.id,
+            workerId,
+            roleName: a.roleName,
+            startDate: spec.actualStartDate
+              ? new Date(spec.actualStartDate)
+              : spec.plannedStartDate
+                ? new Date(spec.plannedStartDate)
+                : new Date(),
+            endDate: spec.actualEndDate ? new Date(spec.actualEndDate) : undefined,
+            active: a.active ?? true,
+            isLead: a.isLead ?? false,
+            notes: a.notes,
+          },
+        });
+      }
+    }
+
+    // Status history
+    const historyCount = await prisma.projectStatusHistory.count({
+      where: { projectId: project.id },
+    });
+    if (historyCount === 0) {
+      for (const h of spec.statusHistory) {
+        await prisma.projectStatusHistory.create({
+          data: {
+            projectId: project.id,
+            fromStatus: h.fromStatus ?? null,
+            toStatus: h.toStatus,
+            changedByUserId: pmUser?.id,
+            comment: h.comment,
+          },
+        });
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log('🌱 Seed startet …');
 
@@ -743,6 +1173,10 @@ async function main(): Promise<void> {
       active: true,
     },
   });
+
+  // ── Beispielprojekte (additiv, idempotent) ──────────────────
+  await seedExampleProjects();
+  console.log('   ✓ 4 Beispielprojekte (inkl. Standorte, Equipment, Zuordnungen, Status-Verlauf)');
 
   console.log('✅ Seed abgeschlossen.');
 }

@@ -2,7 +2,15 @@
 
 ## Kontext
 
-Das Kundenmodul und Dokumenten-Modul sind implementiert. Das Projekt-Schema existiert bereits in der Datenbank (Model `Project`, `ProjectAssignment`, `ProjectNote`, `ProjectEmailRecipient`). Dieses Modul baut darauf auf und erweitert es.
+Das Kundenmodul, Dokumenten-Modul und Geocode-Modul sind implementiert und laufen in Docker:
+- API: NestJS auf Port 3801 (extern 3901)
+- Web: Next.js auf Port 3800 (extern 3900)
+- DB: PostgreSQL auf Port 5432 (extern 5433)
+- Storage: MinIO auf Port 9000 (extern 9002)
+
+Das Projekt-Schema existiert bereits in der Datenbank (Model `Project`, `ProjectAssignment`, `ProjectNote`, `ProjectEmailRecipient`). Die Sidebar hat bereits einen "Projekte"-Link auf `/projects`. Dieses Modul baut darauf auf und erweitert es.
+
+**Wichtig:** Es existiert bereits ein Geocode-Endpoint `GET /api/geocode?address=...` (nutzt OpenStreetMap Nominatim). Nutze diesen im Frontend für alle Adress→Koordinaten-Auflösungen (Sites, Unterkunft, Hauptstandort) mit einem "Koordinaten ermitteln"-Button, genau wie im Kundenmodul bereits umgesetzt.
 
 ### Wichtige übergreifende Regeln:
 - Die App muss auf **Desktop, Tablet und Handy** gleichermaßen gut bedienbar sein
@@ -12,12 +20,16 @@ Das Kundenmodul und Dokumenten-Modul sind implementiert. Das Projekt-Schema exis
 - Maps-Buttons öffnen Google Maps / native Maps-App
 - Alle UI-Texte zentral in `texts.ts` (i18n-Vorbereitung)
 - CORS: `http://localhost:3900`
+- Koordinatenfelder (latitude, longitude, mapsUrl) sind IMMER readonly und werden per "Koordinaten ermitteln"-Button über den Geocode-Endpoint befüllt
 
 ---
 
 ## 1. Schema-Erweiterung (Prisma-Migration)
 
 ### Bestehende Modelle anpassen:
+
+#### Project – bestehende Felder ändern:
+- `accommodationAddress String?` → **ENTFERNEN** und durch die neuen Felder ersetzen (Datenmigration: bestehenden Wert nach `accommodationAddressLine1` kopieren, dann alte Spalte droppen)
 
 #### Project – neue Felder:
 - `billingMode String?` – Abrechnungsmodus: HOURLY_PACKAGE | UNIT_BASED | MIXED
@@ -111,6 +123,11 @@ model ProjectStatusHistory {
 sites            ProjectSite[]
 equipment        ProjectEquipment[]
 statusHistory    ProjectStatusHistory[]
+```
+
+### Relation in User ergänzen:
+```prisma
+projectStatusChanges ProjectStatusHistory[]
 ```
 
 ### DocumentType-Enum erweitern (falls noch nicht vorhanden):
@@ -252,7 +269,8 @@ Aufgeteilt in Sections (keine endlose Feldliste!):
 #### Tab 2: Standorte & Unterkunft
 
 **Section "Hauptstandort (Baustelle)":**
-- Adresse, Koordinaten, Maps-Link
+- Adresse, Koordinaten (readonly), Maps-Link
+- Button "Koordinaten ermitteln" (nutzt bestehenden `/api/geocode` Endpoint)
 - Button "Route öffnen"
 - Zugangsinfos (Freitext)
 - Arbeitszeiten/Hausordnung (Freitext)
@@ -261,10 +279,12 @@ Aufgeteilt in Sections (keine endlose Feldliste!):
 - Liste der ProjectSites (Name, Adresse, Zugangsinfo)
 - Hinzufügen/Bearbeiten/Löschen (Dialog)
 - Jeder Standort mit eigenem "Route öffnen" Button
+- "Koordinaten ermitteln"-Button pro Standort im Dialog
 - Drag&Drop für Sortierung
 
 **Section "Unterkunft":**
-- Adresse, Koordinaten, Maps-Link
+- Adresse, Koordinaten (readonly), Maps-Link
+- Button "Koordinaten ermitteln"
 - Hinweise zur Unterkunft
 - Button "Route öffnen"
 

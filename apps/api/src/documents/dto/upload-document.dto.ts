@@ -3,7 +3,12 @@ import { DocumentType } from '@prisma/client';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
 /** Erlaubte Entitätstypen für die Verknüpfung von Dokumenten. */
-export const DOCUMENT_ENTITY_TYPES = ['CUSTOMER', 'BRANCH', 'CONTACT'] as const;
+export const DOCUMENT_ENTITY_TYPES = [
+  'CUSTOMER',
+  'BRANCH',
+  'CONTACT',
+  'PROJECT',
+] as const;
 export type DocumentEntityType = (typeof DOCUMENT_ENTITY_TYPES)[number];
 
 /**

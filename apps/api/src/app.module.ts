@@ -6,6 +6,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CustomersModule } from './customers/customers.module';
+import { ProjectsModule } from './projects/projects.module';
 import { DocumentsModule } from './documents/documents.module';
 import { GeocodeModule } from './geocode/geocode.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -18,6 +19,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     AuthModule,
     UsersModule,
     CustomersModule,
+    ProjectsModule,
     DocumentsModule,
     GeocodeModule,
   ],

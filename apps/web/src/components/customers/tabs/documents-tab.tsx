@@ -48,7 +48,13 @@ const ALL = '__all__';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
-export function DocumentsTab({ customerId }: { customerId: string }): ReactNode {
+export function DocumentsTab({
+  entityId,
+  entityType = 'CUSTOMER',
+}: {
+  entityId: string;
+  entityType?: string;
+}): ReactNode {
   const { toast } = useToast();
   const t = texts.customers;
   const [docs, setDocs] = useState<DocumentItem[]>([]);
@@ -65,11 +71,11 @@ export function DocumentsTab({ customerId }: { customerId: string }): ReactNode 
   const load = useCallback(() => {
     setLoading(true);
     documentsApi
-      .listByEntity('CUSTOMER', customerId)
+      .listByEntity(entityType, entityId)
       .then(setDocs)
       .catch(() => setDocs([]))
       .finally(() => setLoading(false));
-  }, [customerId]);
+  }, [entityType, entityId]);
 
   useEffect(() => {
     load();
@@ -93,8 +99,8 @@ export function DocumentsTab({ customerId }: { customerId: string }): ReactNode 
     uploadDocument({
       file: pendingFile,
       documentType: docType,
-      entityType: 'CUSTOMER',
-      entityId: customerId,
+      entityType,
+      entityId,
     })
       .then(() => {
         toast({ description: t.toast.uploaded });
