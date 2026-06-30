@@ -185,4 +185,18 @@ export class WorkersController {
   ) {
     return this.workers.removeCertification(id, certId);
   }
+
+  // ── PIN-Verwaltung ────────────────────────────────────────────
+
+  @Post(':id/pin')
+  @ApiOperation({ summary: 'PIN für Monteur setzen (6 Ziffern)' })
+  setPin(@Param('id') id: string, @Body() body: { pin: string }) {
+    return this.workers.setPin(id, body.pin);
+  }
+
+  @Post(':id/send-pin-email')
+  @ApiOperation({ summary: 'PIN setzen und per E-Mail an Monteur senden' })
+  sendPinEmail(@Param('id') id: string, @Body() body: { pin: string }) {
+    return this.workers.sendPinEmail(id, body.pin);
+  }
 }

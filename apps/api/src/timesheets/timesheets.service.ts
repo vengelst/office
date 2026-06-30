@@ -45,6 +45,7 @@ const FINAL_STATUSES: WeeklyTimesheetStatus[] = [
   WeeklyTimesheetStatus.APPROVED,
   WeeklyTimesheetStatus.COMPLETED,
   WeeklyTimesheetStatus.LOCKED,
+  WeeklyTimesheetStatus.ARCHIVED,
 ];
 
 const listSelect = {
@@ -415,6 +416,22 @@ export class TimesheetsService {
         reviewedAt: new Date(),
         reviewedByUserId: userId,
       },
+    });
+    return this.findOne(id);
+  }
+
+  // ── Archivieren ─────────────────────────────────────────────
+
+  async archive(id: string) {
+    const sheet = await this.findOne(id);
+    if (sheet.status !== WeeklyTimesheetStatus.APPROVED) {
+      throw new ConflictException(
+        'Nur genehmigte Stundenzettel können archiviert werden',
+      );
+    }
+    await this.prisma.weeklyTimesheet.update({
+      where: { id },
+      data: { status: WeeklyTimesheetStatus.ARCHIVED },
     });
     return this.findOne(id);
   }

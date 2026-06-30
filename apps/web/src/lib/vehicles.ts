@@ -131,7 +131,12 @@ export const vehiclesApi = {
   create: (body: unknown) => apiClient.post<VehicleDetail>('/vehicles', body),
   update: (id: string, body: unknown) =>
     apiClient.patch<VehicleDetail>(`/vehicles/${id}`, body),
-  remove: (id: string) => apiClient.delete<unknown>(`/vehicles/${id}`),
+  deactivate: (id: string) =>
+    apiClient.post<{ id: string; deactivated: boolean }>(`/vehicles/${id}/deactivate`),
+  reactivate: (id: string) =>
+    apiClient.post<{ id: string; reactivated: boolean }>(`/vehicles/${id}/reactivate`),
+  remove: (id: string) =>
+    apiClient.delete<{ id: string; deleted: boolean; deactivated: boolean }>(`/vehicles/${id}`),
   assign: (id: string, body: { workerId: string; notes?: string }) =>
     apiClient.post<VehicleDetail>(`/vehicles/${id}/assign`, body),
   unassign: (id: string) =>

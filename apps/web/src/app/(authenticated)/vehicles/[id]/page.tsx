@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronRight, Power, PowerOff, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -43,6 +43,7 @@ export default function VehicleDetailPage(): React.ReactNode {
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [tab, setTab] = useState('master');
 
   const load = useCallback(() => {
@@ -90,12 +91,37 @@ export default function VehicleDetailPage(): React.ReactNode {
       .finally(() => setSaving(false));
   };
 
+  const handleDeactivate = (): void => {
+    vehiclesApi
+      .deactivate(id)
+      .then(() => {
+        toast({ description: t.toast.deactivated });
+        load();
+      })
+      .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
+  };
+
+  const handleReactivate = (): void => {
+    vehiclesApi
+      .reactivate(id)
+      .then(() => {
+        toast({ description: t.toast.reactivated });
+        load();
+      })
+      .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
+  };
+
   const handleDelete = (): void => {
     vehiclesApi
       .remove(id)
-      .then(() => {
-        toast({ description: t.toast.deleted });
-        router.push('/vehicles');
+      .then((result) => {
+        if (result.deleted) {
+          toast({ description: t.toast.deleted });
+          router.push('/vehicles');
+        } else {
+          toast({ description: t.hardDeleteBlocked });
+          load();
+        }
       })
       .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
   };
@@ -151,14 +177,35 @@ export default function VehicleDetailPage(): React.ReactNode {
             <VehicleStatusBadge workerName={assignedName} />
           </div>
         </div>
-        <Button
-          variant="outline"
-          className="min-h-[44px] text-destructive"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" />
-          {t.actions.delete}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {vehicle.active ? (
+            <Button
+              variant="outline"
+              className="min-h-[44px] text-amber-600"
+              onClick={() => setDeactivateOpen(true)}
+            >
+              <PowerOff className="h-4 w-4" />
+              {t.actions.deactivate}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="min-h-[44px] text-emerald-600"
+              onClick={handleReactivate}
+            >
+              <Power className="h-4 w-4" />
+              {t.actions.reactivate}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className="min-h-[44px] text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t.actions.delete}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -201,11 +248,22 @@ export default function VehicleDetailPage(): React.ReactNode {
       </Tabs>
 
       <ConfirmDialog
+        open={deactivateOpen}
+        onOpenChange={setDeactivateOpen}
+        title={t.deactivateTitle}
+        description={t.deactivateConfirm}
+        confirmLabel={t.actions.deactivate}
+        variant="warning"
+        onConfirm={handleDeactivate}
+      />
+
+      <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={t.deleteTitle}
-        description={t.deleteConfirm}
+        title={t.hardDeleteTitle}
+        description={t.hardDeleteConfirm}
         confirmLabel={t.actions.delete}
+        variant="destructive"
         onConfirm={handleDelete}
       />
     </div>

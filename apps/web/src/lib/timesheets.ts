@@ -23,7 +23,8 @@ export type WeeklyTimesheetStatus =
   | 'SUBMITTED'
   | 'REVIEWED'
   | 'APPROVED'
-  | 'REJECTED';
+  | 'REJECTED'
+  | 'ARCHIVED';
 
 export type SignerType = 'WORKER' | 'CUSTOMER' | 'SUPERVISOR' | 'MANAGER';
 export type BreakScopeType = 'GLOBAL' | 'PROJECT';
@@ -439,6 +440,8 @@ export const timesheetsApi = {
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/submit`),
   approve: (id: string) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/approve`),
+  archive: (id: string) =>
+    apiClient.post<TimesheetDetail>(`/timesheets/${id}/archive`),
   reject: (id: string, reason: string) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/reject`, { reason }),
   sign: (id: string, body: SignBody) =>

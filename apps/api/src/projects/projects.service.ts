@@ -202,14 +202,35 @@ export class ProjectsService {
     });
   }
 
-  /** Soft-Delete: setzt deletedAt. */
+  /**
+   * Löschen: DRAFT-Projekte werden hard-deleted,
+   * andere Status bekommen Soft-Delete (deletedAt).
+   */
   async remove(id: string) {
-    await this.ensureProject(id);
+    const project = await this.prisma.project.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, status: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Projekt nicht gefunden');
+    }
+    if (project.status === ProjectStatus.DRAFT) {
+      await this.prisma.$transaction([
+        this.prisma.projectStatusHistory.deleteMany({ where: { projectId: id } }),
+        this.prisma.projectNote.deleteMany({ where: { projectId: id } }),
+        this.prisma.projectEmailRecipient.deleteMany({ where: { projectId: id } }),
+        this.prisma.projectEquipment.deleteMany({ where: { projectId: id } }),
+        this.prisma.projectSite.deleteMany({ where: { projectId: id } }),
+        this.prisma.projectAssignment.deleteMany({ where: { projectId: id } }),
+        this.prisma.project.delete({ where: { id } }),
+      ]);
+      return { id, deleted: true, hardDeleted: true };
+    }
     await this.prisma.project.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
-    return { id, deleted: true };
+    return { id, deleted: true, hardDeleted: false };
   }
 
   // ── Status-Workflow ──────────────────────────────────────────

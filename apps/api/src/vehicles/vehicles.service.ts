@@ -182,14 +182,44 @@ export class VehiclesService {
     return this.prisma.vehicle.update({ where: { id }, data });
   }
 
-  /** Deaktivieren (kein Hard-Delete). */
-  async remove(id: string) {
+  /** Deaktivieren: setzt active=false. */
+  async deactivate(id: string) {
     await this.ensureExists(id);
     await this.prisma.vehicle.update({
       where: { id },
       data: { active: false },
     });
     return { id, deactivated: true };
+  }
+
+  /** Reaktivieren: setzt active=true. */
+  async reactivate(id: string) {
+    await this.ensureExists(id);
+    await this.prisma.vehicle.update({
+      where: { id },
+      data: { active: true },
+    });
+    return { id, reactivated: true };
+  }
+
+  /**
+   * Löschen: Hard-Delete wenn keine Zuweisungshistorie,
+   * sonst Deaktivierung als Fallback.
+   */
+  async remove(id: string) {
+    await this.ensureExists(id);
+    const assignmentCount = await this.prisma.workerVehicleAssignment.count({
+      where: { vehicleId: id },
+    });
+    if (assignmentCount > 0) {
+      await this.prisma.vehicle.update({
+        where: { id },
+        data: { active: false },
+      });
+      return { id, deleted: false, deactivated: true };
+    }
+    await this.prisma.vehicle.delete({ where: { id } });
+    return { id, deleted: true, deactivated: false };
   }
 
   /**

@@ -19,8 +19,17 @@ interface ConfirmDialogProps {
   title: string;
   description?: string;
   confirmLabel?: string;
+  /** 'destructive' = roter Button (Standard), 'warning' = gelber Button (rückgängig machbar). */
+  variant?: 'destructive' | 'warning';
   onConfirm: () => void;
 }
+
+const variantClasses: Record<string, string> = {
+  destructive:
+    'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+  warning:
+    'bg-amber-500 text-white hover:bg-amber-600',
+};
 
 /** Wiederverwendbarer Bestätigungsdialog für destruktive Aktionen. */
 export function ConfirmDialog({
@@ -29,6 +38,7 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  variant = 'destructive',
   onConfirm,
 }: ConfirmDialogProps): ReactNode {
   return (
@@ -42,7 +52,10 @@ export function ConfirmDialog({
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{texts.customers.actions.cancel}</AlertDialogCancel>
-          <AlertDialogAction onClick={onConfirm}>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className={variantClasses[variant]}
+          >
             {confirmLabel ?? texts.customers.actions.delete}
           </AlertDialogAction>
         </AlertDialogFooter>

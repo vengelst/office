@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
+  Archive,
   ArrowLeft,
   CheckCircle2,
   Download,
@@ -42,6 +43,7 @@ import {
   SignatureCanvas,
   type SignatureCanvasHandle,
 } from '@/components/timesheets/signature-canvas';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { ApiError } from '@/lib/api-client';
 import { workerFullName } from '@/lib/workers';
 import {
@@ -57,7 +59,7 @@ import {
 import { texts } from '@/lib/texts';
 
 const EDITABLE = new Set(['DRAFT', 'REJECTED']);
-const FINAL = new Set(['APPROVED', 'COMPLETED', 'LOCKED']);
+const FINAL = new Set(['APPROVED', 'COMPLETED', 'LOCKED', 'ARCHIVED']);
 const DAY_KEYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
 
 function weekdayLabel(iso: string): string {
@@ -77,6 +79,7 @@ export default function TimesheetDetailPage(): React.ReactNode {
   const [editDay, setEditDay] = useState<TimesheetDay | null>(null);
   const [signType, setSignType] = useState<SignerType | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -129,6 +132,7 @@ export default function TimesheetDetailPage(): React.ReactNode {
   const canSubmit = EDITABLE.has(sheet.status);
   const canApprove = sheet.status === 'SUBMITTED';
   const canSign = !FINAL.has(sheet.status);
+  const canArchive = sheet.status === 'APPROVED';
 
   return (
     <div>
@@ -169,6 +173,7 @@ export default function TimesheetDetailPage(): React.ReactNode {
             canSubmit={canSubmit}
             canApprove={canApprove}
             canSign={canSign}
+            canArchive={canArchive}
             onSubmit={() =>
               runAction(() => timesheetsApi.submit(sheet.id), t.toast.submitted)
             }
@@ -176,6 +181,7 @@ export default function TimesheetDetailPage(): React.ReactNode {
               runAction(() => timesheetsApi.approve(sheet.id), t.toast.approved)
             }
             onReject={() => setRejectOpen(true)}
+            onArchive={() => setArchiveOpen(true)}
             onSign={setSignType}
             onPdf={() => {
               downloadTimesheetPdf(
@@ -229,6 +235,22 @@ export default function TimesheetDetailPage(): React.ReactNode {
           }}
         />
       )}
+
+      <ConfirmDialog
+        open={archiveOpen}
+        onOpenChange={setArchiveOpen}
+        title={t.archiveTitle}
+        description={t.archiveConfirm}
+        confirmLabel={t.actions.archive}
+        variant="warning"
+        onConfirm={() => {
+          runAction(
+            () => timesheetsApi.archive(sheet.id),
+            t.toast.archived,
+          );
+          setArchiveOpen(false);
+        }}
+      />
     </div>
   );
 }
@@ -354,9 +376,11 @@ function SignaturesTab({
   canSubmit,
   canApprove,
   canSign,
+  canArchive,
   onSubmit,
   onApprove,
   onReject,
+  onArchive,
   onSign,
   onPdf,
 }: {
@@ -364,9 +388,11 @@ function SignaturesTab({
   canSubmit: boolean;
   canApprove: boolean;
   canSign: boolean;
+  canArchive: boolean;
   onSubmit: () => void;
   onApprove: () => void;
   onReject: () => void;
+  onArchive: () => void;
   onSign: (s: SignerType) => void;
   onPdf: () => void;
 }): React.ReactNode {
@@ -447,6 +473,16 @@ function SignaturesTab({
               >
                 <XCircle className="h-4 w-4" />
                 {t.actions.reject}
+              </Button>
+            )}
+            {canArchive && (
+              <Button
+                variant="outline"
+                className="min-h-[44px] text-amber-600"
+                onClick={onArchive}
+              >
+                <Archive className="h-4 w-4" />
+                {t.actions.archive}
               </Button>
             )}
             <Button

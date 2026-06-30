@@ -20,6 +20,9 @@ import { TimesheetsModule } from './timesheets/timesheets.module';
 import { BreakRulesModule } from './break-rules/break-rules.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
+import { AppSettingsModule } from './app-settings/app-settings.module';
+import { EmailModule } from './email/email.module';
+import { GoogleDriveModule } from './google-drive/google-drive.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -44,12 +47,13 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     BreakRulesModule,
     InvoicesModule,
     VehiclesModule,
+    AppSettingsModule,
+    EmailModule,
+    GoogleDriveModule,
   ],
   controllers: [AppController],
   providers: [
-    // Globaler JWT-Guard (Routes mit @Public() ausgenommen)
     { provide: APP_GUARD, useClass: JwtAuthGuard },
-    // Globaler Audit-Log-Interceptor für verändernde Requests
     { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
   ],
 })

@@ -8,9 +8,11 @@ import {
   WorkerAvailability,
   WorkerType,
 } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
+import { EmailService } from '../email/email.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
 import { CreateLanguageDto } from './dto/create-language.dto';
@@ -109,6 +111,7 @@ export class WorkersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ── Monteur CRUD ─────────────────────────────────────────────
@@ -263,12 +266,20 @@ export class WorkersService {
     return this.findOne(id);
   }
 
-  /** Soft-Delete: setzt deletedAt. */
+  /** Soft-Delete: setzt deletedAt. Nur wenn keine aktiven Zuweisungen. */
   async remove(id: string) {
     await this.ensureWorker(id);
+    const activeAssignments = await this.prisma.projectAssignment.count({
+      where: { workerId: id, active: true },
+    });
+    if (activeAssignments > 0) {
+      throw new BadRequestException(
+        'Monteur hat aktive Zuweisungen und kann nicht gelöscht werden. Bitte zuerst deaktivieren.',
+      );
+    }
     await this.prisma.worker.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: new Date(), active: false },
     });
     return { id, deleted: true };
   }
@@ -532,5 +543,63 @@ export class WorkersService {
     if (count === 0) {
       throw new NotFoundException('Zertifikat nicht gefunden');
     }
+  }
+
+  // ── PIN-Verwaltung ────────────────────────────────────────────
+
+  async setPin(workerId: string, pin: string): Promise<{ success: true }> {
+    await this.ensureWorker(workerId);
+    if (!/^\d{6}$/.test(pin)) {
+      throw new BadRequestException('PIN muss genau 6 Ziffern sein.');
+    }
+
+    await this.prisma.workerPin.updateMany({
+      where: { workerId, isActive: true },
+      data: { isActive: false, validTo: new Date() },
+    });
+
+    const pinHash = await bcrypt.hash(pin, 10);
+    await this.prisma.workerPin.create({
+      data: {
+        workerId,
+        pinHash,
+        validFrom: new Date(),
+        isActive: true,
+      },
+    });
+
+    return { success: true };
+  }
+
+  async sendPinEmail(
+    workerId: string,
+    pin: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const worker = await this.prisma.worker.findFirst({
+      where: { id: workerId, deletedAt: null },
+      select: { firstName: true, lastName: true, email: true },
+    });
+    if (!worker) {
+      throw new NotFoundException('Monteur nicht gefunden');
+    }
+    if (!worker.email) {
+      throw new BadRequestException(
+        'Monteur hat keine E-Mail-Adresse hinterlegt.',
+      );
+    }
+
+    await this.setPin(workerId, pin);
+
+    const name = [worker.firstName, worker.lastName].filter(Boolean).join(' ');
+    const html = `<div style="font-family: sans-serif; padding: 20px; max-width: 500px;">
+      <h2 style="color: #333;">Stempeluhr-PIN</h2>
+      <p>Hallo ${name},</p>
+      <p>deine PIN für die Stempeluhr-App lautet:</p>
+      <p style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #1a1a1a; background: #f5f5f5; padding: 16px; border-radius: 8px; text-align: center;">${pin}</p>
+      <p style="color: #dc2626; font-weight: 500;">Bitte gib diese PIN auf keinen Fall weiter.</p>
+      <p style="color: #666; font-size: 12px; margin-top: 24px;">Diese E-Mail wurde automatisch von Office generiert.</p>
+    </div>`;
+
+    return this.emailService.send(worker.email, 'Deine Stempeluhr-PIN', html);
   }
 }

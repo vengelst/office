@@ -98,6 +98,13 @@ export class TimesheetsController {
     return this.timesheets.approve(id, user.type === 'user' ? user.id : null);
   }
 
+  @Post(':id/archive')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Stundenzettel archivieren (nur bei APPROVED)' })
+  archive(@Param('id') id: string) {
+    return this.timesheets.archive(id);
+  }
+
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Stundenzettel zurückweisen (mit Grund)' })

@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronRight, Power, PowerOff, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -54,6 +56,7 @@ export default function WorkerDetailPage(): React.ReactNode {
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
 
   const load = useCallback(() => {
@@ -103,6 +106,26 @@ export default function WorkerDetailPage(): React.ReactNode {
       );
   };
 
+  const handleDeactivate = (): void => {
+    workersApi
+      .update(id, { active: false })
+      .then((w) => {
+        setWorker(w);
+        toast({ description: t.toast.deactivated });
+      })
+      .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
+  };
+
+  const handleReactivate = (): void => {
+    workersApi
+      .update(id, { active: true })
+      .then((w) => {
+        setWorker(w);
+        toast({ description: t.toast.reactivated });
+      })
+      .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
+  };
+
   const handleDelete = (): void => {
     workersApi
       .remove(id)
@@ -110,7 +133,12 @@ export default function WorkerDetailPage(): React.ReactNode {
         toast({ description: t.toast.deleted });
         router.push('/workers');
       })
-      .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
+      .catch((err) =>
+        toast({
+          variant: 'destructive',
+          description: err instanceof ApiError ? err.message : t.toast.error,
+        }),
+      );
   };
 
   if (loading) {
@@ -198,14 +226,35 @@ export default function WorkerDetailPage(): React.ReactNode {
             </div>
           </div>
         </div>
-        <Button
-          variant="outline"
-          className="min-h-[44px] text-destructive"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" />
-          {t.actions.delete}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {worker.active ? (
+            <Button
+              variant="outline"
+              className="min-h-[44px] text-amber-600"
+              onClick={() => setDeactivateOpen(true)}
+            >
+              <PowerOff className="h-4 w-4" />
+              {t.actions.deactivate}
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              className="min-h-[44px] text-emerald-600"
+              onClick={handleReactivate}
+            >
+              <Power className="h-4 w-4" />
+              {t.actions.reactivate}
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            className="min-h-[44px] text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t.actions.delete}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -240,6 +289,12 @@ export default function WorkerDetailPage(): React.ReactNode {
               />
             </CardContent>
           </Card>
+
+          <Card className="mt-4">
+            <CardContent className="pt-6">
+              <WorkerPinSection worker={worker} />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="documents">
@@ -264,12 +319,118 @@ export default function WorkerDetailPage(): React.ReactNode {
       </Tabs>
 
       <ConfirmDialog
+        open={deactivateOpen}
+        onOpenChange={setDeactivateOpen}
+        title={t.deactivateTitle}
+        description={t.deactivateConfirm}
+        confirmLabel={t.actions.deactivate}
+        variant="warning"
+        onConfirm={handleDeactivate}
+      />
+
+      <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title={t.deleteTitle}
         description={t.deleteConfirm}
+        confirmLabel={t.actions.delete}
+        variant="destructive"
         onConfirm={handleDelete}
       />
+    </div>
+  );
+}
+
+function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode {
+  const t = texts.workers.pin;
+  const { toast } = useToast();
+  const [pin, setPin] = useState('');
+  const [settingPin, setSettingPin] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+
+  const isValid = /^\d{6}$/.test(pin);
+
+  const handleSetPin = async (): Promise<void> => {
+    if (!isValid) return;
+    setSettingPin(true);
+    try {
+      await workersApi.setPin(worker.id, pin);
+      toast({ description: texts.workers.toast.pinSet });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : texts.workers.toast.error,
+      });
+    } finally {
+      setSettingPin(false);
+    }
+  };
+
+  const handleSendEmail = async (): Promise<void> => {
+    if (!isValid) return;
+    if (!worker.email) {
+      toast({ variant: 'destructive', description: t.noEmail });
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const result = await workersApi.sendPinEmail(worker.id, pin);
+      if (result.success) {
+        toast({ description: texts.workers.toast.pinEmailSent });
+      } else {
+        toast({
+          variant: 'destructive',
+          description: result.error ?? texts.workers.toast.pinEmailFailed,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : texts.workers.toast.error,
+      });
+    } finally {
+      setSendingEmail(false);
+    }
+  };
+
+  return (
+    <div className="space-y-3">
+      <h3 className="text-sm font-semibold">{t.title}</h3>
+      <p className="text-xs text-muted-foreground">{t.hint}</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1.5">
+          <Label>{t.label}</Label>
+          <Input
+            value={pin}
+            onChange={(e) => {
+              const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+              setPin(v);
+            }}
+            placeholder={t.placeholder}
+            maxLength={6}
+            inputMode="numeric"
+            className="min-h-[44px] w-36 font-mono text-lg tracking-widest"
+          />
+        </div>
+        <Button
+          className="min-h-[44px]"
+          disabled={!isValid || settingPin}
+          onClick={handleSetPin}
+        >
+          {settingPin ? t.setting : t.set}
+        </Button>
+        <Button
+          variant="outline"
+          className="min-h-[44px]"
+          disabled={!isValid || sendingEmail || !worker.email}
+          onClick={handleSendEmail}
+        >
+          {sendingEmail ? t.sending : t.sendEmail}
+        </Button>
+      </div>
+      {pin.length > 0 && !isValid && (
+        <p className="text-xs text-destructive">{t.validation}</p>
+      )}
     </div>
   );
 }

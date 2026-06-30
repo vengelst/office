@@ -355,6 +355,15 @@ export const workersApi = {
     ),
   removeCertification: (id: string, certId: string) =>
     apiClient.delete<unknown>(`/workers/${id}/certifications/${certId}`),
+
+  // PIN-Verwaltung
+  setPin: (id: string, pin: string) =>
+    apiClient.post<{ success: boolean }>(`/workers/${id}/pin`, { pin }),
+  sendPinEmail: (id: string, pin: string) =>
+    apiClient.post<{ success: boolean; error?: string }>(
+      `/workers/${id}/send-pin-email`,
+      { pin },
+    ),
 };
 
 export const subcontractorsApi = {

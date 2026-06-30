@@ -79,6 +79,7 @@ enum WeeklyTimesheetStatus {
   REVIEWED
   APPROVED
   REJECTED
+  ARCHIVED
 }
 
 enum SignerType {
@@ -265,6 +266,13 @@ model Setting {
   id        String   @id @default(cuid())
   key       String   @unique
   valueJson Json
+  updatedAt DateTime @updatedAt
+}
+
+model AppSetting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
   updatedAt DateTime @updatedAt
 }
 

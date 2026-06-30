@@ -93,8 +93,20 @@ export class VehiclesController {
     return this.vehicles.update(id, dto);
   }
 
+  @Post(':id/deactivate')
+  @ApiOperation({ summary: 'Fahrzeug deaktivieren (active=false)' })
+  deactivate(@Param('id') id: string) {
+    return this.vehicles.deactivate(id);
+  }
+
+  @Post(':id/reactivate')
+  @ApiOperation({ summary: 'Fahrzeug reaktivieren (active=true)' })
+  reactivate(@Param('id') id: string) {
+    return this.vehicles.reactivate(id);
+  }
+
   @Delete(':id')
-  @ApiOperation({ summary: 'Fahrzeug deaktivieren (kein Hard-Delete)' })
+  @ApiOperation({ summary: 'Fahrzeug löschen (Hard-Delete oder Deaktivierung als Fallback)' })
   remove(@Param('id') id: string) {
     return this.vehicles.remove(id);
   }
