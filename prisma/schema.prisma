@@ -58,6 +58,8 @@ enum TimeEntryType {
   CLOCK_IN
   CLOCK_OUT
   MANUAL_ADJUSTMENT
+  BREAK_START
+  BREAK_END
 }
 
 enum GpsEventType {
@@ -72,11 +74,18 @@ enum WeeklyTimesheetStatus {
   CUSTOMER_SIGNED
   COMPLETED
   LOCKED
+  // Freigabe-Workflow (Monteur reicht ein → Vorarbeiter/PM prüft)
+  SUBMITTED
+  REVIEWED
+  APPROVED
+  REJECTED
 }
 
 enum SignerType {
   WORKER
   CUSTOMER
+  SUPERVISOR
+  MANAGER
 }
 
 enum DocumentType {
@@ -159,6 +168,8 @@ model User {
   documents            Document[]
   managedProjects      Project[]              @relation("ProjectManager")
   projectStatusChanges ProjectStatusHistory[]
+  reviewedTimesheets   WeeklyTimesheet[]      @relation("TimesheetReviewer")
+  approvedTimesheets   WeeklyTimesheet[]      @relation("TimesheetApprover")
 }
 
 model Role {
@@ -831,8 +842,19 @@ model WeeklyTimesheet {
   generatedAt       DateTime              @default(now())
   lockedAt          DateTime?
 
+  // Freigabe-Workflow
+  submittedAt      DateTime? // Wann eingereicht
+  reviewedAt       DateTime? // Wann geprüft
+  approvedAt       DateTime? // Wann freigegeben
+  rejectedAt       DateTime? // Wann zurückgewiesen
+  rejectionReason  String? // Grund für Zurückweisung
+  reviewedByUserId String? // Wer hat geprüft
+  approvedByUserId String? // Wer hat freigegeben
+
   worker     Worker                     @relation(fields: [workerId], references: [id], onDelete: Cascade)
   project    Project                    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewedBy User?                      @relation("TimesheetReviewer", fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  approvedBy User?                      @relation("TimesheetApprover", fields: [approvedByUserId], references: [id], onDelete: SetNull)
   days       WeeklyTimesheetDay[]
   signatures WeeklyTimesheetSignature[]
 

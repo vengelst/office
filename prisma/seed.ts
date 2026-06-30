@@ -8,12 +8,16 @@ import {
   BreakScopeType,
   CustomerStatus,
   EquipmentCategory,
+  GpsEventType,
   LanguageProficiency,
   PrismaClient,
   Priority,
   ProjectStatus,
   RoleCode,
   ServiceType,
+  SignerType,
+  TimeEntryType,
+  WeeklyTimesheetStatus,
   WorkerAvailability,
   WorkerType,
 } from '@prisma/client';
@@ -1454,6 +1458,370 @@ async function seedWorkersModule(): Promise<void> {
   }
 }
 
+// ──────────────────────────────────────────────────────────────
+// Zeiterfassung (PINs, Stempelungen, Stundenzettel, Pausenregeln)
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * 6-stellige Login-PINs der Seed-Monteure (Backend erfordert genau 6 Ziffern).
+ * Abgeleitet aus den Wunsch-Codes 1001–1006 (links auf 6 Stellen aufgefüllt).
+ */
+const WORKER_PINS: { workerNumber: string; pin: string }[] = [
+  { workerNumber: 'W-2026-0001', pin: '001001' }, // Marko
+  { workerNumber: 'W-2026-0002', pin: '001002' }, // Ivan
+  { workerNumber: 'W-2026-0003', pin: '001003' }, // Piotr
+  { workerNumber: 'W-2026-0004', pin: '001004' }, // Tomasz
+  { workerNumber: 'W-2026-0005', pin: '001005' }, // Stefan
+  { workerNumber: 'W-2026-0006', pin: '001006' }, // Ahmed
+];
+
+/** Monteur → Projekt + Baustellen-Koordinaten (für GPS) + Pausenregel. */
+const TIME_TRACKING: {
+  workerNumber: string;
+  projectNumber: string;
+  latitude: number;
+  longitude: number;
+  /** true = strengere Hafenterminal-Pausenregel (>6h → 45min). */
+  hafenterminal: boolean;
+}[] = [
+  { workerNumber: 'W-2026-0001', projectNumber: 'PRJ-2026-0001', latitude: 53.5413, longitude: 9.9846, hafenterminal: true },
+  { workerNumber: 'W-2026-0002', projectNumber: 'PRJ-2026-0001', latitude: 53.5413, longitude: 9.9846, hafenterminal: true },
+  { workerNumber: 'W-2026-0003', projectNumber: 'PRJ-2026-0001', latitude: 53.5413, longitude: 9.9846, hafenterminal: true },
+  { workerNumber: 'W-2026-0005', projectNumber: 'PRJ-2026-0002', latitude: 48.1278, longitude: 11.5614, hafenterminal: false },
+  { workerNumber: 'W-2026-0006', projectNumber: 'PRJ-2026-0002', latitude: 48.1278, longitude: 11.5614, hafenterminal: false },
+  { workerNumber: 'W-2026-0004', projectNumber: 'PRJ-2026-0002', latitude: 48.1278, longitude: 11.5614, hafenterminal: false },
+];
+
+/** Montag 00:00 (lokal) der Woche eines Datums. */
+function mondayOf(date: Date): Date {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  const dow = d.getDay() || 7; // So=7
+  d.setDate(d.getDate() - (dow - 1));
+  return d;
+}
+
+/** ISO-Kalenderwoche + Jahr eines Datums. */
+function isoWeek(date: Date): { weekYear: number; weekNumber: number } {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dow = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dow);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const weekNumber = Math.ceil(
+    ((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7,
+  );
+  return { weekYear: d.getUTCFullYear(), weekNumber };
+}
+
+/** Datum + Uhrzeit (lokal) erzeugen. */
+function at(base: Date, dayOffset: number, hour: number, minute: number): Date {
+  const d = new Date(base);
+  d.setDate(d.getDate() + dayOffset);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
+
+/** ±maxMin Minuten Variation. */
+function jitter(maxMin: number): number {
+  return Math.round((Math.random() * 2 - 1) * maxMin);
+}
+
+/** Automatischer Pausenabzug analog der Backend-Regeln. */
+function breakMinutesFor(gross: number, hafenterminal: boolean): number {
+  if (hafenterminal) return gross >= 360 ? 45 : 0;
+  if (gross >= 540) return 45;
+  if (gross >= 360) return 30;
+  return 0;
+}
+
+interface SeedDay {
+  workDate: Date;
+  clockIn: Date;
+  clockOut: Date;
+  grossMinutes: number;
+  breakMinutes: number;
+  netMinutes: number;
+  latitude: number;
+  longitude: number;
+}
+
+async function seedTimesheetsModule(): Promise<void> {
+  // ── PINs ─────────────────────────────────────────────────────
+  const workerIdByNumber = new Map<string, string>();
+  for (const wp of WORKER_PINS) {
+    const worker = await prisma.worker.findUnique({
+      where: { workerNumber: wp.workerNumber },
+    });
+    if (!worker) continue;
+    workerIdByNumber.set(wp.workerNumber, worker.id);
+    const existing = await prisma.workerPin.findFirst({
+      where: { workerId: worker.id, isActive: true },
+    });
+    const pinHash = await bcrypt.hash(wp.pin, SALT_ROUNDS);
+    if (existing) {
+      await prisma.workerPin.update({
+        where: { id: existing.id },
+        data: { pinHash, validFrom: yearsAgo(1), validTo: null, isActive: true },
+      });
+    } else {
+      await prisma.workerPin.create({
+        data: {
+          workerId: worker.id,
+          pinHash,
+          validFrom: yearsAgo(1),
+          isActive: true,
+        },
+      });
+    }
+  }
+
+  // ── Hafenterminal-Pausenregel (projektspezifisch) ────────────
+  const hafenProject = await prisma.project.findUnique({
+    where: { projectNumber: 'PRJ-2026-0001' },
+  });
+  if (hafenProject) {
+    const existingRule = await prisma.breakRule.findFirst({
+      where: {
+        scopeType: BreakScopeType.PROJECT,
+        projectId: hafenProject.id,
+        name: 'Hafenterminal-Pausen',
+      },
+    });
+    if (!existingRule) {
+      await prisma.breakRule.create({
+        data: {
+          scopeType: BreakScopeType.PROJECT,
+          projectId: hafenProject.id,
+          name: 'Hafenterminal-Pausen',
+          autoDeductEnabled: true,
+          thresholdMinutes1: 360,
+          breakMinutes1: 45,
+        },
+      });
+    }
+  }
+
+  // ── Stempelungen (letzte 2 Wochen) + Stundenzettel ───────────
+  const thisMonday = mondayOf(new Date());
+  const lastMonday = new Date(thisMonday);
+  lastMonday.setDate(lastMonday.getDate() - 7);
+  const weeks = [
+    { monday: lastMonday, approved: true },
+    { monday: thisMonday, approved: false },
+  ];
+  const rangeStart = new Date(lastMonday);
+
+  for (const tt of TIME_TRACKING) {
+    const workerId = workerIdByNumber.get(tt.workerNumber);
+    if (!workerId) continue;
+    const project = await prisma.project.findUnique({
+      where: { projectNumber: tt.projectNumber },
+    });
+    if (!project) continue;
+    const worker = await prisma.worker.findUnique({ where: { id: workerId } });
+    if (!worker) continue;
+
+    // Alte Seed-Daten im Zeitraum entfernen (idempotent).
+    await prisma.gpsEvent.deleteMany({
+      where: { workerId, recordedAt: { gte: rangeStart } },
+    });
+    await prisma.timeEntry.deleteMany({
+      where: { workerId, occurredAtClient: { gte: rangeStart } },
+    });
+
+    for (const week of weeks) {
+      const days: SeedDay[] = [];
+      // Mo–Fr
+      for (let dayOffset = 0; dayOffset < 5; dayOffset++) {
+        const clockIn = at(week.monday, dayOffset, 7, jitter(15));
+        const clockOut = at(week.monday, dayOffset, 16, jitter(15));
+        const gross = Math.max(
+          0,
+          Math.round((clockOut.getTime() - clockIn.getTime()) / 60000),
+        );
+        const brk = breakMinutesFor(gross, tt.hafenterminal);
+        days.push({
+          workDate: at(week.monday, dayOffset, 0, 0),
+          clockIn,
+          clockOut,
+          grossMinutes: gross,
+          breakMinutes: brk,
+          netMinutes: Math.max(0, gross - brk),
+          latitude: tt.latitude + (Math.random() - 0.5) * 0.001,
+          longitude: tt.longitude + (Math.random() - 0.5) * 0.001,
+        });
+      }
+      // Gelegentlich Samstag (halber Tag) – jeder zweite Monteur.
+      if (tt.workerNumber.endsWith('1') || tt.workerNumber.endsWith('5')) {
+        const clockIn = at(week.monday, 5, 7, jitter(15));
+        const clockOut = at(week.monday, 5, 12, jitter(15));
+        const gross = Math.max(
+          0,
+          Math.round((clockOut.getTime() - clockIn.getTime()) / 60000),
+        );
+        const brk = breakMinutesFor(gross, tt.hafenterminal);
+        days.push({
+          workDate: at(week.monday, 5, 0, 0),
+          clockIn,
+          clockOut,
+          grossMinutes: gross,
+          breakMinutes: brk,
+          netMinutes: Math.max(0, gross - brk),
+          latitude: tt.latitude + (Math.random() - 0.5) * 0.001,
+          longitude: tt.longitude + (Math.random() - 0.5) * 0.001,
+        });
+      }
+
+      // TimeEntries + GpsEvents erzeugen.
+      for (const d of days) {
+        const inEntry = await prisma.timeEntry.create({
+          data: {
+            workerId,
+            projectId: project.id,
+            entryType: TimeEntryType.CLOCK_IN,
+            occurredAtClient: d.clockIn,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            accuracy: 8,
+            sourceDevice: 'Seed',
+          },
+        });
+        await prisma.gpsEvent.create({
+          data: {
+            workerId,
+            projectId: project.id,
+            relatedTimeEntryId: inEntry.id,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            accuracy: 8,
+            recordedAt: d.clockIn,
+            eventType: GpsEventType.CLOCK_IN,
+          },
+        });
+        const outEntry = await prisma.timeEntry.create({
+          data: {
+            workerId,
+            projectId: project.id,
+            entryType: TimeEntryType.CLOCK_OUT,
+            occurredAtClient: d.clockOut,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            accuracy: 8,
+            sourceDevice: 'Seed',
+          },
+        });
+        await prisma.gpsEvent.create({
+          data: {
+            workerId,
+            projectId: project.id,
+            relatedTimeEntryId: outEntry.id,
+            latitude: d.latitude,
+            longitude: d.longitude,
+            accuracy: 8,
+            recordedAt: d.clockOut,
+            eventType: GpsEventType.CLOCK_OUT,
+          },
+        });
+      }
+
+      // Wochenstundenzettel (upsert) + Tage.
+      const { weekYear, weekNumber } = isoWeek(week.monday);
+      const totals = days.reduce(
+        (acc, d) => ({
+          gross: acc.gross + d.grossMinutes,
+          brk: acc.brk + d.breakMinutes,
+          net: acc.net + d.netMinutes,
+        }),
+        { gross: 0, brk: 0, net: 0 },
+      );
+      const status = week.approved
+        ? WeeklyTimesheetStatus.APPROVED
+        : WeeklyTimesheetStatus.DRAFT;
+      const signedAt = at(week.monday, 6, 18, 0); // Sonntagabend
+
+      const sheet = await prisma.weeklyTimesheet.upsert({
+        where: {
+          workerId_projectId_weekYear_weekNumber: {
+            workerId,
+            projectId: project.id,
+            weekYear,
+            weekNumber,
+          },
+        },
+        create: {
+          workerId,
+          projectId: project.id,
+          weekYear,
+          weekNumber,
+          status,
+          totalMinutesGross: totals.gross,
+          totalBreakMinutes: totals.brk,
+          totalMinutesNet: totals.net,
+          submittedAt: week.approved ? signedAt : null,
+          reviewedAt: week.approved ? signedAt : null,
+          approvedAt: week.approved ? signedAt : null,
+        },
+        update: {
+          status,
+          totalMinutesGross: totals.gross,
+          totalBreakMinutes: totals.brk,
+          totalMinutesNet: totals.net,
+          submittedAt: week.approved ? signedAt : null,
+          reviewedAt: week.approved ? signedAt : null,
+          approvedAt: week.approved ? signedAt : null,
+          rejectedAt: null,
+          rejectionReason: null,
+        },
+      });
+
+      await prisma.weeklyTimesheetDay.deleteMany({
+        where: { weeklyTimesheetId: sheet.id },
+      });
+      await prisma.weeklyTimesheetDay.createMany({
+        data: days.map((d) => ({
+          weeklyTimesheetId: sheet.id,
+          workDate: d.workDate,
+          firstClockInAt: d.clockIn,
+          lastClockOutAt: d.clockOut,
+          grossMinutes: d.grossMinutes,
+          breakMinutes: d.breakMinutes,
+          netMinutes: d.netMinutes,
+          clockInLatitude: d.latitude,
+          clockInLongitude: d.longitude,
+          clockOutLatitude: d.latitude,
+          clockOutLongitude: d.longitude,
+        })),
+      });
+
+      // Unterschriften nur für die genehmigte Vorwoche.
+      await prisma.weeklyTimesheetSignature.deleteMany({
+        where: { weeklyTimesheetId: sheet.id },
+      });
+      if (week.approved) {
+        await prisma.weeklyTimesheetSignature.createMany({
+          data: [
+            {
+              weeklyTimesheetId: sheet.id,
+              signerType: SignerType.WORKER,
+              signerName: `${worker.firstName} ${worker.lastName}`,
+              signatureImagePath: `timesheets/${sheet.id}/signatures/WORKER.png`,
+              signedAt,
+            },
+            {
+              weeklyTimesheetId: sheet.id,
+              signerType: SignerType.SUPERVISOR,
+              signerName: 'Vorarbeiter',
+              signerRole: 'Vorarbeiter',
+              signatureImagePath: `timesheets/${sheet.id}/signatures/SUPERVISOR.png`,
+              signedAt,
+            },
+          ],
+        });
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log('🌱 Seed startet …');
 
@@ -1718,6 +2086,12 @@ async function main(): Promise<void> {
   await seedWorkersModule();
   console.log(
     '   ✓ Monteurmodul: 2 Subunternehmen, 6 Monteure, 2 Teams, Zuweisungen, Equipment-Ausgaben',
+  );
+
+  // ── Zeiterfassung (PINs, Stempelungen, Stundenzettel) ────────
+  await seedTimesheetsModule();
+  console.log(
+    '   ✓ Zeiterfassung: PINs 001001–001006, Stempelungen (2 Wochen), Stundenzettel (Vorwoche APPROVED + aktuelle Woche DRAFT), Hafenterminal-Pausenregel',
   );
 
   console.log('✅ Seed abgeschlossen.');

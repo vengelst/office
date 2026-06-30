@@ -5,7 +5,9 @@ import {
   HardHat,
   UsersRound,
   Building2,
+  Clock,
   ClipboardList,
+  Coffee,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -25,6 +27,8 @@ export const navItems: NavItem[] = [
   { href: '/workers', label: texts.nav.workers, icon: HardHat },
   { href: '/teams', label: texts.nav.teams, icon: UsersRound },
   { href: '/subcontractors', label: texts.nav.subcontractors, icon: Building2 },
+  { href: '/time-clock', label: texts.nav.timeClock, icon: Clock },
   { href: '/timesheets', label: texts.nav.timesheets, icon: ClipboardList },
+  { href: '/settings/break-rules', label: texts.nav.breakRules, icon: Coffee },
   { href: '/settings', label: texts.nav.settings, icon: Settings },
 ];

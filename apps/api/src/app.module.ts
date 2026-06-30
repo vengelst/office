@@ -13,6 +13,10 @@ import { TeamsModule } from './teams/teams.module';
 import { DocumentsModule } from './documents/documents.module';
 import { GeocodeModule } from './geocode/geocode.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { WorkerAuthModule } from './worker-auth/worker-auth.module';
+import { TimeEntriesModule } from './time-entries/time-entries.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
+import { BreakRulesModule } from './break-rules/break-rules.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -30,6 +34,10 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     DocumentsModule,
     GeocodeModule,
     DashboardModule,
+    WorkerAuthModule,
+    TimeEntriesModule,
+    TimesheetsModule,
+    BreakRulesModule,
   ],
   controllers: [AppController],
   providers: [

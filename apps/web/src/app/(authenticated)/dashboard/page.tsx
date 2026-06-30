@@ -8,6 +8,7 @@ import {
   HardHat,
   Clock,
   AlertTriangle,
+  Timer,
 } from 'lucide-react';
 import {
   Card,
@@ -24,6 +25,7 @@ import {
   type WorkerAvailability,
   type WorkerListItem,
 } from '@/lib/workers';
+import { timeEntriesApi } from '@/lib/timesheets';
 import { texts } from '@/lib/texts';
 
 interface DashboardStats {
@@ -60,6 +62,7 @@ export default function DashboardPage(): React.ReactNode {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [workers, setWorkers] = useState<WorkerListItem[] | null>(null);
   const [expiringCount, setExpiringCount] = useState<number | null>(null);
+  const [clockedInCount, setClockedInCount] = useState<number | null>(null);
 
   useEffect(() => {
     apiClient
@@ -74,6 +77,10 @@ export default function DashboardPage(): React.ReactNode {
       .expiringDocuments()
       .then((r) => setExpiringCount(r.length))
       .catch(() => setExpiringCount(0));
+    timeEntriesApi
+      .live()
+      .then((r) => setClockedInCount(r.length))
+      .catch(() => setClockedInCount(0));
   }, []);
 
   return (
@@ -106,8 +113,46 @@ export default function DashboardPage(): React.ReactNode {
         })}
       </div>
 
+      <ClockedInCard
+        count={clockedInCount}
+        total={workers?.length ?? null}
+      />
+
       <WorkersWidget workers={workers} expiringCount={expiringCount} />
     </div>
+  );
+}
+
+function ClockedInCard({
+  count,
+  total,
+}: {
+  count: number | null;
+  total: number | null;
+}): React.ReactNode {
+  const t = texts.dashboard.clockedIn;
+  return (
+    <Link href="/time-clock/live" className="block">
+      <Card className="transition-colors hover:bg-accent/50">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t.title}
+          </CardTitle>
+          <Timer className="h-4 w-4 text-emerald-500" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold">
+            {count === null ? '—' : count}
+            {total !== null && (
+              <span className="ml-1 text-sm font-normal text-muted-foreground">
+                / {total}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{t.subtitle}</p>
+        </CardContent>
+      </Card>
+    </Link>
   );
 }
 
