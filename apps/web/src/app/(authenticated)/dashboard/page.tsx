@@ -11,6 +11,7 @@ import {
   Timer,
   Receipt,
   FileWarning,
+  Truck,
 } from 'lucide-react';
 import {
   Card,
@@ -29,6 +30,7 @@ import {
 } from '@/lib/workers';
 import { timeEntriesApi } from '@/lib/timesheets';
 import { formatCurrency, invoicesApi, type InvoiceStats } from '@/lib/invoices';
+import { vehiclesApi, type VehicleListItem } from '@/lib/vehicles';
 import { texts } from '@/lib/texts';
 
 interface DashboardStats {
@@ -67,6 +69,8 @@ export default function DashboardPage(): React.ReactNode {
   const [expiringCount, setExpiringCount] = useState<number | null>(null);
   const [clockedInCount, setClockedInCount] = useState<number | null>(null);
   const [invoiceStats, setInvoiceStats] = useState<InvoiceStats | null>(null);
+  const [vehicles, setVehicles] = useState<VehicleListItem[] | null>(null);
+  const [vehiclesExpiring, setVehiclesExpiring] = useState<number | null>(null);
 
   useEffect(() => {
     apiClient
@@ -89,6 +93,14 @@ export default function DashboardPage(): React.ReactNode {
       .stats()
       .then(setInvoiceStats)
       .catch(() => setInvoiceStats(null));
+    vehiclesApi
+      .list({ limit: 100 })
+      .then((r) => setVehicles(r.data))
+      .catch(() => setVehicles([]));
+    vehiclesApi
+      .expiring()
+      .then((r) => setVehiclesExpiring(r.length))
+      .catch(() => setVehiclesExpiring(0));
   }, []);
 
   return (
@@ -129,7 +141,66 @@ export default function DashboardPage(): React.ReactNode {
       <InvoicesWidget stats={invoiceStats} />
 
       <WorkersWidget workers={workers} expiringCount={expiringCount} />
+
+      <VehiclesWidget vehicles={vehicles} expiringCount={vehiclesExpiring} />
     </div>
+  );
+}
+
+function VehiclesWidget({
+  vehicles,
+  expiringCount,
+}: {
+  vehicles: VehicleListItem[] | null;
+  expiringCount: number | null;
+}): React.ReactNode {
+  const t = texts.dashboard.vehicles;
+  const total = vehicles?.length ?? null;
+  const assigned =
+    vehicles?.filter((v) => v.currentAssignment != null).length ?? null;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {t.title}
+        </CardTitle>
+        <Link href="/vehicles" className="text-xs text-primary hover:underline">
+          {t.viewAll}
+        </Link>
+      </CardHeader>
+      <CardContent>
+        <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <div className="text-2xl font-bold">{total ?? '—'}</div>
+            <p className="text-xs text-muted-foreground">{t.total}</p>
+          </div>
+          <div className="space-y-1">
+            <div className="text-2xl font-bold">{assigned ?? '—'}</div>
+            <p className="text-xs text-muted-foreground">{t.assigned}</p>
+          </div>
+          <div className="space-y-1">
+            <div
+              className={`flex items-center gap-1 text-2xl font-bold ${
+                expiringCount
+                  ? 'text-amber-600 dark:text-amber-400'
+                  : ''
+              }`}
+            >
+              {expiringCount ? (
+                <Truck className="h-5 w-5 text-amber-500" />
+              ) : null}
+              {expiringCount ?? '—'}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {expiringCount && expiringCount > 0
+                ? t.expiringTitle
+                : t.expiringNone}
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

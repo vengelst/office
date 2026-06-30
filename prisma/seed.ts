@@ -2381,17 +2381,28 @@ async function main(): Promise<void> {
   }
   console.log('   ✓ Beispiel-Monteur "Max Muster" (PIN 123456) → Projekt zugeordnet');
 
-  // ── Beispiel-Fahrzeug ────────────────────────────────────────
+  // ── Beispiel-Fahrzeug (Stammdaten; Zuweisungen via seedVehiclesModule) ─
+  const bofInspection = new Date();
+  bofInspection.setDate(bofInspection.getDate() + 220);
+  const bofInsurance = new Date();
+  bofInsurance.setDate(bofInsurance.getDate() + 310);
+  const bofVehicleData = {
+    make: 'VW',
+    model: 'Transporter',
+    internalName: 'Bus 1',
+    ownerType: 'OWN',
+    category: 'Transporter',
+    year: 2021,
+    color: 'Weiß',
+    fuelType: 'Diesel',
+    nextInspection: bofInspection,
+    insuranceExpiry: bofInsurance,
+    active: true,
+  };
   await prisma.vehicle.upsert({
     where: { licensePlate: 'B-OF 1234' },
-    update: {},
-    create: {
-      licensePlate: 'B-OF 1234',
-      make: 'VW',
-      model: 'Transporter',
-      internalName: 'Bus 1',
-      active: true,
-    },
+    update: bofVehicleData,
+    create: { licensePlate: 'B-OF 1234', ...bofVehicleData },
   });
   console.log('   ✓ Beispiel-Fahrzeug "B-OF 1234" (VW Transporter)');
 
@@ -2430,7 +2441,193 @@ async function main(): Promise<void> {
     '   ✓ Abrechnung: 3 Ausgangsrechnungen (SENT/PAID/DRAFT-Abschlag), 2 Eingangsrechnungen (SENT/PAID) mit Positionen + Zahlungen',
   );
 
+  // ── Fahrzeugverwaltung (Fuhrpark + Zuweisungen) ──────────────
+  await seedVehiclesModule();
+  console.log(
+    '   ✓ Fahrzeuge: 4 Fahrzeuge (eigene + Sub), Zuweisungen inkl. Historie (B-OF 1234: Ahmed→Stefan, D-EK 567: Marko), D-OF 4321 mit ablaufendem TÜV',
+  );
+
   console.log('✅ Seed abgeschlossen.');
+}
+
+/**
+ * Fahrzeugmodul: 3 weitere Fahrzeuge (Sub + eigenes) sowie alle
+ * Monteur-Zuweisungen inkl. Historie. Idempotent: bestehende Zuweisungen
+ * der Seed-Fahrzeuge werden vor dem Anlegen entfernt.
+ */
+async function seedVehiclesModule(): Promise<void> {
+  const daysFromNow = (days: number): Date => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return d;
+  };
+
+  // Referenzen auf bestehende Subunternehmen & Monteure
+  const kovacevic = await prisma.subcontractor.findFirst({
+    where: { name: 'Elektro Kovačević d.o.o.' },
+  });
+  const baltic = await prisma.subcontractor.findFirst({
+    where: { name: 'Baltic Power Solutions' },
+  });
+  const stefan = await prisma.worker.findUnique({
+    where: { workerNumber: 'W-2026-0005' }, // Stefan Müller
+  });
+  const marko = await prisma.worker.findUnique({
+    where: { workerNumber: 'W-2026-0001' }, // Marko Kovačević
+  });
+  const ahmed = await prisma.worker.findUnique({
+    where: { workerNumber: 'W-2026-0006' }, // Ahmed
+  });
+
+  // ── Fahrzeuge 2–4 (B-OF 1234 wird bereits in main() upserted) ──
+  const sprinter = await prisma.vehicle.upsert({
+    where: { licensePlate: 'D-EK 567' },
+    update: {
+      make: 'Mercedes',
+      model: 'Sprinter',
+      internalName: 'Sub-Bus Kovačević',
+      ownerType: 'SUBCONTRACTOR',
+      subcontractorId: kovacevic?.id ?? null,
+      category: 'Transporter',
+      year: 2020,
+      color: 'Silber',
+      fuelType: 'Diesel',
+      nextInspection: daysFromNow(180),
+      insuranceExpiry: daysFromNow(240),
+      active: true,
+    },
+    create: {
+      licensePlate: 'D-EK 567',
+      make: 'Mercedes',
+      model: 'Sprinter',
+      internalName: 'Sub-Bus Kovačević',
+      ownerType: 'SUBCONTRACTOR',
+      subcontractorId: kovacevic?.id ?? null,
+      category: 'Transporter',
+      year: 2020,
+      color: 'Silber',
+      fuelType: 'Diesel',
+      nextInspection: daysFromNow(180),
+      insuranceExpiry: daysFromNow(240),
+      active: true,
+    },
+  });
+
+  await prisma.vehicle.upsert({
+    where: { licensePlate: 'GD-BP 89' },
+    update: {
+      make: 'Fiat',
+      model: 'Ducato',
+      internalName: 'Sub-Bus Baltic',
+      ownerType: 'SUBCONTRACTOR',
+      subcontractorId: baltic?.id ?? null,
+      category: 'Transporter',
+      year: 2019,
+      color: 'Weiß',
+      fuelType: 'Diesel',
+      nextInspection: daysFromNow(150),
+      insuranceExpiry: daysFromNow(120),
+      active: true,
+    },
+    create: {
+      licensePlate: 'GD-BP 89',
+      make: 'Fiat',
+      model: 'Ducato',
+      internalName: 'Sub-Bus Baltic',
+      ownerType: 'SUBCONTRACTOR',
+      subcontractorId: baltic?.id ?? null,
+      category: 'Transporter',
+      year: 2019,
+      color: 'Weiß',
+      fuelType: 'Diesel',
+      nextInspection: daysFromNow(150),
+      insuranceExpiry: daysFromNow(120),
+      active: true,
+    },
+  });
+
+  const caddy = await prisma.vehicle.upsert({
+    where: { licensePlate: 'D-OF 4321' },
+    update: {
+      make: 'VW',
+      model: 'Caddy',
+      internalName: 'PKW 1',
+      ownerType: 'OWN',
+      category: 'PKW',
+      year: 2018,
+      color: 'Blau',
+      fuelType: 'Benzin',
+      nextInspection: daysFromNow(15), // TÜV läuft bald ab → Warnung
+      insuranceExpiry: daysFromNow(200),
+      active: true,
+    },
+    create: {
+      licensePlate: 'D-OF 4321',
+      make: 'VW',
+      model: 'Caddy',
+      internalName: 'PKW 1',
+      ownerType: 'OWN',
+      category: 'PKW',
+      year: 2018,
+      color: 'Blau',
+      fuelType: 'Benzin',
+      nextInspection: daysFromNow(15),
+      insuranceExpiry: daysFromNow(200),
+      active: true,
+    },
+  });
+
+  // ── Zuweisungen + Historie (idempotent neu aufbauen) ──────────
+  const bof = await prisma.vehicle.findUnique({
+    where: { licensePlate: 'B-OF 1234' },
+  });
+
+  // Bestehende Zuweisungen der Seed-Fahrzeuge entfernen
+  const seedVehicleIds = [bof?.id, sprinter.id, caddy.id].filter(
+    (id): id is string => Boolean(id),
+  );
+  await prisma.workerVehicleAssignment.deleteMany({
+    where: { vehicleId: { in: seedVehicleIds } },
+  });
+
+  // B-OF 1234: vorher Ahmed (beendet), jetzt Stefan
+  if (bof && ahmed) {
+    await prisma.workerVehicleAssignment.create({
+      data: {
+        vehicleId: bof.id,
+        workerId: ahmed.id,
+        assignedFrom: daysFromNow(-90),
+        assignedTo: daysFromNow(-30),
+        notes: 'Frühere Zuweisung',
+      },
+    });
+  }
+  if (bof && stefan) {
+    await prisma.workerVehicleAssignment.create({
+      data: {
+        vehicleId: bof.id,
+        workerId: stefan.id,
+        assignedFrom: daysFromNow(-30),
+        assignedTo: null,
+        notes: 'Aktueller Fahrer',
+      },
+    });
+  }
+
+  // D-EK 567: seit Projektstart an Marko
+  if (marko) {
+    await prisma.workerVehicleAssignment.create({
+      data: {
+        vehicleId: sprinter.id,
+        workerId: marko.id,
+        assignedFrom: daysFromNow(-60),
+        assignedTo: null,
+        notes: 'Seit Projektstart',
+      },
+    });
+  }
+
+  // GD-BP 89 + D-OF 4321 bleiben unzugewiesen (verfügbar)
 }
 
 main()

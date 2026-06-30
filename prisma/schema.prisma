@@ -675,6 +675,7 @@ model Subcontractor {
 
   workers  Worker[]
   invoices Invoice[]
+  vehicles Vehicle[]
 }
 
 model WorkerLanguage {
@@ -751,7 +752,24 @@ model Vehicle {
   active       Boolean @default(true)
   notes        String?
 
-  assignments WorkerVehicleAssignment[]
+  // --- Eigentümer (eigenes Fahrzeug vs. Sub-Fahrzeug) ---
+  ownerType       String? // "OWN" oder "SUBCONTRACTOR"
+  subcontractorId String? // Falls Sub-Fahrzeug: welcher Sub
+
+  // --- Stammdaten ---
+  category String? // "PKW", "Transporter", "LKW", "Anhänger"
+  year     Int? // Baujahr
+  vin      String? // Fahrgestellnummer (FIN)
+  color    String?
+  fuelType String? // "Diesel", "Benzin", "Elektro", "Hybrid"
+
+  // --- Dokumente & Fristen ---
+  nextInspection  DateTime? // Nächster TÜV/HU
+  insuranceExpiry DateTime? // Versicherung Ablauf
+  registrationDoc String? // Pfad zum Fahrzeugschein in MinIO
+
+  subcontractor Subcontractor?            @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  assignments   WorkerVehicleAssignment[]
 }
 
 model WorkerVehicleAssignment {
