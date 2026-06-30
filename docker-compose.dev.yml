@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-office_dev_pw}
       POSTGRES_DB: ${POSTGRES_DB:-office}
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -29,8 +29,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-office_minio}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-office_minio_pw}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9002:9000"
+      - "9003:9001"
     volumes:
       - minio_data:/data
     healthcheck:
@@ -45,7 +45,8 @@ services:
     restart: unless-stopped
     working_dir: /app
     command: >
-      sh -c "corepack enable &&
+      sh -c "apk add --no-cache openssl &&
+             corepack enable &&
              pnpm install &&
              pnpm prisma generate &&
              pnpm prisma migrate deploy &&
@@ -64,7 +65,7 @@ services:
       API_PORT: 3801
       NODE_ENV: development
     ports:
-      - "3801:3801"
+      - "3901:3801"
     volumes:
       - .:/app
       - /app/node_modules
@@ -74,7 +75,7 @@ services:
       # API gilt erst als gesund, wenn Install + Migration + Seed durch sind und
       # der Health-Endpoint antwortet. Dadurch installiert web erst danach
       # (kein paralleler pnpm-install-Konflikt auf der gemounteten Lockfile).
-      test: ["CMD-SHELL", "wget -qO- http://localhost:3801/api || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3801/api || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 30
@@ -95,10 +96,10 @@ services:
              pnpm install &&
              pnpm --filter @office/web dev"
     environment:
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3801/api}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3901/api}
       NODE_ENV: development
     ports:
-      - "3800:3800"
+      - "3900:3800"
     volumes:
       - .:/app
       - /app/node_modules

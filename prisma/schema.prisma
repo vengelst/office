@@ -84,6 +84,11 @@ enum DocumentType {
   DELIVERY_NOTE
   INVOICE
   PROJECT_DOC
+  BUSINESS_CARD
+  CONTRACT
+  LOGO
+  CERTIFICATE
+  NOTE_DOCUMENT
   OTHER
 }
 
@@ -196,42 +201,77 @@ model Setting {
 // ──────────────────────────────────────────────────────────────
 
 model Customer {
-  id             String         @id @default(cuid())
-  customerNumber String         @unique
-  companyName    String
-  legalForm      String?
-  status         CustomerStatus @default(ACTIVE)
-  billingEmail   String?
-  phone          String?
-  email          String?
-  website        String?
-  vatId          String?
-  addressLine1   String?
-  addressLine2   String?
-  postalCode     String?
-  city           String?
-  country        String?
-  notes          String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  deletedAt      DateTime?
+  id              String         @id @default(cuid())
+  customerNumber  String         @unique
+  companyName     String
+  legalForm       String?
+  status          CustomerStatus @default(ACTIVE)
+  phone           String?
+  website         String?
+  vatId           String?
+  taxNumber       String?
+  industry        String?
+  rating          String?
+  paymentTermDays Int?
+  addressLine1    String?
+  addressLine2    String?
+  postalCode      String?
+  city            String?
+  country         String?
+  latitude        Float?
+  longitude       Float?
+  mapsUrl         String?
+  notes           String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
 
-  branches  CustomerBranch[]
-  contacts  CustomerContact[]
+  branches      CustomerBranch[]
+  contacts      CustomerContact[]
+  emails        CustomerEmail[]
+  bankAccounts  CustomerBankAccount[]
   customerNotes CustomerNote[]
-  callLogs  CustomerCallLog[]
-  projects  Project[]
+  callLogs      CustomerCallLog[]
+  projects      Project[]
+}
+
+model CustomerEmail {
+  id         String  @id @default(cuid())
+  customerId String
+  email      String
+  emailType  String // GENERAL, BILLING, SERVICE, SUPPORT, PROJECT, OTHER
+  label      String? // Freitext-Bezeichnung
+  isPrimary  Boolean @default(false)
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model CustomerBankAccount {
+  id            String  @id @default(cuid())
+  customerId    String
+  bankName      String
+  iban          String
+  bic           String?
+  accountHolder String?
+  isPrimary     Boolean @default(false)
+  notes         String?
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 }
 
 model CustomerBranch {
   id           String  @id @default(cuid())
   customerId   String
   name         String
+  branchType   String? // HEADQUARTERS, OFFICE, WAREHOUSE, SITE, OTHER
   addressLine1 String?
   addressLine2 String?
   postalCode   String?
   city         String?
   country      String?
+  latitude     Float?
+  longitude    Float?
+  mapsUrl      String?
   phone        String?
   email        String?
   notes        String?
@@ -243,24 +283,34 @@ model CustomerBranch {
 }
 
 model CustomerContact {
-  id                   String  @id @default(cuid())
-  customerId           String
-  branchId             String?
-  firstName            String
-  lastName             String
-  role                 String?
-  email                String?
-  phoneMobile          String?
-  phoneLandline        String?
-  isAccountingContact  Boolean @default(false)
-  isProjectContact     Boolean @default(false)
-  isSignatory          Boolean @default(false)
-  notes                String?
+  id                     String    @id @default(cuid())
+  customerId             String
+  branchId               String?
+  title                  String? // Anrede (Herr, Frau, Dr., etc.)
+  firstName              String
+  lastName               String
+  role                   String?
+  department             String?
+  email                  String?
+  phoneMobile            String?
+  phoneLandline          String?
+  addressLine1           String?
+  addressLine2           String?
+  postalCode             String?
+  city                   String?
+  country                String?
+  birthday               DateTime?
+  linkedInUrl            String?
+  preferredContactMethod String? // EMAIL, PHONE, MOBILE
+  isAccountingContact    Boolean   @default(false)
+  isProjectContact       Boolean   @default(false)
+  isSignatory            Boolean   @default(false)
+  notes                  String?
 
-  customer Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  branch   CustomerBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-  callLogs CustomerCallLog[]
-  primaryForProjects Project[] @relation("PrimaryContact")
+  customer           Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  branch             CustomerBranch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  callLogs           CustomerCallLog[]
+  primaryForProjects Project[]         @relation("PrimaryContact")
 }
 
 model CustomerNote {

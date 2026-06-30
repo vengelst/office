@@ -63,6 +63,431 @@ const USERS: { email: string; password: string; displayName: string; role: RoleC
   { email: 'pl@office.local', password: 'pl123', displayName: 'Projektleiter', role: RoleCode.PROJECT_MANAGER },
 ];
 
+// ── Beispielkunden-Definition ──────────────────────────────────
+
+interface BranchSpec {
+  name: string;
+  branchType: string;
+  addressLine1?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+interface ContactSpec {
+  title?: string;
+  firstName: string;
+  lastName: string;
+  role?: string;
+  department?: string;
+  branchName?: string; // Zuordnung über Branch-Name, sonst Hauptsitz
+  email?: string;
+  phoneMobile?: string;
+  phoneLandline?: string;
+  birthday?: string;
+  isAccountingContact?: boolean;
+  isProjectContact?: boolean;
+  isSignatory?: boolean;
+}
+
+interface EmailSpec {
+  email: string;
+  emailType: string;
+  isPrimary?: boolean;
+}
+
+interface BankSpec {
+  bankName: string;
+  iban: string;
+  bic?: string;
+  accountHolder?: string;
+  isPrimary?: boolean;
+}
+
+interface CustomerSpec {
+  customerNumber: string;
+  companyName: string;
+  legalForm?: string;
+  industry?: string;
+  rating?: string;
+  paymentTermDays?: number;
+  phone?: string;
+  website?: string;
+  vatId?: string;
+  taxNumber?: string;
+  addressLine1?: string;
+  postalCode?: string;
+  city?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+  notes?: string;
+  branches: BranchSpec[];
+  contacts: ContactSpec[];
+  emails: EmailSpec[];
+  bankAccounts: BankSpec[];
+}
+
+const EXAMPLE_CUSTOMERS: CustomerSpec[] = [
+  {
+    customerNumber: 'K-2026-0001',
+    companyName: 'Nordlicht Sicherheitstechnik GmbH',
+    legalForm: 'GmbH',
+    industry: 'Sicherheitstechnik',
+    rating: 'A',
+    paymentTermDays: 14,
+    phone: '+49 40 5550100',
+    website: 'https://nordlicht-sicherheit.example',
+    vatId: 'DE271234567',
+    taxNumber: '22/815/00123',
+    addressLine1: 'Hafenstraße 12',
+    postalCode: '20457',
+    city: 'Hamburg',
+    country: 'DE',
+    latitude: 53.5413,
+    longitude: 9.9846,
+    notes: 'Schlüsselkunde im Bereich Videoüberwachung.',
+    branches: [
+      {
+        name: 'Hauptsitz Hamburg',
+        branchType: 'HEADQUARTERS',
+        addressLine1: 'Hafenstraße 12',
+        postalCode: '20457',
+        city: 'Hamburg',
+        country: 'DE',
+        phone: '+49 40 5550100',
+        email: 'hamburg@nordlicht-sicherheit.example',
+        latitude: 53.5413,
+        longitude: 9.9846,
+      },
+      {
+        name: 'Lager Bremen',
+        branchType: 'WAREHOUSE',
+        addressLine1: 'Industrieweg 5',
+        postalCode: '28197',
+        city: 'Bremen',
+        country: 'DE',
+        phone: '+49 421 5550200',
+      },
+    ],
+    contacts: [
+      {
+        title: 'Herr',
+        firstName: 'Lars',
+        lastName: 'Petersen',
+        role: 'Geschäftsführer',
+        department: 'Geschäftsführung',
+        branchName: 'Hauptsitz Hamburg',
+        email: 'l.petersen@nordlicht-sicherheit.example',
+        phoneMobile: '+49 170 1112233',
+        birthday: '1978-03-12',
+        isProjectContact: true,
+        isSignatory: true,
+      },
+      {
+        title: 'Frau',
+        firstName: 'Sabine',
+        lastName: 'Wolf',
+        role: 'Buchhaltung',
+        department: 'Finanzen',
+        branchName: 'Hauptsitz Hamburg',
+        email: 's.wolf@nordlicht-sicherheit.example',
+        phoneLandline: '+49 40 5550110',
+        isAccountingContact: true,
+      },
+      {
+        title: 'Herr',
+        firstName: 'Murat',
+        lastName: 'Yilmaz',
+        role: 'Lagerleiter',
+        branchName: 'Lager Bremen',
+        email: 'm.yilmaz@nordlicht-sicherheit.example',
+        phoneMobile: '+49 171 2223344',
+      },
+    ],
+    emails: [
+      { email: 'info@nordlicht-sicherheit.example', emailType: 'GENERAL', isPrimary: true },
+      { email: 'rechnung@nordlicht-sicherheit.example', emailType: 'BILLING' },
+      { email: 'service@nordlicht-sicherheit.example', emailType: 'SERVICE' },
+    ],
+    bankAccounts: [
+      {
+        bankName: 'Hamburger Sparkasse',
+        iban: 'DE89200505501234567890',
+        bic: 'HASPDEHHXXX',
+        accountHolder: 'Nordlicht Sicherheitstechnik GmbH',
+        isPrimary: true,
+      },
+    ],
+  },
+  {
+    customerNumber: 'K-2026-0002',
+    companyName: 'Sonnenschein Elektro AG',
+    legalForm: 'AG',
+    industry: 'Elektroinstallation',
+    rating: 'B',
+    paymentTermDays: 30,
+    phone: '+49 89 5550300',
+    website: 'https://sonnenschein-elektro.example',
+    vatId: 'DE301234567',
+    addressLine1: 'Lindwurmstraße 88',
+    postalCode: '80337',
+    city: 'München',
+    country: 'DE',
+    latitude: 48.1278,
+    longitude: 11.5614,
+    branches: [
+      {
+        name: 'Zentrale München',
+        branchType: 'HEADQUARTERS',
+        addressLine1: 'Lindwurmstraße 88',
+        postalCode: '80337',
+        city: 'München',
+        country: 'DE',
+        phone: '+49 89 5550300',
+        email: 'muenchen@sonnenschein-elektro.example',
+        latitude: 48.1278,
+        longitude: 11.5614,
+      },
+    ],
+    contacts: [
+      {
+        title: 'Frau',
+        firstName: 'Petra',
+        lastName: 'Sonnenschein',
+        role: 'Vorstand',
+        department: 'Vorstand',
+        email: 'p.sonnenschein@sonnenschein-elektro.example',
+        phoneMobile: '+49 172 3334455',
+        birthday: '1969-07-25',
+        isProjectContact: true,
+        isSignatory: true,
+      },
+      {
+        title: 'Herr',
+        firstName: 'Tobias',
+        lastName: 'Klein',
+        role: 'Projektleiter',
+        department: 'Technik',
+        email: 't.klein@sonnenschein-elektro.example',
+        phoneMobile: '+49 173 4445566',
+      },
+    ],
+    emails: [
+      { email: 'info@sonnenschein-elektro.example', emailType: 'GENERAL', isPrimary: true },
+      { email: 'buchhaltung@sonnenschein-elektro.example', emailType: 'BILLING' },
+    ],
+    bankAccounts: [
+      {
+        bankName: 'Stadtsparkasse München',
+        iban: 'DE12701500000123456789',
+        bic: 'SSKMDEMMXXX',
+        accountHolder: 'Sonnenschein Elektro AG',
+        isPrimary: true,
+      },
+    ],
+  },
+  {
+    customerNumber: 'K-2026-0003',
+    companyName: 'Rheinblick Facility Services',
+    legalForm: 'GmbH & Co. KG',
+    industry: 'Gebäudemanagement',
+    rating: 'C',
+    paymentTermDays: 21,
+    phone: '+49 221 5550400',
+    website: 'https://rheinblick-facility.example',
+    addressLine1: 'Rheinuferstraße 3',
+    postalCode: '50678',
+    city: 'Köln',
+    country: 'DE',
+    latitude: 50.9233,
+    longitude: 6.9606,
+    branches: [
+      {
+        name: 'Standort Köln',
+        branchType: 'OFFICE',
+        addressLine1: 'Rheinuferstraße 3',
+        postalCode: '50678',
+        city: 'Köln',
+        country: 'DE',
+        phone: '+49 221 5550400',
+        latitude: 50.9233,
+        longitude: 6.9606,
+      },
+    ],
+    contacts: [
+      {
+        title: 'Herr',
+        firstName: 'Dirk',
+        lastName: 'Bauer',
+        role: 'Objektleiter',
+        email: 'd.bauer@rheinblick-facility.example',
+        phoneMobile: '+49 174 5556677',
+        isProjectContact: true,
+      },
+      {
+        title: 'Frau',
+        firstName: 'Anja',
+        lastName: 'Hoffmann',
+        role: 'Buchhaltung',
+        department: 'Verwaltung',
+        email: 'a.hoffmann@rheinblick-facility.example',
+        phoneLandline: '+49 221 5550410',
+        isAccountingContact: true,
+      },
+      {
+        title: 'Herr',
+        firstName: 'Kevin',
+        lastName: 'Schulz',
+        role: 'Haustechnik',
+        email: 'k.schulz@rheinblick-facility.example',
+        phoneMobile: '+49 175 6667788',
+      },
+      {
+        title: 'Frau',
+        firstName: 'Laura',
+        lastName: 'Becker',
+        role: 'Disposition',
+        email: 'l.becker@rheinblick-facility.example',
+        phoneMobile: '+49 176 7778899',
+        isSignatory: true,
+      },
+    ],
+    emails: [
+      { email: 'info@rheinblick-facility.example', emailType: 'GENERAL', isPrimary: true },
+      { email: 'support@rheinblick-facility.example', emailType: 'SUPPORT' },
+    ],
+    bankAccounts: [],
+  },
+];
+
+/** Legt die Beispielkunden idempotent inkl. aller Unter-Entities an. */
+async function seedExampleCustomers(): Promise<void> {
+  for (const spec of EXAMPLE_CUSTOMERS) {
+    const customer = await prisma.customer.upsert({
+      where: { customerNumber: spec.customerNumber },
+      update: {},
+      create: {
+        customerNumber: spec.customerNumber,
+        companyName: spec.companyName,
+        legalForm: spec.legalForm,
+        status: CustomerStatus.ACTIVE,
+        industry: spec.industry,
+        rating: spec.rating,
+        paymentTermDays: spec.paymentTermDays,
+        phone: spec.phone,
+        website: spec.website,
+        vatId: spec.vatId,
+        taxNumber: spec.taxNumber,
+        addressLine1: spec.addressLine1,
+        postalCode: spec.postalCode,
+        city: spec.city,
+        country: spec.country,
+        latitude: spec.latitude,
+        longitude: spec.longitude,
+        notes: spec.notes,
+      },
+    });
+
+    // Branches
+    const branchByName = new Map<string, string>();
+    for (const b of spec.branches) {
+      let branch = await prisma.customerBranch.findFirst({
+        where: { customerId: customer.id, name: b.name },
+      });
+      if (!branch) {
+        branch = await prisma.customerBranch.create({
+          data: {
+            customerId: customer.id,
+            name: b.name,
+            branchType: b.branchType,
+            addressLine1: b.addressLine1,
+            postalCode: b.postalCode,
+            city: b.city,
+            country: b.country,
+            phone: b.phone,
+            email: b.email,
+            latitude: b.latitude,
+            longitude: b.longitude,
+          },
+        });
+      }
+      branchByName.set(b.name, branch.id);
+    }
+
+    // Contacts
+    for (const c of spec.contacts) {
+      const existing = await prisma.customerContact.findFirst({
+        where: {
+          customerId: customer.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+        },
+      });
+      if (!existing) {
+        await prisma.customerContact.create({
+          data: {
+            customerId: customer.id,
+            branchId: c.branchName ? branchByName.get(c.branchName) : undefined,
+            title: c.title,
+            firstName: c.firstName,
+            lastName: c.lastName,
+            role: c.role,
+            department: c.department,
+            email: c.email,
+            phoneMobile: c.phoneMobile,
+            phoneLandline: c.phoneLandline,
+            birthday: c.birthday ? new Date(c.birthday) : undefined,
+            isAccountingContact: c.isAccountingContact ?? false,
+            isProjectContact: c.isProjectContact ?? false,
+            isSignatory: c.isSignatory ?? false,
+          },
+        });
+      }
+    }
+
+    // Emails
+    for (const e of spec.emails) {
+      const existing = await prisma.customerEmail.findFirst({
+        where: { customerId: customer.id, email: e.email },
+      });
+      if (!existing) {
+        await prisma.customerEmail.create({
+          data: {
+            customerId: customer.id,
+            email: e.email,
+            emailType: e.emailType,
+            isPrimary: e.isPrimary ?? false,
+          },
+        });
+      }
+    }
+
+    // Bank accounts
+    for (const bank of spec.bankAccounts) {
+      const existing = await prisma.customerBankAccount.findFirst({
+        where: { customerId: customer.id, iban: bank.iban },
+      });
+      if (!existing) {
+        await prisma.customerBankAccount.create({
+          data: {
+            customerId: customer.id,
+            bankName: bank.bankName,
+            iban: bank.iban,
+            bic: bank.bic,
+            accountHolder: bank.accountHolder,
+            isPrimary: bank.isPrimary ?? false,
+          },
+        });
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log('🌱 Seed startet …');
 
@@ -134,7 +559,6 @@ async function main(): Promise<void> {
       companyName: 'Mustermann GmbH',
       legalForm: 'GmbH',
       status: CustomerStatus.ACTIVE,
-      email: 'info@mustermann.example',
       phone: '+49 30 1234567',
       addressLine1: 'Musterstraße 1',
       postalCode: '10115',
@@ -142,6 +566,21 @@ async function main(): Promise<void> {
       country: 'DE',
     },
   });
+
+  // Allgemeine E-Mail idempotent anlegen (ersetzt das frühere email-Feld)
+  const existingMusterEmail = await prisma.customerEmail.findFirst({
+    where: { customerId: customer.id, email: 'info@mustermann.example' },
+  });
+  if (!existingMusterEmail) {
+    await prisma.customerEmail.create({
+      data: {
+        customerId: customer.id,
+        email: 'info@mustermann.example',
+        emailType: 'GENERAL',
+        isPrimary: true,
+      },
+    });
+  }
 
   let branch = await prisma.customerBranch.findFirst({
     where: { customerId: customer.id, name: 'Hauptsitz' },
@@ -178,6 +617,10 @@ async function main(): Promise<void> {
     });
   }
   console.log('   ✓ Beispiel-Kunde "Mustermann GmbH" + Niederlassung + Kontakt');
+
+  // ── Weitere Beispielkunden (additiv, idempotent) ─────────────
+  await seedExampleCustomers();
+  console.log('   ✓ 3 Beispielkunden (Bewertung A/B/C) mit Unter-Entities');
 
   // ── Beispiel-BreakRule (global) ──────────────────────────────
   let breakRule = await prisma.breakRule.findFirst({
