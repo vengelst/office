@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { VehicleForm } from '@/components/vehicles/vehicle-form';
 import { VehicleAssignmentsTab } from '@/components/vehicles/vehicle-assignments-tab';
+import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import {
   CategoryBadge,
   VehicleStatusBadge,
@@ -168,6 +169,9 @@ export default function VehicleDetailPage(): React.ReactNode {
           <TabsTrigger value="assignments" className="min-h-[44px]">
             {t.tabs.assignments}
           </TabsTrigger>
+          <TabsTrigger value="documents" className="min-h-[44px]">
+            {t.tabs.documents}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="master" className="mt-4">
@@ -189,6 +193,10 @@ export default function VehicleDetailPage(): React.ReactNode {
             workers={workers}
             onChange={load}
           />
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
+          <DocumentsTabV2 entityType="VEHICLE" entityId={id} />
         </TabsContent>
       </Tabs>
 

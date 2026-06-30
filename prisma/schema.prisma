@@ -110,6 +110,9 @@ enum DocumentType {
   CERTIFICATION
   HEALTH_CERTIFICATE
   WORKER_PHOTO
+  REGISTRATION_DOC // Fahrzeugschein
+  INSURANCE_DOC // Versicherungsnachweis
+  INSPECTION_DOC // TÜV/HU-Bericht
   OTHER
 }
 
@@ -953,17 +956,47 @@ model Document {
   description      String?
   createdAt        DateTime     @default(now())
 
+  // Neue Felder
+  storagePath  String? // Logischer Pfad: z.B. "customers/cuid123/contracts/vertrag.pdf"
+  thumbnailKey String? // MinIO-Key für Thumbnail (bei Bildern)
+  version      Int       @default(1)
+  replacesId   String? // ID des Vorgänger-Dokuments (bei Versionen)
+  isLatest     Boolean   @default(true) // Nur die aktuelle Version ist "latest"
+  expiryDate   DateTime? // Ablaufdatum (für Pässe, Zertifikate, etc.)
+  tags         String? // Komma-separierte Tags für Suche
+  uploadSource String? // "web", "camera", "mobile"
+
   uploadedBy User?          @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   links      DocumentLink[]
+
+  replacedBy       Document?  @relation("DocumentVersions", fields: [replacesId], references: [id])
+  previousVersions Document[] @relation("DocumentVersions")
 }
 
 model DocumentLink {
-  id         String @id @default(cuid())
+  id         String  @id @default(cuid())
   documentId String
   entityType String
   entityId   String
+  folderId   String? // Optional: In welchem Ordner liegt das Dokument
 
-  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  document Document        @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  folder   DocumentFolder? @relation(fields: [folderId], references: [id])
+}
+
+model DocumentFolder {
+  id         String  @id @default(cuid())
+  entityType String // "CUSTOMER", "PROJECT", "WORKER", "VEHICLE"
+  entityId   String
+  name       String // z.B. "Verträge", "Ausweise", "Fotos"
+  parentId   String? // Für Unterordner
+  sortOrder  Int     @default(0)
+
+  parent   DocumentFolder?  @relation("FolderTree", fields: [parentId], references: [id])
+  children DocumentFolder[] @relation("FolderTree")
+  links    DocumentLink[]
+
+  @@unique([entityType, entityId, name, parentId])
 }
 
 // ──────────────────────────────────────────────────────────────

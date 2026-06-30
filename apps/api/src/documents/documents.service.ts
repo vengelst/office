@@ -1,14 +1,16 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { DocumentType, Prisma } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
 import {
   DocumentEntityType,
+  ReplaceDocumentDto,
   UploadDocumentDto,
 } from './dto/upload-document.dto';
 import { LinkDocumentDto } from './dto/link-document.dto';
@@ -24,9 +26,62 @@ const ALLOWED_MIME_PATTERNS: RegExp[] = [
   /^application\/vnd\.openxmlformats-officedocument\./,
 ];
 
+/** MIME-Types für die ein Thumbnail erzeugt wird. */
+const THUMBNAIL_MIME_TYPES = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+]);
+
 function isAllowedMime(mime: string): boolean {
   return ALLOWED_MIME_PATTERNS.some((re) => re.test(mime));
 }
+
+/**
+ * Kontextbezogene Dokumenttypen je Entitätstyp.
+ * Steuert, welche DocumentTypes beim Upload je Kontext angeboten werden.
+ */
+const TYPES_FOR_CONTEXT: Record<string, DocumentType[]> = {
+  WORKER: [
+    DocumentType.PASSPORT,
+    DocumentType.ID_CARD,
+    DocumentType.WORK_PERMIT,
+    DocumentType.RESIDENCE_PERMIT,
+    DocumentType.CERTIFICATION,
+    DocumentType.HEALTH_CERTIFICATE,
+    DocumentType.WORKER_PHOTO,
+    DocumentType.CONTRACT,
+    DocumentType.OTHER,
+  ],
+  CUSTOMER: [
+    DocumentType.CONTRACT,
+    DocumentType.BUSINESS_CARD,
+    DocumentType.LOGO,
+    DocumentType.INVOICE,
+    DocumentType.CERTIFICATE,
+    DocumentType.NOTE_DOCUMENT,
+    DocumentType.OTHER,
+  ],
+  PROJECT: [
+    DocumentType.PHOTO,
+    DocumentType.SITE_PHOTO,
+    DocumentType.DELIVERY_NOTE,
+    DocumentType.INVOICE,
+    DocumentType.PROJECT_DOC,
+    DocumentType.DRAWING,
+    DocumentType.WORK_CONTRACT,
+    DocumentType.SPECIFICATION,
+    DocumentType.HANDOVER_PROTOCOL,
+    DocumentType.OTHER,
+  ],
+  VEHICLE: [
+    DocumentType.REGISTRATION_DOC,
+    DocumentType.INSURANCE_DOC,
+    DocumentType.INSPECTION_DOC,
+    DocumentType.PHOTO,
+    DocumentType.OTHER,
+  ],
+};
 
 /** Öffentliche Dokumentdarstellung inkl. Uploader-Name und Verknüpfungen. */
 const documentSelect = {
@@ -38,12 +93,24 @@ const documentSelect = {
   title: true,
   description: true,
   createdAt: true,
+  storagePath: true,
+  thumbnailKey: true,
+  version: true,
+  replacesId: true,
+  isLatest: true,
+  expiryDate: true,
+  tags: true,
+  uploadSource: true,
   uploadedBy: { select: { id: true, displayName: true } },
-  links: { select: { id: true, entityType: true, entityId: true } },
+  links: {
+    select: { id: true, entityType: true, entityId: true, folderId: true },
+  },
 } satisfies Prisma.DocumentSelect;
 
 @Injectable()
 export class DocumentsService {
+  private readonly logger = new Logger(DocumentsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
@@ -68,19 +135,35 @@ export class DocumentsService {
     const entityType = dto.entityType ?? 'general';
     const entityId = dto.entityId ?? 'unsorted';
     const safeName = file.originalname.replace(/[^\w.\-]+/g, '_');
-    const storageKey = `${entityType}/${entityId}/${Date.now()}_${safeName}`;
+    // Physischer MinIO-Key in logischer Verzeichnisstruktur.
+    const storageKey = `documents/${entityType}/${entityId}/${Date.now()}_${safeName}`;
+    // Logischer Pfad (vom Client oder abgeleitet).
+    const storagePath =
+      dto.storagePath ?? `${entityType}/${entityId}/${safeName}`;
 
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
+
+    // Thumbnail für Bilder erzeugen (Best-Effort).
+    const thumbnailKey = await this.maybeCreateThumbnail(
+      storageKey,
+      file.buffer,
+      file.mimetype,
+    );
 
     return this.prisma.document.create({
       data: {
         storageKey,
+        storagePath,
+        thumbnailKey,
         originalFilename: file.originalname,
         mimeType: file.mimetype,
         fileSize: file.size,
         documentType: dto.documentType,
         title: dto.title,
         description: dto.description,
+        tags: dto.tags,
+        expiryDate: dto.expiryDate ? new Date(dto.expiryDate) : undefined,
+        uploadSource: dto.uploadSource,
         uploadedByUserId: userId,
         links:
           dto.entityType && dto.entityId
@@ -88,12 +171,112 @@ export class DocumentsService {
                 create: {
                   entityType: dto.entityType,
                   entityId: dto.entityId,
+                  folderId: dto.folderId,
                 },
               }
             : undefined,
       },
       select: documentSelect,
     });
+  }
+
+  /** Massen-Upload: mehrere Dateien mit identischem Kontext. */
+  async uploadMultiple(
+    files: Express.Multer.File[] | undefined,
+    dto: UploadDocumentDto,
+    userId: string | null,
+  ) {
+    if (!files || files.length === 0) {
+      throw new BadRequestException('Keine Dateien übermittelt');
+    }
+    const created = [];
+    for (const file of files) {
+      created.push(await this.upload(file, dto, userId));
+    }
+    return created;
+  }
+
+  /**
+   * Ersetzt ein Dokument durch eine neue Version.
+   * Das alte Dokument wird auf isLatest=false gesetzt, die neue Version
+   * übernimmt Verknüpfungen, Ordner, Typ und Titel des Originals.
+   */
+  async replace(
+    id: string,
+    file: Express.Multer.File | undefined,
+    dto: ReplaceDocumentDto,
+    userId: string | null,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Keine Datei übermittelt');
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      throw new BadRequestException('Datei überschreitet 10 MB');
+    }
+    if (!isAllowedMime(file.mimetype)) {
+      throw new BadRequestException(`Dateityp nicht erlaubt: ${file.mimetype}`);
+    }
+
+    const old = await this.prisma.document.findUnique({
+      where: { id },
+      include: { links: true },
+    });
+    if (!old) {
+      throw new NotFoundException('Dokument nicht gefunden');
+    }
+
+    const entityType = old.links[0]?.entityType ?? 'general';
+    const entityId = old.links[0]?.entityId ?? 'unsorted';
+    const safeName = file.originalname.replace(/[^\w.\-]+/g, '_');
+    const storageKey = `documents/${entityType}/${entityId}/${Date.now()}_${safeName}`;
+    const storagePath =
+      old.storagePath ?? `${entityType}/${entityId}/${safeName}`;
+
+    await this.storage.upload(storageKey, file.buffer, file.mimetype);
+    const thumbnailKey = await this.maybeCreateThumbnail(
+      storageKey,
+      file.buffer,
+      file.mimetype,
+    );
+
+    const [, fresh] = await this.prisma.$transaction([
+      this.prisma.document.update({
+        where: { id },
+        data: { isLatest: false },
+      }),
+      this.prisma.document.create({
+        data: {
+          storageKey,
+          storagePath,
+          thumbnailKey,
+          originalFilename: file.originalname,
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          documentType: old.documentType,
+          title: old.title,
+          description: old.description,
+          tags: dto.tags ?? old.tags,
+          expiryDate: dto.expiryDate
+            ? new Date(dto.expiryDate)
+            : (old.expiryDate ?? undefined),
+          uploadSource: dto.uploadSource,
+          uploadedByUserId: userId,
+          version: old.version + 1,
+          replacesId: old.id,
+          isLatest: true,
+          links: {
+            create: old.links.map((l) => ({
+              entityType: l.entityType,
+              entityId: l.entityId,
+              folderId: l.folderId,
+            })),
+          },
+        },
+        select: documentSelect,
+      }),
+    ]);
+
+    return fresh;
   }
 
   /** Verknüpft ein bestehendes Dokument mit einer Entität (idempotent). */
@@ -119,24 +302,90 @@ export class DocumentsService {
     return this.findOne(documentId);
   }
 
-  /** Listet Dokumente einer Entität (über DocumentLink). */
-  findByEntity(entityType: DocumentEntityType, entityId: string) {
+  /**
+   * Listet Dokumente mit optionalen Filtern.
+   * Ohne Filter werden alle aktuellen Versionen zurückgegeben (globale Suche).
+   */
+  findAll(filters: {
+    entityType?: string;
+    entityId?: string;
+    folderId?: string;
+    documentType?: DocumentType;
+    search?: string;
+  }) {
+    const where: Prisma.DocumentWhereInput = { isLatest: true };
+
+    if (filters.entityType || filters.entityId || filters.folderId) {
+      where.links = {
+        some: {
+          ...(filters.entityType ? { entityType: filters.entityType } : {}),
+          ...(filters.entityId ? { entityId: filters.entityId } : {}),
+          ...(filters.folderId ? { folderId: filters.folderId } : {}),
+        },
+      };
+    }
+
+    if (filters.documentType) {
+      where.documentType = filters.documentType;
+    }
+
+    if (filters.search) {
+      const q = filters.search;
+      where.OR = [
+        { title: { contains: q, mode: 'insensitive' } },
+        { originalFilename: { contains: q, mode: 'insensitive' } },
+        { tags: { contains: q, mode: 'insensitive' } },
+      ];
+    }
+
     return this.prisma.document.findMany({
-      where: { links: { some: { entityType, entityId } } },
+      where,
       select: documentSelect,
       orderBy: { createdAt: 'desc' },
     });
   }
 
+  /** Listet Dokumente einer Entität (über DocumentLink). */
+  findByEntity(entityType: DocumentEntityType, entityId: string) {
+    return this.findAll({ entityType, entityId });
+  }
+
+  /** Liefert ein Dokument inkl. Versions-Historie. */
   async findOne(id: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id },
-      select: documentSelect,
+      select: {
+        ...documentSelect,
+        replacedBy: { select: documentSelect },
+        previousVersions: {
+          select: documentSelect,
+          orderBy: { version: 'desc' },
+        },
+      },
     });
     if (!doc) {
       throw new NotFoundException('Dokument nicht gefunden');
     }
     return doc;
+  }
+
+  /** Liefert Dokumente, deren Ablaufdatum in den nächsten 30 Tagen liegt. */
+  expiring() {
+    const now = new Date();
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    return this.prisma.document.findMany({
+      where: {
+        isLatest: true,
+        expiryDate: { gte: now, lte: in30Days },
+      },
+      select: documentSelect,
+      orderBy: { expiryDate: 'asc' },
+    });
+  }
+
+  /** Gibt die kontextbezogenen Dokumenttypen für einen Entitätstyp zurück. */
+  typesForContext(entityType: string): DocumentType[] {
+    return TYPES_FOR_CONTEXT[entityType] ?? Object.values(DocumentType);
   }
 
   /** Liefert Stream + Metadaten für den Download. */
@@ -158,18 +407,68 @@ export class DocumentsService {
     };
   }
 
+  /** Liefert den Thumbnail-Stream eines Bild-Dokuments. */
+  async getThumbnail(id: string): Promise<{ stream: Readable; mimeType: string }> {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      select: { thumbnailKey: true },
+    });
+    if (!doc) {
+      throw new NotFoundException('Dokument nicht gefunden');
+    }
+    if (!doc.thumbnailKey) {
+      throw new NotFoundException('Kein Thumbnail vorhanden');
+    }
+    const stream = await this.storage.getStream(doc.thumbnailKey);
+    return { stream, mimeType: 'image/jpeg' };
+  }
+
   /** Löscht Dokument aus Storage und DB. */
   async remove(id: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id },
-      select: { id: true, storageKey: true },
+      select: { id: true, storageKey: true, thumbnailKey: true },
     });
     if (!doc) {
       throw new NotFoundException('Dokument nicht gefunden');
     }
     await this.storage.remove(doc.storageKey).catch(() => undefined);
+    if (doc.thumbnailKey) {
+      await this.storage.remove(doc.thumbnailKey).catch(() => undefined);
+    }
     await this.prisma.document.delete({ where: { id } });
     return { id, deleted: true };
+  }
+
+  /**
+   * Erzeugt – falls möglich – ein 300x300-Thumbnail (Cover-Fit) für Bilder.
+   * Nutzt `sharp` falls verfügbar; bei fehlender Bibliothek oder Fehler
+   * wird ohne Thumbnail fortgefahren (Fallback: null).
+   */
+  private async maybeCreateThumbnail(
+    storageKey: string,
+    buffer: Buffer,
+    mimeType: string,
+  ): Promise<string | null> {
+    if (!THUMBNAIL_MIME_TYPES.has(mimeType)) {
+      return null;
+    }
+    try {
+      const sharpModule = await import('sharp');
+      const sharp = sharpModule.default ?? sharpModule;
+      const thumb = await sharp(buffer)
+        .resize(300, 300, { fit: 'cover' })
+        .jpeg({ quality: 80 })
+        .toBuffer();
+      const thumbnailKey = `${storageKey}.thumb.jpg`;
+      await this.storage.upload(thumbnailKey, thumb, 'image/jpeg');
+      return thumbnailKey;
+    } catch (err) {
+      this.logger.warn(
+        `Thumbnail-Erzeugung übersprungen: ${(err as Error).message}`,
+      );
+      return null;
+    }
   }
 
   private async ensureExists(id: string): Promise<void> {

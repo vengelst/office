@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Receipt,
   Coffee,
+  FolderArchive,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -44,6 +45,7 @@ export const navGroups: NavGroup[] = [
       { href: '/vehicles', label: texts.nav.vehicles, icon: Truck },
       { href: '/time-clock', label: texts.nav.timeClock, icon: Clock },
       { href: '/timesheets', label: texts.nav.timesheets, icon: ClipboardList },
+      { href: '/documents', label: texts.documents.nav, icon: FolderArchive },
     ],
   },
   {

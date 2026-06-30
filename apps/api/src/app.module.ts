@@ -11,6 +11,7 @@ import { WorkersModule } from './workers/workers.module';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
 import { TeamsModule } from './teams/teams.module';
 import { DocumentsModule } from './documents/documents.module';
+import { DocumentFoldersModule } from './document-folders/document-folders.module';
 import { GeocodeModule } from './geocode/geocode.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WorkerAuthModule } from './worker-auth/worker-auth.module';
@@ -34,6 +35,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     SubcontractorsModule,
     TeamsModule,
     DocumentsModule,
+    DocumentFoldersModule,
     GeocodeModule,
     DashboardModule,
     WorkerAuthModule,

@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Field } from '@/components/customers/customer-form';
-import { DocumentsTab } from '@/components/customers/tabs/documents-tab';
+import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { ExpiryDate } from '@/components/workers/worker-badges';
 import { useToast } from '@/components/ui/use-toast';
 import { workersApi, type WorkerDetail } from '@/lib/workers';
@@ -171,7 +171,7 @@ export function WorkerDocumentsTab({
         <h3 className="text-sm font-semibold text-muted-foreground">
           {s.documents}
         </h3>
-        <DocumentsTab entityId={worker.id} entityType="WORKER" />
+        <DocumentsTabV2 entityType="WORKER" entityId={worker.id} />
       </section>
     </div>
   );

@@ -2447,7 +2447,70 @@ async function main(): Promise<void> {
     '   ✓ Fahrzeuge: 4 Fahrzeuge (eigene + Sub), Zuweisungen inkl. Historie (B-OF 1234: Ahmed→Stefan, D-EK 567: Marko), D-OF 4321 mit ablaufendem TÜV',
   );
 
+  // ── Standard-Dokumentenordner für alle Entitäten ─────────────
+  await seedDocumentFolders();
+  console.log(
+    '   ✓ Dokumentenordner: Standard-Ordner für Kunden, Projekte, Monteure und Fahrzeuge',
+  );
+
   console.log('✅ Seed abgeschlossen.');
+}
+
+/**
+ * Legt für jede bestehende Entität die fachlichen Standard-Ordner an.
+ * Idempotent: ein Ordner wird nur erstellt, wenn er noch nicht existiert.
+ */
+async function seedDocumentFolders(): Promise<void> {
+  const DEFAULT_FOLDERS: Record<string, string[]> = {
+    CUSTOMER: ['Verträge', 'Korrespondenz', 'Logos'],
+    PROJECT: ['Baustellenfotos', 'Pläne & Zeichnungen', 'Protokolle', 'Lieferscheine'],
+    WORKER: ['Ausweise & Pässe', 'Zertifikate', 'Verträge'],
+    VEHICLE: ['Fahrzeugschein', 'Versicherung', 'TÜV'],
+  };
+
+  const entities: { entityType: string; ids: string[] }[] = [
+    {
+      entityType: 'CUSTOMER',
+      ids: (await prisma.customer.findMany({ select: { id: true } })).map(
+        (e) => e.id,
+      ),
+    },
+    {
+      entityType: 'PROJECT',
+      ids: (await prisma.project.findMany({ select: { id: true } })).map(
+        (e) => e.id,
+      ),
+    },
+    {
+      entityType: 'WORKER',
+      ids: (await prisma.worker.findMany({ select: { id: true } })).map(
+        (e) => e.id,
+      ),
+    },
+    {
+      entityType: 'VEHICLE',
+      ids: (await prisma.vehicle.findMany({ select: { id: true } })).map(
+        (e) => e.id,
+      ),
+    },
+  ];
+
+  for (const { entityType, ids } of entities) {
+    const names = DEFAULT_FOLDERS[entityType];
+    for (const entityId of ids) {
+      for (let i = 0; i < names.length; i++) {
+        const name = names[i];
+        const existing = await prisma.documentFolder.findFirst({
+          where: { entityType, entityId, name, parentId: null },
+        });
+        if (!existing) {
+          await prisma.documentFolder.create({
+            data: { entityType, entityId, name, sortOrder: i },
+          });
+        }
+      }
+    }
+  }
 }
 
 /**

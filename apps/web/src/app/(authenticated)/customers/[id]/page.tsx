@@ -18,7 +18,7 @@ import {
   ContactsTab,
   type ContactsExternalAction,
 } from '@/components/customers/tabs/contacts-tab';
-import { DocumentsTab } from '@/components/customers/tabs/documents-tab';
+import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi, type CustomerDetail } from '@/lib/customers';
 import { ApiError } from '@/lib/api-client';
@@ -220,7 +220,7 @@ export default function CustomerDetailPage(): React.ReactNode {
         </TabsContent>
 
         <TabsContent value="documents">
-          <DocumentsTab entityId={id} />
+          <DocumentsTabV2 entityType="CUSTOMER" entityId={id} />
         </TabsContent>
       </Tabs>
 

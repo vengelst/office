@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/select';
 import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
-import { DocumentsTab } from '@/components/customers/tabs/documents-tab';
+import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { ProjectForm } from '@/components/projects/project-form';
 import { ProjectStatusBadge } from '@/components/projects/status-badge';
 import { PriorityBadge } from '@/components/projects/priority-badge';
@@ -267,7 +267,7 @@ export default function ProjectDetailPage(): React.ReactNode {
         </TabsContent>
 
         <TabsContent value="dokumente">
-          <DocumentsTab entityId={id} entityType="PROJECT" />
+          <DocumentsTabV2 entityType="PROJECT" entityId={id} />
         </TabsContent>
 
         <TabsContent value="emailVerteiler">
