@@ -12,6 +12,8 @@ async function bootstrap(): Promise<void> {
   app.enableCors({
     origin: process.env.WEB_ORIGIN ?? 'http://localhost:3900',
     credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   app.useGlobalPipes(

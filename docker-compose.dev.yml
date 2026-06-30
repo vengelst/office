@@ -62,6 +62,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-office_minio}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-office_minio_pw}
       MINIO_BUCKET: ${MINIO_BUCKET:-office-documents}
+      WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3900}
       API_PORT: 3801
       NODE_ENV: development
     ports:

@@ -1,5 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, ProjectStatus } from '@prisma/client';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma, ProjectStatus, WorkerAvailability } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -411,14 +415,20 @@ export class ProjectsService {
 
   async createAssignment(projectId: string, dto: CreateAssignmentDto) {
     await this.ensureProject(projectId);
-    return this.prisma.projectAssignment.create({
+    const active = dto.active ?? true;
+    // Einzel-Projekt-Constraint: nur EINE aktive Zuweisung pro Monteur.
+    if (active) {
+      await this.assertNoActiveAssignment(dto.workerId);
+    }
+
+    const assignment = await this.prisma.projectAssignment.create({
       data: {
         projectId,
         workerId: dto.workerId,
         roleName: dto.roleName,
         startDate: coerceDate(dto.startDate) ?? new Date(),
         endDate: coerceDate(dto.endDate) ?? undefined,
-        active: dto.active ?? true,
+        active,
         isLead: dto.isLead ?? false,
         notes: dto.notes,
       },
@@ -433,6 +443,15 @@ export class ProjectsService {
         },
       },
     });
+
+    // Verfügbarkeit auf "im Projekteinsatz" setzen.
+    if (active) {
+      await this.setWorkerAvailability(
+        dto.workerId,
+        WorkerAvailability.ON_PROJECT,
+      );
+    }
+    return assignment;
   }
 
   async updateAssignment(
@@ -440,9 +459,22 @@ export class ProjectsService {
     id: string,
     dto: UpdateAssignmentDto,
   ) {
-    await this.ensureAssignment(projectId, id);
+    const current = await this.prisma.projectAssignment.findFirst({
+      where: { id, projectId },
+      select: { id: true, workerId: true, active: true },
+    });
+    if (!current) {
+      throw new NotFoundException('Zuordnung nicht gefunden');
+    }
+
     const { workerId, ...rest } = dto;
-    return this.prisma.projectAssignment.update({
+    const targetWorkerId = workerId ?? current.workerId;
+    // Reaktivierung einer Zuweisung → Constraint erneut prüfen.
+    if (dto.active === true && !current.active) {
+      await this.assertNoActiveAssignment(targetWorkerId, id);
+    }
+
+    const updated = await this.prisma.projectAssignment.update({
       where: { id },
       data: {
         ...rest,
@@ -461,12 +493,72 @@ export class ProjectsService {
         },
       },
     });
+
+    // Verfügbarkeit synchronisieren: Ende → AVAILABLE, Start → ON_PROJECT.
+    if (dto.active === false && current.active) {
+      await this.setWorkerAvailability(
+        current.workerId,
+        WorkerAvailability.AVAILABLE,
+      );
+    } else if (dto.active === true && !current.active) {
+      await this.setWorkerAvailability(
+        targetWorkerId,
+        WorkerAvailability.ON_PROJECT,
+      );
+    }
+    return updated;
   }
 
   async removeAssignment(projectId: string, id: string) {
-    await this.ensureAssignment(projectId, id);
+    const current = await this.prisma.projectAssignment.findFirst({
+      where: { id, projectId },
+      select: { id: true, workerId: true, active: true },
+    });
+    if (!current) {
+      throw new NotFoundException('Zuordnung nicht gefunden');
+    }
     await this.prisma.projectAssignment.delete({ where: { id } });
+    // War die Zuweisung aktiv, Monteur wieder verfügbar machen.
+    if (current.active) {
+      await this.setWorkerAvailability(
+        current.workerId,
+        WorkerAvailability.AVAILABLE,
+      );
+    }
     return { id, deleted: true };
+  }
+
+  /**
+   * Stellt sicher, dass der Monteur keine andere aktive Zuweisung hat.
+   * Wirft 409 mit Hinweis auf das belegende Projekt.
+   */
+  private async assertNoActiveAssignment(
+    workerId: string,
+    exceptAssignmentId?: string,
+  ): Promise<void> {
+    const existing = await this.prisma.projectAssignment.findFirst({
+      where: {
+        workerId,
+        active: true,
+        id: exceptAssignmentId ? { not: exceptAssignmentId } : undefined,
+      },
+      include: { project: { select: { title: true } } },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Worker ist bereits dem Projekt '${existing.project.title}' zugewiesen. Bitte zuerst die bestehende Zuweisung beenden.`,
+      );
+    }
+  }
+
+  /** Setzt die Verfügbarkeit eines Monteurs (für Zuweisungs-Workflow). */
+  private async setWorkerAvailability(
+    workerId: string,
+    availability: WorkerAvailability,
+  ): Promise<void> {
+    await this.prisma.worker
+      .update({ where: { id: workerId }, data: { availability } })
+      .catch(() => undefined);
   }
 
   // ── Kalender / Timeline ──────────────────────────────────────
@@ -573,12 +665,4 @@ export class ProjectsService {
     }
   }
 
-  private async ensureAssignment(projectId: string, id: string): Promise<void> {
-    const count = await this.prisma.projectAssignment.count({
-      where: { id, projectId },
-    });
-    if (count === 0) {
-      throw new NotFoundException('Zuordnung nicht gefunden');
-    }
-  }
 }

@@ -3,6 +3,8 @@ import {
   Users,
   FolderKanban,
   HardHat,
+  UsersRound,
+  Building2,
   ClipboardList,
   Settings,
   type LucideIcon,
@@ -21,6 +23,8 @@ export const navItems: NavItem[] = [
   { href: '/customers', label: texts.nav.customers, icon: Users },
   { href: '/projects', label: texts.nav.projects, icon: FolderKanban },
   { href: '/workers', label: texts.nav.workers, icon: HardHat },
+  { href: '/teams', label: texts.nav.teams, icon: UsersRound },
+  { href: '/subcontractors', label: texts.nav.subcontractors, icon: Building2 },
   { href: '/timesheets', label: texts.nav.timesheets, icon: ClipboardList },
   { href: '/settings', label: texts.nav.settings, icon: Settings },
 ];

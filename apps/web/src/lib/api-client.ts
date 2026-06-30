@@ -4,6 +4,7 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
 export const TOKEN_STORAGE_KEY = 'office_token';
+const USER_STORAGE_KEY = 'office_user';
 
 /** Strukturierter API-Fehler mit HTTP-Status und Server-Message. */
 export class ApiError extends Error {
@@ -23,6 +24,17 @@ function getToken(): string | null {
     return null;
   }
   return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+}
+
+/**
+ * Entfernt abgelaufene/ungültige Auth-Daten und leitet zum Login weiter.
+ * Wird aufgerufen, wenn die API 401 zurückgibt (Token abgelaufen o.ä.).
+ */
+function handleUnauthorized(): void {
+  if (typeof window === 'undefined') return;
+  window.localStorage.removeItem(TOKEN_STORAGE_KEY);
+  window.localStorage.removeItem(USER_STORAGE_KEY);
+  window.location.href = '/login';
 }
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
@@ -62,6 +74,10 @@ export async function apiFetch<T>(
   const data: unknown = isJson ? await response.json() : null;
 
   if (!response.ok) {
+    if (response.status === 401 && !skipAuth) {
+      handleUnauthorized();
+    }
+
     const payload = (data as ApiErrorResponse | null) ?? undefined;
     const message = payload
       ? Array.isArray(payload.message)

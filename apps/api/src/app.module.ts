@@ -7,8 +7,12 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CustomersModule } from './customers/customers.module';
 import { ProjectsModule } from './projects/projects.module';
+import { WorkersModule } from './workers/workers.module';
+import { SubcontractorsModule } from './subcontractors/subcontractors.module';
+import { TeamsModule } from './teams/teams.module';
 import { DocumentsModule } from './documents/documents.module';
 import { GeocodeModule } from './geocode/geocode.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -20,8 +24,12 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     UsersModule,
     CustomersModule,
     ProjectsModule,
+    WorkersModule,
+    SubcontractorsModule,
+    TeamsModule,
     DocumentsModule,
     GeocodeModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [

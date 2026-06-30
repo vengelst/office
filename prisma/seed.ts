@@ -8,11 +8,14 @@ import {
   BreakScopeType,
   CustomerStatus,
   EquipmentCategory,
+  LanguageProficiency,
   PrismaClient,
   Priority,
   ProjectStatus,
   RoleCode,
   ServiceType,
+  WorkerAvailability,
+  WorkerType,
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
@@ -918,6 +921,539 @@ async function seedExampleProjects(): Promise<void> {
   }
 }
 
+// ──────────────────────────────────────────────────────────────
+// Monteur-/Personalmodul (Subunternehmen, Monteure, Teams, …)
+// ──────────────────────────────────────────────────────────────
+
+function daysFromNow(n: number): Date {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function yearsFromNow(n: number): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + n);
+  return d;
+}
+function yearsAgo(n: number): Date {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - n);
+  return d;
+}
+
+interface SubcontractorSeed {
+  key: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  addressLine1: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  taxNumber: string;
+  vatId: string;
+  iban: string;
+  bic: string;
+  bankName: string;
+}
+
+const SUBCONTRACTORS: SubcontractorSeed[] = [
+  {
+    key: 'kovacevic',
+    name: 'Elektro Kovačević d.o.o.',
+    contactPerson: 'Marko Kovačević',
+    email: 'info@elektro-kovacevic.hr',
+    phone: '+385 1 2345678',
+    addressLine1: 'Ilica 100',
+    postalCode: '10000',
+    city: 'Zagreb',
+    country: 'HR',
+    taxNumber: '12345678901',
+    vatId: 'HR12345678901',
+    iban: 'HR1210010051863000160',
+    bic: 'HAABHR22',
+    bankName: 'Zagrebačka banka',
+  },
+  {
+    key: 'baltic',
+    name: 'Baltic Power Solutions',
+    contactPerson: 'Piotr Wiśniewski',
+    email: 'kontakt@balticpower.pl',
+    phone: '+48 58 1234567',
+    addressLine1: 'Długa 50',
+    postalCode: '80-001',
+    city: 'Gdańsk',
+    country: 'PL',
+    taxNumber: '5840000000',
+    vatId: 'PL5840000000',
+    iban: 'PL61109010140000071219812874',
+    bic: 'WBKPPLPP',
+    bankName: 'Santander Bank Polska',
+  },
+];
+
+interface LanguageSeed {
+  language: string;
+  proficiency: LanguageProficiency;
+}
+interface CertSeed {
+  name: string;
+  issuedBy?: string;
+  issuedDate?: Date;
+  expiryDate?: Date;
+}
+interface WorkerSeed {
+  workerNumber: string;
+  firstName: string;
+  lastName: string;
+  nationality: string;
+  role: string;
+  workerType: WorkerType;
+  subKey?: string;
+  hourlyRate: number;
+  dailyRate: number;
+  oib?: string;
+  passportNumber?: string;
+  passportExpiry?: Date;
+  residencePermitNumber?: string;
+  residencePermitExpiry?: Date;
+  workPermitNumber?: string;
+  workPermitExpiry?: Date;
+  languages: LanguageSeed[];
+  certifications: CertSeed[];
+}
+
+const WORKERS: WorkerSeed[] = [
+  {
+    workerNumber: 'W-2026-0001',
+    firstName: 'Marko',
+    lastName: 'Kovačević',
+    nationality: 'HR',
+    role: 'Elektriker',
+    workerType: WorkerType.SUBCONTRACTED,
+    subKey: 'kovacevic',
+    hourlyRate: 42,
+    dailyRate: 336,
+    oib: '12345678901',
+    passportNumber: 'HR1234567',
+    passportExpiry: yearsFromNow(4),
+    residencePermitNumber: 'AT-RP-0001',
+    residencePermitExpiry: daysFromNow(20), // läuft bald ab!
+    languages: [
+      { language: 'Kroatisch', proficiency: LanguageProficiency.NATIVE },
+      { language: 'Deutsch', proficiency: LanguageProficiency.B1 },
+    ],
+    certifications: [
+      {
+        name: 'SCC Dok. 018',
+        issuedBy: 'TÜV Süd',
+        issuedDate: yearsAgo(2),
+        expiryDate: yearsFromNow(1),
+      },
+      {
+        name: 'Elektrofachkraft',
+        issuedBy: 'Handwerkskammer',
+        issuedDate: yearsAgo(5),
+      },
+    ],
+  },
+  {
+    workerNumber: 'W-2026-0002',
+    firstName: 'Ivan',
+    lastName: 'Horvat',
+    nationality: 'HR',
+    role: 'Helfer',
+    workerType: WorkerType.SUBCONTRACTED,
+    subKey: 'kovacevic',
+    hourlyRate: 28,
+    dailyRate: 224,
+    oib: '98765432109',
+    passportNumber: 'HR7654321',
+    passportExpiry: yearsFromNow(3),
+    languages: [
+      { language: 'Kroatisch', proficiency: LanguageProficiency.NATIVE },
+      { language: 'Deutsch', proficiency: LanguageProficiency.A2 },
+    ],
+    certifications: [],
+  },
+  {
+    workerNumber: 'W-2026-0003',
+    firstName: 'Piotr',
+    lastName: 'Wiśniewski',
+    nationality: 'PL',
+    role: 'Elektriker',
+    workerType: WorkerType.SUBCONTRACTED,
+    subKey: 'baltic',
+    hourlyRate: 40,
+    dailyRate: 320,
+    passportNumber: 'PL2233445',
+    passportExpiry: yearsFromNow(5),
+    languages: [
+      { language: 'Polnisch', proficiency: LanguageProficiency.NATIVE },
+      { language: 'Deutsch', proficiency: LanguageProficiency.B2 },
+      { language: 'Englisch', proficiency: LanguageProficiency.B1 },
+    ],
+    certifications: [
+      {
+        name: 'SCC Dok. 017',
+        issuedBy: 'DEKRA',
+        issuedDate: yearsAgo(1),
+        expiryDate: yearsFromNow(2),
+      },
+    ],
+  },
+  {
+    workerNumber: 'W-2026-0004',
+    firstName: 'Tomasz',
+    lastName: 'Kowalski',
+    nationality: 'PL',
+    role: 'Helfer',
+    workerType: WorkerType.SUBCONTRACTED,
+    subKey: 'baltic',
+    hourlyRate: 26,
+    dailyRate: 208,
+    passportNumber: 'PL5566778',
+    passportExpiry: yearsFromNow(2),
+    languages: [
+      { language: 'Polnisch', proficiency: LanguageProficiency.NATIVE },
+      { language: 'Deutsch', proficiency: LanguageProficiency.A1 },
+    ],
+    certifications: [],
+  },
+  {
+    workerNumber: 'W-2026-0005',
+    firstName: 'Stefan',
+    lastName: 'Müller',
+    nationality: 'DE',
+    role: 'Elektriker',
+    workerType: WorkerType.EMPLOYED,
+    hourlyRate: 38,
+    dailyRate: 304,
+    languages: [
+      { language: 'Deutsch', proficiency: LanguageProficiency.NATIVE },
+      { language: 'Englisch', proficiency: LanguageProficiency.B2 },
+    ],
+    certifications: [
+      {
+        name: 'Elektrofachkraft',
+        issuedBy: 'Handwerkskammer',
+        issuedDate: yearsAgo(8),
+      },
+      {
+        name: 'SCC Dok. 018',
+        issuedBy: 'TÜV Süd',
+        issuedDate: yearsAgo(1),
+        expiryDate: yearsFromNow(2),
+      },
+      {
+        name: 'Höhenarbeiter (PSAgA)',
+        issuedBy: 'BG Bau',
+        issuedDate: yearsAgo(1),
+        expiryDate: yearsFromNow(1),
+      },
+      {
+        name: 'Ersthelfer',
+        issuedBy: 'DRK',
+        issuedDate: yearsAgo(1),
+        expiryDate: yearsFromNow(1),
+      },
+    ],
+  },
+  {
+    workerNumber: 'W-2026-0006',
+    firstName: 'Ahmed',
+    lastName: 'Özdemir',
+    nationality: 'TR',
+    role: 'Elektriker',
+    workerType: WorkerType.EMPLOYED,
+    hourlyRate: 36,
+    dailyRate: 288,
+    workPermitNumber: 'DE-WP-2024-0006',
+    workPermitExpiry: yearsFromNow(1),
+    languages: [
+      { language: 'Türkisch', proficiency: LanguageProficiency.NATIVE },
+      { language: 'Deutsch', proficiency: LanguageProficiency.C1 },
+      { language: 'Englisch', proficiency: LanguageProficiency.A2 },
+    ],
+    certifications: [
+      {
+        name: 'Elektrofachkraft',
+        issuedBy: 'Handwerkskammer',
+        issuedDate: yearsAgo(3),
+      },
+      {
+        name: 'DGUV V3',
+        issuedBy: 'TÜV Rheinland',
+        issuedDate: yearsAgo(1),
+        expiryDate: yearsFromNow(2),
+      },
+    ],
+  },
+];
+
+interface TeamSeed {
+  name: string;
+  description: string;
+  leaderNumber: string;
+  members: { workerNumber: string; role: string }[];
+}
+
+const TEAMS: TeamSeed[] = [
+  {
+    name: 'Team Hafenterminal',
+    description: 'Montageteam für das Projekt Videoüberwachung Hafenterminal.',
+    leaderNumber: 'W-2026-0001',
+    members: [
+      { workerNumber: 'W-2026-0001', role: 'Teamleiter' },
+      { workerNumber: 'W-2026-0002', role: 'Helfer' },
+      { workerNumber: 'W-2026-0003', role: 'Elektriker' },
+    ],
+  },
+  {
+    name: 'Team Neubau Süd',
+    description: 'Montageteam für die Elektroinstallation Neubau Süd.',
+    leaderNumber: 'W-2026-0005',
+    members: [
+      { workerNumber: 'W-2026-0005', role: 'Teamleiter' },
+      { workerNumber: 'W-2026-0006', role: 'Elektriker' },
+      { workerNumber: 'W-2026-0004', role: 'Helfer' },
+    ],
+  },
+];
+
+// Projektnr. → zugewiesene Monteure (mit Teamleiter-Flag)
+const WORKER_ASSIGNMENTS: {
+  projectNumber: string;
+  workers: { workerNumber: string; isLead: boolean }[];
+}[] = [
+  {
+    projectNumber: 'PRJ-2026-0001', // Videoüberwachung Hafenterminal
+    workers: [
+      { workerNumber: 'W-2026-0001', isLead: true },
+      { workerNumber: 'W-2026-0002', isLead: false },
+      { workerNumber: 'W-2026-0003', isLead: false },
+    ],
+  },
+  {
+    projectNumber: 'PRJ-2026-0002', // Elektroinstallation Neubau Süd
+    workers: [
+      { workerNumber: 'W-2026-0005', isLead: true },
+      { workerNumber: 'W-2026-0006', isLead: false },
+      { workerNumber: 'W-2026-0004', isLead: false },
+    ],
+  },
+];
+
+interface EquipmentSeed {
+  itemNumber: string;
+  name: string;
+  category: EquipmentCategory;
+}
+const EQUIPMENT_ITEMS: EquipmentSeed[] = [
+  { itemNumber: 'E-1001', name: 'Hilti Bohrmaschine', category: EquipmentCategory.TOOL },
+  { itemNumber: 'E-1002', name: 'Multimeter', category: EquipmentCategory.ELECTRONICS },
+  { itemNumber: 'E-1003', name: 'Werkzeugkoffer', category: EquipmentCategory.TOOL },
+  { itemNumber: 'E-1004', name: 'PSA-Set', category: EquipmentCategory.PSA },
+];
+
+// Monteur → ausgegebene Equipment-Items
+const EQUIPMENT_ISSUES: { workerNumber: string; itemNumbers: string[] }[] = [
+  { workerNumber: 'W-2026-0001', itemNumbers: ['E-1001', 'E-1002'] },
+  { workerNumber: 'W-2026-0005', itemNumbers: ['E-1003', 'E-1004'] },
+];
+
+async function seedWorkersModule(): Promise<void> {
+  // ── Subunternehmen ───────────────────────────────────────────
+  const subIdByKey = new Map<string, string>();
+  for (const s of SUBCONTRACTORS) {
+    const existing = await prisma.subcontractor.findFirst({
+      where: { name: s.name },
+    });
+    const data = {
+      name: s.name,
+      contactPerson: s.contactPerson,
+      email: s.email,
+      phone: s.phone,
+      addressLine1: s.addressLine1,
+      postalCode: s.postalCode,
+      city: s.city,
+      country: s.country,
+      taxNumber: s.taxNumber,
+      vatId: s.vatId,
+      iban: s.iban,
+      bic: s.bic,
+      bankName: s.bankName,
+      active: true,
+    };
+    const sub = existing
+      ? await prisma.subcontractor.update({ where: { id: existing.id }, data })
+      : await prisma.subcontractor.create({ data });
+    subIdByKey.set(s.key, sub.id);
+  }
+
+  // ── Monteure (+ Sprachen + Zertifikate) ──────────────────────
+  const workerIdByNumber = new Map<string, string>();
+  for (const w of WORKERS) {
+    const data = {
+      firstName: w.firstName,
+      lastName: w.lastName,
+      nationality: w.nationality,
+      workerType: w.workerType,
+      availability: WorkerAvailability.ON_PROJECT,
+      hourlyRate: w.hourlyRate,
+      dailyRate: w.dailyRate,
+      oib: w.oib ?? null,
+      passportNumber: w.passportNumber ?? null,
+      passportExpiry: w.passportExpiry ?? null,
+      residencePermitNumber: w.residencePermitNumber ?? null,
+      residencePermitExpiry: w.residencePermitExpiry ?? null,
+      workPermitNumber: w.workPermitNumber ?? null,
+      workPermitExpiry: w.workPermitExpiry ?? null,
+      subcontractorId: w.subKey ? (subIdByKey.get(w.subKey) ?? null) : null,
+      contractStart: yearsAgo(1),
+      active: true,
+    };
+    const worker = await prisma.worker.upsert({
+      where: { workerNumber: w.workerNumber },
+      update: data,
+      create: { workerNumber: w.workerNumber, ...data },
+    });
+    workerIdByNumber.set(w.workerNumber, worker.id);
+
+    for (const l of w.languages) {
+      await prisma.workerLanguage.upsert({
+        where: {
+          workerId_language: { workerId: worker.id, language: l.language },
+        },
+        update: { proficiency: l.proficiency },
+        create: {
+          workerId: worker.id,
+          language: l.language,
+          proficiency: l.proficiency,
+        },
+      });
+    }
+
+    for (const c of w.certifications) {
+      const existing = await prisma.workerCertification.findFirst({
+        where: { workerId: worker.id, name: c.name },
+      });
+      if (!existing) {
+        await prisma.workerCertification.create({
+          data: {
+            workerId: worker.id,
+            name: c.name,
+            issuedBy: c.issuedBy,
+            issuedDate: c.issuedDate,
+            expiryDate: c.expiryDate,
+          },
+        });
+      }
+    }
+  }
+
+  // ── Teams (+ Mitglieder) ─────────────────────────────────────
+  for (const team of TEAMS) {
+    const leaderId = workerIdByNumber.get(team.leaderNumber) ?? null;
+    const existing = await prisma.workerTeam.findFirst({
+      where: { name: team.name },
+    });
+    const record = existing
+      ? await prisma.workerTeam.update({
+          where: { id: existing.id },
+          data: { description: team.description, leaderId, active: true },
+        })
+      : await prisma.workerTeam.create({
+          data: {
+            name: team.name,
+            description: team.description,
+            leaderId,
+            active: true,
+          },
+        });
+
+    for (const m of team.members) {
+      const workerId = workerIdByNumber.get(m.workerNumber);
+      if (!workerId) continue;
+      const member = await prisma.workerTeamMember.findFirst({
+        where: { teamId: record.id, workerId, leftAt: null },
+      });
+      if (!member) {
+        await prisma.workerTeamMember.create({
+          data: { teamId: record.id, workerId, role: m.role },
+        });
+      }
+    }
+  }
+
+  // ── Projektzuweisungen ───────────────────────────────────────
+  for (const spec of WORKER_ASSIGNMENTS) {
+    const project = await prisma.project.findUnique({
+      where: { projectNumber: spec.projectNumber },
+    });
+    if (!project) continue;
+    for (const a of spec.workers) {
+      const workerId = workerIdByNumber.get(a.workerNumber);
+      if (!workerId) continue;
+      const existing = await prisma.projectAssignment.findFirst({
+        where: { projectId: project.id, workerId },
+      });
+      if (!existing) {
+        await prisma.projectAssignment.create({
+          data: {
+            projectId: project.id,
+            workerId,
+            roleName: a.isLead ? 'Teamleiter' : 'Monteur',
+            isLead: a.isLead,
+            startDate: yearsAgo(0),
+            active: true,
+          },
+        });
+      }
+    }
+  }
+
+  // ── Equipment-Items + Ausgaben ───────────────────────────────
+  const equipmentIdByNumber = new Map<string, string>();
+  for (const e of EQUIPMENT_ITEMS) {
+    const item = await prisma.equipmentItem.upsert({
+      where: { itemNumber: e.itemNumber },
+      update: { name: e.name, category: e.category },
+      create: {
+        itemNumber: e.itemNumber,
+        name: e.name,
+        category: e.category,
+        trackable: true,
+        active: true,
+      },
+    });
+    equipmentIdByNumber.set(e.itemNumber, item.id);
+  }
+
+  for (const issue of EQUIPMENT_ISSUES) {
+    const workerId = workerIdByNumber.get(issue.workerNumber);
+    if (!workerId) continue;
+    for (const itemNumber of issue.itemNumbers) {
+      const equipmentItemId = equipmentIdByNumber.get(itemNumber);
+      if (!equipmentItemId) continue;
+      const existing = await prisma.workerEquipmentIssue.findFirst({
+        where: { workerId, equipmentItemId },
+      });
+      if (!existing) {
+        await prisma.workerEquipmentIssue.create({
+          data: {
+            workerId,
+            equipmentItemId,
+            issuedAt: yearsAgo(0),
+            conditionOut: 'einwandfrei',
+          },
+        });
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
   console.log('🌱 Seed startet …');
 
@@ -1177,6 +1713,12 @@ async function main(): Promise<void> {
   // ── Beispielprojekte (additiv, idempotent) ──────────────────
   await seedExampleProjects();
   console.log('   ✓ 4 Beispielprojekte (inkl. Standorte, Equipment, Zuordnungen, Status-Verlauf)');
+
+  // ── Monteur-/Personalmodul (Subunternehmen, Monteure, Teams) ─
+  await seedWorkersModule();
+  console.log(
+    '   ✓ Monteurmodul: 2 Subunternehmen, 6 Monteure, 2 Teams, Zuweisungen, Equipment-Ausgaben',
+  );
 
   console.log('✅ Seed abgeschlossen.');
 }

@@ -1,6 +1,14 @@
 'use client';
 
-import { Users, FolderKanban, HardHat, Clock } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  Users,
+  FolderKanban,
+  HardHat,
+  Clock,
+  AlertTriangle,
+} from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -8,8 +16,22 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
+import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { useAuth } from '@/lib/auth-context';
+import { apiClient } from '@/lib/api-client';
+import {
+  workersApi,
+  type WorkerAvailability,
+  type WorkerListItem,
+} from '@/lib/workers';
 import { texts } from '@/lib/texts';
+
+interface DashboardStats {
+  customers: number;
+  projects: number;
+  workers: number;
+  hoursThisWeek: number;
+}
 
 const cards = [
   { key: 'customers', label: texts.dashboard.cards.customers, icon: Users },
@@ -18,11 +40,44 @@ const cards = [
   { key: 'hours', label: texts.dashboard.cards.hours, icon: Clock },
 ] as const;
 
+type CardKey = (typeof cards)[number]['key'];
+
+function formatValue(key: CardKey, stats: DashboardStats): string {
+  switch (key) {
+    case 'customers':
+      return String(stats.customers);
+    case 'projects':
+      return String(stats.projects);
+    case 'workers':
+      return String(stats.workers);
+    case 'hours':
+      return String(stats.hoursThisWeek);
+  }
+}
+
 export default function DashboardPage(): React.ReactNode {
   const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [workers, setWorkers] = useState<WorkerListItem[] | null>(null);
+  const [expiringCount, setExpiringCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    apiClient
+      .get<DashboardStats>('/dashboard/stats')
+      .then(setStats)
+      .catch(() => {});
+    workersApi
+      .list({ limit: 100 })
+      .then((r) => setWorkers(r.data))
+      .catch(() => setWorkers([]));
+    workersApi
+      .expiringDocuments()
+      .then((r) => setExpiringCount(r.length))
+      .catch(() => setExpiringCount(0));
+  }, []);
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title={texts.dashboard.title}
         description={`${texts.dashboard.welcome}${
@@ -42,16 +97,126 @@ export default function DashboardPage(): React.ReactNode {
                 <Icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">—</div>
+                <div className="text-2xl font-bold">
+                  {stats ? formatValue(card.key, stats) : '—'}
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      <p className="mt-6 text-sm text-muted-foreground">
-        {texts.dashboard.placeholder}
-      </p>
+      <WorkersWidget workers={workers} expiringCount={expiringCount} />
+    </div>
+  );
+}
+
+const ABSENT: WorkerAvailability[] = ['SICK', 'VACATION', 'UNAVAILABLE'];
+
+function WorkersWidget({
+  workers,
+  expiringCount,
+}: {
+  workers: WorkerListItem[] | null;
+  expiringCount: number | null;
+}): React.ReactNode {
+  const t = texts.dashboard.workers;
+
+  const available = workers?.filter((w) => w.availability === 'AVAILABLE') ?? [];
+  const onProject = workers?.filter((w) => w.availability === 'ON_PROJECT') ?? [];
+  const absent = workers?.filter((w) => ABSENT.includes(w.availability)) ?? [];
+
+  return (
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Verfügbarkeits-Verteilung */}
+      <Card className="lg:col-span-2">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t.title}
+          </CardTitle>
+          <Link
+            href="/workers"
+            className="text-xs text-primary hover:underline"
+          >
+            {t.viewAll}
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {workers === null ? (
+            <p className="text-sm text-muted-foreground">
+              {texts.common.loading}
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-4">
+              <Stat
+                value={available.length}
+                label={t.available}
+                availability="AVAILABLE"
+              />
+              <Stat
+                value={onProject.length}
+                label={t.onProject}
+                availability="ON_PROJECT"
+              />
+              <Stat
+                value={absent.length}
+                label={t.absent}
+                availability="SICK"
+              />
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Ablaufwarnungen */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">
+            {t.expiringTitle}
+          </CardTitle>
+          <AlertTriangle
+            className={`h-4 w-4 ${
+              expiringCount ? 'text-amber-500' : 'text-muted-foreground'
+            }`}
+          />
+        </CardHeader>
+        <CardContent>
+          {expiringCount === null ? (
+            <p className="text-sm text-muted-foreground">
+              {texts.common.loading}
+            </p>
+          ) : expiringCount > 0 ? (
+            <Link href="/workers" className="block">
+              <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                {expiringCount}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground hover:text-foreground">
+                {t.expiringWarning(expiringCount)}
+              </p>
+            </Link>
+          ) : (
+            <p className="text-sm text-muted-foreground">{t.expiringNone}</p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function Stat({
+  value,
+  label,
+  availability,
+}: {
+  value: number;
+  label: string;
+  availability: WorkerAvailability;
+}): React.ReactNode {
+  return (
+    <div className="space-y-1">
+      <div className="text-2xl font-bold">{value}</div>
+      <AvailabilityBadge availability={availability} />
+      <p className="text-xs text-muted-foreground">{label}</p>
     </div>
   );
 }

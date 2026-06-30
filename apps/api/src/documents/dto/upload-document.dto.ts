@@ -8,6 +8,7 @@ export const DOCUMENT_ENTITY_TYPES = [
   'BRANCH',
   'CONTACT',
   'PROJECT',
+  'WORKER',
 ] as const;
 export type DocumentEntityType = (typeof DOCUMENT_ENTITY_TYPES)[number];
 

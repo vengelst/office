@@ -16,10 +16,28 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { RouteButton } from '@/components/customers/contact-links';
 import { useToast } from '@/components/ui/use-toast';
 import { geocodeApi, type CustomerDetail } from '@/lib/customers';
 import { texts } from '@/lib/texts';
+
+const LEGAL_FORM_OPTIONS: ComboboxOption[] = [
+  { value: 'GmbH', label: 'GmbH' },
+  { value: 'AG', label: 'AG' },
+  { value: 'KG', label: 'KG' },
+  { value: 'OHG', label: 'OHG' },
+  { value: 'GbR', label: 'GbR' },
+  { value: 'UG (haftungsbeschränkt)', label: 'UG (haftungsbeschränkt)' },
+  { value: 'e.K.', label: 'e.K.' },
+  { value: 'GmbH & Co. KG', label: 'GmbH & Co. KG' },
+  { value: 'Einzelunternehmen', label: 'Einzelunternehmen' },
+  { value: 'Freiberufler', label: 'Freiberufler' },
+  { value: 'eG', label: 'eG' },
+  { value: 'SE', label: 'SE' },
+  { value: 'Verein (e.V.)', label: 'Verein (e.V.)' },
+  { value: 'Stiftung', label: 'Stiftung' },
+];
 
 const schema = z.object({
   companyName: z.string().min(1, 'Pflichtfeld'),
@@ -177,7 +195,13 @@ export function CustomerForm({
             <Input {...register('companyName')} className="min-h-[44px]" />
           </Field>
           <Field label={f.legalForm}>
-            <Input {...register('legalForm')} className="min-h-[44px]" />
+            <Combobox
+              value={watch('legalForm') ?? ''}
+              onChange={(val) => setValue('legalForm', val)}
+              options={LEGAL_FORM_OPTIONS}
+              placeholder="z.B. GmbH"
+              className="min-h-[44px]"
+            />
           </Field>
           {customer && (
             <Field label={f.customerNumber}>
