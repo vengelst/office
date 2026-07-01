@@ -136,6 +136,40 @@ export class TimeEntriesService {
 
   // ── Abfragen ─────────────────────────────────────────────────
 
+  /** Stempel-Status aller Monteure eines Projekts (für Kiosk-Übersicht). */
+  async projectStatus(projectId: string) {
+    await this.assertProject(projectId);
+
+    const assignments = await this.prisma.projectAssignment.findMany({
+      where: { projectId, active: true, worker: { active: true, deletedAt: null } },
+      select: { worker: { select: workerSelect } },
+    });
+
+    const workers = assignments.map((a) => a.worker);
+    const results: Array<{
+      workerId: string;
+      firstName: string;
+      lastName: string;
+      photoPath: string | null;
+      clockedIn: boolean;
+      since: Date | null;
+    }> = [];
+
+    for (const w of workers) {
+      const status = await this.getStatus(w.id);
+      results.push({
+        workerId: w.id,
+        firstName: w.firstName,
+        lastName: w.lastName,
+        photoPath: w.photoPath,
+        clockedIn: status.clockedIn,
+        since: status.since,
+      });
+    }
+
+    return results;
+  }
+
   /** Aktueller Stempel-Status eines Monteurs. */
   async status(workerId: string, actor: AuthUser): Promise<ClockStatus> {
     this.assertOwnWorker(workerId, actor);

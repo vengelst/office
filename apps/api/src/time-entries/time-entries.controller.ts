@@ -18,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { TimeEntriesService } from './time-entries.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
@@ -69,6 +70,13 @@ export class TimeEntriesController {
     @CurrentUser() user: AuthUser,
   ) {
     return this.timeEntries.uploadPhoto(file, dto, user);
+  }
+
+  @Public()
+  @Get('project-status/:projectId')
+  @ApiOperation({ summary: 'Stempel-Status aller Monteure eines Projekts (Kiosk)' })
+  projectStatus(@Param('projectId') projectId: string) {
+    return this.timeEntries.projectStatus(projectId);
   }
 
   @Get('status/:workerId')

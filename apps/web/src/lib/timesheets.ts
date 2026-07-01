@@ -462,6 +462,39 @@ export const breakRulesApi = {
     apiClient.delete<unknown>(`/break-rules/${id}`),
 };
 
+// ──────────────────────────────────────────────────────────────
+// Kiosk-API (Worker-Token, projekt-gebunden)
+// ──────────────────────────────────────────────────────────────
+
+export interface KioskWorkerStatus {
+  workerId: string;
+  firstName: string;
+  lastName: string;
+  photoPath: string | null;
+  clockedIn: boolean;
+  since: string | null;
+}
+
+export const kioskApi = {
+  pinLogin: (pin: string) => workerApi.pinLogin(pin),
+  me: () => workerFetch<WorkerMe>('/worker-auth/me'),
+  status: (workerId: string) =>
+    workerFetch<ClockStatus>(`/time-entries/status/${workerId}`),
+  clockIn: (body: ClockInBody) =>
+    workerFetch<ClockStatus>('/time-entries/clock-in', {
+      method: 'POST',
+      body,
+    }),
+  clockOut: (body: ClockOutBody) =>
+    workerFetch<ClockStatus & { lastGrossMinutes?: number }>('/time-entries/clock-out', {
+      method: 'POST',
+      body,
+    }),
+  projectStatus: (projectId: string) =>
+    workerFetch<KioskWorkerStatus[]>(`/time-entries/project-status/${projectId}`),
+  uploadPhoto: (form: FormData) => workerUpload<unknown>('/time-entries/upload-photo', form),
+};
+
 // ── Helfer ─────────────────────────────────────────────────────
 
 /** Lädt das Stundenzettel-PDF mit Office-Token und stößt den Download an. */
