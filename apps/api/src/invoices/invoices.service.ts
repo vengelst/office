@@ -2,9 +2,11 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  DocumentType,
   InvoiceLineType,
   InvoiceStatus,
   InvoiceType,
@@ -12,6 +14,9 @@ import {
   WeeklyTimesheetStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { DocumentsService } from '../documents/documents.service';
+import { StoragePathService } from '../common/storage-path.service';
+import { InvoicePdfService } from './invoice-pdf.service';
 import { isoWeekRange } from '../timesheets/timesheet.util';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
@@ -122,7 +127,14 @@ function round2(value: number): number {
 
 @Injectable()
 export class InvoicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(InvoicesService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly documentsService: DocumentsService,
+    private readonly storagePathService: StoragePathService,
+    private readonly pdfService: InvoicePdfService,
+  ) {}
 
   // ── Liste / Detail ───────────────────────────────────────────
 
@@ -566,7 +578,105 @@ export class InvoicesService {
         dueDate,
       },
     });
+
+    // PDF-Export (async, non-blocking).
+    this.exportInvoicePdf(invoice)
+      .catch((err) => this.logger.warn(`Rechnungs-PDF-Export fehlgeschlagen: ${(err as Error).message}`));
+
     return this.findOne(id);
+  }
+
+  /**
+   * Generiert PDF, speichert in MinIO und erstellt Document-Einträge.
+   * Ausgangsrechnung → Projekt-Ordner + Kunden-Ordner.
+   * Eingangsrechnung → Subunternehmen-Ordner.
+   */
+  private async exportInvoicePdf(invoice: {
+    id: string;
+    invoiceNumber: string;
+    invoiceType: InvoiceType;
+    projectId: string | null;
+    customerId: string | null;
+    subcontractorId: string | null;
+    customer: { companyName: string } | null;
+    subcontractor: { name: string } | null;
+    createdBy: { id: string } | null;
+  }): Promise<void> {
+    const { buffer, filename: pdfFilename } = await this.pdfService.generate(invoice.id);
+
+    if (invoice.invoiceType === InvoiceType.OUTGOING) {
+      const partnerName = invoice.customer?.companyName ?? 'Unbekannt';
+      const readableFilename = this.storagePathService.buildInvoiceFilename(invoice.invoiceNumber, partnerName);
+
+      // Projekt-Ordner
+      if (invoice.projectId) {
+        const projectPath = await this.storagePathService.generatePath(
+          'PROJECT', invoice.projectId, 'INVOICE', readableFilename,
+        );
+        const additionalLinks: Array<{ entityType: string; entityId: string }> = [];
+        if (invoice.customerId) {
+          additionalLinks.push({ entityType: 'CUSTOMER', entityId: invoice.customerId });
+        }
+
+        await this.documentsService.createFromBuffer({
+          buffer,
+          filename: readableFilename,
+          mimeType: 'application/pdf',
+          documentType: DocumentType.INVOICE,
+          entityType: 'PROJECT',
+          entityId: invoice.projectId,
+          storagePath: projectPath,
+          title: `${invoice.invoiceNumber} ${partnerName}`,
+          userId: invoice.createdBy?.id ?? null,
+          additionalLinks,
+        });
+      }
+
+      // Kunden-Ordner (Kopie)
+      if (invoice.customerId) {
+        const customerPath = await this.storagePathService.generatePath(
+          'CUSTOMER', invoice.customerId, 'INVOICE', readableFilename,
+        );
+        await this.documentsService.createFromBuffer({
+          buffer,
+          filename: readableFilename,
+          mimeType: 'application/pdf',
+          documentType: DocumentType.INVOICE,
+          entityType: 'CUSTOMER',
+          entityId: invoice.customerId,
+          storagePath: customerPath,
+          title: `${invoice.invoiceNumber} ${partnerName}`,
+          userId: invoice.createdBy?.id ?? null,
+        });
+      }
+    } else {
+      // Eingangsrechnung → Subunternehmen-Ordner
+      if (invoice.subcontractorId) {
+        const subName = invoice.subcontractor?.name ?? 'Unbekannt';
+        const readableFilename = this.storagePathService.buildInvoiceFilename(invoice.invoiceNumber, subName);
+        const subPath = await this.storagePathService.generatePath(
+          'SUBCONTRACTOR', invoice.subcontractorId, 'INVOICE', readableFilename,
+        );
+        await this.documentsService.createFromBuffer({
+          buffer,
+          filename: readableFilename,
+          mimeType: 'application/pdf',
+          documentType: DocumentType.INVOICE,
+          entityType: 'SUBCONTRACTOR',
+          entityId: invoice.subcontractorId,
+          storagePath: subPath,
+          title: `${invoice.invoiceNumber} ${subName}`,
+          userId: invoice.createdBy?.id ?? null,
+        });
+      }
+    }
+
+    // pdfPath auf der Rechnung speichern.
+    const pdfStorageKey = `invoices/${invoice.invoiceNumber.replace(/[^a-zA-Z0-9-]/g, '')}.pdf`;
+    await this.prisma.invoice.update({
+      where: { id: invoice.id },
+      data: { pdfPath: pdfStorageKey },
+    });
   }
 
   async cancel(id: string) {

@@ -8,6 +8,8 @@ import { DocumentType, Prisma } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
+import { StoragePathService } from '../common/storage-path.service';
+import { GoogleDriveService } from '../google-drive/google-drive.service';
 import {
   DocumentEntityType,
   ReplaceDocumentDto,
@@ -101,6 +103,8 @@ const documentSelect = {
   expiryDate: true,
   tags: true,
   uploadSource: true,
+  driveFileId: true,
+  driveFolderId: true,
   uploadedBy: { select: { id: true, displayName: true } },
   links: {
     select: { id: true, entityType: true, entityId: true, folderId: true },
@@ -114,6 +118,8 @@ export class DocumentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly storagePath: StoragePathService,
+    private readonly driveService: GoogleDriveService,
   ) {}
 
   /** Datei in den Storage hochladen, Metadaten persistieren, optional verknüpfen. */
@@ -135,22 +141,34 @@ export class DocumentsService {
     const entityType = dto.entityType ?? 'general';
     const entityId = dto.entityId ?? 'unsorted';
     const safeName = file.originalname.replace(/[^\w.\-]+/g, '_');
-    // Physischer MinIO-Key in logischer Verzeichnisstruktur.
-    const storageKey = `documents/${entityType}/${entityId}/${Date.now()}_${safeName}`;
-    // Logischer Pfad (vom Client oder abgeleitet).
-    const storagePath =
-      dto.storagePath ?? `${entityType}/${entityId}/${safeName}`;
+
+    // Lesbaren Pfad generieren, wenn Entity-Kontext vorhanden.
+    let storagePath: string;
+    if (dto.storagePath) {
+      storagePath = dto.storagePath;
+    } else if (entityType !== 'general' && entityId !== 'unsorted') {
+      storagePath = await this.storagePath.generatePath(
+        entityType,
+        entityId,
+        dto.documentType,
+        safeName,
+      );
+    } else {
+      storagePath = `${entityType}/${entityId}/${safeName}`;
+    }
+
+    // MinIO-Key = lesbarer Pfad mit Prefix und Timestamp zur Eindeutigkeit.
+    const storageKey = `documents/${storagePath.replace(/\/([^/]+)$/, `/${Date.now()}_$1`)}`;
 
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
 
-    // Thumbnail für Bilder erzeugen (Best-Effort).
     const thumbnailKey = await this.maybeCreateThumbnail(
       storageKey,
       file.buffer,
       file.mimetype,
     );
 
-    return this.prisma.document.create({
+    const doc = await this.prisma.document.create({
       data: {
         storageKey,
         storagePath,
@@ -178,6 +196,14 @@ export class DocumentsService {
       },
       select: documentSelect,
     });
+
+    // Google Drive Sync (async, non-blocking).
+    if (entityType !== 'general' && entityId !== 'unsorted') {
+      this.syncToDrive(doc.id, file.buffer, file.mimetype, entityType, entityId, dto.documentType, safeName)
+        .catch((err) => this.logger.warn(`Drive-Sync übersprungen: ${(err as Error).message}`));
+    }
+
+    return doc;
   }
 
   /** Massen-Upload: mehrere Dateien mit identischem Kontext. */
@@ -468,6 +494,101 @@ export class DocumentsService {
         `Thumbnail-Erzeugung übersprungen: ${(err as Error).message}`,
       );
       return null;
+    }
+  }
+
+  /**
+   * Erstellt ein Document direkt aus einem Buffer (für automatische PDF-Exports).
+   * Speichert in MinIO mit lesbarem Pfad und syncht zu Google Drive.
+   */
+  async createFromBuffer(params: {
+    buffer: Buffer;
+    filename: string;
+    mimeType: string;
+    documentType: DocumentType;
+    entityType: string;
+    entityId: string;
+    storagePath: string;
+    title?: string;
+    userId?: string | null;
+    additionalLinks?: Array<{ entityType: string; entityId: string }>;
+  }) {
+    const storageKey = `documents/${params.storagePath}`;
+    await this.storage.upload(storageKey, params.buffer, params.mimeType);
+
+    const links = [
+      { entityType: params.entityType, entityId: params.entityId },
+      ...(params.additionalLinks ?? []),
+    ];
+
+    const doc = await this.prisma.document.create({
+      data: {
+        storageKey,
+        storagePath: params.storagePath,
+        originalFilename: params.filename,
+        mimeType: params.mimeType,
+        fileSize: params.buffer.length,
+        documentType: params.documentType,
+        title: params.title ?? params.filename,
+        uploadedByUserId: params.userId ?? null,
+        uploadSource: 'system',
+        links: { create: links },
+      },
+      select: documentSelect,
+    });
+
+    // Drive-Sync (async, non-blocking).
+    this.syncToDrive(
+      doc.id,
+      params.buffer,
+      params.mimeType,
+      params.entityType,
+      params.entityId,
+      params.documentType,
+      params.filename,
+    ).catch((err) => this.logger.warn(`Drive-Sync übersprungen: ${(err as Error).message}`));
+
+    return doc;
+  }
+
+  /**
+   * Syncht ein Dokument asynchron nach Google Drive.
+   * Speichert driveFileId + driveFolderId am Document-Eintrag.
+   */
+  private async syncToDrive(
+    documentId: string,
+    buffer: Buffer,
+    mimeType: string,
+    entityType: string,
+    entityId: string,
+    documentType: string,
+    filename: string,
+  ): Promise<void> {
+    const enabled = await this.driveService.isEnabled();
+    if (!enabled) return;
+
+    const info = await this.storagePath.getEntityInfo(entityType, entityId);
+    const categoryName = this.storagePath.driveCategoryName(entityType);
+    const entityFolderName = this.storagePath.driveEntityFolderName(entityType, info);
+    const subFolderName = this.storagePath.driveFolderName(documentType);
+
+    const result = await this.driveService.uploadWithStructure(
+      buffer,
+      mimeType,
+      categoryName,
+      entityFolderName,
+      subFolderName,
+      filename,
+    );
+
+    if (result) {
+      await this.prisma.document.update({
+        where: { id: documentId },
+        data: {
+          driveFileId: result.fileId,
+          driveFolderId: result.folderId,
+        },
+      });
     }
   }
 

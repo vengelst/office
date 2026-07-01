@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -14,6 +15,8 @@ import {
 import { AuthUser } from '@office/types';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
+import { StoragePathService } from '../common/storage-path.service';
+import { GoogleDriveService } from '../google-drive/google-drive.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
@@ -53,9 +56,13 @@ export interface ClockStatus {
 
 @Injectable()
 export class TimeEntriesService {
+  private readonly logger = new Logger(TimeEntriesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly storagePathService: StoragePathService,
+    private readonly driveService: GoogleDriveService,
   ) {}
 
   // ── Stempeln ─────────────────────────────────────────────────
@@ -226,13 +233,41 @@ export class TimeEntriesService {
     await this.assertProject(dto.projectId);
 
     const ext = extensionFor(file);
-    const storageKey = `projects/${dto.projectId}/photos/${Date.now()}.${ext}`;
+    const now = new Date();
+
+    // Entity-Infos für lesbaren Dateinamen laden.
+    const [projectInfo, workerInfo] = await Promise.all([
+      this.storagePathService.getEntityInfo('PROJECT', dto.projectId),
+      this.storagePathService.getEntityInfo('WORKER', dto.workerId),
+    ]);
+
+    const worker = await this.prisma.worker.findUnique({
+      where: { id: dto.workerId },
+      select: { firstName: true, lastName: true },
+    });
+    const project = await this.prisma.project.findUnique({
+      where: { id: dto.projectId },
+      select: { title: true },
+    });
+
+    const readableFilename = this.storagePathService.buildSitePhotoFilename(
+      project?.title ?? 'Projekt',
+      worker?.lastName ?? 'Monteur',
+      worker?.firstName ?? '',
+      now,
+      ext,
+    );
+
+    // Lesbarer MinIO-Pfad.
+    const storagePath = `projekte/${projectInfo.slug}/baustellenfotos/${readableFilename}`;
+    const storageKey = `documents/${storagePath}`;
     await this.storage.upload(storageKey, file.buffer, file.mimetype);
 
-    return this.prisma.document.create({
+    const doc = await this.prisma.document.create({
       data: {
         storageKey,
-        originalFilename: file.originalname || `${Date.now()}.${ext}`,
+        storagePath,
+        originalFilename: file.originalname || readableFilename,
         mimeType: file.mimetype,
         fileSize: file.size,
         documentType: DocumentType.SITE_PHOTO,
@@ -249,14 +284,63 @@ export class TimeEntriesService {
       select: {
         id: true,
         storageKey: true,
+        storagePath: true,
         originalFilename: true,
         documentType: true,
         title: true,
         description: true,
         createdAt: true,
+        driveFileId: true,
         links: { select: { entityType: true, entityId: true } },
       },
     });
+
+    // Google Drive Sync + Shortcut (async, non-blocking).
+    this.syncPhotoToDrive(
+      doc.id, file.buffer, file.mimetype, readableFilename,
+      projectInfo, workerInfo, dto.projectId, dto.workerId,
+    ).catch((err) => this.logger.warn(`Drive-Foto-Sync übersprungen: ${(err as Error).message}`));
+
+    return doc;
+  }
+
+  /**
+   * Syncht ein Baustellenfoto nach Google Drive und erstellt einen Shortcut im Monteur-Ordner.
+   */
+  private async syncPhotoToDrive(
+    documentId: string,
+    buffer: Buffer,
+    mimeType: string,
+    filename: string,
+    projectInfo: { slug: string; displayName: string; number: string },
+    workerInfo: { slug: string; displayName: string; number: string },
+    projectId: string,
+    workerId: string,
+  ): Promise<void> {
+    const enabled = await this.driveService.isEnabled();
+    if (!enabled) return;
+
+    const projectFolderName = this.storagePathService.driveEntityFolderName('PROJECT', projectInfo);
+    const result = await this.driveService.uploadWithStructure(
+      buffer, mimeType,
+      'Projekte', projectFolderName, 'Baustellenfotos', filename,
+    );
+
+    if (result) {
+      await this.prisma.document.update({
+        where: { id: documentId },
+        data: { driveFileId: result.fileId, driveFolderId: result.folderId },
+      });
+
+      // Shortcut im Monteur-Fotos-Ordner.
+      const workerFolderName = this.storagePathService.driveEntityFolderName('WORKER', workerInfo);
+      const workerFotosFolderId = await this.driveService.ensureSubfolderStructure(
+        'Monteure', workerFolderName, 'Fotos (Verknüpfungen)',
+      );
+      if (workerFotosFolderId) {
+        await this.driveService.createShortcut(result.fileId, workerFotosFolderId);
+      }
+    }
   }
 
   // ── intern ───────────────────────────────────────────────────

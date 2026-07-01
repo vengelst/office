@@ -15,6 +15,12 @@ export interface DriveConfig {
   serviceAccountJson: string;
 }
 
+export interface DriveUploadResult {
+  fileId: string;
+  folderId: string;
+  webViewLink?: string;
+}
+
 @Injectable()
 export class GoogleDriveService {
   private readonly logger = new Logger(GoogleDriveService.name);
@@ -111,6 +117,49 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Hochladen mit automatischer Ordnerstruktur.
+   * Erstellt Kategorie → Entity → Unterordner und lädt die Datei dort hoch.
+   */
+  async uploadWithStructure(
+    fileBuffer: Buffer,
+    mimeType: string,
+    categoryName: string,
+    entityFolderName: string,
+    subFolderName: string,
+    readableFilename: string,
+  ): Promise<DriveUploadResult | null> {
+    try {
+      const config = await this.getConfig();
+      if (!config.enabled) return null;
+
+      const drive = await this.authenticate();
+      const rootFolderId = config.folderId;
+
+      const categoryFolderId = await this.findOrCreateFolder(drive, categoryName, rootFolderId);
+      if (!categoryFolderId) return null;
+
+      const entityFolderId = await this.findOrCreateFolder(drive, entityFolderName, categoryFolderId);
+      if (!entityFolderId) return null;
+
+      const subFolderId = await this.findOrCreateFolder(drive, subFolderName, entityFolderId);
+      if (!subFolderId) return null;
+
+      const result = await this.uploadFile(fileBuffer, readableFilename, mimeType, subFolderId);
+      if (!result) return null;
+
+      return {
+        fileId: result.fileId,
+        folderId: subFolderId,
+        webViewLink: result.webViewLink,
+      };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      this.logger.error(`Google Drive Upload (structured) fehlgeschlagen: ${message}`);
+      return null;
+    }
+  }
+
   async createFolder(
     name: string,
     parentFolderId?: string,
@@ -136,6 +185,63 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Erstellt einen Drive-Shortcut (Verknüpfung) auf eine Datei in einem Zielordner.
+   * Wird für Monteur-Foto-Verknüpfungen verwendet.
+   */
+  async createShortcut(fileId: string, targetFolderId: string): Promise<string | null> {
+    try {
+      const config = await this.getConfig();
+      if (!config.enabled) return null;
+
+      const drive = await this.authenticate();
+      const response = await drive.files.create({
+        requestBody: {
+          shortcutDetails: { targetId: fileId },
+          mimeType: 'application/vnd.google-apps.shortcut',
+          parents: [targetFolderId],
+        },
+        fields: 'id',
+      });
+
+      return response.data.id ?? null;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      this.logger.error(`Drive Shortcut-Erstellung fehlgeschlagen: ${message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Setzt Berechtigungen auf eine Datei oder einen Ordner.
+   */
+  async setPermissions(
+    fileOrFolderId: string,
+    email: string,
+    role: 'writer' | 'reader',
+  ): Promise<boolean> {
+    try {
+      const config = await this.getConfig();
+      if (!config.enabled) return false;
+
+      const drive = await this.authenticate();
+      await drive.permissions.create({
+        fileId: fileOrFolderId,
+        requestBody: {
+          type: 'user',
+          role,
+          emailAddress: email,
+        },
+        sendNotificationEmail: false,
+      });
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      this.logger.error(`Drive Berechtigung fehlgeschlagen: ${message}`);
+      return false;
+    }
+  }
+
   async ensureFolderStructure(
     entityType: string,
     entityId: string,
@@ -153,6 +259,7 @@ export class GoogleDriveService {
         PROJECT: 'Projekte',
         WORKER: 'Monteure',
         VEHICLE: 'Fahrzeuge',
+        SUBCONTRACTOR: 'Subunternehmen',
       };
 
       const categoryName = categoryMap[entityType] ?? entityType;
@@ -173,6 +280,35 @@ export class GoogleDriveService {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unbekannter Fehler';
       this.logger.error(`Ordnerstruktur fehlgeschlagen: ${message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Stellt eine vollständige Unterordner-Hierarchie sicher und gibt die Unterordner-ID zurück.
+   */
+  async ensureSubfolderStructure(
+    categoryName: string,
+    entityFolderName: string,
+    subFolderName: string,
+  ): Promise<string | null> {
+    try {
+      const config = await this.getConfig();
+      if (!config.enabled) return null;
+
+      const drive = await this.authenticate();
+      const rootFolderId = config.folderId;
+
+      const categoryFolderId = await this.findOrCreateFolder(drive, categoryName, rootFolderId);
+      if (!categoryFolderId) return null;
+
+      const entityFolderId = await this.findOrCreateFolder(drive, entityFolderName, categoryFolderId);
+      if (!entityFolderId) return null;
+
+      return this.findOrCreateFolder(drive, subFolderName, entityFolderId);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unbekannter Fehler';
+      this.logger.error(`Unterordner-Struktur fehlgeschlagen: ${message}`);
       return null;
     }
   }

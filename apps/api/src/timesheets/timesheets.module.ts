@@ -8,6 +8,6 @@ import { TimesheetPdfService } from './pdf.service';
   imports: [DocumentsModule],
   controllers: [TimesheetsController],
   providers: [TimesheetsService, TimesheetPdfService],
-  exports: [TimesheetsService],
+  exports: [TimesheetsService, TimesheetPdfService],
 })
 export class TimesheetsModule {}

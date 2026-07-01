@@ -973,6 +973,8 @@ model Document {
   expiryDate   DateTime? // Ablaufdatum (für Pässe, Zertifikate, etc.)
   tags         String? // Komma-separierte Tags für Suche
   uploadSource String? // "web", "camera", "mobile"
+  driveFileId   String? // Google Drive File-ID
+  driveFolderId String? // Google Drive Ordner-ID
 
   uploadedBy User?          @relation(fields: [uploadedByUserId], references: [id], onDelete: SetNull)
   links      DocumentLink[]

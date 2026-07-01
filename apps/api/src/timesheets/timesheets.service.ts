@@ -2,10 +2,12 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
   BreakScopeType,
+  DocumentType,
   Prisma,
   SignerType,
   TimeEntryType,
@@ -13,6 +15,9 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
+import { DocumentsService } from '../documents/documents.service';
+import { StoragePathService } from '../common/storage-path.service';
+import { TimesheetPdfService } from './pdf.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
 import { UpdateDayDto } from './dto/update-day.dto';
 import { SignTimesheetDto } from './dto/sign-timesheet.dto';
@@ -115,9 +120,14 @@ interface DayAggregate {
 
 @Injectable()
 export class TimesheetsService {
+  private readonly logger = new Logger(TimesheetsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly documentsService: DocumentsService,
+    private readonly storagePathService: StoragePathService,
+    private readonly pdfService: TimesheetPdfService,
   ) {}
 
   // ── Liste / Detail ───────────────────────────────────────────
@@ -397,7 +407,47 @@ export class TimesheetsService {
         approvedByUserId: userId,
       },
     });
+
+    // PDF-Export (async, non-blocking).
+    this.exportTimesheetPdf(id, sheet, userId)
+      .catch((err) => this.logger.warn(`Stundenzettel-PDF-Export fehlgeschlagen: ${(err as Error).message}`));
+
     return this.findOne(id);
+  }
+
+  /**
+   * Generiert PDF, speichert in MinIO und erstellt Document-Eintrag.
+   */
+  private async exportTimesheetPdf(
+    timesheetId: string,
+    sheet: { weekNumber: number; worker: { id: string; firstName: string; lastName: string }; project: { id: string } },
+    userId: string | null,
+  ): Promise<void> {
+    const { buffer } = await this.pdfService.generate(timesheetId);
+    const filename = this.storagePathService.buildTimesheetFilename(
+      sheet.weekNumber,
+      sheet.worker.lastName,
+      sheet.worker.firstName,
+    );
+    const storagePath = await this.storagePathService.generatePath(
+      'PROJECT',
+      sheet.project.id,
+      'PROJECT_DOC',
+      filename,
+    );
+    const readablePath = storagePath.replace(/\/protokolle\//, '/stundenzettel/');
+
+    await this.documentsService.createFromBuffer({
+      buffer,
+      filename,
+      mimeType: 'application/pdf',
+      documentType: DocumentType.PROJECT_DOC,
+      entityType: 'PROJECT',
+      entityId: sheet.project.id,
+      storagePath: readablePath,
+      title: `Stundenzettel KW${sheet.weekNumber} ${sheet.worker.lastName}`,
+      userId,
+    });
   }
 
   async reject(id: string, reason: string, userId: string | null) {
