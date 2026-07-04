@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Power, PowerOff, Trash2 } from 'lucide-react';
+import { ChevronRight, Power, PowerOff, Printer, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -227,10 +227,18 @@ export default function WorkerDetailPage(): React.ReactNode {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="no-print min-h-[44px]"
+            onClick={() => window.print()}
+          >
+            <Printer className="h-4 w-4" />
+            {t.actions.print}
+          </Button>
           {worker.active ? (
             <Button
               variant="outline"
-              className="min-h-[44px] text-amber-600"
+              className="no-print min-h-[44px] text-amber-600"
               onClick={() => setDeactivateOpen(true)}
             >
               <PowerOff className="h-4 w-4" />
@@ -239,7 +247,7 @@ export default function WorkerDetailPage(): React.ReactNode {
           ) : (
             <Button
               variant="outline"
-              className="min-h-[44px] text-emerald-600"
+              className="no-print min-h-[44px] text-emerald-600"
               onClick={handleReactivate}
             >
               <Power className="h-4 w-4" />
@@ -248,7 +256,7 @@ export default function WorkerDetailPage(): React.ReactNode {
           )}
           <Button
             variant="outline"
-            className="min-h-[44px] text-destructive"
+            className="no-print min-h-[44px] text-destructive"
             onClick={() => setDeleteOpen(true)}
           >
             <Trash2 className="h-4 w-4" />

@@ -57,3 +57,36 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  /* Hide navigation chrome */
+  nav,
+  header,
+  [data-sidebar],
+  [role="tablist"],
+  [data-radix-scroll-area-viewport] > aside,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Reset layout so main content fills the page */
+  body,
+  main,
+  .flex.min-h-screen {
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Remove card borders/shadows for cleaner print */
+  [class*="card"] {
+    border: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Force light colors */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

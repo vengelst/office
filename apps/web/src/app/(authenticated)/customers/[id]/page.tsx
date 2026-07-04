@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronRight, Printer, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -131,14 +131,24 @@ export default function CustomerDetailPage(): React.ReactNode {
             {customer.customerNumber}
           </p>
         </div>
-        <Button
-          variant="outline"
-          className="min-h-[44px] text-destructive"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" />
-          {t.actions.delete}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="no-print min-h-[44px]"
+            onClick={() => window.print()}
+          >
+            <Printer className="h-4 w-4" />
+            {t.actions.print}
+          </Button>
+          <Button
+            variant="outline"
+            className="no-print min-h-[44px] text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t.actions.delete}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
