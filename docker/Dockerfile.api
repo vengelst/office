@@ -29,7 +29,9 @@ COPY --from=build /app/apps/api/dist ./apps/api/dist
 COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=build /app/package.json ./package.json
+COPY --from=build /app/pnpm-workspace.yaml ./pnpm-workspace.yaml
 
 EXPOSE 3801
-WORKDIR /app/apps/api
-CMD ["node", "dist/main.js"]
+WORKDIR /app
+CMD ["node", "apps/api/dist/main.js"]

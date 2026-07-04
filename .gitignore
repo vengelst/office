@@ -15,6 +15,7 @@ prisma/generated/
 .env
 .env.local
 .env.*.local
+.env.production
 
 # Logs
 *.log
