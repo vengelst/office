@@ -41,10 +41,10 @@ interface DashboardStats {
 }
 
 const cards = [
-  { key: 'customers', label: texts.dashboard.cards.customers, icon: Users },
-  { key: 'projects', label: texts.dashboard.cards.projects, icon: FolderKanban },
-  { key: 'workers', label: texts.dashboard.cards.workers, icon: HardHat },
-  { key: 'hours', label: texts.dashboard.cards.hours, icon: Clock },
+  { key: 'customers', label: texts.dashboard.cards.customers, icon: Users, href: '/customers' },
+  { key: 'projects', label: texts.dashboard.cards.projects, icon: FolderKanban, href: '/projects' },
+  { key: 'workers', label: texts.dashboard.cards.workers, icon: HardHat, href: '/workers' },
+  { key: 'hours', label: texts.dashboard.cards.hours, icon: Clock, href: '/time-clock' },
 ] as const;
 
 type CardKey = (typeof cards)[number]['key'];
@@ -116,19 +116,21 @@ export default function DashboardPage(): React.ReactNode {
         {cards.map((card) => {
           const Icon = card.icon;
           return (
-            <Card key={card.key}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  {card.label}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {stats ? formatValue(card.key, stats) : '—'}
-                </div>
-              </CardContent>
-            </Card>
+            <Link key={card.key} href={card.href} className="block">
+              <Card className="transition-colors hover:bg-accent/50 cursor-pointer">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {card.label}
+                  </CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {stats ? formatValue(card.key, stats) : '—'}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>
