@@ -120,6 +120,7 @@ export function ContactsTab({
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanPreview, setScanPreview] = useState<string | null>(null);
+  const [scanFile, setScanFile] = useState<File | null>(null);
   const [scanResult, setScanResult] = useState<BusinessCardData | null>(null);
   const [scanForm, setScanForm] = useState<FormState>(EMPTY);
 
@@ -265,6 +266,7 @@ export function ContactsTab({
     setScanDialogOpen(true);
     setScanResult(null);
     setScanPreview(null);
+    setScanFile(null);
     setScanForm(EMPTY);
     setScanning(false);
   };
@@ -276,6 +278,7 @@ export function ContactsTab({
 
     const url = URL.createObjectURL(file);
     setScanPreview(url);
+    setScanFile(file);
     setScanning(true);
     setScanResult(null);
 
@@ -331,7 +334,23 @@ export function ContactsTab({
     setSaving(true);
     customersApi
       .createContact(customerId, payload)
-      .then(() => {
+      .then(async (contact) => {
+        if (scanFile) {
+          try {
+            await uploadDocument({
+              file: scanFile,
+              documentType: 'BUSINESS_CARD',
+              title: `Visitenkarte ${scanForm.firstName} ${scanForm.lastName}`.trim(),
+              entityType: 'CONTACT',
+              entityId: contact.id,
+            });
+          } catch {
+            toast({
+              variant: 'destructive',
+              description: 'Kontakt erstellt, aber Visitenkarte konnte nicht gespeichert werden.',
+            });
+          }
+        }
         toast({ description: t.toast.updated });
         setScanDialogOpen(false);
         onChange();
