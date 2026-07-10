@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Camera,
   CreditCard,
@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   Trash2,
+  X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,14 +37,19 @@ import { EmptyState } from '@/components/customers/empty-state';
 import { useToast } from '@/components/ui/use-toast';
 import {
   customersApi,
+  documentsApi,
   type CustomerBranch,
   type CustomerContact,
+  type DocumentItem,
 } from '@/lib/customers';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { uploadDocument } from '@/lib/upload';
 import { scanBusinessCard, type BusinessCardData } from '@/lib/ocr';
 import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
 const NONE = '__none__';
 const ALL = '__all__';
@@ -123,6 +129,43 @@ export function ContactsTab({
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [scanResult, setScanResult] = useState<BusinessCardData | null>(null);
   const [scanForm, setScanForm] = useState<FormState>(EMPTY);
+
+  const [cardImages, setCardImages] = useState<Record<string, string>>({});
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+
+  const loadBusinessCards = useCallback(() => {
+    const token =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem(TOKEN_STORAGE_KEY)
+        : null;
+    if (!token || contacts.length === 0) return;
+
+    Promise.all(
+      contacts.map((c) =>
+        documentsApi
+          .listByEntity('CONTACT', c.id)
+          .then((docs) => ({ contactId: c.id, docs }))
+          .catch(() => ({ contactId: c.id, docs: [] as DocumentItem[] })),
+      ),
+    ).then((results) => {
+      const map: Record<string, string> = {};
+      for (const { contactId, docs } of results) {
+        const card = docs.find(
+          (d) =>
+            d.documentType === 'BUSINESS_CARD' &&
+            d.mimeType.startsWith('image/'),
+        );
+        if (card) {
+          map[contactId] = `${API_BASE_URL}/documents/${card.id}/download`;
+        }
+      }
+      setCardImages(map);
+    });
+  }, [contacts]);
+
+  useEffect(() => {
+    loadBusinessCards();
+  }, [loadBusinessCards]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]): void =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -252,7 +295,10 @@ export function ContactsTab({
       entityType: 'CONTACT',
       entityId: uploadFor,
     })
-      .then(() => toast({ description: t.toast.uploaded }))
+      .then(() => {
+        toast({ description: t.toast.uploaded });
+        loadBusinessCards();
+      })
       .catch((err) =>
         toast({
           variant: 'destructive',
@@ -354,6 +400,7 @@ export function ContactsTab({
         toast({ description: t.toast.updated });
         setScanDialogOpen(false);
         onChange();
+        setTimeout(loadBusinessCards, 500);
       })
       .catch((err) =>
         toast({
@@ -477,6 +524,15 @@ export function ContactsTab({
                         )}
                         {c.phoneLandline && <PhoneLink phone={c.phoneLandline} />}
                       </div>
+
+                      {cardImages[c.id] && (
+                        <AuthImage
+                          src={cardImages[c.id]}
+                          alt={`Visitenkarte ${c.firstName} ${c.lastName}`}
+                          className="w-full max-h-40 rounded-lg border object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                          onClick={(blobUrl) => setLightboxSrc(blobUrl)}
+                        />
+                      )}
 
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {c.birthday && (
@@ -908,7 +964,79 @@ export function ContactsTab({
           )}
         </DialogContent>
       </Dialog>
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-4 text-white hover:bg-white/20"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+          <img
+            src={lightboxSrc}
+            alt="Visitenkarte"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
+  );
+}
+
+function AuthImage({
+  src,
+  alt,
+  className,
+  onClick,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  onClick?: (blobUrl: string) => void;
+}): ReactNode {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token =
+      typeof window !== 'undefined'
+        ? window.localStorage.getItem(TOKEN_STORAGE_KEY)
+        : null;
+
+    let objectUrl: string | undefined;
+    fetch(src, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('load failed');
+        return res.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => setBlobUrl(null));
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [src]);
+
+  if (!blobUrl) return null;
+
+  return (
+    <img
+      src={blobUrl}
+      alt={alt}
+      className={className}
+      onClick={() => onClick?.(blobUrl)}
+    />
   );
 }
 
