@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
+  Camera,
   CreditCard,
   Gift,
   Linkedin,
+  Loader2,
   Pencil,
   Plus,
   Trash2,
@@ -39,6 +41,7 @@ import {
 } from '@/lib/customers';
 import { ApiError } from '@/lib/api-client';
 import { uploadDocument } from '@/lib/upload';
+import { scanBusinessCard, type BusinessCardData } from '@/lib/ocr';
 import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
 
@@ -112,6 +115,13 @@ export function ContactsTab({
   const [uploadFor, setUploadFor] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>(ALL);
   const fileInput = useRef<HTMLInputElement>(null);
+  const scanInput = useRef<HTMLInputElement>(null);
+
+  const [scanDialogOpen, setScanDialogOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanPreview, setScanPreview] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<BusinessCardData | null>(null);
+  const [scanForm, setScanForm] = useState<FormState>(EMPTY);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]): void =>
     setForm((prev) => ({ ...prev, [k]: v }));
@@ -251,6 +261,90 @@ export function ContactsTab({
       .finally(() => setUploadFor(null));
   };
 
+  const openScanDialog = (): void => {
+    setScanDialogOpen(true);
+    setScanResult(null);
+    setScanPreview(null);
+    setScanForm(EMPTY);
+    setScanning(false);
+  };
+
+  const onScanFileSelected = (e: React.ChangeEvent<HTMLInputElement>): void => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setScanPreview(url);
+    setScanning(true);
+    setScanResult(null);
+
+    scanBusinessCard(file)
+      .then((data) => {
+        setScanResult(data);
+        setScanForm({
+          title: data.title.value ?? '',
+          firstName: data.firstName.value ?? '',
+          lastName: data.lastName.value ?? '',
+          role: data.role.value ?? '',
+          department: data.department.value ?? '',
+          branchId: NONE,
+          email: data.email.value ?? '',
+          phoneMobile: data.phoneMobile.value ?? '',
+          phoneLandline: data.phoneLandline.value ?? '',
+          birthday: '',
+          linkedInUrl: data.linkedInUrl.value ?? '',
+          preferredContactMethod: '',
+          isAccountingContact: false,
+          isProjectContact: false,
+          isSignatory: false,
+        });
+        toast({ description: t.toast.scanSuccess });
+      })
+      .catch((err) =>
+        toast({
+          variant: 'destructive',
+          description: err instanceof ApiError ? err.message : t.toast.scanError,
+        }),
+      )
+      .finally(() => setScanning(false));
+  };
+
+  const saveScanResult = (): void => {
+    const payload = {
+      title: scanForm.title || undefined,
+      firstName: scanForm.firstName,
+      lastName: scanForm.lastName,
+      role: scanForm.role || undefined,
+      department: scanForm.department || undefined,
+      branchId: scanForm.branchId === NONE ? undefined : scanForm.branchId,
+      email: scanForm.email || undefined,
+      phoneMobile: scanForm.phoneMobile || undefined,
+      phoneLandline: scanForm.phoneLandline || undefined,
+      birthday: scanForm.birthday || undefined,
+      linkedInUrl: scanForm.linkedInUrl || undefined,
+      preferredContactMethod: scanForm.preferredContactMethod || undefined,
+      isAccountingContact: scanForm.isAccountingContact,
+      isProjectContact: scanForm.isProjectContact,
+      isSignatory: scanForm.isSignatory,
+    };
+    setSaving(true);
+    customersApi
+      .createContact(customerId, payload)
+      .then(() => {
+        toast({ description: t.toast.updated });
+        setScanDialogOpen(false);
+        onChange();
+      })
+      .catch((err) =>
+        toast({
+          variant: 'destructive',
+          description: err instanceof ApiError ? err.message : t.toast.error,
+        }),
+      )
+      .finally(() => setSaving(false));
+  };
+
   return (
     <div className="space-y-4">
       <input
@@ -259,6 +353,14 @@ export function ContactsTab({
         accept="image/*,application/pdf"
         className="hidden"
         onChange={onFileSelected}
+      />
+      <input
+        ref={scanInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={onScanFileSelected}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Select value={filter} onValueChange={setFilter}>
@@ -275,10 +377,20 @@ export function ContactsTab({
             ))}
           </SelectContent>
         </Select>
-        <Button onClick={() => openCreate()} className="min-h-[44px]">
-          <Plus className="h-4 w-4" />
-          {t.actions.addContact}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={openScanDialog}
+            className="min-h-[44px]"
+          >
+            <Camera className="h-4 w-4" />
+            {t.actions.scanBusinessCard}
+          </Button>
+          <Button onClick={() => openCreate()} className="min-h-[44px]">
+            <Plus className="h-4 w-4" />
+            {t.actions.addContact}
+          </Button>
+        </div>
       </div>
 
       {contacts.length === 0 ? (
@@ -574,6 +686,209 @@ export function ContactsTab({
         description={t.deleteConfirm}
         onConfirm={confirmDelete}
       />
+
+      <Dialog open={scanDialogOpen} onOpenChange={setScanDialogOpen}>
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t.actions.scanBusinessCard}</DialogTitle>
+          </DialogHeader>
+
+          {!scanResult && !scanning && (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <Camera className="h-12 w-12 text-muted-foreground" />
+              <p className="text-center text-sm text-muted-foreground">
+                Fotografieren oder Bild einer Visitenkarte hochladen
+              </p>
+              <Button
+                onClick={() => scanInput.current?.click()}
+                className="min-h-[44px]"
+              >
+                <Camera className="h-4 w-4" />
+                Bild auswählen
+              </Button>
+            </div>
+          )}
+
+          {scanning && (
+            <div className="flex flex-col items-center gap-4 py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">
+                Visitenkarte wird analysiert …
+              </p>
+              {scanPreview && (
+                <img
+                  src={scanPreview}
+                  alt="Visitenkarte"
+                  className="mt-4 max-h-48 rounded-lg border object-contain"
+                />
+              )}
+            </div>
+          )}
+
+          {scanResult && !scanning && (
+            <>
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                <div className="flex flex-col gap-2">
+                  {scanPreview && (
+                    <img
+                      src={scanPreview}
+                      alt="Visitenkarte"
+                      className="w-full rounded-lg border object-contain"
+                    />
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="min-h-[44px]"
+                    onClick={() => scanInput.current?.click()}
+                  >
+                    Anderes Bild wählen
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Field label={t.fields.title}>
+                      <Input
+                        value={scanForm.title}
+                        onChange={(e) =>
+                          setScanForm((p) => ({ ...p, title: e.target.value }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                    <Field label={t.fields.firstName} required>
+                      <Input
+                        value={scanForm.firstName}
+                        onChange={(e) =>
+                          setScanForm((p) => ({ ...p, firstName: e.target.value }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                    <Field label={t.fields.lastName} required>
+                      <Input
+                        value={scanForm.lastName}
+                        onChange={(e) =>
+                          setScanForm((p) => ({ ...p, lastName: e.target.value }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label={t.fields.role}>
+                      <Input
+                        value={scanForm.role}
+                        onChange={(e) =>
+                          setScanForm((p) => ({ ...p, role: e.target.value }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                    <Field label={t.fields.department}>
+                      <Input
+                        value={scanForm.department}
+                        onChange={(e) =>
+                          setScanForm((p) => ({
+                            ...p,
+                            department: e.target.value,
+                          }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                  </div>
+                  <Field label={t.fields.email}>
+                    <Input
+                      type="email"
+                      value={scanForm.email}
+                      onChange={(e) =>
+                        setScanForm((p) => ({ ...p, email: e.target.value }))
+                      }
+                      className="min-h-[44px]"
+                    />
+                  </Field>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Field label={t.fields.phoneMobile}>
+                      <Input
+                        value={scanForm.phoneMobile}
+                        onChange={(e) =>
+                          setScanForm((p) => ({
+                            ...p,
+                            phoneMobile: e.target.value,
+                          }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                    <Field label={t.fields.phoneLandline}>
+                      <Input
+                        value={scanForm.phoneLandline}
+                        onChange={(e) =>
+                          setScanForm((p) => ({
+                            ...p,
+                            phoneLandline: e.target.value,
+                          }))
+                        }
+                        className="min-h-[44px]"
+                      />
+                    </Field>
+                  </div>
+                  <Field label={t.fields.linkedInUrl}>
+                    <Input
+                      value={scanForm.linkedInUrl}
+                      onChange={(e) =>
+                        setScanForm((p) => ({
+                          ...p,
+                          linkedInUrl: e.target.value,
+                        }))
+                      }
+                      className="min-h-[44px]"
+                    />
+                  </Field>
+                  <Field label={t.fields.branch}>
+                    <Select
+                      value={scanForm.branchId}
+                      onValueChange={(v) =>
+                        setScanForm((p) => ({ ...p, branchId: v }))
+                      }
+                    >
+                      <SelectTrigger className="min-h-[44px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={NONE}>{t.headquarters}</SelectItem>
+                        {branches.map((b) => (
+                          <SelectItem key={b.id} value={b.id}>
+                            {b.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setScanDialogOpen(false)}
+                  className="min-h-[44px]"
+                >
+                  {t.actions.cancel}
+                </Button>
+                <Button
+                  onClick={saveScanResult}
+                  disabled={saving || !scanForm.firstName || !scanForm.lastName}
+                  className="min-h-[44px]"
+                >
+                  {saving ? t.actions.saving : t.actions.addContact}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

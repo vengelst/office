@@ -23,6 +23,7 @@ import { VehiclesModule } from './vehicles/vehicles.module';
 import { AppSettingsModule } from './app-settings/app-settings.module';
 import { EmailModule } from './email/email.module';
 import { GoogleDriveModule } from './google-drive/google-drive.module';
+import { OcrModule } from './ocr/ocr.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -50,6 +51,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     AppSettingsModule,
     EmailModule,
     GoogleDriveModule,
+    OcrModule,
   ],
   controllers: [AppController],
   providers: [
