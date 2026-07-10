@@ -65,6 +65,7 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3900}
       API_PORT: 3801
       NODE_ENV: development
+      OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://ocr-service:8000}
     ports:
       - "3901:3801"
     volumes:

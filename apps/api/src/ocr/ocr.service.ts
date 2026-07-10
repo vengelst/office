@@ -1,11 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ImageAnnotatorClient } from '@google-cloud/vision';
-import sharp from 'sharp';
-import { AppSettingsService } from '../app-settings/app-settings.service';
 import { StorageService } from '../documents/storage.service';
 
 export interface TextBlock {
   text: string;
+  confidence: number;
   boundingBox?: { x: number; y: number; width: number; height: number };
 }
 
@@ -15,70 +13,68 @@ export interface OcrResult {
   confidence: number;
 }
 
+interface PaddleOcrBlock {
+  text: string;
+  confidence: number;
+  box: number[][];
+}
+
+interface PaddleOcrResponse {
+  raw_text: string;
+  blocks: PaddleOcrBlock[];
+}
+
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
+  private readonly ocrUrl: string;
 
-  constructor(
-    private readonly settings: AppSettingsService,
-    private readonly storage: StorageService,
-  ) {}
-
-  private async getClient(): Promise<ImageAnnotatorClient> {
-    const json = await this.settings.get('google_drive_service_account_json');
-    if (!json) {
-      throw new Error('Service Account JSON nicht konfiguriert (AppSettings)');
-    }
-    const credentials = JSON.parse(json);
-    return new ImageAnnotatorClient({
-      credentials: {
-        client_email: credentials.client_email,
-        private_key: credentials.private_key,
-      },
-      projectId: credentials.project_id,
-    });
+  constructor(private readonly storage: StorageService) {
+    this.ocrUrl =
+      process.env.OCR_SERVICE_URL ?? 'http://ocr-service:8000';
   }
 
   async extractText(imageBuffer: Buffer, mimeType: string): Promise<OcrResult> {
-    const optimized = await this.preprocess(imageBuffer, mimeType);
-    const client = await this.getClient();
+    const ext = mimeType.split('/')[1] ?? 'png';
+    const filename = `upload.${ext === 'jpeg' ? 'jpg' : ext}`;
 
-    const [result] = await client.textDetection({
-      image: { content: optimized.toString('base64') },
+    const formData = new FormData();
+    formData.append('file', new Blob([imageBuffer], { type: mimeType }), filename);
+
+    const res = await fetch(`${this.ocrUrl}/ocr/text`, {
+      method: 'POST',
+      body: formData,
     });
 
-    const annotations = result.textAnnotations ?? [];
-    if (annotations.length === 0) {
-      return { text: '', blocks: [], confidence: 0 };
+    if (!res.ok) {
+      const body = await res.text();
+      this.logger.error(`OCR-Service Fehler: ${res.status} – ${body}`);
+      throw new Error(`OCR-Service antwortet mit ${res.status}`);
     }
 
-    const fullText = annotations[0].description ?? '';
-    const blocks: TextBlock[] = annotations.slice(1).map((a) => {
-      const vertices = a.boundingPoly?.vertices ?? [];
-      const xs = vertices.map((v) => v.x ?? 0);
-      const ys = vertices.map((v) => v.y ?? 0);
+    const data: PaddleOcrResponse = await res.json();
+
+    const blocks: TextBlock[] = data.blocks.map((b) => {
+      const xs = b.box.map((p) => p[0]);
+      const ys = b.box.map((p) => p[1]);
       return {
-        text: a.description ?? '',
-        boundingBox: vertices.length >= 4
-          ? {
-              x: Math.min(...xs),
-              y: Math.min(...ys),
-              width: Math.max(...xs) - Math.min(...xs),
-              height: Math.max(...ys) - Math.min(...ys),
-            }
-          : undefined,
+        text: b.text,
+        confidence: b.confidence,
+        boundingBox: {
+          x: Math.min(...xs),
+          y: Math.min(...ys),
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys),
+        },
       };
     });
 
-    const pages = result.fullTextAnnotation?.pages ?? [];
-    const confidence =
-      pages.length > 0
-        ? pages.reduce((sum, p) => sum + (p.confidence ?? 0), 0) / pages.length
-        : fullText.length > 0
-          ? 0.8
-          : 0;
+    const avgConfidence =
+      blocks.length > 0
+        ? blocks.reduce((sum, b) => sum + b.confidence, 0) / blocks.length
+        : 0;
 
-    return { text: fullText, blocks, confidence };
+    return { text: data.raw_text, blocks, confidence: avgConfidence };
   }
 
   async extractTextFromStorageKey(storageKey: string): Promise<OcrResult> {
@@ -90,22 +86,6 @@ export class OcrService {
     const buffer = Buffer.concat(chunks);
     const mimeType = this.guessMimeType(storageKey);
     return this.extractText(buffer, mimeType);
-  }
-
-  private async preprocess(buffer: Buffer, mimeType: string): Promise<Buffer> {
-    if (!mimeType.startsWith('image/')) {
-      return buffer;
-    }
-    try {
-      return await sharp(buffer)
-        .rotate()
-        .normalize()
-        .sharpen()
-        .toBuffer();
-    } catch {
-      this.logger.warn('Bildvorverarbeitung fehlgeschlagen, verwende Originalbild');
-      return buffer;
-    }
   }
 
   private guessMimeType(key: string): string {
