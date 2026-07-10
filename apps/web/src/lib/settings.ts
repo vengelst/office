@@ -15,6 +15,7 @@ export interface StorageConfig {
   enabled: boolean;
   folderId: string;
   serviceAccountJson: string;
+  impersonateEmail: string;
 }
 
 export const settingsApi = {

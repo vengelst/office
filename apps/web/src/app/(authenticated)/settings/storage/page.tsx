@@ -23,6 +23,7 @@ export default function StorageSettingsPage(): React.ReactNode {
   const [enabled, setEnabled] = useState(false);
   const [folderId, setFolderId] = useState('');
   const [serviceAccountJson, setServiceAccountJson] = useState('');
+  const [impersonateEmail, setImpersonateEmail] = useState('');
 
   useEffect(() => {
     settingsApi
@@ -31,6 +32,7 @@ export default function StorageSettingsPage(): React.ReactNode {
         setEnabled(cfg.enabled);
         setFolderId(cfg.folderId);
         setServiceAccountJson(cfg.serviceAccountJson);
+        setImpersonateEmail(cfg.impersonateEmail);
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -43,6 +45,7 @@ export default function StorageSettingsPage(): React.ReactNode {
         enabled,
         folderId,
         serviceAccountJson,
+        impersonateEmail,
       });
       toast({ description: t.toast.saved });
     } catch (err) {
@@ -123,6 +126,20 @@ export default function StorageSettingsPage(): React.ReactNode {
                   rows={8}
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring font-mono"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Delegation (E-Mail des Drive-Besitzers)</Label>
+                <Input
+                  value={impersonateEmail}
+                  onChange={(e) => setImpersonateEmail(e.target.value)}
+                  placeholder="z.B. vivahome@vivahome.de"
+                  className="min-h-[44px]"
+                  type="email"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Der Service Account handelt im Auftrag dieses Benutzers. Erforderlich, damit Dateien hochgeladen werden können (Service Accounts haben kein eigenes Speicherkontingent).
+                </p>
               </div>
 
               <p className="text-sm text-muted-foreground">{t.info}</p>

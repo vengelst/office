@@ -15,6 +15,9 @@ class StorageConfigDto {
 
   @IsString()
   serviceAccountJson!: string;
+
+  @IsString()
+  impersonateEmail!: string;
 }
 
 @ApiTags('settings')

@@ -7,12 +7,14 @@ const DRIVE_KEYS = [
   'google_drive_enabled',
   'google_drive_folder_id',
   'google_drive_service_account_json',
+  'google_drive_impersonate_email',
 ] as const;
 
 export interface DriveConfig {
   enabled: boolean;
   folderId: string;
   serviceAccountJson: string;
+  impersonateEmail: string;
 }
 
 export interface DriveUploadResult {
@@ -33,6 +35,7 @@ export class GoogleDriveService {
       enabled: vals.google_drive_enabled === 'true',
       folderId: vals.google_drive_folder_id ?? '',
       serviceAccountJson: vals.google_drive_service_account_json ?? '',
+      impersonateEmail: vals.google_drive_impersonate_email ?? '',
     };
   }
 
@@ -41,6 +44,7 @@ export class GoogleDriveService {
       google_drive_enabled: String(config.enabled),
       google_drive_folder_id: config.folderId,
       google_drive_service_account_json: config.serviceAccountJson,
+      google_drive_impersonate_email: config.impersonateEmail,
     });
   }
 
@@ -55,6 +59,17 @@ export class GoogleDriveService {
       throw new Error('Google Drive Service Account nicht konfiguriert');
     }
     const credentials = JSON.parse(config.serviceAccountJson);
+
+    if (config.impersonateEmail) {
+      const jwtClient = new google.auth.JWT({
+        email: credentials.client_email,
+        key: credentials.private_key,
+        scopes: ['https://www.googleapis.com/auth/drive'],
+        subject: config.impersonateEmail,
+      });
+      return google.drive({ version: 'v3', auth: jwtClient });
+    }
+
     const auth = new google.auth.GoogleAuth({
       credentials,
       scopes: ['https://www.googleapis.com/auth/drive'],
