@@ -20,7 +20,7 @@ interface PaddleOcrBlock {
 }
 
 interface PaddleOcrResponse {
-  raw_text: string;
+  text: string;
   blocks: PaddleOcrBlock[];
 }
 
@@ -78,7 +78,7 @@ export class OcrService {
         ? blocks.reduce((sum, b) => sum + b.confidence, 0) / blocks.length
         : 0;
 
-    return { text: data.raw_text, blocks, confidence: avgConfidence };
+    return { text: data.text, blocks, confidence: avgConfidence };
   }
 
   async extractTextFromStorageKey(storageKey: string): Promise<OcrResult> {
