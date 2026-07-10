@@ -134,6 +134,7 @@ export const texts = {
       bankAccounts: 'Bankverbindungen',
       branches: 'Niederlassungen',
       contacts: 'Ansprechpartner',
+      businessCards: 'Visitenkarten',
       documents: 'Dokumente',
     },
     fields: {

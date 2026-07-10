@@ -74,9 +74,11 @@ const ALL = '__all__';
 export function DocumentsTabV2({
   entityType,
   entityId,
+  excludeTypes,
 }: {
   entityType: string;
   entityId: string;
+  excludeTypes?: string[];
 }): ReactNode {
   const { toast } = useToast();
   const t = texts.documents;
@@ -118,10 +120,16 @@ export function DocumentsTabV2({
         folderId: folder !== ALL ? folder : undefined,
         search: debounced || undefined,
       })
-      .then(setDocs)
+      .then((result) => {
+        if (excludeTypes?.length) {
+          setDocs(result.filter((d) => !excludeTypes.includes(d.documentType)));
+        } else {
+          setDocs(result);
+        }
+      })
       .catch(() => setDocs([]))
       .finally(() => setLoading(false));
-  }, [entityType, entityId, folder, debounced]);
+  }, [entityType, entityId, folder, debounced, excludeTypes]);
 
   useEffect(() => {
     load();

@@ -18,6 +18,7 @@ import {
   ContactsTab,
   type ContactsExternalAction,
 } from '@/components/customers/tabs/contacts-tab';
+import { BusinessCardsTab } from '@/components/customers/tabs/business-cards-tab';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi, type CustomerDetail } from '@/lib/customers';
@@ -168,6 +169,9 @@ export default function CustomerDetailPage(): React.ReactNode {
           <TabsTrigger value="contacts" className="min-h-[44px]">
             {t.tabs.contacts}
           </TabsTrigger>
+          <TabsTrigger value="businessCards" className="min-h-[44px]">
+            {t.tabs.businessCards}
+          </TabsTrigger>
           <TabsTrigger value="documents" className="min-h-[44px]">
             {t.tabs.documents}
           </TabsTrigger>
@@ -229,8 +233,16 @@ export default function CustomerDetailPage(): React.ReactNode {
           />
         </TabsContent>
 
+        <TabsContent value="businessCards">
+          <BusinessCardsTab
+            entityId={id}
+            entityType="CUSTOMER"
+            contacts={customer.contacts}
+          />
+        </TabsContent>
+
         <TabsContent value="documents">
-          <DocumentsTabV2 entityType="CUSTOMER" entityId={id} />
+          <DocumentsTabV2 entityType="CUSTOMER" entityId={id} excludeTypes={['BUSINESS_CARD']} />
         </TabsContent>
       </Tabs>
 
