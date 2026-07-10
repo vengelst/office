@@ -39,7 +39,8 @@ export class OcrService {
     const filename = `upload.${ext === 'jpeg' ? 'jpg' : ext}`;
 
     const formData = new FormData();
-    formData.append('file', new Blob([imageBuffer], { type: mimeType }), filename);
+    const uint8 = new Uint8Array(imageBuffer.buffer, imageBuffer.byteOffset, imageBuffer.byteLength);
+    formData.append('file', new Blob([uint8], { type: mimeType }), filename);
 
     const res = await fetch(`${this.ocrUrl}/ocr/text`, {
       method: 'POST',
