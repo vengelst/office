@@ -1,13 +1,19 @@
 import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { IsBoolean, IsString } from 'class-validator';
 import { RoleCode } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { GoogleDriveService, DriveConfig } from './google-drive.service';
 
 class StorageConfigDto {
+  @IsBoolean()
   enabled!: boolean;
+
+  @IsString()
   folderId!: string;
+
+  @IsString()
   serviceAccountJson!: string;
 }
 
