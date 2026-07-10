@@ -43,4 +43,10 @@ export class StorageSettingsController {
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     return this.drive.testConnection();
   }
+
+  @Post('init-folders')
+  @ApiOperation({ summary: 'Hauptordner-Struktur in Google Drive anlegen' })
+  async initFolders(): Promise<{ created: string[]; existing: string[] }> {
+    return this.drive.initMainFolders();
+  }
 }

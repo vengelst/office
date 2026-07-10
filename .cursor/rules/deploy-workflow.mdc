@@ -1,0 +1,14 @@
+---
+description: Deployment-Workflow für alle Apps
+alwaysApply: true
+---
+
+# Deployment-Workflow
+
+Änderungen werden **immer sofort** auf den Server deployt – ohne Rückfrage.
+
+1. `git add`, `git commit`, `git push` auf den entsprechenden Branch
+2. SSH auf den Produktionsserver, `git pull`, Docker rebuild und restart
+3. Lokales Testen ist nicht relevant – der Benutzer testet ausschließlich auf dem Server
+
+Das gilt für **alle Apps** (MailPilot, Office, etc.) als grundsätzliches Vorgehen.

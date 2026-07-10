@@ -313,6 +313,33 @@ export class GoogleDriveService {
     }
   }
 
+  async initMainFolders(): Promise<{ created: string[]; existing: string[] }> {
+    const config = await this.getConfig();
+    if (!config.enabled) throw new Error('Google Drive ist nicht aktiviert');
+
+    const drive = await this.authenticate();
+    const rootId = config.folderId;
+    const folders = ['Kunden', 'Projekte', 'Monteure', 'Fahrzeuge', 'Subunternehmen'];
+    const created: string[] = [];
+    const existing: string[] = [];
+
+    for (const name of folders) {
+      const query = `name='${name}' and '${rootId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+      const result = await drive.files.list({ q: query, fields: 'files(id)', pageSize: 1 });
+      if (result.data.files && result.data.files.length > 0) {
+        existing.push(name);
+      } else {
+        await drive.files.create({
+          requestBody: { name, mimeType: 'application/vnd.google-apps.folder', parents: [rootId] },
+          fields: 'id',
+        });
+        created.push(name);
+      }
+    }
+
+    return { created, existing };
+  }
+
   private async findOrCreateFolder(
     drive: drive_v3.Drive,
     name: string,
