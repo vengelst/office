@@ -12,6 +12,7 @@ import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
+import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import {
   subcontractorsApi,
@@ -119,6 +120,17 @@ export default function SubcontractorDetailPage(): React.ReactNode {
           {t.actions.delete}
         </Button>
       </div>
+
+      {sub.latitude != null && sub.longitude != null && (
+        <LocationMap
+          lat={sub.latitude}
+          lng={sub.longitude}
+          label={[sub.addressLine1, sub.postalCode, sub.city]
+            .filter(Boolean)
+            .join(', ')}
+          entityType="subcontractor"
+        />
+      )}
 
       <Card>
         <CardContent className="pt-6">

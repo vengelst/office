@@ -1802,6 +1802,13 @@ export const texts = {
     },
     nav: 'Kiosk-Modus',
   },
+  map: {
+    route: 'Route planen',
+    sizeSmall: 'Klein',
+    sizeMedium: 'Mittel',
+    sizeLarge: 'Groß',
+    noCoordinates: 'Keine Koordinaten vorhanden',
+  },
   common: {
     loading: 'Wird geladen …',
     empty: 'Keine Daten vorhanden.',

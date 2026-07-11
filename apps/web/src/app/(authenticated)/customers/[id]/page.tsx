@@ -28,6 +28,7 @@ import { BusinessCardsTab } from '@/components/customers/tabs/business-cards-tab
 import { CustomerPrintAll } from '@/components/customers/customer-print-all';
 import { SubmissionsTab } from '@/components/customers/tabs/submissions-tab';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
+import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi, type CustomerDetail } from '@/lib/customers';
 import { ApiError } from '@/lib/api-client';
@@ -187,6 +188,17 @@ export default function CustomerDetailPage(): React.ReactNode {
           </Button>
         </div>
       </div>
+
+      {customer.latitude != null && customer.longitude != null && (
+        <LocationMap
+          lat={customer.latitude}
+          lng={customer.longitude}
+          label={[customer.addressLine1, customer.postalCode, customer.city]
+            .filter(Boolean)
+            .join(', ')}
+          entityType="customer"
+        />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} data-tabs-root>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">

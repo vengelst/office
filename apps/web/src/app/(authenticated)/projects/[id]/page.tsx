@@ -34,6 +34,7 @@ import { AssignmentsTab } from '@/components/projects/tabs/assignments-tab';
 import { EquipmentTab } from '@/components/projects/tabs/equipment-tab';
 import { EmailRecipientsTab } from '@/components/projects/tabs/email-recipients-tab';
 import { NotesHistoryTab } from '@/components/projects/tabs/notes-history-tab';
+import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import {
   projectsApi,
@@ -222,6 +223,17 @@ export default function ProjectDetailPage(): React.ReactNode {
           </Button>
         </div>
       </div>
+
+      {project.latitude != null && project.longitude != null && (
+        <LocationMap
+          lat={project.latitude}
+          lng={project.longitude}
+          label={[project.siteAddressLine1, project.sitePostalCode, project.siteCity]
+            .filter(Boolean)
+            .join(', ')}
+          entityType="project"
+        />
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
