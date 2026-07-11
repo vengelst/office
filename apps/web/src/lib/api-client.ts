@@ -1,8 +1,15 @@
+/**
+ * Zentraler API-Client für die Office-App.
+ * Stellt typisierte HTTP-Methoden (GET, POST, PATCH, DELETE) bereit,
+ * setzt automatisch JWT-Token und JSON-Header und leitet bei 401 zum Login weiter.
+ */
 import type { ApiErrorResponse } from '@office/types';
 
+/** Basis-URL der Backend-API (aus Umgebungsvariable oder Fallback auf localhost). */
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
+/** LocalStorage-Schlüssel für das Office-JWT. */
 export const TOKEN_STORAGE_KEY = 'office_token';
 const USER_STORAGE_KEY = 'office_user';
 
@@ -19,6 +26,7 @@ export class ApiError extends Error {
   }
 }
 
+/** Liest das Office-JWT aus dem LocalStorage (null bei SSR oder fehlendem Token). */
 function getToken(): string | null {
   if (typeof window === 'undefined') {
     return null;
@@ -37,13 +45,22 @@ function handleUnauthorized(): void {
   window.location.href = '/login';
 }
 
+/** Optionen für API-Anfragen (erweitert RequestInit um skipAuth-Flag). */
 interface RequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
-  /** Wenn true, wird kein Authorization-Header gesetzt. */
+  /** Wenn true, wird kein Authorization-Header gesetzt (z. B. für Login-Requests). */
   skipAuth?: boolean;
 }
 
-/** Zentraler Fetch-Wrapper: setzt JSON-Header, JWT und parst Antworten/Fehler. */
+/**
+ * Zentraler Fetch-Wrapper: setzt JSON-Header, JWT und parst Antworten/Fehler.
+ * Bei 401 (und skipAuth=false) wird automatisch zum Login weitergeleitet.
+ *
+ * @param path - API-Pfad (ohne Basis-URL, z. B. "/customers")
+ * @param options - HTTP-Methode, Body und weitere Optionen
+ * @returns Deserialisierte JSON-Antwort
+ * @throws ApiError bei nicht-erfolgreichen HTTP-Statuscodes
+ */
 export async function apiFetch<T>(
   path: string,
   options: RequestOptions = {},
@@ -90,13 +107,18 @@ export async function apiFetch<T>(
   return data as T;
 }
 
+/** Typisierter API-Client mit Convenience-Methoden für alle HTTP-Verben. */
 export const apiClient = {
+  /** GET-Anfrage an den angegebenen API-Pfad. */
   get: <T>(path: string, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'GET' }),
+  /** POST-Anfrage mit optionalem JSON-Body. */
   post: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'POST', body }),
+  /** PATCH-Anfrage für partielle Updates. */
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'PATCH', body }),
+  /** DELETE-Anfrage zum Entfernen einer Ressource. */
   delete: <T>(path: string, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'DELETE' }),
 };

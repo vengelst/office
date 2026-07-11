@@ -42,10 +42,22 @@ export interface ListVehiclesParams {
   sortDir?: 'asc' | 'desc';
 }
 
+/**
+ * Service für die Fahrzeugverwaltung.
+ * Behandelt CRUD, Zuweisungen an Monteure, Ablaufwarnungen
+ * (TÜV/Versicherung) und die Zuweisungshistorie.
+ */
 @Injectable()
 export class VehiclesService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liefert eine paginierte, filterbare und sortierbare Fahrzeugliste.
+   * Inkludiert die aktuelle Monteur-Zuweisung.
+   *
+   * @param params - Filter (Eigentümer, Kategorie, Status), Suche und Paginierung
+   * @returns Paginierte Liste mit Fahrzeug-Daten und aktueller Zuweisung
+   */
   async findAll(params: ListVehiclesParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -149,6 +161,13 @@ export class VehiclesService {
     });
   }
 
+  /**
+   * Liefert ein einzelnes Fahrzeug mit aktueller Zuweisung und Historie.
+   *
+   * @param id - UUID des Fahrzeugs
+   * @returns Fahrzeug-Details mit Zuweisungshistorie
+   * @throws NotFoundException wenn das Fahrzeug nicht existiert
+   */
   async findOne(id: string) {
     const vehicle = await this.prisma.vehicle.findUnique({
       where: { id },
@@ -170,12 +189,14 @@ export class VehiclesService {
     return { ...rest, assignments, currentAssignment, history };
   }
 
+  /** Erstellt ein neues Fahrzeug in der Datenbank. */
   async create(dto: CreateVehicleDto) {
     const data = this.toData(dto) as Prisma.VehicleUncheckedCreateInput;
     data.licensePlate = dto.licensePlate;
     return this.prisma.vehicle.create({ data });
   }
 
+  /** Aktualisiert ein bestehendes Fahrzeug. */
   async update(id: string, dto: UpdateVehicleDto) {
     await this.ensureExists(id);
     const data = this.toData(dto);

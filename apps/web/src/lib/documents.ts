@@ -93,6 +93,7 @@ export function isPdf(mimeType: string): boolean {
   return mimeType === 'application/pdf';
 }
 
+/** Liest das Office-JWT aus dem LocalStorage (null bei SSR). */
 function getToken(): string | null {
   return typeof window !== 'undefined'
     ? window.localStorage.getItem(TOKEN_STORAGE_KEY)
@@ -130,6 +131,7 @@ async function fetchObjectUrl(path: string): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
+/** Baut ein FormData-Objekt aus Datei und Metadaten für den Upload. */
 function buildForm(file: File, meta: UploadMeta): FormData {
   const form = new FormData();
   form.append('file', file);
@@ -190,8 +192,9 @@ function sendForm<T>(
 
 // ── API ────────────────────────────────────────────────────────
 
+/** API-Client für das Dokumenten-System (Upload, Suche, Versionen, Vorschau, Download). */
 export const documentsApi = {
-  /** Dokumente auflisten/suchen (globale Suche oder gefiltert). */
+  /** GET /documents – Dokumente auflisten/suchen (globale Suche oder gefiltert). */
   list(params: DocumentListParams = {}): Promise<Document[]> {
     const q = new URLSearchParams();
     if (params.entityType) q.set('entityType', params.entityType);
@@ -289,8 +292,9 @@ export const documentsApi = {
     fetchObjectUrl(`/documents/${id}/download`),
 };
 
+/** API-Client für die Ordnerverwaltung innerhalb des Dokumenten-Systems. */
 export const documentFoldersApi = {
-  /** Ordner einer Entität. */
+  /** GET /document-folders – Listet alle Ordner einer Entität. */
   list: (entityType: string, entityId: string): Promise<DocumentFolder[]> =>
     apiClient.get<DocumentFolder[]>(
       `/document-folders?entityType=${encodeURIComponent(

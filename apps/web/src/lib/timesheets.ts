@@ -14,6 +14,7 @@ const API_BASE_URL =
 
 // ── Enums (spiegeln Prisma) ────────────────────────────────────
 
+/** Lebenszyklus-Status eines Wochenstundenzettels (Entwurf → Eingereicht → Genehmigt → Archiviert). */
 export type WeeklyTimesheetStatus =
   | 'DRAFT'
   | 'WORKER_SIGNED'
@@ -26,11 +27,15 @@ export type WeeklyTimesheetStatus =
   | 'REJECTED'
   | 'ARCHIVED';
 
+/** Rolle des Unterzeichners bei einer Stundenzettel-Signatur. */
 export type SignerType = 'WORKER' | 'CUSTOMER' | 'SUPERVISOR' | 'MANAGER';
+
+/** Geltungsbereich einer Pausenregel: global oder projektspezifisch. */
 export type BreakScopeType = 'GLOBAL' | 'PROJECT';
 
 // ── Monteur-Profil (Worker-Token) ──────────────────────────────
 
+/** Projektzuordnung im Monteur-Profil (für die Monteur-App). */
 export interface WorkerMeAssignment {
   id: string;
   startDate: string;
@@ -45,6 +50,7 @@ export interface WorkerMeAssignment {
   };
 }
 
+/** Eigenes Profil des eingeloggten Monteurs (über Worker-Token). */
 export interface WorkerMe {
   id: string;
   workerNumber: string;
@@ -59,12 +65,14 @@ export interface WorkerMe {
 
 // ── Stempel-Status / Einträge ──────────────────────────────────
 
+/** Kompakte Projektdaten im Stempel-Kontext. */
 export interface ClockProject {
   id: string;
   projectNumber: string;
   title: string;
 }
 
+/** Aktueller Stempel-Status eines Monteurs (eingestempelt, Projekt, Dauer). */
 export interface ClockStatus {
   clockedIn: boolean;
   since: string | null;
@@ -75,6 +83,7 @@ export interface ClockStatus {
   lastGrossMinutes?: number;
 }
 
+/** Einzelner Stempel-Eintrag des heutigen Tages. */
 export interface TodayEntry {
   id: string;
   entryType: string;
@@ -86,6 +95,7 @@ export interface TodayEntry {
   project: ClockProject;
 }
 
+/** Live-Eintrag eines gerade eingestempelten Monteurs (für die Büro-Übersicht). */
 export interface LiveEntry {
   worker: {
     id: string;
@@ -102,6 +112,7 @@ export interface LiveEntry {
   timeEntryId: string;
 }
 
+/** Request-Body zum Einstempeln eines Monteurs. */
 export interface ClockInBody {
   workerId: string;
   projectId: string;
@@ -113,6 +124,7 @@ export interface ClockInBody {
   sourceDevice?: string;
 }
 
+/** Request-Body zum Ausstempeln eines Monteurs. */
 export interface ClockOutBody {
   workerId: string;
   latitude?: number;
@@ -125,6 +137,7 @@ export interface ClockOutBody {
 
 // ── Wochenstundenzettel ────────────────────────────────────────
 
+/** Kompakte Darstellung eines Wochenstundenzettels für Listenansichten. */
 export interface TimesheetListItem {
   id: string;
   weekYear: number;
@@ -146,6 +159,7 @@ export interface TimesheetListItem {
   project: ClockProject;
 }
 
+/** Paginierte Antwort der Stundenzettel-Liste. */
 export interface TimesheetListResponse {
   data: TimesheetListItem[];
   total: number;
@@ -154,6 +168,7 @@ export interface TimesheetListResponse {
   totalPages: number;
 }
 
+/** Einzelner Tag eines Wochenstundenzettels (Arbeitszeiten, Pausen, GPS). */
 export interface TimesheetDay {
   id: string;
   weeklyTimesheetId: string;
@@ -170,6 +185,7 @@ export interface TimesheetDay {
   clockOutLongitude: number | null;
 }
 
+/** Digitale Signatur auf einem Wochenstundenzettel (Monteur, Kunde, Vorgesetzter). */
 export interface TimesheetSignature {
   id: string;
   weeklyTimesheetId: string;
@@ -182,6 +198,7 @@ export interface TimesheetSignature {
   deviceInfo: string | null;
 }
 
+/** Vollständiger Wochenstundenzettel mit Tagen, Signaturen und verknüpftem Projekt/Monteur. */
 export interface TimesheetDetail {
   id: string;
   workerId: string;
@@ -215,6 +232,7 @@ export interface TimesheetDetail {
   signatures: TimesheetSignature[];
 }
 
+/** Filter-, Paginierungs- und Sortierparameter für die Stundenzettel-Liste. */
 export interface TimesheetListParams {
   page?: number;
   limit?: number;
@@ -227,6 +245,7 @@ export interface TimesheetListParams {
   sortDir?: 'asc' | 'desc';
 }
 
+/** Request-Body zum Generieren eines Wochenstundenzettels aus Zeiteinträgen. */
 export interface GenerateTimesheetBody {
   workerId: string;
   projectId: string;
@@ -234,6 +253,7 @@ export interface GenerateTimesheetBody {
   weekNumber: number;
 }
 
+/** Request-Body zum Aktualisieren eines einzelnen Stundenzettel-Tages. */
 export interface UpdateDayBody {
   firstClockInAt?: string;
   lastClockOutAt?: string;
@@ -241,6 +261,7 @@ export interface UpdateDayBody {
   summaryComment?: string;
 }
 
+/** Request-Body zum digitalen Signieren eines Stundenzettels. */
 export interface SignBody {
   signerType: SignerType;
   signerName: string;
@@ -250,6 +271,7 @@ export interface SignBody {
 
 // ── Pausenregeln ───────────────────────────────────────────────
 
+/** Pausenregel mit Schwellwerten und automatischem Abzug (global oder projektspezifisch). */
 export interface BreakRuleItem {
   id: string;
   scopeType: BreakScopeType;
@@ -264,6 +286,7 @@ export interface BreakRuleItem {
   project: ClockProject | null;
 }
 
+/** Request-Body zum Anlegen/Aktualisieren einer Pausenregel. */
 export interface BreakRuleBody {
   scopeType: BreakScopeType;
   projectId?: string;
@@ -280,20 +303,30 @@ export interface BreakRuleBody {
 // Monteur-Token-Speicher (separat von der Office-Session)
 // ──────────────────────────────────────────────────────────────
 
+/** LocalStorage-Schlüssel für das Worker-JWT. */
 export const WORKER_TOKEN_KEY = 'office_worker_token';
+
+/** LocalStorage-Schlüssel für die serialisierten Worker-Profildaten. */
 export const WORKER_USER_KEY = 'office_worker';
 
+/** Liest das Worker-JWT aus dem LocalStorage (null wenn nicht vorhanden oder SSR). */
 export function getWorkerToken(): string | null {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem(WORKER_TOKEN_KEY);
 }
 
+/**
+ * Speichert Worker-Token und Profil im LocalStorage nach erfolgreicher PIN-Anmeldung.
+ * @param token - JWT für Worker-Endpoints
+ * @param worker - Monteur-Profil aus der Login-Antwort
+ */
 export function setWorkerSession(token: string, worker: WorkerMe): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(WORKER_TOKEN_KEY, token);
   window.localStorage.setItem(WORKER_USER_KEY, JSON.stringify(worker));
 }
 
+/** Liest das gespeicherte Worker-Profil aus dem LocalStorage (null wenn nicht vorhanden). */
 export function getStoredWorker(): WorkerMe | null {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(WORKER_USER_KEY);
@@ -305,6 +338,7 @@ export function getStoredWorker(): WorkerMe | null {
   }
 }
 
+/** Entfernt Worker-Token und Profil aus dem LocalStorage (Abmeldung). */
 export function clearWorkerSession(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(WORKER_TOKEN_KEY);
@@ -373,8 +407,13 @@ async function workerUpload<T>(path: string, form: FormData): Promise<T> {
 // Monteur-App-API (Worker-Token)
 // ──────────────────────────────────────────────────────────────
 
+/** API-Client für die Monteur-App (PIN-Login, Stempeln, Foto-Upload). Nutzt Worker-Token. */
 export const workerApi = {
-  /** PIN-Login (ohne Token). Gibt Token + Akteur zurück. */
+  /**
+   * POST /worker-auth/pin-login – Authentifiziert einen Monteur per PIN.
+   * @param pin - 4–6-stellige PIN
+   * @returns JWT-Token und Monteur-Profil
+   */
   async pinLogin(pin: string): Promise<LoginResponse> {
     return apiClient.post<LoginResponse>(
       '/worker-auth/pin-login',
@@ -382,24 +421,46 @@ export const workerApi = {
       { skipAuth: true },
     );
   },
+  /** GET /worker-auth/me – Lädt das eigene Monteur-Profil. */
   me: () => workerFetch<WorkerMe>('/worker-auth/me'),
+  /** POST /worker-auth/logout – Meldet den Monteur ab und invalidiert das Token. */
   logout: () =>
     workerFetch<{ success: true }>('/worker-auth/logout', { method: 'POST' }),
 
+  /**
+   * GET /time-entries/status/:workerId – Aktueller Stempel-Status eines Monteurs.
+   * @param workerId - Monteur-ID
+   */
   status: (workerId: string) =>
     workerFetch<ClockStatus>(`/time-entries/status/${workerId}`),
+  /**
+   * GET /time-entries/today/:workerId – Alle Stempel-Einträge des heutigen Tages.
+   * @param workerId - Monteur-ID
+   */
   today: (workerId: string) =>
     workerFetch<TodayEntry[]>(`/time-entries/today/${workerId}`),
+  /**
+   * POST /time-entries/clock-in – Stempelt einen Monteur auf ein Projekt ein.
+   * @param body - Monteur-ID, Projekt-ID und optionale GPS-Koordinaten
+   */
   clockIn: (body: ClockInBody) =>
     workerFetch<ClockStatus>('/time-entries/clock-in', {
       method: 'POST',
       body,
     }),
+  /**
+   * POST /time-entries/clock-out – Stempelt einen Monteur aus.
+   * @param body - Monteur-ID und optionale GPS-Koordinaten
+   */
   clockOut: (body: ClockOutBody) =>
     workerFetch<ClockStatus>('/time-entries/clock-out', {
       method: 'POST',
       body,
     }),
+  /**
+   * POST /time-entries/upload-photo – Lädt ein Arbeitsfoto hoch.
+   * @param form - FormData mit Bilddatei
+   */
   uploadPhoto: (form: FormData) =>
     workerUpload<unknown>('/time-entries/upload-photo', form),
 };
@@ -408,11 +469,22 @@ export const workerApi = {
 // Office-API (Office-Token via apiClient)
 // ──────────────────────────────────────────────────────────────
 
+/** API-Client für die Live-Zeiterfassungsübersicht im Büro (Office-Token). */
 export const timeEntriesApi = {
+  /**
+   * GET /time-entries/live – Listet alle aktuell eingestempelten Monteure.
+   * @returns Liste der Live-Einträge mit Monteur, Projekt und Dauer
+   */
   live: () => apiClient.get<LiveEntry[]>('/time-entries/live'),
 };
 
+/** API-Client für Wochenstundenzettel (CRUD, Workflow, Signatur, PDF). */
 export const timesheetsApi = {
+  /**
+   * GET /timesheets – Listet Stundenzettel paginiert mit optionalen Filtern.
+   * @param params - Filter (Monteur, Projekt, KW, Status) + Paginierung
+   * @returns Paginierte Stundenzettel-Liste
+   */
   list(params: TimesheetListParams): Promise<TimesheetListResponse> {
     const q = new URLSearchParams();
     if (params.page) q.set('page', String(params.page));
@@ -428,36 +500,95 @@ export const timesheetsApi = {
       `/timesheets?${q.toString()}`,
     );
   },
+  /**
+   * GET /timesheets/:id – Lädt einen einzelnen Stundenzettel mit Tagen und Signaturen.
+   * @param id - Stundenzettel-ID
+   */
   get: (id: string) => apiClient.get<TimesheetDetail>(`/timesheets/${id}`),
+  /**
+   * POST /timesheets/generate – Generiert einen Stundenzettel aus Zeiteinträgen.
+   * @param body - Monteur, Projekt, Kalenderwoche
+   */
   generate: (body: GenerateTimesheetBody) =>
     apiClient.post<TimesheetDetail>('/timesheets/generate', body),
+  /**
+   * PATCH /timesheets/:id/days/:dayId – Aktualisiert einen einzelnen Tag.
+   * @param id - Stundenzettel-ID
+   * @param dayId - Tages-ID
+   * @param body - Zu aktualisierende Felder (Zeiten, Pausen, Kommentar)
+   */
   updateDay: (id: string, dayId: string, body: UpdateDayBody) =>
     apiClient.patch<TimesheetDetail>(
       `/timesheets/${id}/days/${dayId}`,
       body,
     ),
+  /**
+   * POST /timesheets/:id/submit – Reicht den Stundenzettel zur Prüfung ein.
+   * @param id - Stundenzettel-ID
+   */
   submit: (id: string) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/submit`),
+  /**
+   * POST /timesheets/:id/approve – Genehmigt den Stundenzettel.
+   * @param id - Stundenzettel-ID
+   */
   approve: (id: string) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/approve`),
+  /**
+   * POST /timesheets/:id/archive – Archiviert den Stundenzettel.
+   * @param id - Stundenzettel-ID
+   */
   archive: (id: string) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/archive`),
+  /**
+   * POST /timesheets/:id/reject – Lehnt den Stundenzettel ab.
+   * @param id - Stundenzettel-ID
+   * @param reason - Begründung der Ablehnung
+   */
   reject: (id: string, reason: string) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/reject`, { reason }),
+  /**
+   * POST /timesheets/:id/sign – Signiert den Stundenzettel digital.
+   * @param id - Stundenzettel-ID
+   * @param body - Signaturtyp, Name und Base64-Bild der Unterschrift
+   */
   sign: (id: string, body: SignBody) =>
     apiClient.post<TimesheetDetail>(`/timesheets/${id}/sign`, body),
+  /**
+   * Erzeugt die URL zum Stundenzettel-PDF (für direkten Download).
+   * @param id - Stundenzettel-ID
+   */
   pdfUrl: (id: string) => `${API_BASE_URL}/timesheets/${id}/pdf`,
 };
 
+/** API-Client für Pausenregeln-Verwaltung (CRUD). */
 export const breakRulesApi = {
+  /**
+   * GET /break-rules – Listet Pausenregeln, optional gefiltert nach Projekt.
+   * @param projectId - Optionale Projekt-ID für projektspezifische Regeln
+   * @returns Liste aller zutreffenden Pausenregeln
+   */
   list(projectId?: string): Promise<BreakRuleItem[]> {
     const q = projectId ? `?projectId=${encodeURIComponent(projectId)}` : '';
     return apiClient.get<BreakRuleItem[]>(`/break-rules${q}`);
   },
+  /**
+   * POST /break-rules – Erstellt eine neue Pausenregel.
+   * @param body - Regeldetails (Schwellwerte, Abzüge, Geltungsbereich)
+   */
   create: (body: BreakRuleBody) =>
     apiClient.post<BreakRuleItem>('/break-rules', body),
+  /**
+   * PATCH /break-rules/:id – Aktualisiert eine bestehende Pausenregel.
+   * @param id - Pausenregel-ID
+   * @param body - Zu aktualisierende Felder
+   */
   update: (id: string, body: Partial<BreakRuleBody>) =>
     apiClient.patch<BreakRuleItem>(`/break-rules/${id}`, body),
+  /**
+   * DELETE /break-rules/:id – Löscht eine Pausenregel.
+   * @param id - Pausenregel-ID
+   */
   remove: (id: string) =>
     apiClient.delete<unknown>(`/break-rules/${id}`),
 };
@@ -466,6 +597,7 @@ export const breakRulesApi = {
 // Kiosk-API (Worker-Token, projekt-gebunden)
 // ──────────────────────────────────────────────────────────────
 
+/** Stempel-Status eines Monteurs in der Kiosk-Ansicht. */
 export interface KioskWorkerStatus {
   workerId: string;
   firstName: string;
@@ -475,23 +607,50 @@ export interface KioskWorkerStatus {
   since: string | null;
 }
 
+/** API-Client für den Kiosk-Modus (Projekt-Tablet für Ein-/Ausstempeln aller Monteure). */
 export const kioskApi = {
+  /**
+   * POST /worker-auth/pin-login – PIN-Login im Kiosk-Modus.
+   * @param pin - 4–6-stellige Monteur-PIN
+   */
   pinLogin: (pin: string) => workerApi.pinLogin(pin),
+  /** GET /worker-auth/me – Lädt das Monteur-Profil im Kiosk-Kontext. */
   me: () => workerFetch<WorkerMe>('/worker-auth/me'),
+  /**
+   * GET /time-entries/status/:workerId – Stempel-Status im Kiosk.
+   * @param workerId - Monteur-ID
+   */
   status: (workerId: string) =>
     workerFetch<ClockStatus>(`/time-entries/status/${workerId}`),
+  /**
+   * POST /time-entries/clock-in – Stempelt einen Monteur im Kiosk ein.
+   * @param body - Monteur-ID und Projekt-ID
+   */
   clockIn: (body: ClockInBody) =>
     workerFetch<ClockStatus>('/time-entries/clock-in', {
       method: 'POST',
       body,
     }),
+  /**
+   * POST /time-entries/clock-out – Stempelt einen Monteur im Kiosk aus.
+   * @param body - Monteur-ID
+   */
   clockOut: (body: ClockOutBody) =>
     workerFetch<ClockStatus & { lastGrossMinutes?: number }>('/time-entries/clock-out', {
       method: 'POST',
       body,
     }),
+  /**
+   * GET /time-entries/project-status/:projectId – Status aller Monteure eines Projekts.
+   * @param projectId - Projekt-ID
+   * @returns Ein-/Ausgestempelt-Status aller zugeordneten Monteure
+   */
   projectStatus: (projectId: string) =>
     workerFetch<KioskWorkerStatus[]>(`/time-entries/project-status/${projectId}`),
+  /**
+   * POST /time-entries/upload-photo – Lädt ein Arbeitsfoto im Kiosk-Modus hoch.
+   * @param form - FormData mit Bilddatei
+   */
   uploadPhoto: (form: FormData) => workerUpload<unknown>('/time-entries/upload-photo', form),
 };
 
@@ -568,7 +727,12 @@ export function formatDuration(seconds: number): string {
   return `${h}:${`${m}`.padStart(2, '0')}:${`${sec}`.padStart(2, '0')}`;
 }
 
-/** ISO-Kalenderwoche + Jahr eines Datums (für Generieren-Dialog-Defaults). */
+/**
+ * Berechnet ISO-Kalenderwoche und -Jahr eines Datums.
+ * Nützlich für die Default-Werte im Stundenzettel-Generieren-Dialog.
+ * @param date - Eingabedatum
+ * @returns weekYear und weekNumber nach ISO 8601
+ */
 export function isoWeekOf(date: Date): {
   weekYear: number;
   weekNumber: number;

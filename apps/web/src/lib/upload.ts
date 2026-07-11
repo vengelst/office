@@ -6,6 +6,7 @@ import type { DocumentItem } from './customers';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
+/** Parameter für den Dokument-Upload (Datei + Metadaten + optionale Verknüpfung). */
 export interface UploadParams {
   file: File;
   documentType: string;
@@ -15,7 +16,14 @@ export interface UploadParams {
   entityId?: string;
 }
 
-/** Lädt eine Datei per FormData zum Documents-Endpoint hoch. */
+/**
+ * Lädt eine Datei per FormData zum Documents-Endpoint hoch.
+ * Verwendet fetch statt apiClient, da Multipart-Uploads kein JSON-Body sind.
+ *
+ * @param params - Datei, Dokumenttyp und optionale Metadaten
+ * @returns Das erstellte Dokument inkl. Server-generierter Felder
+ * @throws ApiError bei Netzwerkfehler oder Server-Ablehnung
+ */
 export async function uploadDocument(
   params: UploadParams,
 ): Promise<DocumentItem> {
@@ -54,14 +62,18 @@ export async function uploadDocument(
   return data as DocumentItem;
 }
 
-/** Erzeugt eine Download-URL (mit Token als Query, da <a> keine Header sendet). */
+/**
+ * Löst den authentifizierten Download eines Dokuments aus.
+ * Lädt die Datei per fetch mit Bearer-Token, erstellt daraus eine Object-URL
+ * und simuliert einen Klick auf einen temporären Download-Link.
+ *
+ * @param id - Dokument-ID
+ */
 export function downloadDocument(id: string): void {
   const token =
     typeof window !== 'undefined'
       ? window.localStorage.getItem(TOKEN_STORAGE_KEY)
       : null;
-  // Auth via Header ist bei direkten Navigationsdownloads nicht möglich –
-  // daher per fetch laden und als Blob speichern.
   void fetch(`${API_BASE_URL}/documents/${id}/download`, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   })

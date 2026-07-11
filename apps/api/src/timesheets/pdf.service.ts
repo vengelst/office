@@ -7,6 +7,11 @@ import { isoWeekRange } from './timesheet.util';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
+/**
+ * Service zur PDF-Generierung von Wochenstundenzetteln.
+ * Erstellt A4-PDFs mit Tabellenansicht (Mo–So), Summenzeile
+ * und Unterschriftsfeldern (Monteur + Vorarbeiter/Kunde).
+ */
 @Injectable()
 export class TimesheetPdfService {
   constructor(
@@ -162,6 +167,7 @@ export class TimesheetPdfService {
 
   // ── intern ───────────────────────────────────────────────────
 
+  /** Zeichnet eine Tabellenzeile mit konfigurierbaren Spalten und optionalem Fettdruck. */
   private drawRow(
     doc: PDFKit.PDFDocument,
     x: number,
@@ -188,6 +194,7 @@ export class TimesheetPdfService {
     doc.font('Helvetica').fillColor('#000');
   }
 
+  /** Zeichnet ein Unterschrifts-Feld mit optionalem Signatur-Bild und Beschriftung. */
   private drawSignatureBox(
     doc: PDFKit.PDFDocument,
     x: number,
@@ -216,6 +223,7 @@ export class TimesheetPdfService {
     doc.text(caption, x + 4, y + height + 4, { width });
   }
 
+  /** Lädt Signatur-Bilder aus dem Storage und gibt sie als Buffer-Map zurück. */
   private async loadSignatures(
     signatures: Array<{ signerType: string; signatureImagePath: string }>,
   ): Promise<Record<string, Buffer>> {

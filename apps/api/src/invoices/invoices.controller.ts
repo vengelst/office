@@ -35,6 +35,11 @@ function userIdOf(user: AuthUser): string | null {
   return user.type === 'user' ? user.id : null;
 }
 
+/**
+ * Controller für die Rechnungsverwaltung.
+ * Stellt Endpunkte für CRUD, Status-Workflow, Positionsverwaltung,
+ * Zahlungserfassung und PDF-Export bereit.
+ */
 @ApiTags('invoices')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)

@@ -111,6 +111,11 @@ const documentSelect = {
   },
 } satisfies Prisma.DocumentSelect;
 
+/**
+ * Service für das Dokumentenmanagement (DMS).
+ * Verwaltet Upload, Versionierung, Verknüpfung und Download von Dokumenten.
+ * Synchronisiert Dateien automatisch nach Google Drive und erzeugt Thumbnails für Bilder.
+ */
 @Injectable()
 export class DocumentsService {
   private readonly logger = new Logger(DocumentsService.name);
@@ -122,7 +127,17 @@ export class DocumentsService {
     private readonly driveService: GoogleDriveService,
   ) {}
 
-  /** Datei in den Storage hochladen, Metadaten persistieren, optional verknüpfen. */
+  /**
+   * Lädt eine Datei in den MinIO-Storage hoch und persistiert die Metadaten in der DB.
+   * Erzeugt automatisch einen lesbaren Speicherpfad, ein Thumbnail (bei Bildern)
+   * und startet die asynchrone Google-Drive-Synchronisation.
+   *
+   * @param file - Die hochgeladene Datei (Multer)
+   * @param dto - Upload-Metadaten (Dokumenttyp, Entität, Titel, Tags, etc.)
+   * @param userId - ID des hochladenden Benutzers (oder null bei System-Uploads)
+   * @returns Das erstellte Dokument mit allen Relationen
+   * @throws BadRequestException bei fehlender Datei, Größenüberschreitung oder ungültigem MIME-Type
+   */
   async upload(
     file: Express.Multer.File | undefined,
     dto: UploadDocumentDto,
@@ -206,7 +221,16 @@ export class DocumentsService {
     return doc;
   }
 
-  /** Massen-Upload: mehrere Dateien mit identischem Kontext. */
+  /**
+   * Massen-Upload: lädt mehrere Dateien mit identischem Kontext (Entität, Dokumenttyp) hoch.
+   * Jede Datei wird einzeln verarbeitet (Validierung, Thumbnail, Drive-Sync).
+   *
+   * @param files - Array der hochgeladenen Dateien
+   * @param dto - Gemeinsame Upload-Metadaten für alle Dateien
+   * @param userId - ID des hochladenden Benutzers
+   * @returns Array der erstellten Dokumente
+   * @throws BadRequestException wenn keine Dateien übermittelt wurden
+   */
   async uploadMultiple(
     files: Express.Multer.File[] | undefined,
     dto: UploadDocumentDto,
@@ -223,9 +247,17 @@ export class DocumentsService {
   }
 
   /**
-   * Ersetzt ein Dokument durch eine neue Version.
+   * Ersetzt ein Dokument durch eine neue Version (Versionierung).
    * Das alte Dokument wird auf isLatest=false gesetzt, die neue Version
-   * übernimmt Verknüpfungen, Ordner, Typ und Titel des Originals.
+   * übernimmt automatisch Verknüpfungen, Ordner, Typ und Titel des Originals.
+   * Die Versionsnummer wird inkrementiert.
+   *
+   * @param id - UUID des zu ersetzenden Dokuments
+   * @param file - Die neue Dateiversion (Multer)
+   * @param dto - Optionale Metadaten (Tags, Ablaufdatum)
+   * @param userId - ID des hochladenden Benutzers
+   * @returns Das neue Dokument (aktuelle Version)
+   * @throws NotFoundException wenn das Originaldokument nicht existiert
    */
   async replace(
     id: string,
@@ -305,7 +337,14 @@ export class DocumentsService {
     return fresh;
   }
 
-  /** Verknüpft ein bestehendes Dokument mit einer Entität (idempotent). */
+  /**
+   * Verknüpft ein bestehendes Dokument mit einer Entität (idempotent).
+   * Ermöglicht die Zuordnung eines Dokuments zu mehreren Entitäten gleichzeitig.
+   *
+   * @param documentId - UUID des Dokuments
+   * @param dto - Verknüpfungsdaten (Entitätstyp + ID)
+   * @returns Das verknüpfte Dokument mit allen Links
+   */
   async link(documentId: string, dto: LinkDocumentDto) {
     await this.ensureExists(documentId);
 
@@ -329,8 +368,12 @@ export class DocumentsService {
   }
 
   /**
-   * Listet Dokumente mit optionalen Filtern.
-   * Ohne Filter werden alle aktuellen Versionen zurückgegeben (globale Suche).
+   * Listet Dokumente mit optionalen Filtern (Entität, Ordner, Typ, Volltextsuche).
+   * Zeigt nur die jeweils aktuelle Version (isLatest=true).
+   * Ohne Filter werden alle aktuellen Dokumente zurückgegeben (globale Suche).
+   *
+   * @param filters - Optionale Filter (entityType, entityId, folderId, documentType, search)
+   * @returns Liste der passenden Dokumente, neueste zuerst
    */
   findAll(filters: {
     entityType?: string;
@@ -371,12 +414,24 @@ export class DocumentsService {
     });
   }
 
-  /** Listet Dokumente einer Entität (über DocumentLink). */
+  /**
+   * Listet alle Dokumente einer bestimmten Entität (Kunde, Projekt, Monteur, etc.).
+   *
+   * @param entityType - Typ der Entität (CUSTOMER, PROJECT, WORKER, etc.)
+   * @param entityId - UUID der Entität
+   * @returns Liste der verknüpften Dokumente
+   */
   findByEntity(entityType: DocumentEntityType, entityId: string) {
     return this.findAll({ entityType, entityId });
   }
 
-  /** Liefert ein Dokument inkl. Versions-Historie. */
+  /**
+   * Liefert ein einzelnes Dokument inkl. Versions-Historie (vorherige und nachfolgende Versionen).
+   *
+   * @param id - Dokument-UUID
+   * @returns Das Dokument mit Versionsverlauf
+   * @throws NotFoundException wenn das Dokument nicht existiert
+   */
   async findOne(id: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id },
@@ -395,7 +450,12 @@ export class DocumentsService {
     return doc;
   }
 
-  /** Liefert Dokumente, deren Ablaufdatum in den nächsten 30 Tagen liegt. */
+  /**
+   * Liefert Dokumente, deren Ablaufdatum in den nächsten 30 Tagen liegt.
+   * Nützlich für Frühwarnsysteme bei auslaufenden Verträgen, Zertifikaten, etc.
+   *
+   * @returns Liste ablaufender Dokumente, sortiert nach Ablaufdatum
+   */
   expiring() {
     const now = new Date();
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
@@ -409,12 +469,24 @@ export class DocumentsService {
     });
   }
 
-  /** Gibt die kontextbezogenen Dokumenttypen für einen Entitätstyp zurück. */
+  /**
+   * Gibt die erlaubten Dokumenttypen für einen Entitätstyp zurück.
+   * Steuert die Dropdown-Auswahl im Frontend je nach Kontext (Kunde, Projekt, etc.).
+   *
+   * @param entityType - Typ der Entität (CUSTOMER, PROJECT, WORKER, VEHICLE)
+   * @returns Array der verfügbaren DocumentTypes für diesen Kontext
+   */
   typesForContext(entityType: string): DocumentType[] {
     return TYPES_FOR_CONTEXT[entityType] ?? Object.values(DocumentType);
   }
 
-  /** Liefert Stream + Metadaten für den Download. */
+  /**
+   * Liefert einen ReadableStream und Metadaten für den Datei-Download aus MinIO.
+   *
+   * @param id - Dokument-UUID
+   * @returns Objekt mit Stream, Dateiname und MIME-Type
+   * @throws NotFoundException wenn das Dokument nicht existiert
+   */
   async getDownload(
     id: string,
   ): Promise<{ stream: Readable; filename: string; mimeType: string }> {
@@ -433,7 +505,13 @@ export class DocumentsService {
     };
   }
 
-  /** Liefert den Thumbnail-Stream eines Bild-Dokuments. */
+  /**
+   * Liefert den Thumbnail-Stream eines Bild-Dokuments (300x300 JPEG).
+   *
+   * @param id - Dokument-UUID
+   * @returns Stream und MIME-Type des Thumbnails
+   * @throws NotFoundException wenn Dokument oder Thumbnail nicht existiert
+   */
   async getThumbnail(id: string): Promise<{ stream: Readable; mimeType: string }> {
     const doc = await this.prisma.document.findUnique({
       where: { id },
@@ -449,7 +527,13 @@ export class DocumentsService {
     return { stream, mimeType: 'image/jpeg' };
   }
 
-  /** Löscht Dokument aus Storage und DB. */
+  /**
+   * Löscht ein Dokument vollständig: entfernt Datei und Thumbnail aus MinIO sowie den DB-Eintrag.
+   *
+   * @param id - Dokument-UUID
+   * @returns Bestätigung mit gelöschter ID
+   * @throws NotFoundException wenn das Dokument nicht existiert
+   */
   async remove(id: string) {
     const doc = await this.prisma.document.findUnique({
       where: { id },
@@ -498,8 +582,12 @@ export class DocumentsService {
   }
 
   /**
-   * Erstellt ein Document direkt aus einem Buffer (für automatische PDF-Exports).
-   * Speichert in MinIO mit lesbarem Pfad und syncht zu Google Drive.
+   * Erstellt ein Dokument direkt aus einem Buffer (für automatische PDF-Exports, z.B. Stundenzettel).
+   * Speichert in MinIO mit lesbarem Pfad und synchronisiert asynchron nach Google Drive.
+   * Unterstützt mehrere Entitäts-Verknüpfungen in einem Aufruf.
+   *
+   * @param params - Dokument-Parameter (Buffer, Dateiname, MIME-Type, Entitätskontext, etc.)
+   * @returns Das erstellte Dokument mit Verknüpfungen
    */
   async createFromBuffer(params: {
     buffer: Buffer;
@@ -552,8 +640,17 @@ export class DocumentsService {
   }
 
   /**
-   * Syncht ein Dokument asynchron nach Google Drive.
-   * Speichert driveFileId + driveFolderId am Document-Eintrag.
+   * Synchronisiert ein Dokument asynchron nach Google Drive.
+   * Erstellt die nötige Ordnerstruktur (Kategorie → Entität → Unterordner) und
+   * speichert driveFileId + driveFolderId am Document-Eintrag für spätere Referenz.
+   *
+   * @param documentId - DB-UUID des Dokuments
+   * @param buffer - Dateiinhalt
+   * @param mimeType - MIME-Type der Datei
+   * @param entityType - Entitätstyp (CUSTOMER, PROJECT, etc.)
+   * @param entityId - UUID der Entität
+   * @param documentType - Dokumentkategorie (CONTRACT, INVOICE, etc.)
+   * @param filename - Lesbarer Dateiname
    */
   private async syncToDrive(
     documentId: string,
@@ -592,6 +689,12 @@ export class DocumentsService {
     }
   }
 
+  /**
+   * Prüft ob ein Dokument existiert, wirft NotFoundException falls nicht.
+   *
+   * @param id - Dokument-UUID
+   * @throws NotFoundException
+   */
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.document.count({ where: { id } });
     if (count === 0) {

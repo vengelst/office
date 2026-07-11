@@ -88,12 +88,23 @@ function coerceDate(value?: string): Date | undefined | null {
   return new Date(value);
 }
 
+/**
+ * Service für die Projektverwaltung.
+ * Behandelt CRUD, Status-Workflow, Standortverwaltung, Geräte,
+ * E-Mail-Verteiler, Notizen und Monteur-Zuordnungen.
+ */
 @Injectable()
 export class ProjectsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ── Projekt CRUD ─────────────────────────────────────────────
 
+  /**
+   * Liefert eine paginierte, filterbare und sortierbare Projektliste.
+   *
+   * @param params - Filter (Status, Kunde, Servicetyp), Suche, Paginierung und Sortierung
+   * @returns Paginierte Liste mit Projekt-Übersichtsdaten
+   */
   async findAll(params: ListProjectsParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -146,6 +157,13 @@ export class ProjectsService {
     };
   }
 
+  /**
+   * Liefert ein einzelnes Projekt mit allen verknüpften Daten.
+   *
+   * @param id - UUID des Projekts
+   * @returns Projekt mit Standorten, Geräten, Zuordnungen, Statushistorie, etc.
+   * @throws NotFoundException wenn das Projekt nicht existiert
+   */
   async findOne(id: string) {
     const project = await this.prisma.project.findFirst({
       where: { id, deletedAt: null },
@@ -157,6 +175,13 @@ export class ProjectsService {
     return project;
   }
 
+  /**
+   * Erstellt ein neues Projekt mit automatischer Projektnummer (P-YYYY-NNNN).
+   * Protokolliert den initialen Status in der StatusHistory.
+   *
+   * @param dto - Projektdaten (Titel, Kunde, Termine, etc.)
+   * @returns Das erstellte Projekt mit allen Relationen
+   */
   async create(dto: CreateProjectDto) {
     const projectNumber = await this.generateProjectNumber();
     const project = await this.prisma.project.create({
@@ -183,6 +208,13 @@ export class ProjectsService {
     return this.findOne(project.id);
   }
 
+  /**
+   * Aktualisiert ein bestehendes Projekt (Partial Update, ohne Statuswechsel).
+   *
+   * @param id - UUID des Projekts
+   * @param dto - Zu aktualisierende Felder
+   * @returns Das aktualisierte Projekt
+   */
   async update(id: string, dto: UpdateProjectDto) {
     await this.ensureProject(id);
     const { customerId, branchId, status, ...rest } = dto;
@@ -235,6 +267,15 @@ export class ProjectsService {
 
   // ── Status-Workflow ──────────────────────────────────────────
 
+  /**
+   * Ändert den Projektstatus und protokolliert den Wechsel in der StatusHistory.
+   * Setzt automatisch actualStartDate/actualEndDate bei ACTIVE/COMPLETED.
+   *
+   * @param id - UUID des Projekts
+   * @param dto - Neuer Status und optionaler Kommentar
+   * @param userId - ID des ausführenden Benutzers (für Audit-Trail)
+   * @returns Das aktualisierte Projekt
+   */
   async changeStatus(id: string, dto: UpdateStatusDto, userId: string | null) {
     const project = await this.prisma.project.findFirst({
       where: { id, deletedAt: null },
@@ -288,6 +329,12 @@ export class ProjectsService {
 
   // ── Sites ────────────────────────────────────────────────────
 
+  /**
+   * Liefert alle Standorte eines Projekts.
+   *
+   * @param projectId - UUID des Projekts
+   * @returns Array der Standorte, sortiert nach Reihenfolge
+   */
   async findSites(projectId: string) {
     await this.ensureProject(projectId);
     return this.prisma.projectSite.findMany({
@@ -296,16 +343,19 @@ export class ProjectsService {
     });
   }
 
+  /** Erstellt einen neuen Standort für ein Projekt. */
   async createSite(projectId: string, dto: CreateSiteDto) {
     await this.ensureProject(projectId);
     return this.prisma.projectSite.create({ data: { ...dto, projectId } });
   }
 
+  /** Aktualisiert einen bestehenden Standort. */
   async updateSite(projectId: string, id: string, dto: UpdateSiteDto) {
     await this.ensureSite(projectId, id);
     return this.prisma.projectSite.update({ where: { id }, data: dto });
   }
 
+  /** Löscht einen Standort. */
   async removeSite(projectId: string, id: string) {
     await this.ensureSite(projectId, id);
     await this.prisma.projectSite.delete({ where: { id } });
@@ -314,6 +364,7 @@ export class ProjectsService {
 
   // ── Equipment ────────────────────────────────────────────────
 
+  /** Liefert alle Geräte/Ausstattung eines Projekts. */
   async findEquipment(projectId: string) {
     await this.ensureProject(projectId);
     return this.prisma.projectEquipment.findMany({
@@ -322,6 +373,7 @@ export class ProjectsService {
     });
   }
 
+  /** Fügt ein Gerät zu einem Projekt hinzu. */
   async createEquipment(projectId: string, dto: CreateEquipmentDto) {
     await this.ensureProject(projectId);
     return this.prisma.projectEquipment.create({
@@ -334,6 +386,7 @@ export class ProjectsService {
     });
   }
 
+  /** Aktualisiert ein bestehendes Gerät. */
   async updateEquipment(projectId: string, id: string, dto: UpdateEquipmentDto) {
     await this.ensureEquipment(projectId, id);
     return this.prisma.projectEquipment.update({
@@ -346,6 +399,7 @@ export class ProjectsService {
     });
   }
 
+  /** Entfernt ein Gerät aus dem Projekt. */
   async removeEquipment(projectId: string, id: string) {
     await this.ensureEquipment(projectId, id);
     await this.prisma.projectEquipment.delete({ where: { id } });
@@ -354,6 +408,7 @@ export class ProjectsService {
 
   // ── E-Mail-Verteiler ─────────────────────────────────────────
 
+  /** Liefert alle E-Mail-Verteiler-Empfänger eines Projekts. */
   async findEmailRecipients(projectId: string) {
     await this.ensureProject(projectId);
     return this.prisma.projectEmailRecipient.findMany({
@@ -362,6 +417,7 @@ export class ProjectsService {
     });
   }
 
+  /** Fügt einen neuen Empfänger zum E-Mail-Verteiler des Projekts hinzu. */
   async createEmailRecipient(projectId: string, dto: CreateEmailRecipientDto) {
     await this.ensureProject(projectId);
     return this.prisma.projectEmailRecipient.create({
@@ -369,6 +425,7 @@ export class ProjectsService {
     });
   }
 
+  /** Aktualisiert einen bestehenden E-Mail-Empfänger. */
   async updateEmailRecipient(
     projectId: string,
     id: string,
@@ -378,6 +435,7 @@ export class ProjectsService {
     return this.prisma.projectEmailRecipient.update({ where: { id }, data: dto });
   }
 
+  /** Entfernt einen Empfänger aus dem E-Mail-Verteiler. */
   async removeEmailRecipient(projectId: string, id: string) {
     await this.ensureEmailRecipient(projectId, id);
     await this.prisma.projectEmailRecipient.delete({ where: { id } });
@@ -386,6 +444,7 @@ export class ProjectsService {
 
   // ── Notizen ──────────────────────────────────────────────────
 
+  /** Liefert alle Notizen eines Projekts, sortiert nach Erstellungsdatum (neueste zuerst). */
   async findNotes(projectId: string) {
     await this.ensureProject(projectId);
     return this.prisma.projectNote.findMany({
@@ -395,6 +454,7 @@ export class ProjectsService {
     });
   }
 
+  /** Erstellt eine neue Notiz für ein Projekt (mit Benutzer-Zuordnung). */
   async createNote(projectId: string, dto: CreateNoteDto, userId: string) {
     await this.ensureProject(projectId);
     return this.prisma.projectNote.create({
@@ -403,6 +463,7 @@ export class ProjectsService {
     });
   }
 
+  /** Löscht eine Projektnotiz. */
   async removeNote(projectId: string, id: string) {
     const count = await this.prisma.projectNote.count({
       where: { id, projectId },
@@ -416,6 +477,7 @@ export class ProjectsService {
 
   // ── Monteur-Zuordnungen ──────────────────────────────────────
 
+  /** Liefert alle Monteur-Zuordnungen eines Projekts mit Worker-Daten. */
   async findAssignments(projectId: string) {
     await this.ensureProject(projectId);
     return this.prisma.projectAssignment.findMany({
@@ -434,6 +496,11 @@ export class ProjectsService {
     });
   }
 
+  /**
+   * Erstellt eine neue Monteur-Zuordnung zum Projekt.
+   * Setzt die Worker-Verfügbarkeit auf ON_PROJECT wenn aktiv.
+   * Prüft Constraint: nur eine aktive Zuweisung pro Monteur.
+   */
   async createAssignment(projectId: string, dto: CreateAssignmentDto) {
     await this.ensureProject(projectId);
     const active = dto.active ?? true;
@@ -475,6 +542,10 @@ export class ProjectsService {
     return assignment;
   }
 
+  /**
+   * Aktualisiert eine Monteur-Zuordnung und synchronisiert die Verfügbarkeit.
+   * Bei Deaktivierung → AVAILABLE, bei Reaktivierung → ON_PROJECT.
+   */
   async updateAssignment(
     projectId: string,
     id: string,
@@ -530,6 +601,7 @@ export class ProjectsService {
     return updated;
   }
 
+  /** Löscht eine Zuordnung und setzt ggf. den Monteur auf AVAILABLE. */
   async removeAssignment(projectId: string, id: string) {
     const current = await this.prisma.projectAssignment.findFirst({
       where: { id, projectId },
@@ -584,6 +656,16 @@ export class ProjectsService {
 
   // ── Kalender / Timeline ──────────────────────────────────────
 
+  /**
+   * Liefert Projekte für die Kalender-/Timeline-Ansicht.
+   * Filtert nach Zeitraum-Überlappung, Kunde und optionalem Aktivstatus.
+   *
+   * @param from - Beginn des Anzeige-Zeitraums (ISO-String)
+   * @param to - Ende des Anzeige-Zeitraums (ISO-String)
+   * @param customerId - Optional: nur Projekte eines Kunden
+   * @param activeOnly - Nur aktive Projekte anzeigen
+   * @returns Array von Projekten mit Timeline-relevanten Feldern
+   */
   async timeline(from?: string, to?: string, customerId?: string, activeOnly?: boolean) {
     const where: Prisma.ProjectWhereInput = { deletedAt: null };
     if (customerId) where.customerId = customerId;

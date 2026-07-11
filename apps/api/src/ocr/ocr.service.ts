@@ -24,6 +24,11 @@ interface PaddleOcrResponse {
   blocks: PaddleOcrBlock[];
 }
 
+/**
+ * Service für optische Zeichenerkennung (OCR).
+ * Kommuniziert mit dem externen PaddleOCR-Microservice um Text aus Bildern zu extrahieren.
+ * Liefert erkannten Text, einzelne Textblöcke mit Positionsdaten und Konfidenzwerte.
+ */
 @Injectable()
 export class OcrService {
   private readonly logger = new Logger(OcrService.name);
@@ -34,6 +39,16 @@ export class OcrService {
       process.env.OCR_SERVICE_URL ?? 'http://ocr-service:8000';
   }
 
+  /**
+   * Extrahiert Text aus einem Bild-Buffer via PaddleOCR-Service.
+   * Sendet das Bild als FormData an den OCR-Microservice und
+   * transformiert die Antwort in ein einheitliches OcrResult-Format.
+   *
+   * @param imageBuffer - Bilddaten als Buffer
+   * @param mimeType - MIME-Type des Bildes (image/jpeg, image/png, etc.)
+   * @returns Erkannter Text, Textblöcke mit Bounding-Boxes und Durchschnitts-Konfidenz
+   * @throws Error wenn der OCR-Service einen Fehler zurückgibt
+   */
   async extractText(imageBuffer: Buffer, mimeType: string): Promise<OcrResult> {
     const ext = mimeType.split('/')[1] ?? 'png';
     const filename = `upload.${ext === 'jpeg' ? 'jpg' : ext}`;
@@ -81,6 +96,14 @@ export class OcrService {
     return { text: data.text, blocks, confidence: avgConfidence };
   }
 
+  /**
+   * Extrahiert Text aus einer bereits in MinIO gespeicherten Datei.
+   * Lädt die Datei aus dem Storage, bestimmt den MIME-Type anhand der Dateiendung
+   * und delegiert an extractText().
+   *
+   * @param storageKey - MinIO-Speicherschlüssel der Datei
+   * @returns OCR-Ergebnis mit extrahiertem Text
+   */
   async extractTextFromStorageKey(storageKey: string): Promise<OcrResult> {
     const stream = await this.storage.getStream(storageKey);
     const chunks: Buffer[] = [];
@@ -92,6 +115,13 @@ export class OcrService {
     return this.extractText(buffer, mimeType);
   }
 
+  /**
+   * Ermittelt den MIME-Type anhand der Dateiendung im Storage-Key.
+   * Fallback: application/octet-stream für unbekannte Endungen.
+   *
+   * @param key - Datei-Schlüssel oder Pfad mit Endung
+   * @returns MIME-Type-String
+   */
   private guessMimeType(key: string): string {
     const ext = key.split('.').pop()?.toLowerCase();
     const map: Record<string, string> = {

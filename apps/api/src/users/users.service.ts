@@ -23,10 +23,20 @@ const userSelect = {
   roles: { select: { role: { select: { code: true, name: true } } } },
 } satisfies Prisma.UserSelect;
 
+/**
+ * Service für die Benutzerverwaltung (Office-Benutzer).
+ * Behandelt CRUD mit Rollen-Zuordnung, Passwort-Hashing
+ * und Benutzer-Deaktivierung (Soft-Disable).
+ */
 @Injectable()
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liefert alle Benutzer (ohne Passwort-Hash), sortiert nach Erstellungsdatum.
+   *
+   * @returns Array aller Benutzer mit Rollen
+   */
   findAll() {
     return this.prisma.user.findMany({
       select: userSelect,
@@ -34,6 +44,13 @@ export class UsersService {
     });
   }
 
+  /**
+   * Liefert einen einzelnen Benutzer mit Rollen.
+   *
+   * @param id - UUID des Benutzers
+   * @returns Benutzerdaten ohne Passwort-Hash
+   * @throws NotFoundException wenn der Benutzer nicht existiert
+   */
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({
       where: { id },
@@ -45,6 +62,14 @@ export class UsersService {
     return user;
   }
 
+  /**
+   * Erstellt einen neuen Benutzer mit gehashtem Passwort und Rollenzuordnung.
+   * Prüft Eindeutigkeit der E-Mail-Adresse.
+   *
+   * @param dto - Benutzerdaten (E-Mail, Passwort, Name, Rollen)
+   * @returns Der erstellte Benutzer
+   * @throws ConflictException wenn die E-Mail bereits vergeben ist
+   */
   async create(dto: CreateUserDto) {
     const existing = await this.prisma.user.findUnique({
       where: { email: dto.email },
@@ -70,6 +95,15 @@ export class UsersService {
     });
   }
 
+  /**
+   * Aktualisiert einen bestehenden Benutzer.
+   * Bei Rollen-Änderung werden alle alten Zuordnungen ersetzt.
+   * Bei Passwort-Änderung wird der neue Hash generiert.
+   *
+   * @param id - UUID des Benutzers
+   * @param dto - Zu aktualisierende Felder
+   * @returns Der aktualisierte Benutzer
+   */
   async update(id: string, dto: UpdateUserDto) {
     await this.findOne(id);
 
@@ -114,6 +148,7 @@ export class UsersService {
     });
   }
 
+  /** Löst Rollen-Codes in Datenbank-IDs auf. Wirft Fehler bei unbekannten Codes. */
   private async resolveRoleIds(codes: RoleCode[]): Promise<string[]> {
     const roles = await this.prisma.role.findMany({
       where: { code: { in: codes } },

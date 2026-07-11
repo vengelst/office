@@ -19,12 +19,23 @@ export interface ContactData {
   notes?: string;
 }
 
+/**
+ * Service für die Synchronisation von Ansprechpartnern mit Google Contacts.
+ * Nutzt die People API mit Domain-Wide Delegation um Kontakte im Google-Konto
+ * des impersonierten Benutzers (vivahome@vivahome.de) zu verwalten.
+ */
 @Injectable()
 export class GoogleContactsService {
   private readonly logger = new Logger(GoogleContactsService.name);
 
   constructor(private readonly settings: AppSettingsService) {}
 
+  /**
+   * Authentifiziert sich bei der Google People API via JWT und Domain-Wide Delegation.
+   * Gibt null zurück wenn die Integration deaktiviert oder nicht konfiguriert ist.
+   *
+   * @returns Authentifizierte People-API-Instanz, oder null bei fehlender Konfiguration
+   */
   private async authenticate(): Promise<people_v1.People | null> {
     const [enabled, json, email] = await Promise.all([
       this.settings.get('google_drive_enabled'),
@@ -45,6 +56,13 @@ export class GoogleContactsService {
     return google.people({ version: 'v1', auth: jwtClient });
   }
 
+  /**
+   * Erstellt einen neuen Kontakt in Google Contacts.
+   * Gibt die resourceName-Referenz zurück, die in der DB gespeichert wird.
+   *
+   * @param data - Kontaktdaten (Name, E-Mail, Telefon, Adresse, etc.)
+   * @returns Google resourceName (z.B. "people/c1234567890"), oder null bei Fehler
+   */
   async createContact(data: ContactData): Promise<string | null> {
     const people = await this.authenticate();
     if (!people) {
@@ -69,6 +87,14 @@ export class GoogleContactsService {
     }
   }
 
+  /**
+   * Aktualisiert einen bestehenden Google-Kontakt.
+   * Liest zuerst den aktuellen ETag für Conflict-Resolution und schreibt dann die neuen Daten.
+   *
+   * @param resourceName - Google resourceName des Kontakts
+   * @param data - Aktualisierte Kontaktdaten
+   * @returns true bei Erfolg, false bei Fehler
+   */
   async updateContact(
     resourceName: string,
     data: ContactData,
@@ -103,6 +129,12 @@ export class GoogleContactsService {
     }
   }
 
+  /**
+   * Löscht einen Kontakt aus Google Contacts.
+   *
+   * @param resourceName - Google resourceName des zu löschenden Kontakts
+   * @returns true bei Erfolg, false bei Fehler
+   */
   async deleteContact(resourceName: string): Promise<boolean> {
     const people = await this.authenticate();
     if (!people) return false;
@@ -119,6 +151,14 @@ export class GoogleContactsService {
     }
   }
 
+  /**
+   * Baut ein People-API-konformes Person-Objekt aus den internen Kontaktdaten.
+   * Mapped unsere flachen Felder auf die verschachtelte Google-Struktur
+   * (names, emailAddresses, phoneNumbers, organizations, addresses, biographies).
+   *
+   * @param data - Interne Kontaktdaten
+   * @returns Google People API Schema$Person Objekt
+   */
   private buildPerson(data: ContactData): people_v1.Schema$Person {
     const person: people_v1.Schema$Person = {
       names: [

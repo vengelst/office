@@ -18,12 +18,22 @@ const memberWorkerSelect = {
   availability: true,
 } as const;
 
+/**
+ * Service für die Teamverwaltung (Monteur-Teams/Kolonnen).
+ * Verwaltet Teams mit Teamleiter, aktive Mitgliedschaften
+ * und deren Historisierung (joinedAt/leftAt).
+ */
 @Injectable()
 export class TeamsService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ── Teams CRUD ───────────────────────────────────────────────
 
+  /**
+   * Liefert alle Teams mit Mitglieder-Anzahl und aufgelöstem Teamleiter.
+   *
+   * @returns Array aller Teams, alphabetisch sortiert
+   */
   async findAll() {
     const teams = await this.prisma.workerTeam.findMany({
       orderBy: { name: 'asc' },
@@ -40,6 +50,13 @@ export class TeamsService {
     }));
   }
 
+  /**
+   * Liefert ein einzelnes Team mit aktiven Mitgliedern und Teamleiter-Details.
+   *
+   * @param id - UUID des Teams
+   * @returns Team mit Mitgliederliste
+   * @throws NotFoundException wenn das Team nicht existiert
+   */
   async findOne(id: string) {
     const team = await this.prisma.workerTeam.findUnique({
       where: { id },
@@ -61,11 +78,13 @@ export class TeamsService {
     };
   }
 
+  /** Erstellt ein neues Team mit optionalem Teamleiter. */
   async create(dto: CreateTeamDto) {
     if (dto.leaderId) await this.ensureWorker(dto.leaderId);
     return this.prisma.workerTeam.create({ data: { ...dto } });
   }
 
+  /** Aktualisiert ein bestehendes Team (Name, Beschreibung, Teamleiter). */
   async update(id: string, dto: UpdateTeamDto) {
     await this.ensureTeam(id);
     if (dto.leaderId) await this.ensureWorker(dto.leaderId);
@@ -81,6 +100,14 @@ export class TeamsService {
 
   // ── Mitglieder ───────────────────────────────────────────────
 
+  /**
+   * Fügt einen Monteur als aktives Mitglied zu einem Team hinzu.
+   * Prüft auf Duplikate (gleicher Monteur bereits aktiv im Team).
+   *
+   * @param teamId - UUID des Teams
+   * @param dto - Monteur-ID und optionale Rolle
+   * @returns Das erstellte Mitglied mit Worker-Daten
+   */
   async addMember(teamId: string, dto: CreateTeamMemberDto) {
     await this.ensureTeam(teamId);
     await this.ensureWorker(dto.workerId);

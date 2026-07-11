@@ -1,0 +1,34 @@
+---
+description: Offene Aufgabe - Google People API für Kontakt-Sync aktivieren
+alwaysApply: true
+---
+
+# Google People API – Noch zu erledigen
+
+Die Google Contacts Sync-Funktion ist im Code fertig implementiert, aber noch NICHT aktiviert.
+Der Benutzer muss folgende Schritte in der Google Admin Console durchführen:
+
+## Schritt 1: People API aktivieren
+
+- Google Cloud Console öffnen: https://console.cloud.google.com
+- Projekt "Vivahome Office" auswählen
+- APIs & Services → APIs & Services aktivieren
+- Nach "People API" suchen und aktivieren
+
+## Schritt 2: Contacts-Scope zur Domain-Wide Delegation hinzufügen
+
+- Google Admin Console: https://admin.google.com
+- Sicherheit → API-Steuerung → Domainweite Delegierung verwalten
+- Den bestehenden Eintrag für den Service Account finden: `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
+- Den Scope `https://www.googleapis.com/auth/contacts` zu den bestehenden Scopes hinzufügen
+- Speichern (kann bis zu 60 Minuten dauern)
+
+## Nach Aktivierung
+
+Sobald beide Schritte erledigt sind:
+- Neue Ansprechpartner werden automatisch in Google Contacts von vivahome@vivahome.de angelegt
+- Bearbeitungen werden synchronisiert
+- Gelöschte Kontakte werden auch in Google entfernt
+- Die `googleContactId` wird in der DB gespeichert (Feld in CustomerContact)
+
+**Diese Regel kann gelöscht werden, sobald die Schritte erledigt und getestet sind.**

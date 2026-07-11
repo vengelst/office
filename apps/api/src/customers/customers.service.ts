@@ -57,6 +57,11 @@ const detailInclude = {
   bankAccounts: { orderBy: { isPrimary: 'desc' } },
 } satisfies Prisma.CustomerInclude;
 
+/**
+ * Service für die Kundenverwaltung (CRUD).
+ * Verwaltet Kunden, Niederlassungen, Ansprechpartner, E-Mails und Bankverbindungen.
+ * Synchronisiert Ansprechpartner automatisch mit Google Contacts.
+ */
 @Injectable()
 export class CustomersService {
   private readonly logger = new Logger(CustomersService.name);
@@ -68,6 +73,13 @@ export class CustomersService {
 
   // ── Customer CRUD ────────────────────────────────────────────
 
+  /**
+   * Liefert eine paginierte, sortierbare und durchsuchbare Kundenliste.
+   * Soft-gelöschte Kunden werden ausgeblendet.
+   *
+   * @param params - Pagination, Suchbegriff und Sortierung
+   * @returns Paginiertes Ergebnis mit Kundendaten und Meta-Informationen
+   */
   async findAll(params: ListCustomersParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -109,6 +121,12 @@ export class CustomersService {
     };
   }
 
+  /**
+   * Lädt einen einzelnen Kunden mit allen Relationen (Niederlassungen, Kontakte, E-Mails, Bankverbindungen).
+   *
+   * @param id - Kunden-UUID
+   * @returns Vollständiger Kunde oder NotFoundException
+   */
   async findOne(id: string) {
     const customer = await this.prisma.customer.findFirst({
       where: { id, deletedAt: null },
@@ -120,6 +138,13 @@ export class CustomersService {
     return customer;
   }
 
+  /**
+   * Erstellt einen neuen Kunden in der Datenbank.
+   * Generiert automatisch eine fortlaufende Kundennummer (K-YYYY-NNNN).
+   *
+   * @param dto - Kundendaten (Firmenname, Adresse, Branche, etc.)
+   * @returns Der erstellte Kunde mit allen Relationen
+   */
   async create(dto: CreateCustomerDto) {
     const customerNumber = await this.generateCustomerNumber();
     return this.prisma.customer.create({
@@ -128,6 +153,13 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Aktualisiert einen bestehenden Kunden.
+   *
+   * @param id - Kunden-UUID
+   * @param dto - Zu aktualisierende Felder
+   * @returns Der aktualisierte Kunde mit allen Relationen
+   */
   async update(id: string, dto: UpdateCustomerDto) {
     await this.ensureCustomer(id);
     return this.prisma.customer.update({
@@ -165,6 +197,12 @@ export class CustomersService {
 
   // ── Branches ─────────────────────────────────────────────────
 
+  /**
+   * Liefert alle Niederlassungen eines Kunden, alphabetisch sortiert.
+   *
+   * @param customerId - Kunden-UUID
+   * @returns Liste der Niederlassungen
+   */
   async findBranches(customerId: string) {
     await this.ensureCustomer(customerId);
     return this.prisma.customerBranch.findMany({
@@ -173,6 +211,13 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Legt eine neue Niederlassung für einen Kunden an.
+   *
+   * @param customerId - Kunden-UUID
+   * @param dto - Niederlassungsdaten (Name, Adresse, etc.)
+   * @returns Die erstellte Niederlassung
+   */
   async createBranch(customerId: string, dto: CreateBranchDto) {
     await this.ensureCustomer(customerId);
     return this.prisma.customerBranch.create({
@@ -180,11 +225,26 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Aktualisiert eine bestehende Niederlassung.
+   *
+   * @param customerId - Kunden-UUID (zur Zugehörigkeitsprüfung)
+   * @param id - Niederlassungs-UUID
+   * @param dto - Zu aktualisierende Felder
+   * @returns Die aktualisierte Niederlassung
+   */
   async updateBranch(customerId: string, id: string, dto: UpdateBranchDto) {
     await this.ensureBranch(customerId, id);
     return this.prisma.customerBranch.update({ where: { id }, data: dto });
   }
 
+  /**
+   * Löscht eine Niederlassung unwiderruflich (Hard-Delete).
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Niederlassungs-UUID
+   * @returns Bestätigung mit gelöschter ID
+   */
   async removeBranch(customerId: string, id: string) {
     await this.ensureBranch(customerId, id);
     await this.prisma.customerBranch.delete({ where: { id } });
@@ -193,6 +253,12 @@ export class CustomersService {
 
   // ── Contacts ─────────────────────────────────────────────────
 
+  /**
+   * Liefert alle Ansprechpartner eines Kunden, alphabetisch nach Nachname sortiert.
+   *
+   * @param customerId - Kunden-UUID
+   * @returns Liste der Ansprechpartner
+   */
   async findContacts(customerId: string) {
     await this.ensureCustomer(customerId);
     return this.prisma.customerContact.findMany({
@@ -201,6 +267,14 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Erstellt einen neuen Ansprechpartner und synchronisiert ihn asynchron nach Google Contacts.
+   * Optional kann der Kontakt einer Niederlassung zugeordnet werden.
+   *
+   * @param customerId - Kunden-UUID
+   * @param dto - Kontaktdaten (Name, Telefon, E-Mail, Niederlassung, etc.)
+   * @returns Der erstellte Ansprechpartner
+   */
   async createContact(customerId: string, dto: CreateContactDto) {
     await this.ensureCustomer(customerId);
     if (dto.branchId) {
@@ -221,6 +295,14 @@ export class CustomersService {
     return contact;
   }
 
+  /**
+   * Aktualisiert einen Ansprechpartner und synchronisiert Änderungen nach Google Contacts.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Kontakt-UUID
+   * @param dto - Zu aktualisierende Felder
+   * @returns Der aktualisierte Ansprechpartner
+   */
   async updateContact(customerId: string, id: string, dto: UpdateContactDto) {
     await this.ensureContact(customerId, id);
     if (dto.branchId) {
@@ -241,6 +323,13 @@ export class CustomersService {
     return contact;
   }
 
+  /**
+   * Löscht einen Ansprechpartner und entfernt den zugehörigen Google-Kontakt (falls vorhanden).
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Kontakt-UUID
+   * @returns Bestätigung mit gelöschter ID
+   */
   async removeContact(customerId: string, id: string) {
     const contact = await this.prisma.customerContact.findUnique({
       where: { id },
@@ -258,6 +347,12 @@ export class CustomersService {
 
   // ── E-Mails ──────────────────────────────────────────────────
 
+  /**
+   * Liefert alle E-Mail-Adressen eines Kunden, primäre zuerst.
+   *
+   * @param customerId - Kunden-UUID
+   * @returns Liste der E-Mail-Adressen
+   */
   async findEmails(customerId: string) {
     await this.ensureCustomer(customerId);
     return this.prisma.customerEmail.findMany({
@@ -266,6 +361,14 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Fügt eine E-Mail-Adresse zum Kunden hinzu.
+   * Wird isPrimary gesetzt, werden alle bestehenden Einträge auf nicht-primär zurückgesetzt.
+   *
+   * @param customerId - Kunden-UUID
+   * @param dto - E-Mail-Daten (Adresse, Typ, isPrimary)
+   * @returns Die erstellte E-Mail-Adresse
+   */
   async createEmail(customerId: string, dto: CreateEmailDto) {
     await this.ensureCustomer(customerId);
     if (dto.isPrimary) {
@@ -277,6 +380,14 @@ export class CustomersService {
     return this.prisma.customerEmail.create({ data: { ...dto, customerId } });
   }
 
+  /**
+   * Aktualisiert eine E-Mail-Adresse. Bei isPrimary-Wechsel wird exklusive Primär-Logik angewandt.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - E-Mail-UUID
+   * @param dto - Zu aktualisierende Felder
+   * @returns Die aktualisierte E-Mail-Adresse
+   */
   async updateEmail(customerId: string, id: string, dto: UpdateEmailDto) {
     await this.ensureEmail(customerId, id);
     if (dto.isPrimary) {
@@ -288,6 +399,13 @@ export class CustomersService {
     return this.prisma.customerEmail.update({ where: { id }, data: dto });
   }
 
+  /**
+   * Löscht eine E-Mail-Adresse unwiderruflich.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - E-Mail-UUID
+   * @returns Bestätigung mit gelöschter ID
+   */
   async removeEmail(customerId: string, id: string) {
     await this.ensureEmail(customerId, id);
     await this.prisma.customerEmail.delete({ where: { id } });
@@ -296,6 +414,12 @@ export class CustomersService {
 
   // ── Bankverbindungen ─────────────────────────────────────────
 
+  /**
+   * Liefert alle Bankverbindungen eines Kunden, primäre zuerst.
+   *
+   * @param customerId - Kunden-UUID
+   * @returns Liste der Bankverbindungen
+   */
   async findBankAccounts(customerId: string) {
     await this.ensureCustomer(customerId);
     return this.prisma.customerBankAccount.findMany({
@@ -304,6 +428,15 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Legt eine neue Bankverbindung an. Maximal 2 pro Kunde erlaubt.
+   * Wird isPrimary gesetzt, werden bestehende auf nicht-primär zurückgesetzt.
+   *
+   * @param customerId - Kunden-UUID
+   * @param dto - Bankdaten (IBAN, BIC, Bankname, isPrimary)
+   * @returns Die erstellte Bankverbindung
+   * @throws BadRequestException wenn bereits 2 Bankverbindungen existieren
+   */
   async createBankAccount(customerId: string, dto: CreateBankAccountDto) {
     await this.ensureCustomer(customerId);
     const count = await this.prisma.customerBankAccount.count({
@@ -325,6 +458,14 @@ export class CustomersService {
     });
   }
 
+  /**
+   * Aktualisiert eine Bankverbindung. Bei isPrimary-Wechsel wird exklusive Primär-Logik angewandt.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Bankverbindungs-UUID
+   * @param dto - Zu aktualisierende Felder
+   * @returns Die aktualisierte Bankverbindung
+   */
   async updateBankAccount(
     customerId: string,
     id: string,
@@ -340,6 +481,13 @@ export class CustomersService {
     return this.prisma.customerBankAccount.update({ where: { id }, data: dto });
   }
 
+  /**
+   * Löscht eine Bankverbindung unwiderruflich.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Bankverbindungs-UUID
+   * @returns Bestätigung mit gelöschter ID
+   */
   async removeBankAccount(customerId: string, id: string) {
     await this.ensureBankAccount(customerId, id);
     await this.prisma.customerBankAccount.delete({ where: { id } });
@@ -348,6 +496,12 @@ export class CustomersService {
 
   // ── Hilfsfunktionen ──────────────────────────────────────────
 
+  /**
+   * Prüft ob ein aktiver Kunde existiert, wirft NotFoundException falls nicht.
+   *
+   * @param id - Kunden-UUID
+   * @throws NotFoundException
+   */
   private async ensureCustomer(id: string): Promise<void> {
     const count = await this.prisma.customer.count({
       where: { id, deletedAt: null },
@@ -357,6 +511,13 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Prüft ob eine Niederlassung zum Kunden gehört, wirft NotFoundException falls nicht.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Niederlassungs-UUID
+   * @throws NotFoundException
+   */
   private async ensureBranch(customerId: string, id: string): Promise<void> {
     const count = await this.prisma.customerBranch.count({
       where: { id, customerId },
@@ -366,6 +527,13 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Prüft ob ein Ansprechpartner zum Kunden gehört, wirft NotFoundException falls nicht.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Kontakt-UUID
+   * @throws NotFoundException
+   */
   private async ensureContact(customerId: string, id: string): Promise<void> {
     const count = await this.prisma.customerContact.count({
       where: { id, customerId },
@@ -375,6 +543,13 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Prüft ob eine E-Mail-Adresse zum Kunden gehört, wirft NotFoundException falls nicht.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - E-Mail-UUID
+   * @throws NotFoundException
+   */
   private async ensureEmail(customerId: string, id: string): Promise<void> {
     const count = await this.prisma.customerEmail.count({
       where: { id, customerId },
@@ -384,6 +559,13 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Prüft ob eine Bankverbindung zum Kunden gehört, wirft NotFoundException falls nicht.
+   *
+   * @param customerId - Kunden-UUID
+   * @param id - Bankverbindungs-UUID
+   * @throws NotFoundException
+   */
   private async ensureBankAccount(
     customerId: string,
     id: string,
@@ -396,6 +578,15 @@ export class CustomersService {
     }
   }
 
+  /**
+   * Synchronisiert einen Ansprechpartner bidirektional mit Google Contacts.
+   * Erstellt einen neuen Google-Kontakt oder aktualisiert einen bestehenden (via googleContactId).
+   * Speichert die Google-ResourceName-Referenz in der DB.
+   *
+   * @param contactId - DB-UUID des Ansprechpartners
+   * @param contact - Kontaktdaten zur Synchronisation
+   * @param companyName - Firmenname des zugehörigen Kunden
+   */
   private async syncContactToGoogle(
     contactId: string,
     contact: {

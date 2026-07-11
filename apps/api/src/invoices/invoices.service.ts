@@ -125,6 +125,11 @@ function round2(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+/**
+ * Service für die Rechnungsverwaltung.
+ * Behandelt Erstellung, Bearbeitung, Status-Workflow (DRAFT → SENT → PAID),
+ * PDF-Export, Zahlungserfassung und Generierung aus Stundenzetteln.
+ */
 @Injectable()
 export class InvoicesService {
   private readonly logger = new Logger(InvoicesService.name);
@@ -138,6 +143,12 @@ export class InvoicesService {
 
   // ── Liste / Detail ───────────────────────────────────────────
 
+  /**
+   * Liefert eine paginierte, filterbare und sortierbare Rechnungsliste.
+   *
+   * @param params - Filter (Typ, Status, Projekt, Kunde, Zeitraum), Paginierung und Sortierung
+   * @returns Paginierte Liste mit Rechnungs-Übersichtsdaten
+   */
   async findAll(params: ListInvoicesParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -205,6 +216,13 @@ export class InvoicesService {
     };
   }
 
+  /**
+   * Liefert eine einzelne Rechnung mit allen Positionen, Zahlungen und Relationen.
+   *
+   * @param id - UUID der Rechnung
+   * @returns Vollständige Rechnungsdetails
+   * @throws NotFoundException wenn die Rechnung nicht existiert
+   */
   async findOne(id: string) {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
@@ -218,6 +236,14 @@ export class InvoicesService {
 
   // ── Erstellen (manuell) ──────────────────────────────────────
 
+  /**
+   * Erstellt eine neue Rechnung manuell im Status DRAFT.
+   * Generiert automatisch eine fortlaufende Rechnungsnummer.
+   *
+   * @param dto - Rechnungsdaten (Typ, Projekt, Positionen, etc.)
+   * @param userId - ID des erstellenden Benutzers (null bei Worker-Token)
+   * @returns Die erstellte Rechnung mit allen Details
+   */
   async create(dto: CreateInvoiceDto, userId: string | null) {
     await this.validateRelations(
       dto.invoiceType,
@@ -263,6 +289,15 @@ export class InvoicesService {
 
   // ── Generieren aus Stundenzetteln ────────────────────────────
 
+  /**
+   * Generiert eine Rechnung automatisch aus genehmigten Stundenzetteln eines Projekts.
+   * Unterscheidet zwischen Ausgangsrechnungen (Wochenpakete + Überstunden)
+   * und Eingangsrechnungen (pro Monteur + KW).
+   *
+   * @param dto - Projektzeitraum, Rechnungstyp, optional Subunternehmen
+   * @param userId - ID des erstellenden Benutzers
+   * @returns Die generierte Rechnung im Status DRAFT
+   */
   async generateFromTimesheets(
     dto: GenerateFromTimesheetsDto,
     userId: string | null,
@@ -509,6 +544,15 @@ export class InvoicesService {
 
   // ── Bearbeiten / Löschen (nur DRAFT) ─────────────────────────
 
+  /**
+   * Aktualisiert eine Rechnung (nur im Status DRAFT erlaubt).
+   * Bei Steuersatz-Änderung werden die Summen automatisch neu berechnet.
+   *
+   * @param id - UUID der Rechnung
+   * @param dto - Zu aktualisierende Felder
+   * @returns Die aktualisierte Rechnung
+   * @throws ConflictException wenn die Rechnung nicht im DRAFT-Status ist
+   */
   async update(id: string, dto: UpdateInvoiceDto) {
     const invoice = await this.ensureDraft(id);
 
@@ -548,6 +592,13 @@ export class InvoicesService {
     return this.findOne(id);
   }
 
+  /**
+   * Löscht eine Rechnung vollständig (nur im Status DRAFT).
+   *
+   * @param id - UUID der Rechnung
+   * @returns Bestätigung der Löschung
+   * @throws ConflictException wenn die Rechnung nicht im DRAFT-Status ist
+   */
   async remove(id: string) {
     await this.ensureDraft(id);
     await this.prisma.invoice.delete({ where: { id } });
@@ -556,6 +607,14 @@ export class InvoicesService {
 
   // ── Status-Workflow ──────────────────────────────────────────
 
+  /**
+   * Versendet eine Rechnung: setzt Status auf SENT, berechnet Fälligkeitsdatum
+   * und löst asynchron den PDF-Export aus.
+   *
+   * @param id - UUID der Rechnung
+   * @returns Die aktualisierte Rechnung mit Fälligkeitsdatum
+   * @throws ConflictException wenn die Rechnung nicht im DRAFT-Status ist
+   */
   async send(id: string) {
     const invoice = await this.findOne(id);
     if (invoice.status !== InvoiceStatus.DRAFT) {
@@ -679,6 +738,14 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * Storniert eine Rechnung: Status → CANCELLED, alle Beträge auf 0.
+   * Die Rechnung wird nicht gelöscht, sondern bleibt für die Buchhaltung erhalten.
+   *
+   * @param id - UUID der Rechnung
+   * @returns Die stornierte Rechnung
+   * @throws ConflictException wenn die Rechnung bereits storniert ist
+   */
   async cancel(id: string) {
     const invoice = await this.findOne(id);
     if (invoice.status === InvoiceStatus.CANCELLED) {
@@ -697,6 +764,14 @@ export class InvoicesService {
     return this.findOne(id);
   }
 
+  /**
+   * Dupliziert eine bestehende Rechnung als neuen Entwurf.
+   * Kopiert alle Positionen, vergibt eine neue Rechnungsnummer.
+   *
+   * @param id - UUID der zu duplizierenden Rechnung
+   * @param userId - ID des erstellenden Benutzers
+   * @returns Die neue Kopie im Status DRAFT
+   */
   async duplicate(id: string, userId: string | null) {
     const source = await this.prisma.invoice.findUnique({
       where: { id },
@@ -752,6 +827,12 @@ export class InvoicesService {
 
   // ── Positionen ───────────────────────────────────────────────
 
+  /**
+   * Liefert alle Positionen einer Rechnung, sortiert nach Position.
+   *
+   * @param invoiceId - UUID der Rechnung
+   * @returns Array der Rechnungspositionen
+   */
   async findLines(invoiceId: string) {
     await this.ensureInvoice(invoiceId);
     return this.prisma.invoiceLine.findMany({
@@ -760,6 +841,13 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * Fügt eine neue Position zur Rechnung hinzu und aktualisiert die Summen.
+   *
+   * @param invoiceId - UUID der Rechnung (muss DRAFT sein)
+   * @param dto - Positionsdaten (Beschreibung, Menge, Einzelpreis)
+   * @returns Die erstellte Position
+   */
   async addLine(invoiceId: string, dto: CreateInvoiceLineDto) {
     await this.ensureDraft(invoiceId);
     const position = dto.position ?? (await this.nextLinePosition(invoiceId));
@@ -783,6 +871,14 @@ export class InvoicesService {
     return line;
   }
 
+  /**
+   * Aktualisiert eine bestehende Position und berechnet die Rechnungssummen neu.
+   *
+   * @param invoiceId - UUID der Rechnung (muss DRAFT sein)
+   * @param lineId - UUID der Position
+   * @param dto - Zu aktualisierende Felder
+   * @returns Die aktualisierte Position
+   */
   async updateLine(invoiceId: string, lineId: string, dto: UpdateInvoiceLineDto) {
     await this.ensureDraft(invoiceId);
     const line = await this.ensureLine(invoiceId, lineId);
@@ -810,6 +906,13 @@ export class InvoicesService {
     return updated;
   }
 
+  /**
+   * Entfernt eine Position und berechnet die Rechnungssummen neu.
+   *
+   * @param invoiceId - UUID der Rechnung (muss DRAFT sein)
+   * @param lineId - UUID der Position
+   * @returns Bestätigung der Löschung
+   */
   async removeLine(invoiceId: string, lineId: string) {
     await this.ensureDraft(invoiceId);
     await this.ensureLine(invoiceId, lineId);
@@ -818,6 +921,13 @@ export class InvoicesService {
     return { id: lineId, deleted: true };
   }
 
+  /**
+   * Sortiert die Positionen einer Rechnung anhand der übergebenen ID-Reihenfolge neu.
+   *
+   * @param invoiceId - UUID der Rechnung (muss DRAFT sein)
+   * @param lineIds - Geordnetes Array aller Positions-IDs
+   * @returns Die neu sortierten Positionen
+   */
   async reorderLines(invoiceId: string, lineIds: string[]) {
     await this.ensureDraft(invoiceId);
     const existing = await this.prisma.invoiceLine.findMany({
@@ -847,6 +957,12 @@ export class InvoicesService {
 
   // ── Zahlungen ────────────────────────────────────────────────
 
+  /**
+   * Liefert alle erfassten Zahlungen einer Rechnung.
+   *
+   * @param invoiceId - UUID der Rechnung
+   * @returns Array der Zahlungen, sortiert nach Zahlungsdatum
+   */
   async findPayments(invoiceId: string) {
     await this.ensureInvoice(invoiceId);
     return this.prisma.invoicePayment.findMany({
@@ -855,6 +971,15 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * Erfasst eine Zahlung und aktualisiert den Rechnungsstatus automatisch
+   * (PARTIALLY_PAID bzw. PAID bei vollständiger Bezahlung).
+   *
+   * @param invoiceId - UUID der Rechnung
+   * @param dto - Zahlungsdaten (Betrag, Datum, Zahlungsart)
+   * @returns Die erstellte Zahlung
+   * @throws ConflictException bei stornierten Rechnungen
+   */
   async addPayment(invoiceId: string, dto: CreatePaymentDto) {
     const invoice = await this.findOne(invoiceId);
     if (invoice.status === InvoiceStatus.CANCELLED) {
@@ -876,6 +1001,13 @@ export class InvoicesService {
     return payment;
   }
 
+  /**
+   * Löscht eine Zahlung und aktualisiert den Rechnungsstatus entsprechend.
+   *
+   * @param invoiceId - UUID der Rechnung
+   * @param paymentId - UUID der Zahlung
+   * @returns Bestätigung der Löschung
+   */
   async removePayment(invoiceId: string, paymentId: string) {
     await this.ensureInvoice(invoiceId);
     const payment = await this.prisma.invoicePayment.findFirst({
@@ -892,6 +1024,12 @@ export class InvoicesService {
 
   // ── Dashboard / Statistik ────────────────────────────────────
 
+  /**
+   * Liefert Rechnungs-Kennzahlen für das Dashboard:
+   * Offene/überfällige Beträge (ein- und ausgehend) sowie Umsatz (Monat/Jahr).
+   *
+   * @returns Statistische Übersicht der Rechnungen
+   */
   async stats() {
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);

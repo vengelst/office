@@ -106,6 +106,11 @@ function loadSharp(): ((input: Buffer) => SharpInstance) | null {
   return sharpFn;
 }
 
+/**
+ * Service für die Monteur-Verwaltung.
+ * Behandelt CRUD, Profilbilder, Sprachkenntnisse, Zertifikate,
+ * PIN-Verwaltung (für Stempeluhr) und Ablaufwarnungen für Reisedokumente.
+ */
 @Injectable()
 export class WorkersService {
   constructor(
@@ -116,6 +121,12 @@ export class WorkersService {
 
   // ── Monteur CRUD ─────────────────────────────────────────────
 
+  /**
+   * Liefert eine paginierte, filterbare und sortierbare Monteur-Liste.
+   *
+   * @param params - Filter (Typ, Verfügbarkeit, Subunternehmen, Team), Suche und Sortierung
+   * @returns Paginierte Liste mit Monteur-Übersichtsdaten inkl. aktiver Zuweisung
+   */
   async findAll(params: ListWorkersParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -171,6 +182,13 @@ export class WorkersService {
     };
   }
 
+  /**
+   * Liefert einen einzelnen Monteur mit allen Relationen und der aktuellen Zuweisung.
+   *
+   * @param id - UUID des Monteurs
+   * @returns Monteur-Details mit Sprachen, Zertifikaten, Teams und Zuordnungen
+   * @throws NotFoundException wenn der Monteur nicht existiert
+   */
   async findOne(id: string) {
     const worker = await this.prisma.worker.findFirst({
       where: { id, deletedAt: null },
@@ -205,6 +223,13 @@ export class WorkersService {
     return { ...worker, currentAssignment };
   }
 
+  /**
+   * Erstellt einen neuen Monteur mit automatischer Nummer (W-YYYY-NNNN).
+   * Prüft bei Subunternehmer-Monteuren die Pflicht-Zuordnung zum Sub.
+   *
+   * @param dto - Monteurdaten (Name, Typ, Stundensatz, Dokumente, etc.)
+   * @returns Der erstellte Monteur mit allen Relationen
+   */
   async create(dto: CreateWorkerDto) {
     this.assertSubcontractorRule(
       dto.workerType ?? WorkerType.SUBCONTRACTED,
@@ -231,6 +256,14 @@ export class WorkersService {
     return this.findOne(worker.id);
   }
 
+  /**
+   * Aktualisiert einen bestehenden Monteur (Partial Update).
+   * Validiert Sub-Zugehörigkeit bei Typwechsel.
+   *
+   * @param id - UUID des Monteurs
+   * @param dto - Zu aktualisierende Felder
+   * @returns Der aktualisierte Monteur
+   */
   async update(id: string, dto: UpdateWorkerDto) {
     const current = await this.prisma.worker.findFirst({
       where: { id, deletedAt: null },
@@ -320,6 +353,14 @@ export class WorkersService {
 
   // ── Profilbild ───────────────────────────────────────────────
 
+  /**
+   * Lädt ein Profilbild hoch (JPEG/PNG, max. 5 MB).
+   * Erstellt automatisch ein 150×150 Thumbnail falls sharp verfügbar ist.
+   *
+   * @param id - UUID des Monteurs
+   * @param file - Die hochgeladene Bilddatei
+   * @returns Pfad zum gespeicherten Bild
+   */
   async uploadPhoto(id: string, file: Express.Multer.File | undefined) {
     await this.ensureWorker(id);
     if (!file) {
@@ -365,6 +406,13 @@ export class WorkersService {
     return { id, photoPath: storageKey };
   }
 
+  /**
+   * Liefert das Profilbild eines Monteurs als Stream.
+   *
+   * @param id - UUID des Monteurs
+   * @returns Stream mit MIME-Type des Bildes
+   * @throws NotFoundException wenn kein Profilbild vorhanden
+   */
   async getPhoto(
     id: string,
   ): Promise<{ stream: Readable; mimeType: string }> {
@@ -384,6 +432,7 @@ export class WorkersService {
 
   // ── Sprachkenntnisse ─────────────────────────────────────────
 
+  /** Liefert alle Sprachkenntnisse eines Monteurs. */
   async findLanguages(workerId: string) {
     await this.ensureWorker(workerId);
     return this.prisma.workerLanguage.findMany({
@@ -392,6 +441,7 @@ export class WorkersService {
     });
   }
 
+  /** Erfasst eine Sprachkenntnis (Duplikat-Prüfung per Sprache). */
   async createLanguage(workerId: string, dto: CreateLanguageDto) {
     await this.ensureWorker(workerId);
     const existing = await this.prisma.workerLanguage.findFirst({
@@ -405,6 +455,7 @@ export class WorkersService {
     });
   }
 
+  /** Aktualisiert eine Sprachkenntnis (z.B. Niveau-Änderung). */
   async updateLanguage(
     workerId: string,
     langId: string,
@@ -417,6 +468,7 @@ export class WorkersService {
     });
   }
 
+  /** Löscht eine Sprachkenntnis. */
   async removeLanguage(workerId: string, langId: string) {
     await this.ensureLanguage(workerId, langId);
     await this.prisma.workerLanguage.delete({ where: { id: langId } });
@@ -425,6 +477,7 @@ export class WorkersService {
 
   // ── Zertifikate ──────────────────────────────────────────────
 
+  /** Liefert alle Zertifikate eines Monteurs. */
   async findCertifications(workerId: string) {
     await this.ensureWorker(workerId);
     return this.prisma.workerCertification.findMany({
@@ -433,6 +486,7 @@ export class WorkersService {
     });
   }
 
+  /** Erfasst ein neues Zertifikat (z.B. SCC, Staplerschein). */
   async createCertification(workerId: string, dto: CreateCertificationDto) {
     await this.ensureWorker(workerId);
     return this.prisma.workerCertification.create({
@@ -447,6 +501,7 @@ export class WorkersService {
     });
   }
 
+  /** Aktualisiert ein bestehendes Zertifikat. */
   async updateCertification(
     workerId: string,
     certId: string,
@@ -463,6 +518,7 @@ export class WorkersService {
     });
   }
 
+  /** Löscht ein Zertifikat. */
   async removeCertification(workerId: string, certId: string) {
     await this.ensureCertification(workerId, certId);
     await this.prisma.workerCertification.delete({ where: { id: certId } });
@@ -547,6 +603,14 @@ export class WorkersService {
 
   // ── PIN-Verwaltung ────────────────────────────────────────────
 
+  /**
+   * Setzt eine neue 6-stellige PIN für die Stempeluhr-Anmeldung.
+   * Deaktiviert alle vorherigen PINs des Monteurs.
+   *
+   * @param workerId - UUID des Monteurs
+   * @param pin - Neue 6-stellige PIN
+   * @returns Erfolgsmeldung
+   */
   async setPin(workerId: string, pin: string): Promise<{ success: true }> {
     await this.ensureWorker(workerId);
     if (!/^\d{6}$/.test(pin)) {
@@ -571,6 +635,14 @@ export class WorkersService {
     return { success: true };
   }
 
+  /**
+   * Setzt eine neue PIN und sendet sie per E-Mail an den Monteur.
+   * Voraussetzung: Monteur hat eine E-Mail-Adresse hinterlegt.
+   *
+   * @param workerId - UUID des Monteurs
+   * @param pin - Die zu setzende und zu versendende PIN
+   * @returns Sendestatus (Erfolg/Fehler)
+   */
   async sendPinEmail(
     workerId: string,
     pin: string,

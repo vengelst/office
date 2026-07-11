@@ -23,12 +23,22 @@ export interface DriveUploadResult {
   webViewLink?: string;
 }
 
+/**
+ * Service für die Google-Drive-Integration.
+ * Verwaltet Authentifizierung, Ordnerstruktur und Datei-Upload/-Organisation
+ * über Domain-Wide Delegation mit einem Service Account.
+ */
 @Injectable()
 export class GoogleDriveService {
   private readonly logger = new Logger(GoogleDriveService.name);
 
   constructor(private readonly settings: AppSettingsService) {}
 
+  /**
+   * Liest die aktuelle Google-Drive-Konfiguration aus den App-Einstellungen.
+   *
+   * @returns Konfigurationsobjekt mit Aktivierungsstatus, Ordner-ID, SA-JSON und Impersonation-E-Mail
+   */
   async getConfig(): Promise<DriveConfig> {
     const vals = await this.settings.getMany([...DRIVE_KEYS]);
     return {
@@ -39,6 +49,11 @@ export class GoogleDriveService {
     };
   }
 
+  /**
+   * Speichert die Google-Drive-Konfiguration in den App-Einstellungen.
+   *
+   * @param config - Neue Konfiguration (Aktivierung, Ordner-ID, SA-JSON, E-Mail)
+   */
   async saveConfig(config: DriveConfig): Promise<void> {
     await this.settings.setMany({
       google_drive_enabled: String(config.enabled),
@@ -48,11 +63,24 @@ export class GoogleDriveService {
     });
   }
 
+  /**
+   * Prüft ob die Google-Drive-Integration aktiviert ist.
+   *
+   * @returns true wenn Drive-Sync aktiviert ist
+   */
   async isEnabled(): Promise<boolean> {
     const val = await this.settings.get('google_drive_enabled');
     return val === 'true';
   }
 
+  /**
+   * Authentifiziert sich bei der Google Drive API.
+   * Nutzt JWT mit Domain-Wide Delegation (Impersonation) wenn konfiguriert,
+   * ansonsten direktes Service-Account-Auth.
+   *
+   * @returns Authentifizierte Drive-API-Instanz
+   * @throws Error wenn Service Account nicht konfiguriert ist
+   */
   private async authenticate(): Promise<drive_v3.Drive> {
     const config = await this.getConfig();
     if (!config.serviceAccountJson) {
@@ -77,6 +105,12 @@ export class GoogleDriveService {
     return google.drive({ version: 'v3', auth });
   }
 
+  /**
+   * Testet die Verbindung zu Google Drive durch einen Probe-Request auf den Root-Ordner.
+   * Wird im Frontend-Settings-Panel verwendet um die Konfiguration zu validieren.
+   *
+   * @returns Erfolgsstatus und ggf. Fehlermeldung
+   */
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     try {
       const drive = await this.authenticate();
@@ -93,6 +127,16 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Lädt eine einzelne Datei in einen Google-Drive-Ordner hoch.
+   * Gibt null zurück wenn Drive deaktiviert ist oder der Upload fehlschlägt.
+   *
+   * @param fileBuffer - Dateiinhalt als Buffer
+   * @param fileName - Anzeigename der Datei in Drive
+   * @param mimeType - MIME-Type der Datei
+   * @param parentFolderId - Zielordner-ID (optional, nutzt Root wenn nicht angegeben)
+   * @returns Objekt mit fileId und webViewLink, oder null bei Fehler
+   */
   async uploadFile(
     fileBuffer: Buffer,
     fileName: string,
@@ -175,6 +219,13 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Erstellt einen neuen Ordner in Google Drive.
+   *
+   * @param name - Ordnername
+   * @param parentFolderId - Übergeordneter Ordner (optional, nutzt Root wenn nicht angegeben)
+   * @returns Die ID des erstellten Ordners, oder null bei Fehler
+   */
   async createFolder(
     name: string,
     parentFolderId?: string,
@@ -228,7 +279,13 @@ export class GoogleDriveService {
   }
 
   /**
-   * Setzt Berechtigungen auf eine Datei oder einen Ordner.
+   * Setzt Benutzerberechtigungen auf eine Datei oder einen Ordner in Google Drive.
+   * Sendet keine Benachrichtigungs-E-Mail an den berechtigten Benutzer.
+   *
+   * @param fileOrFolderId - Google-Drive-ID der Datei/des Ordners
+   * @param email - E-Mail-Adresse des Benutzers der berechtigt wird
+   * @param role - Berechtigungsstufe ('writer' oder 'reader')
+   * @returns true bei Erfolg, false bei Fehler
    */
   async setPermissions(
     fileOrFolderId: string,
@@ -257,6 +314,15 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Stellt die Ordnerstruktur für eine Entität sicher (erstellt Ordner bei Bedarf).
+   * Struktur: Root → Kategorie (z.B. "Kunden") → Entity-Ordner (z.B. "Müller GmbH").
+   *
+   * @param entityType - Entitätstyp (CUSTOMER, PROJECT, WORKER, etc.)
+   * @param entityId - UUID der Entität
+   * @param entityName - Anzeigename für den Entitäts-Ordner
+   * @returns Die ID des Entity-Ordners, oder null bei Fehler/Deaktivierung
+   */
   async ensureFolderStructure(
     entityType: string,
     entityId: string,
@@ -328,6 +394,13 @@ export class GoogleDriveService {
     }
   }
 
+  /**
+   * Initialisiert die Hauptordner-Struktur in Google Drive (Kunden, Projekte, Monteure, etc.).
+   * Idempotent: bereits existierende Ordner werden nicht erneut angelegt.
+   *
+   * @returns Objekt mit Listen der erstellten und bereits vorhandenen Ordner
+   * @throws Error wenn Google Drive nicht aktiviert ist
+   */
   async initMainFolders(): Promise<{ created: string[]; existing: string[] }> {
     const config = await this.getConfig();
     if (!config.enabled) throw new Error('Google Drive ist nicht aktiviert');
@@ -355,6 +428,15 @@ export class GoogleDriveService {
     return { created, existing };
   }
 
+  /**
+   * Sucht einen Ordner nach Name im übergeordneten Ordner oder erstellt ihn falls nicht vorhanden.
+   * Kernbaustein für die idempotente Ordnerstruktur-Verwaltung.
+   *
+   * @param drive - Authentifizierte Drive-API-Instanz
+   * @param name - Gesuchter/zu erstellender Ordnername
+   * @param parentId - ID des übergeordneten Ordners
+   * @returns Die ID des gefundenen/erstellten Ordners, oder null bei Fehler
+   */
   private async findOrCreateFolder(
     drive: drive_v3.Drive,
     name: string,

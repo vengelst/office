@@ -33,6 +33,11 @@ import {
 } from './dto/upload-document.dto';
 import { LinkDocumentDto } from './dto/link-document.dto';
 
+/**
+ * Controller für das Dokumentenmanagement (DMS).
+ * Verwaltet Upload, Download, Versionierung und Verknüpfung
+ * von Dateien mit Entitäten (Kunden, Projekte, Monteure, etc.).
+ */
 @ApiTags('documents')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
@@ -41,6 +46,15 @@ import { LinkDocumentDto } from './dto/link-document.dto';
 export class DocumentsController {
   constructor(private readonly documents: DocumentsService) {}
 
+  /**
+   * Lädt eine einzelne Datei mit Metadaten hoch und speichert sie im Storage.
+   * POST /api/documents/upload
+   *
+   * @param file - Die hochgeladene Datei (Multipart)
+   * @param dto - Metadaten (Dokumenttyp, Entitätsverknüpfung, Titel)
+   * @param user - Aktuell authentifizierter Benutzer
+   * @returns Das erstellte Dokument mit Storage-Informationen
+   */
   @Post('upload')
   @ApiOperation({ summary: 'Datei hochladen (Multipart) + Metadaten' })
   @ApiConsumes('multipart/form-data')
@@ -59,6 +73,15 @@ export class DocumentsController {
     );
   }
 
+  /**
+   * Lädt bis zu 10 Dateien gleichzeitig hoch (gleicher Entitäts-Kontext).
+   * POST /api/documents/upload-multiple
+   *
+   * @param files - Array der hochgeladenen Dateien (max. 10)
+   * @param dto - Gemeinsame Metadaten für alle Dateien
+   * @param user - Aktuell authentifizierter Benutzer
+   * @returns Array der erstellten Dokumente
+   */
   @Post('upload-multiple')
   @ApiOperation({ summary: 'Mehrere Dateien hochladen (gleicher Kontext)' })
   @ApiConsumes('multipart/form-data')
@@ -77,6 +100,17 @@ export class DocumentsController {
     );
   }
 
+  /**
+   * Ersetzt ein bestehendes Dokument durch eine neue Version.
+   * Die alte Version wird in der Versions-Historie aufbewahrt.
+   * POST /api/documents/:id/replace
+   *
+   * @param id - UUID des bestehenden Dokuments
+   * @param file - Die neue Datei
+   * @param dto - Optionale aktualisierte Metadaten
+   * @param user - Aktuell authentifizierter Benutzer
+   * @returns Das aktualisierte Dokument
+   */
   @Post(':id/replace')
   @ApiOperation({ summary: 'Dokument durch neue Version ersetzen' })
   @ApiConsumes('multipart/form-data')
@@ -97,24 +131,56 @@ export class DocumentsController {
     );
   }
 
+  /**
+   * Verknüpft ein Dokument zusätzlich mit einer weiteren Entität.
+   * POST /api/documents/:id/link
+   *
+   * @param id - UUID des Dokuments
+   * @param dto - Entitätstyp und -ID für die Verknüpfung
+   * @returns Das aktualisierte Dokument mit allen Verknüpfungen
+   */
   @Post(':id/link')
   @ApiOperation({ summary: 'Dokument mit einer Entität verknüpfen' })
   link(@Param('id') id: string, @Body() dto: LinkDocumentDto) {
     return this.documents.link(id, dto);
   }
 
+  /**
+   * Gibt die erlaubten Dokumenttypen für einen bestimmten Entitätstyp zurück.
+   * GET /api/documents/types-for-context
+   *
+   * @param entityType - Entitätstyp (z.B. PROJECT, CUSTOMER, WORKER)
+   * @returns Array der verfügbaren Dokumenttypen
+   */
   @Get('types-for-context')
   @ApiOperation({ summary: 'Kontextbezogene Dokumenttypen je Entitätstyp' })
   typesForContext(@Query('entityType') entityType: string) {
     return this.documents.typesForContext(entityType);
   }
 
+  /**
+   * Liefert Dokumente, deren Gültigkeitsdatum in den nächsten 30 Tagen abläuft.
+   * GET /api/documents/expiring
+   *
+   * @returns Array ablaufender Dokumente
+   */
   @Get('expiring')
   @ApiOperation({ summary: 'Dokumente mit Ablauf in den nächsten 30 Tagen' })
   expiring() {
     return this.documents.expiring();
   }
 
+  /**
+   * Listet Dokumente auf, gefiltert nach Entität, Ordner, Typ oder Suchbegriff.
+   * GET /api/documents
+   *
+   * @param entityType - Optional: Entitätstyp-Filter
+   * @param entityId - Optional: Entitäts-ID-Filter
+   * @param folderId - Optional: Ordner-Filter
+   * @param documentType - Optional: Dokumenttyp-Filter
+   * @param search - Optional: Freitextsuche
+   * @returns Array gefilterter Dokumente
+   */
   @Get()
   @ApiOperation({ summary: 'Dokumente auflisten/suchen (Filter)' })
   findAll(
@@ -133,12 +199,27 @@ export class DocumentsController {
     });
   }
 
+  /**
+   * Liefert Detailinformationen eines Dokuments inkl. Versions-Historie.
+   * GET /api/documents/:id
+   *
+   * @param id - UUID des Dokuments
+   * @returns Dokument mit Metadaten und Versionen
+   */
   @Get(':id')
   @ApiOperation({ summary: 'Dokument-Detail inkl. Versions-Historie' })
   findOne(@Param('id') id: string) {
     return this.documents.findOne(id);
   }
 
+  /**
+   * Streamt die Datei zum Client als Download.
+   * GET /api/documents/:id/download
+   *
+   * @param id - UUID des Dokuments
+   * @param res - Express Response (für Header)
+   * @returns StreamableFile mit korrekten Content-Type und Disposition Headern
+   */
   @Get(':id/download')
   @ApiOperation({ summary: 'Datei herunterladen (Stream)' })
   async download(
@@ -156,6 +237,14 @@ export class DocumentsController {
     return new StreamableFile(stream);
   }
 
+  /**
+   * Streamt das Thumbnail eines Bild-Dokuments.
+   * GET /api/documents/:id/thumbnail
+   *
+   * @param id - UUID des Dokuments
+   * @param res - Express Response (für Header)
+   * @returns StreamableFile des Thumbnails
+   */
   @Get(':id/thumbnail')
   @ApiOperation({ summary: 'Thumbnail eines Bild-Dokuments (Stream)' })
   async thumbnail(
@@ -167,6 +256,13 @@ export class DocumentsController {
     return new StreamableFile(stream);
   }
 
+  /**
+   * Löscht ein Dokument vollständig aus Storage und Datenbank.
+   * DELETE /api/documents/:id
+   *
+   * @param id - UUID des Dokuments
+   * @returns Bestätigung der Löschung
+   */
   @Delete(':id')
   @ApiOperation({ summary: 'Dokument löschen (Storage + DB)' })
   remove(@Param('id') id: string) {

@@ -54,6 +54,11 @@ export interface ClockStatus {
   timeEntryId: string | null;
 }
 
+/**
+ * Service für die Zeiterfassung (Stempeluhr).
+ * Verwaltet Ein-/Ausstempeln, Live-Übersicht, Foto-Uploads
+ * und die Synchronisierung mit Google Drive.
+ */
 @Injectable()
 export class TimeEntriesService {
   private readonly logger = new Logger(TimeEntriesService.name);
@@ -67,6 +72,15 @@ export class TimeEntriesService {
 
   // ── Stempeln ─────────────────────────────────────────────────
 
+  /**
+   * Stempelt einen Monteur auf einem Projekt ein.
+   * Prüft, dass der Monteur nicht bereits eingestempelt ist.
+   * Erfasst optional GPS-Koordinaten als GpsEvent.
+   *
+   * @param dto - Monteur-ID, Projekt-ID, Zeitstempel, GPS-Daten
+   * @param actor - Authentifizierter Benutzer/Worker
+   * @returns Aktueller Stempel-Status des Monteurs
+   */
   async clockIn(dto: ClockInDto, actor: AuthUser) {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
@@ -98,6 +112,14 @@ export class TimeEntriesService {
     return this.getStatus(dto.workerId);
   }
 
+  /**
+   * Stempelt einen Monteur aus (beendet die aktive Schicht).
+   * Berechnet die Brutto-Arbeitsminuten seit dem letzten Clock-In.
+   *
+   * @param dto - Monteur-ID, Zeitstempel, GPS-Daten
+   * @param actor - Authentifizierter Benutzer/Worker
+   * @returns Stempel-Status mit Brutto-Minuten der Schicht
+   */
   async clockOut(dto: ClockOutDto, actor: AuthUser) {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
@@ -248,6 +270,15 @@ export class TimeEntriesService {
 
   // ── Foto-Upload ──────────────────────────────────────────────
 
+  /**
+   * Lädt ein Baustellenfoto hoch, speichert es in MinIO und erstellt einen Dokumenteintrag.
+   * Synchronisiert asynchron nach Google Drive mit Shortcut im Monteur-Ordner.
+   *
+   * @param file - Die Bilddatei (max. 10 MB)
+   * @param dto - Monteur-ID, Projekt-ID, optionaler Kommentar
+   * @param actor - Authentifizierter Benutzer/Worker
+   * @returns Das erstellte Dokument mit Metadaten
+   */
   async uploadPhoto(
     file: Express.Multer.File | undefined,
     dto: UploadPhotoDto,

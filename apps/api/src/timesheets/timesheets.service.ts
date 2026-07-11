@@ -118,6 +118,11 @@ interface DayAggregate {
   clockOutLongitude: number | null;
 }
 
+/**
+ * Service für die Stundenzettel-Verwaltung (Wochenstundenzettel).
+ * Generiert Stundenzettel aus Stempel-Einträgen, verwaltet den Workflow
+ * (DRAFT → SUBMITTED → APPROVED/REJECTED → ARCHIVED) und speichert Unterschriften.
+ */
 @Injectable()
 export class TimesheetsService {
   private readonly logger = new Logger(TimesheetsService.name);
@@ -132,6 +137,12 @@ export class TimesheetsService {
 
   // ── Liste / Detail ───────────────────────────────────────────
 
+  /**
+   * Liefert eine paginierte und filterbare Liste der Wochenstundenzettel.
+   *
+   * @param params - Filter (Monteur, Projekt, KW, Status), Paginierung und Sortierung
+   * @returns Paginierte Liste mit Stundenzettel-Übersichtsdaten
+   */
   async findAll(params: ListTimesheetsParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -184,6 +195,13 @@ export class TimesheetsService {
     };
   }
 
+  /**
+   * Liefert einen einzelnen Stundenzettel mit Tageseinträgen und Unterschriften.
+   *
+   * @param id - UUID des Stundenzettels
+   * @returns Vollständige Details inkl. Tagen und Signaturen
+   * @throws NotFoundException wenn der Stundenzettel nicht existiert
+   */
   async findOne(id: string) {
     const timesheet = await this.prisma.weeklyTimesheet.findUnique({
       where: { id },
@@ -197,6 +215,15 @@ export class TimesheetsService {
 
   // ── Generieren aus TimeEntries ───────────────────────────────
 
+  /**
+   * Generiert einen Wochenstundenzettel aus den Stempel-Einträgen (TimeEntries).
+   * Aggregiert Tageweise Brutto-Zeiten und berechnet Pausen anhand der Pausenregeln.
+   * Bei bereits existierendem Zettel (DRAFT/REJECTED) wird er überschrieben.
+   *
+   * @param dto - Monteur-ID, Projekt-ID, Kalenderwoche
+   * @returns Der generierte Stundenzettel mit allen Tageseinträgen
+   * @throws ConflictException bei bereits eingereichten/genehmigten Zetteln
+   */
   async generate(dto: GenerateTimesheetDto) {
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
@@ -311,6 +338,15 @@ export class TimesheetsService {
 
   // ── Tageskorrektur ───────────────────────────────────────────
 
+  /**
+   * Korrigiert einen Tageseintrag manuell (z.B. fehlende Zeiten nachtragen).
+   * Berechnet Brutto/Netto/Pause neu und aktualisiert die Wochensummen.
+   *
+   * @param id - UUID des Stundenzettels
+   * @param dayId - UUID des Tageseintrags
+   * @param dto - Korrigierte Zeitwerte
+   * @returns Der aktualisierte Stundenzettel
+   */
   async updateDay(id: string, dayId: string, dto: UpdateDayDto) {
     const sheet = await this.ensureEditable(id);
     const day = sheet.days.find((d) => d.id === dayId);
@@ -370,6 +406,12 @@ export class TimesheetsService {
 
   // ── Workflow ─────────────────────────────────────────────────
 
+  /**
+   * Reicht einen Stundenzettel zur Prüfung ein (DRAFT/REJECTED → SUBMITTED).
+   *
+   * @param id - UUID des Stundenzettels
+   * @returns Der aktualisierte Stundenzettel
+   */
   async submit(id: string) {
     const sheet = await this.findOne(id);
     if (!EDITABLE_STATUSES.includes(sheet.status)) {
@@ -389,6 +431,14 @@ export class TimesheetsService {
     return this.findOne(id);
   }
 
+  /**
+   * Genehmigt einen eingereichten Stundenzettel (SUBMITTED → APPROVED).
+   * Löst asynchron den PDF-Export aus.
+   *
+   * @param id - UUID des Stundenzettels
+   * @param userId - ID des genehmigenden Benutzers
+   * @returns Der genehmigte Stundenzettel
+   */
   async approve(id: string, userId: string | null) {
     const sheet = await this.findOne(id);
     if (sheet.status !== WeeklyTimesheetStatus.SUBMITTED) {
@@ -450,6 +500,14 @@ export class TimesheetsService {
     });
   }
 
+  /**
+   * Weist einen eingereichten Stundenzettel mit Begründung zurück (SUBMITTED → REJECTED).
+   *
+   * @param id - UUID des Stundenzettels
+   * @param reason - Begründung für die Zurückweisung
+   * @param userId - ID des prüfenden Benutzers
+   * @returns Der zurückgewiesene Stundenzettel
+   */
   async reject(id: string, reason: string, userId: string | null) {
     const sheet = await this.findOne(id);
     if (sheet.status !== WeeklyTimesheetStatus.SUBMITTED) {
@@ -472,6 +530,12 @@ export class TimesheetsService {
 
   // ── Archivieren ─────────────────────────────────────────────
 
+  /**
+   * Archiviert einen genehmigten Stundenzettel (APPROVED → ARCHIVED).
+   *
+   * @param id - UUID des Stundenzettels
+   * @returns Der archivierte Stundenzettel
+   */
   async archive(id: string) {
     const sheet = await this.findOne(id);
     if (sheet.status !== WeeklyTimesheetStatus.APPROVED) {
@@ -488,6 +552,16 @@ export class TimesheetsService {
 
   // ── Unterschrift ─────────────────────────────────────────────
 
+  /**
+   * Fügt eine digitale Unterschrift (Base64-PNG) zum Stundenzettel hinzu.
+   * Ersetzt ggf. eine bestehende Unterschrift desselben Typs.
+   * Bei Worker-Signatur im DRAFT-Status → automatischer Übergang zu WORKER_SIGNED.
+   *
+   * @param id - UUID des Stundenzettels
+   * @param dto - Signatur-Daten (Base64, Typ, Name)
+   * @param meta - IP-Adresse und Geräte-Info des Unterzeichners
+   * @returns Der aktualisierte Stundenzettel
+   */
   async sign(id: string, dto: SignTimesheetDto, meta: SignatureMeta) {
     const sheet = await this.findOne(id);
     if (FINAL_STATUSES.includes(sheet.status)) {

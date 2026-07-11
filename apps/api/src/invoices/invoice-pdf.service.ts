@@ -4,6 +4,11 @@ import PDFDocument from 'pdfkit';
 import { PrismaService } from '../prisma/prisma.service';
 import { CompanyInfo, loadCompanyInfo } from './company.config';
 
+/**
+ * Service zur PDF-Generierung von Rechnungen.
+ * Erstellt A4-PDFs im Standard-Layout mit Kopf-/Fußzeile,
+ * Empfängeradresse, Positionstabelle und Zahlungshinweisen.
+ */
 @Injectable()
 export class InvoicePdfService {
   constructor(private readonly prisma: PrismaService) {}
@@ -67,6 +72,7 @@ export class InvoicePdfService {
 
   // ── Layout-Bausteine ─────────────────────────────────────────
 
+  /** Zeichnet den Rechnungskopf mit Firmenlogo, Titel und Metadaten. */
   private drawHeader(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
@@ -92,6 +98,7 @@ export class InvoicePdfService {
     doc.fillColor('#000');
   }
 
+  /** Zeichnet den Empfänger-Adressblock (Kunde bei Ausgang, Sub bei Eingang). */
   private drawRecipient(
     doc: PDFKit.PDFDocument,
     invoice: {
@@ -148,6 +155,7 @@ export class InvoicePdfService {
     }
   }
 
+  /** Zeichnet Projekt-Referenz, Leistungszeitraum und Abschlagsinformationen. */
   private drawMeta(
     doc: PDFKit.PDFDocument,
     invoice: {
@@ -192,6 +200,7 @@ export class InvoicePdfService {
     doc.y = y + 6;
   }
 
+  /** Zeichnet die Positionstabelle mit automatischem Seitenumbruch. */
   private drawLineTable(
     doc: PDFKit.PDFDocument,
     lines: Array<{
@@ -261,6 +270,7 @@ export class InvoicePdfService {
     doc.y = y + 6;
   }
 
+  /** Zeichnet die Summenzeilen (Netto, MwSt, Brutto). */
   private drawTotals(
     doc: PDFKit.PDFDocument,
     invoice: { subtotal: number; taxRate: number; taxAmount: number; total: number },
@@ -290,6 +300,7 @@ export class InvoicePdfService {
     doc.y = y + 10;
   }
 
+  /** Zeichnet Zahlungshinweis, Bankverbindung und optionale Notizen. */
   private drawPaymentNote(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
@@ -330,6 +341,7 @@ export class InvoicePdfService {
     doc.y = y + 10;
   }
 
+  /** Zeichnet die Fußzeile mit Firmenname, Adresse und Steuernummer. */
   private drawFooter(doc: PDFKit.PDFDocument, company: CompanyInfo): void {
     const y = 790;
     doc.fontSize(8).fillColor('#888');
@@ -342,6 +354,7 @@ export class InvoicePdfService {
     doc.fillColor('#000');
   }
 
+  /** Zeichnet eine einzelne Tabellenzeile mit konfigurierbaren Spaltenbreiten. */
   private drawTableRow(
     doc: PDFKit.PDFDocument,
     x: number,

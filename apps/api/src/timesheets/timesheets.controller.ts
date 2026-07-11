@@ -26,6 +26,11 @@ import { UpdateDayDto } from './dto/update-day.dto';
 import { SignTimesheetDto } from './dto/sign-timesheet.dto';
 import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
 
+/**
+ * Controller für die Stundenzettel-Verwaltung.
+ * Stellt Endpunkte für Generierung, Workflow (Einreichen, Genehmigen, Zurückweisen),
+ * Tageskorrektur, Unterschriften und PDF-Export bereit.
+ */
 @ApiTags('timesheets')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)

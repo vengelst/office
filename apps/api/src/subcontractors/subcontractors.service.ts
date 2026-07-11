@@ -17,10 +17,21 @@ export interface ListSubcontractorsParams {
   sortDir?: 'asc' | 'desc';
 }
 
+/**
+ * Service für die Subunternehmen-Verwaltung.
+ * Behandelt CRUD mit Soft-Delete und liefert zugehörige
+ * Monteure in der Detailansicht.
+ */
 @Injectable()
 export class SubcontractorsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liefert eine paginierte und filterbare Liste aller Subunternehmen.
+   *
+   * @param params - Filter (aktiv, Suche), Paginierung und Sortierung
+   * @returns Paginierte Liste mit Monteur-Anzahl pro Sub
+   */
   async findAll(params: ListSubcontractorsParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
@@ -64,6 +75,13 @@ export class SubcontractorsService {
     };
   }
 
+  /**
+   * Liefert ein einzelnes Subunternehmen mit zugehörigen Monteuren.
+   *
+   * @param id - UUID des Subunternehmens
+   * @returns Sub-Details mit Monteur-Liste
+   * @throws NotFoundException wenn das Sub nicht existiert
+   */
   async findOne(id: string) {
     const subcontractor = await this.prisma.subcontractor.findFirst({
       where: { id, deletedAt: null },
@@ -88,10 +106,12 @@ export class SubcontractorsService {
     return subcontractor;
   }
 
+  /** Erstellt ein neues Subunternehmen. */
   async create(dto: CreateSubcontractorDto) {
     return this.prisma.subcontractor.create({ data: { ...dto } });
   }
 
+  /** Aktualisiert ein bestehendes Subunternehmen. */
   async update(id: string, dto: UpdateSubcontractorDto) {
     await this.ensureExists(id);
     return this.prisma.subcontractor.update({

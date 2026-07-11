@@ -18,6 +18,11 @@ import { CreateVehicleDto } from './dto/create-vehicle.dto';
 import { UpdateVehicleDto } from './dto/update-vehicle.dto';
 import { AssignVehicleDto } from './dto/assign-vehicle.dto';
 
+/**
+ * Controller für die Fahrzeugverwaltung.
+ * Stellt Endpunkte für CRUD, Aktivierung/Deaktivierung,
+ * Monteur-Zuweisungen und Ablaufwarnungen bereit.
+ */
 @ApiTags('vehicles')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)

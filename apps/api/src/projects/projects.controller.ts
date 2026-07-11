@@ -29,6 +29,11 @@ import { CreateNoteDto } from './dto/create-note.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
 
+/**
+ * Controller für die Projektverwaltung.
+ * Stellt Endpunkte für Projekt-CRUD, Status-Workflow, Standorte,
+ * Geräte, E-Mail-Verteiler, Notizen und Monteur-Zuordnungen bereit.
+ */
 @ApiTags('projects')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)

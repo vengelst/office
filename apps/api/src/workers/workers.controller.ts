@@ -32,6 +32,11 @@ import { UpdateLanguageDto } from './dto/update-language.dto';
 import { CreateCertificationDto } from './dto/create-certification.dto';
 import { UpdateCertificationDto } from './dto/update-certification.dto';
 
+/**
+ * Controller für die Monteur-Verwaltung.
+ * Stellt Endpunkte für CRUD, Profilbilder, Sprachkenntnisse,
+ * Zertifikate, PIN-Verwaltung und Ablaufwarnungen bereit.
+ */
 @ApiTags('workers')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)

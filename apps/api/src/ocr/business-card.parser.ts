@@ -1,8 +1,10 @@
+/** Einzelnes erkanntes Feld einer Visitenkarte mit Konfidenzwert (0-1). */
 export interface BusinessCardField<T = string> {
   value: T | null;
   confidence: number;
 }
 
+/** Vollständig geparste Visitenkarten-Daten mit allen erkannten Feldern und deren Konfidenz. */
 export interface BusinessCardData {
   firstName: BusinessCardField;
   lastName: BusinessCardField;
@@ -34,6 +36,9 @@ const MOBILE_HINTS = ['mobil', 'mobile', 'handy', 'cell', '+49 1', '+491', '01']
 const LANDLINE_HINTS = ['tel', 'phone', 'fon', 'fax', 'festnetz'];
 const TITLE_PREFIXES = ['herr', 'frau', 'mr', 'mrs', 'ms', 'dr', 'prof'];
 
+/**
+ * Hilfsfunktion: Erzeugt ein BusinessCardField mit Wert und Konfidenz.
+ */
 function field<T = string>(
   value: T | null,
   confidence: number,
@@ -41,6 +46,14 @@ function field<T = string>(
   return { value, confidence };
 }
 
+/**
+ * Parst den OCR-Text einer Visitenkarte und extrahiert strukturierte Kontaktdaten.
+ * Erkennt mittels Regex-Heuristiken: Name, Titel, Firma, E-Mail, Telefonnummern,
+ * Adresse, Website und LinkedIn-URL. Jedes Feld erhält einen Konfidenzwert.
+ *
+ * @param ocrText - Roher OCR-Text (mehrzeilig, wie vom OCR-Service geliefert)
+ * @returns Strukturierte Visitenkarten-Daten mit Konfidenzwerten pro Feld
+ */
 export function parseBusinessCard(ocrText: string): BusinessCardData {
   const lines = ocrText.split('\n').map((l) => l.trim()).filter(Boolean);
   const fullText = lines.join('\n');
@@ -74,6 +87,14 @@ export function parseBusinessCard(ocrText: string): BusinessCardData {
   };
 }
 
+/**
+ * Extrahiert Mobil- und Festnetznummern aus dem Visitenkartentext.
+ * Unterscheidet anhand von Hinweiswörtern (mobil, tel, fon) und Nummernpräfixen (01x, +49 1x).
+ *
+ * @param fullText - Gesamter OCR-Text
+ * @param lines - Einzelne Textzeilen
+ * @returns Objekt mit erkannter Mobil- und Festnetznummer (oder null)
+ */
 function extractPhones(
   fullText: string,
   lines: string[],
@@ -114,6 +135,13 @@ function extractPhones(
   return { mobile, landline };
 }
 
+/**
+ * Extrahiert Adressdaten (Straße, PLZ, Stadt, Land) aus dem OCR-Text.
+ * Erkennt deutsche Adressformate (Straßenname + Hausnummer, 5-stellige PLZ + Stadt).
+ *
+ * @param fullText - Gesamter OCR-Text
+ * @returns Objekt mit erkannten Adressbestandteilen (oder null pro Feld)
+ */
 function extractAddress(fullText: string): {
   street: string | null;
   postalCode: string | null;
@@ -136,6 +164,15 @@ function extractAddress(fullText: string): {
   };
 }
 
+/**
+ * Extrahiert Personennamen, Titel, Rolle und Firma aus den ersten Zeilen der Visitenkarte.
+ * Nutzt Heuristiken: Titelkürzel (Dr., Prof.), Namensstruktur, E-Mail-Benutzerteil
+ * zur Validierung, und Positionslogik (Name steht meist oben, Rolle darunter).
+ *
+ * @param lines - Bereinigte Textzeilen der Visitenkarte
+ * @param emails - Bereits erkannte E-Mail-Adressen (für Namensvalidierung)
+ * @returns Objekt mit Vorname, Nachname, Titel, Rolle und Firma (oder null)
+ */
 function extractName(
   lines: string[],
   emails: string[],

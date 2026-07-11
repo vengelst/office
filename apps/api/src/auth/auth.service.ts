@@ -14,6 +14,11 @@ import {
 } from '@office/types';
 import { PrismaService } from '../prisma/prisma.service';
 
+/**
+ * Service für Authentifizierung und Session-Management.
+ * Unterstützt Login via E-Mail/Passwort (Office-Benutzer) und PIN (Monteure).
+ * Erstellt JWTs und verwaltet aktive Sessions in der Datenbank.
+ */
 @Injectable()
 export class AuthService {
   constructor(

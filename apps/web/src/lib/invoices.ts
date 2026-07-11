@@ -9,8 +9,10 @@ const API_BASE_URL =
 
 // ── Enums (spiegeln Prisma) ────────────────────────────────────
 
+/** Rechnungsrichtung: Ausgangsrechnung an Kunde oder Eingangsrechnung von Subunternehmer. */
 export type InvoiceType = 'OUTGOING' | 'INCOMING';
 
+/** Lebenszyklus-Status einer Rechnung (Entwurf → Versendet → Bezahlt/Storniert). */
 export type InvoiceStatus =
   | 'DRAFT'
   | 'SENT'
@@ -18,6 +20,7 @@ export type InvoiceStatus =
   | 'PAID'
   | 'CANCELLED';
 
+/** Art einer Rechnungsposition (Wochenpaket, Überstunden, Abschlag, etc.). */
 export type InvoiceLineType =
   | 'WEEKLY_PACKAGE'
   | 'OVERTIME'
@@ -27,6 +30,7 @@ export type InvoiceLineType =
 
 // ── Sub-Entities ───────────────────────────────────────────────
 
+/** Einzelne Rechnungsposition mit Menge, Einzelpreis und Gesamtbetrag. */
 export interface InvoiceLine {
   id: string;
   invoiceId: string;
@@ -40,6 +44,7 @@ export interface InvoiceLine {
   weeklyTimesheetId: string | null;
 }
 
+/** Zahlungseingang zu einer Rechnung (Betrag, Datum, Methode). */
 export interface InvoicePayment {
   id: string;
   invoiceId: string;
@@ -53,6 +58,7 @@ export interface InvoicePayment {
 
 // ── Liste ──────────────────────────────────────────────────────
 
+/** Kompakte Darstellung einer Rechnung für Listenansichten (inkl. Projekt/Kunde/Sub). */
 export interface InvoiceListItem {
   id: string;
   invoiceNumber: string;
@@ -78,6 +84,7 @@ export interface InvoiceListItem {
   _count: { lines: number; payments: number };
 }
 
+/** Paginierte Antwort der Rechnungsliste. */
 export interface InvoiceListResponse {
   data: InvoiceListItem[];
   total: number;
@@ -88,6 +95,7 @@ export interface InvoiceListResponse {
 
 // ── Detail ─────────────────────────────────────────────────────
 
+/** Vollständiger Rechnungsdatensatz inkl. Positionen, Zahlungen und verknüpftem Projekt/Kunde. */
 export interface InvoiceDetail {
   id: string;
   invoiceNumber: string;
@@ -139,6 +147,7 @@ export interface InvoiceDetail {
 
 // ── Statistik (Dashboard) ──────────────────────────────────────
 
+/** Zusammenfassung offener und überfälliger Rechnungen (Anzahl + Betrag). */
 export interface InvoiceStatsBucket {
   openCount: number;
   openAmount: number;
@@ -146,6 +155,7 @@ export interface InvoiceStatsBucket {
   overdueAmount: number;
 }
 
+/** Dashboard-Statistiken für Ein- und Ausgangsrechnungen inkl. Monatsumsatz. */
 export interface InvoiceStats {
   outgoing: InvoiceStatsBucket;
   incoming: InvoiceStatsBucket;
@@ -154,6 +164,7 @@ export interface InvoiceStats {
 
 // ── Query-Parameter & Bodies ───────────────────────────────────
 
+/** Filter-, Paginierungs- und Sortierparameter für die Rechnungsliste. */
 export interface InvoiceListParams {
   page?: number;
   limit?: number;
@@ -169,6 +180,7 @@ export interface InvoiceListParams {
   sortDir?: 'asc' | 'desc';
 }
 
+/** Request-Body zum Anlegen einer einzelnen Rechnungsposition. */
 export interface CreateInvoiceLineBody {
   lineType: InvoiceLineType;
   description: string;
@@ -179,6 +191,7 @@ export interface CreateInvoiceLineBody {
   weeklyTimesheetId?: string;
 }
 
+/** Request-Body zum Anlegen einer neuen Rechnung (inkl. optionaler Positionen). */
 export interface CreateInvoiceBody {
   invoiceType: InvoiceType;
   projectId?: string;
@@ -197,8 +210,10 @@ export interface CreateInvoiceBody {
   lines?: CreateInvoiceLineBody[];
 }
 
+/** Request-Body zum Aktualisieren einer Rechnung (ohne Typ- und Positionsänderung). */
 export type UpdateInvoiceBody = Partial<Omit<CreateInvoiceBody, 'invoiceType' | 'lines'>>;
 
+/** Request-Body für die automatische Rechnungsgenerierung aus Stundenzetteln. */
 export interface GenerateInvoiceBody {
   projectId: string;
   periodFrom: string;
@@ -208,6 +223,7 @@ export interface GenerateInvoiceBody {
   taxRate?: number;
 }
 
+/** Request-Body zum Erfassen einer Zahlung. */
 export interface CreatePaymentBody {
   amount: number;
   paidDate: string;
@@ -218,7 +234,13 @@ export interface CreatePaymentBody {
 
 // ── API ────────────────────────────────────────────────────────
 
+/** API-Client für Rechnungsverwaltung (CRUD, Positionen, Zahlungen, PDF, Workflow). */
 export const invoicesApi = {
+  /**
+   * GET /invoices – Listet Rechnungen paginiert mit optionalen Filtern.
+   * @param params - Filter (Typ, Status, Projekt, Kunde, Zeitraum) + Paginierung
+   * @returns Paginierte Rechnungsliste
+   */
   list(params: InvoiceListParams): Promise<InvoiceListResponse> {
     const q = new URLSearchParams();
     if (params.page) q.set('page', String(params.page));
@@ -235,37 +257,110 @@ export const invoicesApi = {
     if (params.sortDir) q.set('sortDir', params.sortDir);
     return apiClient.get<InvoiceListResponse>(`/invoices?${q.toString()}`);
   },
+  /**
+   * GET /invoices/:id – Lädt eine einzelne Rechnung inkl. Positionen und Zahlungen.
+   * @param id - Rechnungs-ID
+   * @returns Rechnungsdetail mit allen Relationen
+   */
   get: (id: string) => apiClient.get<InvoiceDetail>(`/invoices/${id}`),
+  /**
+   * POST /invoices – Erstellt eine neue Rechnung.
+   * @param body - Rechnungsdaten inkl. optionaler Positionen
+   */
   create: (body: CreateInvoiceBody) =>
     apiClient.post<InvoiceDetail>('/invoices', body),
+  /**
+   * PATCH /invoices/:id – Aktualisiert eine bestehende Rechnung.
+   * @param id - Rechnungs-ID
+   * @param body - Zu aktualisierende Felder
+   */
   update: (id: string, body: UpdateInvoiceBody) =>
     apiClient.patch<InvoiceDetail>(`/invoices/${id}`, body),
+  /**
+   * DELETE /invoices/:id – Löscht eine Rechnung (nur im Entwurfs-Status möglich).
+   * @param id - Rechnungs-ID
+   */
   remove: (id: string) => apiClient.delete<unknown>(`/invoices/${id}`),
+  /**
+   * POST /invoices/generate-from-timesheets – Generiert eine Rechnung automatisch aus Stundenzetteln.
+   * @param body - Projekt, Zeitraum und Rechnungstyp
+   */
   generate: (body: GenerateInvoiceBody) =>
     apiClient.post<InvoiceDetail>('/invoices/generate-from-timesheets', body),
+  /**
+   * POST /invoices/:id/send – Markiert die Rechnung als versendet.
+   * @param id - Rechnungs-ID
+   */
   send: (id: string) => apiClient.post<InvoiceDetail>(`/invoices/${id}/send`),
+  /**
+   * POST /invoices/:id/cancel – Storniert eine Rechnung.
+   * @param id - Rechnungs-ID
+   */
   cancel: (id: string) =>
     apiClient.post<InvoiceDetail>(`/invoices/${id}/cancel`),
+  /**
+   * POST /invoices/:id/duplicate – Erstellt eine Kopie der Rechnung als neuen Entwurf.
+   * @param id - Rechnungs-ID des Originals
+   */
   duplicate: (id: string) =>
     apiClient.post<InvoiceDetail>(`/invoices/${id}/duplicate`),
+  /**
+   * GET /invoices/stats – Lädt Dashboard-Statistiken (offene/überfällige Beträge).
+   * @returns Zusammenfassung für Ein- und Ausgangsrechnungen
+   */
   stats: () => apiClient.get<InvoiceStats>('/invoices/stats'),
 
   // Positionen
+  /**
+   * POST /invoices/:id/lines – Fügt eine neue Position hinzu.
+   * @param id - Rechnungs-ID
+   * @param body - Positionsdaten
+   */
   addLine: (id: string, body: CreateInvoiceLineBody) =>
     apiClient.post<InvoiceLine>(`/invoices/${id}/lines`, body),
+  /**
+   * PATCH /invoices/:id/lines/:lineId – Aktualisiert eine Position.
+   * @param id - Rechnungs-ID
+   * @param lineId - Positions-ID
+   * @param body - Zu aktualisierende Felder
+   */
   updateLine: (id: string, lineId: string, body: Partial<CreateInvoiceLineBody>) =>
     apiClient.patch<InvoiceLine>(`/invoices/${id}/lines/${lineId}`, body),
+  /**
+   * DELETE /invoices/:id/lines/:lineId – Löscht eine Position.
+   * @param id - Rechnungs-ID
+   * @param lineId - Positions-ID
+   */
   removeLine: (id: string, lineId: string) =>
     apiClient.delete<unknown>(`/invoices/${id}/lines/${lineId}`),
+  /**
+   * POST /invoices/:id/lines/reorder – Sortiert Positionen in neuer Reihenfolge.
+   * @param id - Rechnungs-ID
+   * @param lineIds - Positions-IDs in gewünschter Reihenfolge
+   */
   reorderLines: (id: string, lineIds: string[]) =>
     apiClient.post<InvoiceLine[]>(`/invoices/${id}/lines/reorder`, { lineIds }),
 
   // Zahlungen
+  /**
+   * POST /invoices/:id/payments – Erfasst eine Zahlung.
+   * @param id - Rechnungs-ID
+   * @param body - Zahlungsdaten (Betrag, Datum, Methode)
+   */
   addPayment: (id: string, body: CreatePaymentBody) =>
     apiClient.post<InvoicePayment>(`/invoices/${id}/payments`, body),
+  /**
+   * DELETE /invoices/:id/payments/:paymentId – Löscht eine erfasste Zahlung.
+   * @param id - Rechnungs-ID
+   * @param paymentId - Zahlungs-ID
+   */
   removePayment: (id: string, paymentId: string) =>
     apiClient.delete<unknown>(`/invoices/${id}/payments/${paymentId}`),
 
+  /**
+   * Erzeugt die URL zum Rechnungs-PDF (für direkten Download).
+   * @param id - Rechnungs-ID
+   */
   pdfUrl: (id: string) => `${API_BASE_URL}/invoices/${id}/pdf`,
 };
 

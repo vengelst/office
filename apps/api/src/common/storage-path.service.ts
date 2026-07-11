@@ -47,12 +47,23 @@ export interface EntityInfo {
   number: string;
 }
 
+/**
+ * Service für die Generierung lesbarer und konsistenter Speicherpfade.
+ * Erzeugt sowohl MinIO-Storage-Pfade als auch Google-Drive-Ordnernamen
+ * basierend auf Entitätstyp, -name und Dokumentkategorie.
+ */
 @Injectable()
 export class StoragePathService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Lädt Entity-Infos (Name + Nummer) aus der DB und erzeugt einen Slug.
+   * Lädt Entity-Infos (Name + Nummer) aus der DB und erzeugt einen URL-sicheren Slug.
+   * Unterstützt alle Entitätstypen: Kunde, Projekt, Monteur, Fahrzeug, Subunternehmer, Kontakt.
+   * Gibt bei unbekanntem Typ einen Fallback-Slug mit gekürzter UUID zurück.
+   *
+   * @param entityType - Entitätstyp (CUSTOMER, PROJECT, WORKER, VEHICLE, SUBCONTRACTOR, CONTACT)
+   * @param entityId - UUID der Entität
+   * @returns EntityInfo mit Slug, Anzeigename und Nummer
    */
   async getEntityInfo(entityType: string, entityId: string): Promise<EntityInfo> {
     switch (entityType) {
@@ -136,8 +147,15 @@ export class StoragePathService {
   }
 
   /**
-   * Generiert den lesbaren Storage-Pfad für ein Dokument.
-   * Beispiel: "kunden/mueller-elektrotechnik-gmbh-K0001/vertraege/Vertrag_Mueller-Elektro_2026-01-15.pdf"
+   * Generiert den lesbaren MinIO-Storage-Pfad für ein Dokument.
+   * Kombiniert Kategorie-Slug, Entity-Slug, Unterordner und Dateiname.
+   * Beispiel: "kunden/mueller-elektrotechnik-gmbh-K0001/vertraege/Vertrag_Mueller.pdf"
+   *
+   * @param entityType - Entitätstyp (CUSTOMER, PROJECT, etc.)
+   * @param entityId - UUID der Entität
+   * @param documentType - Dokumentkategorie (CONTRACT, INVOICE, etc.)
+   * @param filename - Bereits bereinigter Dateiname
+   * @returns Vollständiger relativer Storage-Pfad
    */
   async generatePath(
     entityType: string,
@@ -153,6 +171,12 @@ export class StoragePathService {
 
   /**
    * Generiert den lesbaren Dateinamen für einen Stundenzettel-PDF-Export.
+   * Format: "Stundenzettel_KW{Nr}_{Nachname}-{Vorname}.pdf"
+   *
+   * @param weekNumber - Kalenderwoche
+   * @param workerLastName - Nachname des Monteurs
+   * @param workerFirstName - Vorname des Monteurs
+   * @returns Bereinigter Dateiname
    */
   buildTimesheetFilename(weekNumber: number, workerLastName: string, workerFirstName: string): string {
     const worker = fileSlug(`${workerLastName}-${workerFirstName}`);
@@ -161,6 +185,11 @@ export class StoragePathService {
 
   /**
    * Generiert den lesbaren Dateinamen für eine Rechnungs-PDF.
+   * Format: "{Rechnungsnummer}_{Partnername}.pdf"
+   *
+   * @param invoiceNumber - Rechnungsnummer (wird auf alphanumerische Zeichen reduziert)
+   * @param partnerName - Name des Kunden/Lieferanten
+   * @returns Bereinigter Dateiname
    */
   buildInvoiceFilename(invoiceNumber: string, partnerName: string): string {
     const partner = fileSlug(partnerName);
@@ -170,6 +199,14 @@ export class StoragePathService {
 
   /**
    * Generiert den lesbaren Dateinamen für ein Baustellenfoto.
+   * Format: "{Projekt}_{Monteur}_{Datum}_{Uhrzeit}.{ext}"
+   *
+   * @param projectName - Projektname
+   * @param workerLastName - Nachname des Monteurs
+   * @param workerFirstName - Vorname des Monteurs
+   * @param date - Zeitpunkt der Aufnahme
+   * @param ext - Dateierweiterung (jpg, png, etc.)
+   * @returns Bereinigter Dateiname mit Zeitstempel
    */
   buildSitePhotoFilename(
     projectName: string,
@@ -183,7 +220,14 @@ export class StoragePathService {
     return `${project}_${worker}_${dateSlug(date)}_${timeSlug(date)}.${ext}`;
   }
 
-  /** Gibt den Drive-Anzeigenamen eines Entity-Ordners zurück (mit Nummer). */
+  /**
+   * Gibt den lesbaren Drive-Anzeigenamen eines Entity-Ordners zurück.
+   * Für Kunden/Projekte/Monteure wird die Nummer in eckigen Klammern angehängt.
+   *
+   * @param entityType - Entitätstyp
+   * @param info - Entity-Infos aus getEntityInfo()
+   * @returns Ordnername z.B. "Müller GmbH [K-2026-0001]"
+   */
   driveEntityFolderName(entityType: string, info: EntityInfo): string {
     switch (entityType) {
       case 'WORKER':
@@ -201,7 +245,13 @@ export class StoragePathService {
     }
   }
 
-  /** Drive-Kategorie-Name (deutsch, mit Großbuchstaben). */
+  /**
+   * Gibt den deutschen Kategorie-Ordnernamen für Google Drive zurück.
+   * Beispiel: CUSTOMER → "Kunden", PROJECT → "Projekte"
+   *
+   * @param entityType - Entitätstyp
+   * @returns Deutscher Kategoriename
+   */
   driveCategoryName(entityType: string): string {
     const map: Record<string, string> = {
       CUSTOMER: 'Kunden',
@@ -214,7 +264,13 @@ export class StoragePathService {
     return map[entityType] ?? entityType;
   }
 
-  /** Drive-Unterordner-Name (deutsch, mit Großbuchstaben). */
+  /**
+   * Gibt den deutschen Unterordner-Namen für einen Dokumenttyp in Google Drive zurück.
+   * Beispiel: CONTRACT → "Verträge", INVOICE → "Rechnungen"
+   *
+   * @param documentType - Dokumentkategorie
+   * @returns Deutscher Unterordnername
+   */
   driveFolderName(documentType: string): string {
     const map: Record<string, string> = {
       CONTRACT: 'Verträge',
@@ -247,6 +303,10 @@ export class StoragePathService {
   }
 }
 
+/**
+ * Fallback für unbekannte Entitätstypen oder wenn der DB-Lookup fehlschlägt.
+ * Erzeugt einen generischen Slug aus Typ + gekürzter UUID.
+ */
 function fallback(entityType: string, entityId: string): EntityInfo {
   return {
     slug: `${slugify(entityType)}-${entityId.slice(0, 8)}`,

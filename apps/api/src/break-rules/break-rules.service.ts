@@ -22,6 +22,12 @@ const ruleSelect = {
   project: { select: { id: true, projectNumber: true, title: true } },
 } satisfies Prisma.BreakRuleSelect;
 
+/**
+ * Service für die Pausenregel-Verwaltung.
+ * Definiert automatische Pausenabzüge basierend auf Schwellenwerten
+ * (z.B. >6h → 30 Min Pause, >9h → 45 Min Pause).
+ * Regeln können global oder projektspezifisch gelten.
+ */
 @Injectable()
 export class BreakRulesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -42,6 +48,13 @@ export class BreakRulesService {
     });
   }
 
+  /**
+   * Liefert eine einzelne Pausenregel.
+   *
+   * @param id - UUID der Regel
+   * @returns Die Pausenregel mit Projekt-Referenz
+   * @throws NotFoundException wenn die Regel nicht existiert
+   */
   async findOne(id: string) {
     const rule = await this.prisma.breakRule.findUnique({
       where: { id },
@@ -53,6 +66,13 @@ export class BreakRulesService {
     return rule;
   }
 
+  /**
+   * Erstellt eine neue Pausenregel (global oder projektspezifisch).
+   * Validiert Scope-Konsistenz und Schwellenwert-Reihenfolge.
+   *
+   * @param dto - Regeldaten (Scope, Schwellenwerte, Pausenminuten)
+   * @returns Die erstellte Regel
+   */
   async create(dto: CreateBreakRuleDto) {
     this.validateScope(dto.scopeType, dto.projectId);
     this.validateThresholds(dto.thresholdMinutes1, dto.thresholdMinutes2);
@@ -73,6 +93,7 @@ export class BreakRulesService {
     });
   }
 
+  /** Aktualisiert eine bestehende Pausenregel. */
   async update(id: string, dto: UpdateBreakRuleDto) {
     await this.findOne(id);
     if (dto.scopeType) {
@@ -101,12 +122,14 @@ export class BreakRulesService {
     });
   }
 
+  /** Löscht eine Pausenregel vollständig. */
   async remove(id: string) {
     await this.findOne(id);
     await this.prisma.breakRule.delete({ where: { id } });
     return { id, deleted: true };
   }
 
+  /** Stellt sicher, dass bei PROJECT-Scope eine projectId übergeben wird. */
   private validateScope(scopeType: BreakScopeType, projectId?: string): void {
     if (scopeType === BreakScopeType.PROJECT && !projectId) {
       throw new BadRequestException(
@@ -115,6 +138,7 @@ export class BreakRulesService {
     }
   }
 
+  /** Prüft, dass Schwellenwert 2 größer als Schwellenwert 1 ist. */
   private validateThresholds(t1: number, t2?: number): void {
     if (t2 !== undefined && t2 <= t1) {
       throw new BadRequestException(
