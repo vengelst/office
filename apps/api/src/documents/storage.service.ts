@@ -16,14 +16,24 @@ export class StorageService implements OnModuleInit {
 
   constructor(private readonly config: ConfigService) {
     this.bucket = this.config.get<string>('MINIO_BUCKET') ?? 'office-documents';
+
+    const isProduction = this.config.get<string>('NODE_ENV') === 'production';
+    const accessKey = this.config.get<string>('MINIO_ACCESS_KEY');
+    const secretKey = this.config.get<string>('MINIO_SECRET_KEY');
+
+    if (isProduction && (!accessKey || !secretKey)) {
+      this.logger.error(
+        'FATAL: MINIO_ACCESS_KEY / MINIO_SECRET_KEY müssen in Produktion gesetzt sein!',
+      );
+    }
+
     this.client = new MinioClient({
       endPoint: this.config.get<string>('MINIO_ENDPOINT') ?? 'minio',
       port: Number(this.config.get<string>('MINIO_PORT') ?? 9000),
       useSSL:
         (this.config.get<string>('MINIO_USE_SSL') ?? 'false') === 'true',
-      accessKey: this.config.get<string>('MINIO_ACCESS_KEY') ?? 'office_minio',
-      secretKey:
-        this.config.get<string>('MINIO_SECRET_KEY') ?? 'office_minio_pw',
+      accessKey: accessKey ?? 'office_minio',
+      secretKey: secretKey ?? 'office_minio_pw',
     });
   }
 

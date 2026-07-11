@@ -18,7 +18,8 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { TimesheetsService } from './timesheets.service';
 import { TimesheetPdfService } from './pdf.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
@@ -33,7 +34,8 @@ import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
  */
 @ApiTags('timesheets')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(RolesGuard)
+@Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
 @Controller('timesheets')
 export class TimesheetsController {
   constructor(
