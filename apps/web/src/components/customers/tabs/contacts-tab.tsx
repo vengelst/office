@@ -9,6 +9,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Search,
   Trash2,
   X,
 } from 'lucide-react';
@@ -34,6 +35,7 @@ import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { MailLink, PhoneLink } from '@/components/customers/contact-links';
 import { EmptyState } from '@/components/customers/empty-state';
+import { ContactSearchDialog } from '@/components/customers/contact-search-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import {
   customersApi,
@@ -140,6 +142,7 @@ export function ContactsTab({
   const fileInput = useRef<HTMLInputElement>(null);
   const scanInput = useRef<HTMLInputElement>(null);
 
+  const [searchDialogOpen, setSearchDialogOpen] = useState(false);
   const [scanDialogOpen, setScanDialogOpen] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [scanPreview, setScanPreview] = useState<string | null>(null);
@@ -469,6 +472,14 @@ export function ContactsTab({
           </SelectContent>
         </Select>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setSearchDialogOpen(true)}
+            className="min-h-[44px]"
+          >
+            <Search className="h-4 w-4" />
+            {t.contactSearch.button}
+          </Button>
           <Button
             variant="outline"
             onClick={openScanDialog}
@@ -999,6 +1010,13 @@ export function ContactsTab({
           )}
         </DialogContent>
       </Dialog>
+
+      <ContactSearchDialog
+        open={searchDialogOpen}
+        onOpenChange={setSearchDialogOpen}
+        customerId={customerId}
+        onContactsCreated={onChange}
+      />
 
       {lightboxSrc && (
         <div

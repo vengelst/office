@@ -258,6 +258,21 @@ export const texts = {
       PHONE: 'Festnetz',
       MOBILE: 'Mobil',
     },
+    contactSearch: {
+      button: 'Kontakte suchen',
+      placeholder: 'Website-URL eingeben...',
+      loading: 'Suche Kontakte...',
+      found: (n: number): string =>
+        `${n} Kontaktperson${n !== 1 ? 'en' : ''} gefunden`,
+      noResults: 'Keine Kontaktpersonen gefunden',
+      selectAll: 'Alle auswählen',
+      selectNone: 'Keine auswählen',
+      import: 'Ausgewählte übernehmen',
+      importing: 'Kontakte werden angelegt...',
+      success: (n: number): string =>
+        `${n} Kontakt${n !== 1 ? 'e' : ''} erfolgreich angelegt`,
+      syncToGoogle: 'Zu Google Kontakte synchronisieren',
+    },
     research: {
       button: 'Auto-Recherche',
       loading: 'Recherchiere …',
