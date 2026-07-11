@@ -11,6 +11,7 @@ import {
   ClipboardList,
   Receipt,
   FolderArchive,
+  CheckSquare,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -33,6 +34,7 @@ export const navGroups: NavGroup[] = [
   {
     items: [
       { href: '/dashboard', label: texts.nav.dashboard, icon: LayoutDashboard },
+      { href: '/todos', label: texts.todos.title, icon: CheckSquare },
       { href: '/customers', label: texts.nav.customers, icon: Users },
       { href: '/projects', label: texts.nav.projects, icon: FolderKanban },
       { href: '/workers', label: texts.nav.workers, icon: HardHat },

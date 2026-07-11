@@ -1166,6 +1166,59 @@ enum CommunicationDirection {
   OUTGOING
 }
 
+// ──────────────────────────────────────────────────────────────
+// Todos / Aufgaben
+// ──────────────────────────────────────────────────────────────
+
+model Todo {
+  id            String       @id @default(cuid())
+
+  title         String
+  description   String?      @db.Text
+
+  status        TodoStatus   @default(OPEN)
+  priority      TodoPriority @default(MEDIUM)
+
+  dueDate       DateTime?
+  completedAt   DateTime?
+
+  assignedToId  String?
+  createdById   String?
+
+  linkedEntityType TodoEntityType?
+  linkedEntityId   String?
+  linkedEntityName String?
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([status, assignedToId, dueDate])
+  @@index([linkedEntityType, linkedEntityId])
+  @@index([createdById])
+}
+
+enum TodoStatus {
+  OPEN
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum TodoPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TodoEntityType {
+  CUSTOMER
+  PROJECT
+  WORKER
+  SUBCONTRACTOR
+  EQUIPMENT
+}
+
 model EmailLog {
   id                String    @id @default(cuid())
   recipientEmail    String

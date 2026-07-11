@@ -12,6 +12,7 @@ import {
   Receipt,
   FileWarning,
   Truck,
+  CheckSquare,
 } from 'lucide-react';
 import {
   Card,
@@ -31,6 +32,8 @@ import {
 import { timeEntriesApi } from '@/lib/timesheets';
 import { formatCurrency, invoicesApi, type InvoiceStats } from '@/lib/invoices';
 import { vehiclesApi, type VehicleListItem } from '@/lib/vehicles';
+import { todosApi, type TodoDashboardData } from '@/lib/todos';
+import { Badge } from '@/components/ui/badge';
 import { texts } from '@/lib/texts';
 
 interface DashboardStats {
@@ -78,6 +81,7 @@ export default function DashboardPage(): React.ReactNode {
   const [invoiceStats, setInvoiceStats] = useState<InvoiceStats | null>(null);
   const [vehicles, setVehicles] = useState<VehicleListItem[] | null>(null);
   const [vehiclesExpiring, setVehiclesExpiring] = useState<number | null>(null);
+  const [todoDashboard, setTodoDashboard] = useState<TodoDashboardData | null>(null);
 
   useEffect(() => {
     apiClient
@@ -108,6 +112,10 @@ export default function DashboardPage(): React.ReactNode {
       .expiring()
       .then((r) => setVehiclesExpiring(r.length))
       .catch(() => setVehiclesExpiring(0));
+    todosApi
+      .getDashboard()
+      .then(setTodoDashboard)
+      .catch(() => setTodoDashboard(null));
   }, []);
 
   return (
@@ -141,6 +149,8 @@ export default function DashboardPage(): React.ReactNode {
           );
         })}
       </div>
+
+      <TodosWidget data={todoDashboard} />
 
       <ClockedInCard
         count={clockedInCount}
@@ -326,6 +336,105 @@ function InvoicesWidget({
         </Card>
       </Link>
     </div>
+  );
+}
+
+const TODO_PRIORITY_COLORS: Record<string, string> = {
+  LOW: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+  MEDIUM: 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300',
+  HIGH: 'bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300',
+  URGENT: 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300',
+};
+
+function TodosWidget({
+  data,
+}: {
+  data: TodoDashboardData | null;
+}): React.ReactNode {
+  const dt = texts.todos.dashboard;
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground">
+          {dt.title}
+        </CardTitle>
+        <Link href="/todos" className="text-xs text-primary hover:underline">
+          {dt.showAll}
+        </Link>
+      </CardHeader>
+      <CardContent>
+        {data === null ? (
+          <p className="text-sm text-muted-foreground">
+            {texts.common.loading}
+          </p>
+        ) : data.openCount === 0 && data.overdueCount === 0 ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckSquare className="h-4 w-4 text-green-500" />
+            {dt.noTasks}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="text-2xl font-bold">{data.openCount}</div>
+                <p className="text-xs text-muted-foreground">{dt.open}</p>
+              </div>
+              <div className="space-y-1">
+                <div
+                  className={`text-2xl font-bold ${
+                    data.overdueCount > 0
+                      ? 'text-red-600 dark:text-red-400'
+                      : ''
+                  }`}
+                >
+                  {data.overdueCount}
+                </div>
+                <p className="text-xs text-muted-foreground">{dt.overdue}</p>
+              </div>
+            </div>
+
+            {data.upcoming.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">
+                  {dt.upcoming}
+                </p>
+                {data.upcoming.map((todo) => (
+                  <Link
+                    key={todo.id}
+                    href="/todos"
+                    className="flex items-center justify-between rounded-md border px-3 py-2 text-sm transition-colors hover:bg-accent/50"
+                  >
+                    <span className="truncate font-medium">{todo.title}</span>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        className={`border-0 text-[10px] ${TODO_PRIORITY_COLORS[todo.priority]}`}
+                      >
+                        {texts.todos.priority[todo.priority]}
+                      </Badge>
+                      {todo.dueDate && (
+                        <span
+                          className={`text-xs ${
+                            new Date(todo.dueDate) < new Date()
+                              ? 'font-semibold text-red-600 dark:text-red-400'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {new Date(todo.dueDate).toLocaleDateString('de-DE', {
+                            day: '2-digit',
+                            month: '2-digit',
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
