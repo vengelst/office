@@ -369,6 +369,7 @@ export function ContactsTab({
           isAccountingContact: false,
           isProjectContact: false,
           isSignatory: false,
+          syncToGoogle: true,
         });
         toast({ description: t.toast.scanSuccess });
       })
