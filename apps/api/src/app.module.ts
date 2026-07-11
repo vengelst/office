@@ -27,6 +27,7 @@ import { GoogleDriveModule } from './google-drive/google-drive.module';
 import { OcrModule } from './ocr/ocr.module';
 import { ResearchModule } from './research/research.module';
 import { SubmissionsModule } from './submissions/submissions.module';
+import { EquipmentModule } from './equipment/equipment.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -58,6 +59,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     OcrModule,
     ResearchModule,
     SubmissionsModule,
+    EquipmentModule,
   ],
   controllers: [AppController],
   providers: [

@@ -147,6 +147,21 @@ enum EquipmentCategory {
   OTHER
 }
 
+enum EquipmentStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_REPAIR
+  RETIRED
+}
+
+enum EquipmentCondition {
+  NEW
+  GOOD
+  FAIR
+  POOR
+  DEFECTIVE
+}
+
 enum InvoiceType {
   OUTGOING // Ausgangsrechnung (an Kunde)
   INCOMING // Eingangsrechnung (von Sub)
@@ -685,7 +700,8 @@ model Worker {
   weeklyTimesheets   WeeklyTimesheet[]
   languages          WorkerLanguage[]
   certifications     WorkerCertification[]
-  teamMemberships    WorkerTeamMember[]
+  teamMemberships        WorkerTeamMember[]
+  equipmentAssignments   EquipmentAssignment[]
 
   @@index([deletedAt])
   @@index([subcontractorId])
@@ -859,6 +875,56 @@ model WorkerEquipmentIssue {
 
   worker        Worker        @relation(fields: [workerId], references: [id], onDelete: Cascade)
   equipmentItem EquipmentItem @relation(fields: [equipmentItemId], references: [id], onDelete: Cascade)
+}
+
+model Equipment {
+  id              String             @id @default(cuid())
+  name            String
+  description     String?            @db.Text
+  category        String?
+  manufacturer    String?
+  model           String?
+  serialNumber    String?
+  inventoryNumber String?            @unique
+
+  purchaseDate    DateTime?
+  purchasePrice   Decimal?           @db.Decimal(10, 2)
+
+  status          EquipmentStatus    @default(AVAILABLE)
+  condition       EquipmentCondition @default(GOOD)
+
+  imageKey        String?
+  notes           String?            @db.Text
+
+  assignments     EquipmentAssignment[]
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+  deletedAt       DateTime?
+
+  @@index([status, deletedAt])
+  @@index([category, deletedAt])
+}
+
+model EquipmentAssignment {
+  id              String              @id @default(cuid())
+  equipmentId     String
+  equipment       Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  workerId        String
+  worker          Worker              @relation(fields: [workerId], references: [id])
+
+  assignedAt      DateTime            @default(now())
+  expectedReturn  DateTime?
+  returnedAt      DateTime?
+
+  notes           String?             @db.Text
+  returnNotes     String?             @db.Text
+  returnCondition EquipmentCondition?
+
+  assignedBy      String?
+
+  @@index([equipmentId, returnedAt])
+  @@index([workerId, returnedAt])
 }
 
 // ──────────────────────────────────────────────────────────────
