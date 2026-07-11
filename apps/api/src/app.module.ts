@@ -25,6 +25,7 @@ import { AppSettingsModule } from './app-settings/app-settings.module';
 import { EmailModule } from './email/email.module';
 import { GoogleDriveModule } from './google-drive/google-drive.module';
 import { OcrModule } from './ocr/ocr.module';
+import { ResearchModule } from './research/research.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -54,6 +55,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     EmailModule,
     GoogleDriveModule,
     OcrModule,
+    ResearchModule,
   ],
   controllers: [AppController],
   providers: [

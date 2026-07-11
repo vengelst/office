@@ -66,6 +66,8 @@ services:
       API_PORT: 3801
       NODE_ENV: development
       OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://ocr-service:8000}
+      RESEARCH_SERVICE_URL: ${RESEARCH_SERVICE_URL:-http://research-service:8000}
+      RESEARCH_API_KEY: ${RESEARCH_API_KEY:-dev-research-key}
     ports:
       - "3901:3801"
     volumes:
