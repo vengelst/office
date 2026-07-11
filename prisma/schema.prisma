@@ -1128,6 +1128,44 @@ model DocumentFolder {
 // Communication
 // ──────────────────────────────────────────────────────────────
 
+model CommunicationEntry {
+  id            String                  @id @default(cuid())
+  entityType    CommunicationEntityType
+  entityId      String
+  contactId     String?
+  type          CommunicationType
+  direction     CommunicationDirection  @default(OUTGOING)
+  subject       String?
+  content       String                  @db.Text
+  occurredAt    DateTime                @default(now())
+  duration      Int?
+  createdBy     String?
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+
+  @@index([entityType, entityId, occurredAt])
+  @@index([contactId, occurredAt])
+}
+
+enum CommunicationEntityType {
+  CUSTOMER
+  SUBCONTRACTOR
+  WORKER
+}
+
+enum CommunicationType {
+  PHONE_CALL
+  EMAIL
+  MEETING
+  NOTE
+  INSTRUCTION
+}
+
+enum CommunicationDirection {
+  INCOMING
+  OUTGOING
+}
+
 model EmailLog {
   id                String    @id @default(cuid())
   recipientEmail    String

@@ -12,6 +12,7 @@ import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
+import { CommunicationTab } from '@/components/communication/communication-tab';
 import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -178,6 +179,14 @@ export default function SubcontractorDetailPage(): React.ReactNode {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Kommunikation */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          {texts.communication.title}
+        </h3>
+        <CommunicationTab entityType="SUBCONTRACTOR" entityId={id} />
       </section>
 
       <ConfirmDialog
