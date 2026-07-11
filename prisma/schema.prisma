@@ -394,6 +394,7 @@ model CustomerContact {
   isSignatory            Boolean   @default(false)
   notes                  String?
   googleContactId        String?
+  syncToGoogle           Boolean   @default(true)
 
   customer           Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   branch             CustomerBranch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)

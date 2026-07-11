@@ -289,8 +289,10 @@ export class CustomersService {
       include: { customer: { select: { companyName: true } } },
     });
 
-    this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
-      .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+    if (dto.syncToGoogle !== false) {
+      this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
+        .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+    }
 
     return contact;
   }
@@ -304,6 +306,10 @@ export class CustomersService {
    * @returns Der aktualisierte Ansprechpartner
    */
   async updateContact(customerId: string, id: string, dto: UpdateContactDto) {
+    const existing = await this.prisma.customerContact.findUnique({
+      where: { id },
+      select: { syncToGoogle: true, googleContactId: true },
+    });
     await this.ensureContact(customerId, id);
     if (dto.branchId) {
       await this.ensureBranch(customerId, dto.branchId);
@@ -317,8 +323,22 @@ export class CustomersService {
       include: { customer: { select: { companyName: true } } },
     });
 
-    this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
-      .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+    if (existing) {
+      const wasSyncing = existing.syncToGoogle;
+      const nowSyncing = dto.syncToGoogle ?? wasSyncing;
+
+      if (!wasSyncing && nowSyncing && !existing.googleContactId) {
+        this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
+          .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+      } else if (wasSyncing && !nowSyncing && existing.googleContactId) {
+        this.googleContacts.deleteContact(existing.googleContactId)
+          .then(() => this.prisma.customerContact.update({ where: { id }, data: { googleContactId: null } }))
+          .catch((err) => this.logger.warn(`Google Kontakt löschen fehlgeschlagen: ${(err as Error).message}`));
+      } else if (nowSyncing) {
+        this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
+          .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+      }
+    }
 
     return contact;
   }
@@ -333,12 +353,12 @@ export class CustomersService {
   async removeContact(customerId: string, id: string) {
     const contact = await this.prisma.customerContact.findUnique({
       where: { id },
-      select: { googleContactId: true },
+      select: { googleContactId: true, syncToGoogle: true },
     });
     await this.ensureContact(customerId, id);
     await this.prisma.customerContact.delete({ where: { id } });
 
-    if (contact?.googleContactId) {
+    if (contact?.syncToGoogle && contact?.googleContactId) {
       this.googleContacts.deleteContact(contact.googleContactId)
         .catch((err) => this.logger.warn(`Google Kontakt löschen fehlgeschlagen: ${(err as Error).message}`));
     }

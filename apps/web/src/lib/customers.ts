@@ -97,6 +97,7 @@ export interface CustomerContact {
   isProjectContact: boolean;
   isSignatory: boolean;
   notes: string | null;
+  syncToGoogle: boolean;
 }
 
 /** Vollständiger Kundendatensatz mit allen Relationen (Filialen, Kontakte, E-Mails, Bankkonten). */

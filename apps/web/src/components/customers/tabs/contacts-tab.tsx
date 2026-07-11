@@ -79,6 +79,7 @@ type FormState = {
   isAccountingContact: boolean;
   isProjectContact: boolean;
   isSignatory: boolean;
+  syncToGoogle: boolean;
 };
 
 const EMPTY: FormState = {
@@ -97,6 +98,7 @@ const EMPTY: FormState = {
   isAccountingContact: false,
   isProjectContact: false,
   isSignatory: false,
+  syncToGoogle: true,
 };
 
 /**
@@ -231,6 +233,7 @@ export function ContactsTab({
       isAccountingContact: c.isAccountingContact,
       isProjectContact: c.isProjectContact,
       isSignatory: c.isSignatory,
+      syncToGoogle: c.syncToGoogle ?? true,
     });
     setDialogOpen(true);
   };
@@ -264,6 +267,7 @@ export function ContactsTab({
       isAccountingContact: form.isAccountingContact,
       isProjectContact: form.isProjectContact,
       isSignatory: form.isSignatory,
+      syncToGoogle: form.syncToGoogle,
     };
     setSaving(true);
     const req = editing
@@ -395,6 +399,7 @@ export function ContactsTab({
       isAccountingContact: scanForm.isAccountingContact,
       isProjectContact: scanForm.isProjectContact,
       isSignatory: scanForm.isSignatory,
+      syncToGoogle: scanForm.syncToGoogle,
     };
     setSaving(true);
     customersApi
@@ -752,6 +757,16 @@ export function ContactsTab({
                 checked={form.isSignatory}
                 onChange={(v) => set('isSignatory', v)}
               />
+              <div className="flex flex-col">
+                <Checkbox
+                  label={t.research.syncGoogle}
+                  checked={form.syncToGoogle}
+                  onChange={(v) => set('syncToGoogle', v)}
+                />
+                <span className="ml-6 text-xs text-muted-foreground">
+                  {t.research.syncGoogleHint}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>

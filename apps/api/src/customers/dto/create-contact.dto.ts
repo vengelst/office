@@ -117,4 +117,9 @@ export class CreateContactDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Mit Google Kontakte synchronisieren' })
+  @IsOptional()
+  @IsBoolean()
+  syncToGoogle?: boolean;
 }
