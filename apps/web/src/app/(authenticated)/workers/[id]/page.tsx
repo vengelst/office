@@ -25,6 +25,7 @@ import { WorkerQualificationsTab } from '@/components/workers/worker-qualificati
 import { WorkerContractTab } from '@/components/workers/worker-contract-tab';
 import { WorkerEquipmentTab } from '@/components/workers/worker-equipment-tab';
 import { WorkerProjectsTab } from '@/components/workers/worker-projects-tab';
+import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -294,6 +295,9 @@ export default function WorkerDetailPage(): React.ReactNode {
           <TabsTrigger value="projects" className="min-h-[44px]">
             {t.tabs.projects}
           </TabsTrigger>
+          <TabsTrigger value="communication" className="min-h-[44px]">
+            {texts.communication.title}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="master">
@@ -332,6 +336,10 @@ export default function WorkerDetailPage(): React.ReactNode {
 
         <TabsContent value="projects">
           <WorkerProjectsTab worker={worker} onChange={load} />
+        </TabsContent>
+
+        <TabsContent value="communication">
+          <CommunicationTab entityType="WORKER" entityId={worker.id} />
         </TabsContent>
       </Tabs>
 

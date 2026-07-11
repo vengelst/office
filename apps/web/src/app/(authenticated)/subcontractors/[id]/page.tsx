@@ -19,6 +19,7 @@ import {
   workerFullName,
   type SubcontractorDetail,
 } from '@/lib/workers';
+import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
@@ -178,6 +179,14 @@ export default function SubcontractorDetailPage(): React.ReactNode {
             ))}
           </div>
         )}
+      </section>
+
+      {/* Kommunikationshistorie */}
+      <section className="space-y-3">
+        <h3 className="text-sm font-semibold text-muted-foreground">
+          {texts.communication.title}
+        </h3>
+        <CommunicationTab entityType="SUBCONTRACTOR" entityId={sub.id} />
       </section>
 
       <ConfirmDialog

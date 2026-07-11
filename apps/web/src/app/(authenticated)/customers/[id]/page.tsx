@@ -28,6 +28,7 @@ import { BusinessCardsTab } from '@/components/customers/tabs/business-cards-tab
 import { CustomerPrintAll } from '@/components/customers/customer-print-all';
 import { SubmissionsTab } from '@/components/customers/tabs/submissions-tab';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
+import { CommunicationTab } from '@/components/communication/communication-tab';
 import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi, type CustomerDetail } from '@/lib/customers';
@@ -223,6 +224,9 @@ export default function CustomerDetailPage(): React.ReactNode {
           <TabsTrigger value="submissions" className="min-h-[44px]">
             {t.tabs.submissions}
           </TabsTrigger>
+          <TabsTrigger value="communication" className="min-h-[44px]">
+            {texts.communication.title}
+          </TabsTrigger>
           <TabsTrigger value="documents" className="min-h-[44px]">
             {t.tabs.documents}
           </TabsTrigger>
@@ -294,6 +298,14 @@ export default function CustomerDetailPage(): React.ReactNode {
 
         <TabsContent value="submissions">
           <SubmissionsTab customerId={id} onChange={load} />
+        </TabsContent>
+
+        <TabsContent value="communication">
+          <CommunicationTab
+            entityType="CUSTOMER"
+            entityId={customer.id}
+            contacts={customer.contacts}
+          />
         </TabsContent>
 
         <TabsContent value="documents">
