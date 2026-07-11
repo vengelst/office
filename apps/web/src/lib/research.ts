@@ -49,6 +49,29 @@ export interface ResearchResult {
   confidence: number;
 }
 
+/** Einzelne extrahierte Ausschreibung. */
+export interface ResearchSubmission {
+  title: string | null;
+  description: string | null;
+  reference: string | null;
+  deadline: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  value: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  requirements: string | null;
+  source: string | null;
+}
+
+/** Ergebnis der Ausschreibungsrecherche. */
+export interface ResearchSubmissionsResult {
+  submissions: ResearchSubmission[];
+  sources: string[];
+  confidence: number;
+}
+
 /** API-Client für die Firmenrecherche. */
 export const researchApi = {
   /**
@@ -61,4 +84,11 @@ export const researchApi = {
       url,
       includeSocialMedia,
     }),
+
+  /**
+   * Recherchiert Ausschreibungen anhand einer Website-URL.
+   * @param url - URL der Ausschreibungsseite
+   */
+  lookupSubmissions: (url: string) =>
+    apiClient.post<ResearchSubmissionsResult>('/research/submissions', { url }),
 };

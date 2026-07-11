@@ -168,6 +168,22 @@ enum InvoiceLineType {
   CUSTOM // Freie Position
 }
 
+enum SubmissionStatus {
+  OPEN
+  IN_PROGRESS
+  SUBMITTED
+  WON
+  LOST
+  CANCELLED
+}
+
+enum SubmissionPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 // ──────────────────────────────────────────────────────────────
 // Identity / System
 // ──────────────────────────────────────────────────────────────
@@ -316,6 +332,7 @@ model Customer {
   callLogs      CustomerCallLog[]
   projects      Project[]
   invoices      Invoice[]
+  submissions   Submission[]
 
   @@index([status, deletedAt])
   @@index([companyName])
@@ -1148,4 +1165,41 @@ model InvoicePayment {
   createdAt DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+}
+
+// ──────────────────────────────────────────────────────────────
+// Submissions / Ausschreibungen
+// ──────────────────────────────────────────────────────────────
+
+model Submission {
+  id            String             @id @default(cuid())
+  customerId    String
+  customer      Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  title         String
+  description   String?            @db.Text
+  reference     String?
+  source        String?
+
+  status        SubmissionStatus   @default(OPEN)
+  priority      SubmissionPriority @default(MEDIUM)
+
+  deadline      DateTime?
+  startDate     DateTime?
+  endDate       DateTime?
+
+  value         Decimal?           @db.Decimal(12, 2)
+
+  contactName   String?
+  contactEmail  String?
+  contactPhone  String?
+
+  requirements  String?            @db.Text
+  notes         String?            @db.Text
+
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  deletedAt     DateTime?
+
+  @@index([customerId, status, deletedAt])
 }

@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import type { ResearchResult } from './research.types';
+import type { ResearchResult, ResearchSubmissionsResult } from './research.types';
 
 /**
  * Service zur Kommunikation mit dem Research-Microservice.
@@ -61,6 +61,52 @@ export class ResearchService {
       }
 
       return (await response.json()) as ResearchResult;
+    } catch (error) {
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw new Error('Research-Service Timeout (120s überschritten)');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  /**
+   * Recherchiert Ausschreibungen anhand einer Website-URL via Research-Microservice.
+   *
+   * @param url - Website-URL für die Ausschreibungssuche
+   * @returns Extrahierte Ausschreibungen
+   * @throws Error bei Timeout, Service-Ausfall oder API-Fehler
+   */
+  async researchSubmissions(url: string): Promise<ResearchSubmissionsResult> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120_000);
+
+    try {
+      const response = await fetch(
+        `${this.serviceUrl}/research/submissions`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': this.apiKey,
+          },
+          body: JSON.stringify({ url, language: 'de' }),
+          signal: controller.signal,
+        },
+      );
+
+      if (!response.ok) {
+        const body = await response.text();
+        this.logger.error(
+          `Research-Service Fehler: ${response.status} – ${body}`,
+        );
+        throw new Error(
+          `Research-Service antwortet mit Status ${response.status}`,
+        );
+      }
+
+      return (await response.json()) as ResearchSubmissionsResult;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw new Error('Research-Service Timeout (120s überschritten)');

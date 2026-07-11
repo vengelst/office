@@ -42,3 +42,26 @@ export interface ResearchResult {
   sources: string[];
   confidence: number;
 }
+
+/** Einzelne extrahierte Ausschreibung vom Research-Microservice. */
+export interface ResearchSubmission {
+  title: string | null;
+  description: string | null;
+  reference: string | null;
+  deadline: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  value: string | null;
+  contactName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  requirements: string | null;
+  source: string | null;
+}
+
+/** Ergebnis der Ausschreibungsrecherche vom Research-Microservice. */
+export interface ResearchSubmissionsResult {
+  submissions: ResearchSubmission[];
+  sources: string[];
+  confidence: number;
+}

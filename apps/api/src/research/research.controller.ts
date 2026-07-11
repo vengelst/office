@@ -13,7 +13,7 @@ import { IsBoolean, IsOptional, IsUrl } from 'class-validator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ResearchService } from './research.service';
-import type { ResearchResult } from './research.types';
+import type { ResearchResult, ResearchSubmissionsResult } from './research.types';
 
 class ResearchCompanyDto {
   @IsUrl({}, { message: 'Bitte eine gültige URL eingeben' })
@@ -22,6 +22,11 @@ class ResearchCompanyDto {
   @IsOptional()
   @IsBoolean()
   includeSocialMedia?: boolean;
+}
+
+class ResearchSubmissionsDto {
+  @IsUrl({}, { message: 'Bitte eine gültige URL eingeben' })
+  url!: string;
 }
 
 /**
@@ -52,6 +57,30 @@ export class ResearchController {
         dto.url,
         dto.includeSocialMedia ?? true,
       );
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Research-Service nicht verfügbar';
+      throw new HttpException(message, HttpStatus.BAD_GATEWAY);
+    }
+  }
+
+  /**
+   * Recherchiert Ausschreibungen anhand einer Website-URL.
+   * POST /api/research/submissions
+   *
+   * @param dto - URL der Ausschreibungsseite
+   * @returns Extrahierte Ausschreibungen
+   */
+  @Post('submissions')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Ausschreibungsrecherche via Website-URL' })
+  async researchSubmissions(
+    @Body() dto: ResearchSubmissionsDto,
+  ): Promise<ResearchSubmissionsResult> {
+    try {
+      return await this.research.researchSubmissions(dto.url);
     } catch (error) {
       const message =
         error instanceof Error
