@@ -30,7 +30,7 @@ export class ResearchService {
     includeSocialMedia: boolean,
   ): Promise<ResearchResult> {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 60_000);
+    const timeout = setTimeout(() => controller.abort(), 120_000);
 
     try {
       const response = await fetch(
@@ -63,7 +63,7 @@ export class ResearchService {
       return (await response.json()) as ResearchResult;
     } catch (error) {
       if (error instanceof DOMException && error.name === 'AbortError') {
-        throw new Error('Research-Service Timeout (60s überschritten)');
+        throw new Error('Research-Service Timeout (120s überschritten)');
       }
       throw error;
     } finally {
