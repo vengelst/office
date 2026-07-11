@@ -195,9 +195,12 @@ export interface ExpiringDocumentWorker {
 // ── Subcontractor ──────────────────────────────────────────────
 
 /** Kompakte Darstellung eines Subunternehmers für Listenansichten. */
+export type SubcontractorType = 'SUBCONTRACTOR' | 'SUPPLIER';
+
 export interface SubcontractorListItem {
   id: string;
   name: string;
+  subcontractorType: SubcontractorType;
   contactPerson: string | null;
   email: string | null;
   phone: string | null;
@@ -230,6 +233,7 @@ export interface SubcontractorWorker {
 export interface SubcontractorDetail {
   id: string;
   name: string;
+  subcontractorType: SubcontractorType;
   contactPerson: string | null;
   email: string | null;
   phone: string | null;

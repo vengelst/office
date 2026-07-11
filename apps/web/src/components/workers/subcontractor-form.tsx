@@ -8,6 +8,13 @@ import { MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Field } from '@/components/customers/customer-form';
 import { RouteButton } from '@/components/customers/contact-links';
 import { useToast } from '@/components/ui/use-toast';
@@ -15,8 +22,14 @@ import { geocodeApi } from '@/lib/customers';
 import type { SubcontractorDetail } from '@/lib/workers';
 import { texts } from '@/lib/texts';
 
+const SUBCONTRACTOR_TYPES = [
+  { value: 'SUBCONTRACTOR', label: 'Subunternehmer' },
+  { value: 'SUPPLIER', label: 'Lieferant' },
+] as const;
+
 const schema = z.object({
   name: z.string().min(1, 'Pflichtfeld'),
+  subcontractorType: z.enum(['SUBCONTRACTOR', 'SUPPLIER']),
   contactPerson: z.string().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
@@ -48,6 +61,7 @@ function toPayload(v: SubcontractorFormValues): Record<string, unknown> {
   };
   return {
     name: v.name,
+    subcontractorType: v.subcontractorType,
     contactPerson: s(v.contactPerson),
     email: s(v.email),
     phone: s(v.phone),
@@ -95,6 +109,7 @@ export function SubcontractorForm({
     resolver: zodResolver(schema),
     defaultValues: {
       name: subcontractor?.name ?? '',
+      subcontractorType: subcontractor?.subcontractorType ?? 'SUBCONTRACTOR',
       contactPerson: subcontractor?.contactPerson ?? '',
       email: subcontractor?.email ?? '',
       phone: subcontractor?.phone ?? '',
@@ -164,6 +179,25 @@ export function SubcontractorForm({
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label={f.name} error={errors.name?.message} required>
             <Input {...register('name')} className="min-h-[44px]" />
+          </Field>
+          <Field label="Typ">
+            <Select
+              value={watch('subcontractorType')}
+              onValueChange={(val) =>
+                setValue('subcontractorType', val as 'SUBCONTRACTOR' | 'SUPPLIER')
+              }
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUBCONTRACTOR_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </Field>
           <Field label={f.contactPerson}>
             <Input {...register('contactPerson')} className="min-h-[44px]" />

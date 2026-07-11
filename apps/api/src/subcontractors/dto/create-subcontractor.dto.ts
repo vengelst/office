@@ -2,17 +2,25 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsEmail,
+  IsEnum,
   IsNumber,
   IsOptional,
   IsString,
   MinLength,
 } from 'class-validator';
 
+const SUBCONTRACTOR_TYPES = ['SUBCONTRACTOR', 'SUPPLIER'] as const;
+
 export class CreateSubcontractorDto {
   @ApiProperty({ example: 'Elektro Kovačević d.o.o.' })
   @IsString()
   @MinLength(1)
   name!: string;
+
+  @ApiPropertyOptional({ enum: SUBCONTRACTOR_TYPES, default: 'SUBCONTRACTOR' })
+  @IsOptional()
+  @IsEnum(SUBCONTRACTOR_TYPES)
+  subcontractorType?: 'SUBCONTRACTOR' | 'SUPPLIER';
 
   @ApiPropertyOptional()
   @IsOptional()

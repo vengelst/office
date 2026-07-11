@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
 import { AppSettingsService } from './app-settings.service';
 import { CompanyController } from './company.controller';
-import { DocumentsModule } from '../documents/documents.module';
+import { StorageService } from '../documents/storage.service';
 
 @Module({
-  imports: [DocumentsModule],
   controllers: [CompanyController],
-  providers: [AppSettingsService],
+  providers: [AppSettingsService, StorageService],
   exports: [AppSettingsService],
 })
 export class AppSettingsModule {}

@@ -674,10 +674,16 @@ model Worker {
   @@index([active, deletedAt])
 }
 
+enum SubcontractorType {
+  SUBCONTRACTOR
+  SUPPLIER
+}
+
 model Subcontractor {
-  id            String    @id @default(cuid())
-  name          String
-  contactPerson String?
+  id                String             @id @default(cuid())
+  name              String
+  subcontractorType SubcontractorType  @default(SUBCONTRACTOR)
+  contactPerson     String?
   email         String?
   phone         String?
   addressLine1  String?
