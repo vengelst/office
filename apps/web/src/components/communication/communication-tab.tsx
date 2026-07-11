@@ -2,14 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  Phone,
-  Mail,
-  Users,
-  StickyNote,
   ClipboardList,
+  Mail,
+  MessageSquare,
+  Phone,
   Plus,
-  Pencil,
+  StickyNote,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -30,360 +31,440 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { DictationButton } from '@/components/ui/dictation-button';
 import { useToast } from '@/components/ui/use-toast';
 import {
   communicationApi,
   type CommunicationEntry,
-  type CommunicationEntityType,
-  type CommunicationType,
-  type CommunicationDirection,
-  type CreateCommunicationData,
+  type CommunicationListResponse,
 } from '@/lib/communication';
-import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
-const TYPES: CommunicationType[] = [
+const COMMUNICATION_TYPES = [
   'PHONE_CALL',
   'EMAIL',
   'MEETING',
   'NOTE',
   'INSTRUCTION',
-];
-const DIRECTIONS: CommunicationDirection[] = ['INCOMING', 'OUTGOING'];
+] as const;
 
-const TYPE_ICONS: Record<CommunicationType, React.ElementType> = {
-  PHONE_CALL: Phone,
-  EMAIL: Mail,
-  MEETING: Users,
-  NOTE: StickyNote,
-  INSTRUCTION: ClipboardList,
+type CommunicationTypeKey = (typeof COMMUNICATION_TYPES)[number];
+
+const DIRECTIONS = ['INCOMING', 'OUTGOING'] as const;
+type DirectionKey = (typeof DIRECTIONS)[number];
+
+const TYPE_ICONS: Record<CommunicationTypeKey, React.ReactNode> = {
+  PHONE_CALL: <Phone className="h-4 w-4" />,
+  EMAIL: <Mail className="h-4 w-4" />,
+  MEETING: <Users className="h-4 w-4" />,
+  NOTE: <StickyNote className="h-4 w-4" />,
+  INSTRUCTION: <ClipboardList className="h-4 w-4" />,
 };
 
-interface Contact {
+const TYPE_COLORS: Record<CommunicationTypeKey, string> = {
+  PHONE_CALL: 'bg-blue-100 text-blue-800',
+  EMAIL: 'bg-green-100 text-green-800',
+  MEETING: 'bg-purple-100 text-purple-800',
+  NOTE: 'bg-yellow-100 text-yellow-800',
+  INSTRUCTION: 'bg-orange-100 text-orange-800',
+};
+
+interface ContactInfo {
   id: string;
   firstName: string;
   lastName: string;
 }
 
 interface CommunicationTabProps {
-  entityType: CommunicationEntityType;
+  entityType: 'CUSTOMER' | 'SUBCONTRACTOR' | 'WORKER';
   entityId: string;
-  contacts?: Contact[];
+  contacts?: ContactInfo[];
 }
 
-function formatDateTime(value: string): string {
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+interface FormData {
+  type: CommunicationTypeKey;
+  direction: DirectionKey;
+  contactId: string;
+  subject: string;
+  content: string;
+  occurredAt: string;
+  duration: string;
 }
+
+function nowLocalISO(): string {
+  const d = new Date();
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  return d.toISOString().slice(0, 16);
+}
+
+const emptyForm: FormData = {
+  type: 'NOTE',
+  direction: 'OUTGOING',
+  contactId: '',
+  subject: '',
+  content: '',
+  occurredAt: nowLocalISO(),
+  duration: '',
+};
 
 export function CommunicationTab({
   entityType,
   entityId,
   contacts,
 }: CommunicationTabProps): React.ReactNode {
-  const { toast } = useToast();
   const t = texts.communication;
+  const { toast } = useToast();
 
   const [entries, setEntries] = useState<CommunicationEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [filterType, setFilterType] = useState<string>('ALL');
   const [filterContact, setFilterContact] = useState<string>('ALL');
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<CommunicationEntry | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<CommunicationEntry | null>(
+  const [editingEntry, setEditingEntry] = useState<CommunicationEntry | null>(
     null,
   );
+  const [form, setForm] = useState<FormData>(emptyForm);
+  const [interimText, setInterimText] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const [formType, setFormType] = useState<CommunicationType>('PHONE_CALL');
-  const [formDirection, setFormDirection] =
-    useState<CommunicationDirection>('OUTGOING');
-  const [formContactId, setFormContactId] = useState('');
-  const [formSubject, setFormSubject] = useState('');
-  const [formContent, setFormContent] = useState('');
-  const [formOccurredAt, setFormOccurredAt] = useState('');
-  const [formDuration, setFormDuration] = useState('');
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  const limit = 20;
+  const totalPages = Math.ceil(total / limit) || 1;
 
   const load = useCallback(() => {
+    setLoading(true);
     communicationApi
-      .list({ entityType, entityId })
-      .then(setEntries)
-      .catch(() => {})
+      .list({
+        entityType,
+        entityId,
+        type: filterType !== 'ALL' ? filterType : undefined,
+        contactId: filterContact !== 'ALL' ? filterContact : undefined,
+        page,
+        limit,
+      })
+      .then((res: CommunicationListResponse) => {
+        setEntries(res.data);
+        setTotal(res.total);
+      })
+      .catch(() => {
+        setEntries([]);
+        setTotal(0);
+      })
       .finally(() => setLoading(false));
-  }, [entityType, entityId]);
+  }, [entityType, entityId, filterType, filterContact, page]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const resetForm = (): void => {
-    setFormType('PHONE_CALL');
-    setFormDirection('OUTGOING');
-    setFormContactId('');
-    setFormSubject('');
-    setFormContent('');
-    setFormOccurredAt('');
-    setFormDuration('');
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [filterType, filterContact]);
 
   const openCreate = (): void => {
-    setEditing(null);
-    resetForm();
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    setFormOccurredAt(now.toISOString().slice(0, 16));
+    setEditingEntry(null);
+    setForm({ ...emptyForm, occurredAt: nowLocalISO() });
+    setInterimText('');
     setDialogOpen(true);
   };
 
   const openEdit = (entry: CommunicationEntry): void => {
-    setEditing(entry);
-    setFormType(entry.type);
-    setFormDirection(entry.direction);
-    setFormContactId(entry.contactId ?? '');
-    setFormSubject(entry.subject ?? '');
-    setFormContent(entry.content);
-    const d = new Date(entry.occurredAt);
-    d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
-    setFormOccurredAt(d.toISOString().slice(0, 16));
-    setFormDuration(entry.duration?.toString() ?? '');
+    setEditingEntry(entry);
+    const dt = new Date(entry.occurredAt);
+    dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset());
+    setForm({
+      type: entry.type,
+      direction: entry.direction,
+      contactId: entry.contactId ?? '',
+      subject: entry.subject ?? '',
+      content: entry.content,
+      occurredAt: dt.toISOString().slice(0, 16),
+      duration: entry.duration != null ? String(entry.duration) : '',
+    });
+    setInterimText('');
     setDialogOpen(true);
   };
 
   const handleSubmit = async (): Promise<void> => {
-    if (!formContent.trim()) return;
+    if (!form.content.trim()) return;
     setSubmitting(true);
     try {
-      if (editing) {
-        await communicationApi.update(editing.id, {
-          type: formType,
-          direction: formDirection,
-          contactId: formContactId || undefined,
-          subject: formSubject || undefined,
-          content: formContent,
-          occurredAt: formOccurredAt
-            ? new Date(formOccurredAt).toISOString()
-            : undefined,
-          duration: formDuration ? parseInt(formDuration, 10) : undefined,
-        });
+      const payload = {
+        entityType,
+        entityId,
+        type: form.type as CommunicationEntry['type'],
+        direction: form.direction as CommunicationEntry['direction'],
+        contactId: form.contactId || null,
+        subject: form.subject || null,
+        content: form.content,
+        occurredAt: new Date(form.occurredAt).toISOString(),
+        duration: form.duration ? parseInt(form.duration, 10) : null,
+        createdBy: null,
+      };
+      if (editingEntry) {
+        await communicationApi.update(editingEntry.id, payload);
         toast({ description: t.toast.updated });
       } else {
-        const data: CreateCommunicationData = {
-          entityType,
-          entityId,
-          type: formType,
-          direction: formDirection,
-          content: formContent,
-        };
-        if (formContactId) data.contactId = formContactId;
-        if (formSubject) data.subject = formSubject;
-        if (formOccurredAt)
-          data.occurredAt = new Date(formOccurredAt).toISOString();
-        if (formDuration) data.duration = parseInt(formDuration, 10);
-        await communicationApi.create(data);
+        await communicationApi.create(payload);
         toast({ description: t.toast.created });
       }
       setDialogOpen(false);
       load();
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        description: err instanceof ApiError ? err.message : t.toast.error,
-      });
+    } catch {
+      toast({ variant: 'destructive', description: 'Fehler beim Speichern' });
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (): Promise<void> => {
-    if (!deleteTarget) return;
+    if (!deleteId) return;
     try {
-      await communicationApi.remove(deleteTarget.id);
+      await communicationApi.remove(deleteId);
       toast({ description: t.toast.deleted });
-      setDeleteTarget(null);
+      setDeleteId(null);
       load();
     } catch {
-      toast({ variant: 'destructive', description: t.toast.error });
+      toast({ variant: 'destructive', description: 'Fehler beim Löschen' });
     }
   };
 
-  const filtered = entries.filter((e) => {
-    if (filterType !== 'ALL' && e.type !== filterType) return false;
-    if (filterContact !== 'ALL' && e.contactId !== filterContact) return false;
-    return true;
-  });
+  const handleTranscript = (text: string): void => {
+    setForm((prev) => ({
+      ...prev,
+      content: prev.content ? `${prev.content} ${text}` : text,
+    }));
+    setInterimText('');
+  };
 
-  const contactName = (id: string | null): string | null => {
-    if (!id || !contacts) return null;
-    const c = contacts.find((x) => x.id === id);
+  const handleInterim = (text: string): void => {
+    setInterimText(text);
+  };
+
+  const formatDate = (iso: string): string => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('de-DE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const getContactName = (contactId: string | null): string | null => {
+    if (!contactId || !contacts) return null;
+    const c = contacts.find((x) => x.id === contactId);
     return c ? `${c.firstName} ${c.lastName}` : null;
   };
 
-  if (loading) {
-    return (
-      <Card>
-        <CardContent className="py-12 text-center">
-          <p className="text-sm text-muted-foreground">{texts.common.loading}</p>
-        </CardContent>
-      </Card>
-    );
-  }
+  const showDirection = form.type === 'PHONE_CALL' || form.type === 'EMAIL';
+  const showDuration = form.type === 'PHONE_CALL';
 
   return (
-    <>
-      <Card>
-        <CardContent className="pt-6 space-y-4">
-          {/* Toolbar */}
-          <div className="flex flex-wrap items-center gap-3">
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="h-10 w-44">
-                <SelectValue />
+    <div className="space-y-4">
+      {/* Header: Filter + New Button */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="h-10 w-48">
+              <SelectValue placeholder={t.filter.byType} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">{t.filter.all}</SelectItem>
+              {COMMUNICATION_TYPES.map((ct) => (
+                <SelectItem key={ct} value={ct}>
+                  {t.type[ct]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {contacts && contacts.length > 0 && (
+            <Select value={filterContact} onValueChange={setFilterContact}>
+              <SelectTrigger className="h-10 w-56">
+                <SelectValue placeholder={t.filter.byContact} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">{t.filters.allTypes}</SelectItem>
-                {TYPES.map((tp) => (
-                  <SelectItem key={tp} value={tp}>
-                    {t.type[tp]}
+                <SelectItem value="ALL">{t.filter.all}</SelectItem>
+                {contacts.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.firstName} {c.lastName}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+          )}
+        </div>
 
-            {contacts && contacts.length > 0 && (
-              <Select value={filterContact} onValueChange={setFilterContact}>
-                <SelectTrigger className="h-10 w-52">
+        <Button className="min-h-[44px]" onClick={openCreate}>
+          <Plus className="mr-1 h-4 w-4" />
+          {t.newEntry}
+        </Button>
+      </div>
+
+      {/* List */}
+      {loading ? (
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-20 animate-pulse rounded-lg bg-muted"
+            />
+          ))}
+        </div>
+      ) : entries.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <MessageSquare className="mx-auto h-10 w-10 text-muted-foreground/40" />
+            <p className="mt-2 text-sm text-muted-foreground">{t.empty}</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          {entries.map((entry) => (
+            <Card
+              key={entry.id}
+              className="cursor-pointer transition-colors hover:bg-muted/50"
+              onClick={() => openEdit(entry)}
+            >
+              <CardContent className="flex items-start gap-3 p-4">
+                <div className="mt-0.5 shrink-0">
+                  {TYPE_ICONS[entry.type]}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge
+                      variant="secondary"
+                      className={TYPE_COLORS[entry.type]}
+                    >
+                      {t.type[entry.type]}
+                    </Badge>
+                    {(entry.type === 'PHONE_CALL' ||
+                      entry.type === 'EMAIL') && (
+                      <Badge variant="outline">
+                        {t.direction[entry.direction]}
+                      </Badge>
+                    )}
+                    {getContactName(entry.contactId) && (
+                      <span className="text-xs text-muted-foreground">
+                        {getContactName(entry.contactId)}
+                      </span>
+                    )}
+                  </div>
+                  {entry.subject && (
+                    <p className="mt-1 text-sm font-medium">{entry.subject}</p>
+                  )}
+                  <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">
+                    {entry.content}
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs text-muted-foreground">
+                    {formatDate(entry.occurredAt)}
+                  </p>
+                  {entry.type === 'PHONE_CALL' && entry.duration != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {entry.duration} min
+                    </p>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-1 h-8 w-8 p-0 text-destructive hover:text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteId(entry.id);
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => p - 1)}
+          >
+            ←
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            {page} / {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => p + 1)}
+          >
+            →
+          </Button>
+        </div>
+      )}
+
+      {/* Create / Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              {editingEntry ? t.editEntry : t.newEntry}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Type */}
+            <div className="space-y-1.5">
+              <Label>{t.fields.type}</Label>
+              <Select
+                value={form.type}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, type: v as CommunicationTypeKey }))
+                }
+              >
+                <SelectTrigger className="min-h-[44px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ALL">{t.filters.allContacts}</SelectItem>
-                  {contacts.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.firstName} {c.lastName}
+                  {COMMUNICATION_TYPES.map((ct) => (
+                    <SelectItem key={ct} value={ct}>
+                      {t.type[ct]}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            )}
-
-            <div className="flex-1" />
-
-            <Button onClick={openCreate} className="min-h-[44px]">
-              <Plus className="mr-1.5 h-4 w-4" />
-              {t.newEntry}
-            </Button>
-          </div>
-
-          {/* Liste */}
-          {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              {t.empty}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {filtered.map((entry) => {
-                const Icon = TYPE_ICONS[entry.type] ?? StickyNote;
-                return (
-                  <div
-                    key={entry.id}
-                    className="flex items-start gap-3 rounded-lg border p-3"
-                  >
-                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted">
-                      <Icon className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="secondary">{t.type[entry.type]}</Badge>
-                        <Badge variant="outline">
-                          {t.direction[entry.direction]}
-                        </Badge>
-                        {contactName(entry.contactId) && (
-                          <span className="text-xs text-muted-foreground">
-                            {contactName(entry.contactId)}
-                          </span>
-                        )}
-                      </div>
-                      {entry.subject && (
-                        <p className="text-sm font-medium">{entry.subject}</p>
-                      )}
-                      <p className="text-sm text-muted-foreground line-clamp-2">
-                        {entry.content}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                        <span>{formatDateTime(entry.occurredAt)}</span>
-                        {entry.duration != null && (
-                          <span>{entry.duration} min</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(entry)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => setDeleteTarget(entry)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* Create / Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? t.editEntry : t.newEntry}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>{t.fields.type}</Label>
-                <Select
-                  value={formType}
-                  onValueChange={(v) => setFormType(v as CommunicationType)}
-                >
-                  <SelectTrigger className="min-h-[44px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {TYPES.map((tp) => (
-                      <SelectItem key={tp} value={tp}>
-                        {t.type[tp]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            {/* Direction (only for PHONE_CALL / EMAIL) */}
+            {showDirection && (
               <div className="space-y-1.5">
                 <Label>{t.fields.direction}</Label>
                 <Select
-                  value={formDirection}
+                  value={form.direction}
                   onValueChange={(v) =>
-                    setFormDirection(v as CommunicationDirection)
+                    setForm((prev) => ({ ...prev, direction: v as DirectionKey }))
                   }
                 >
                   <SelectTrigger className="min-h-[44px]">
@@ -398,17 +479,26 @@ export function CommunicationTab({
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            )}
 
+            {/* Contact (only if contacts provided) */}
             {contacts && contacts.length > 0 && (
               <div className="space-y-1.5">
-                <Label>{t.fields.contactId}</Label>
-                <Select value={formContactId} onValueChange={setFormContactId}>
+                <Label>{t.fields.contact}</Label>
+                <Select
+                  value={form.contactId || 'NONE'}
+                  onValueChange={(v) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      contactId: v === 'NONE' ? '' : v,
+                    }))
+                  }
+                >
                   <SelectTrigger className="min-h-[44px]">
-                    <SelectValue placeholder="–" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">–</SelectItem>
+                    <SelectItem value="NONE">–</SelectItem>
                     {contacts.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.firstName} {c.lastName}
@@ -419,87 +509,112 @@ export function CommunicationTab({
               </div>
             )}
 
+            {/* Subject */}
             <div className="space-y-1.5">
               <Label>{t.fields.subject}</Label>
               <Input
-                value={formSubject}
-                onChange={(e) => setFormSubject(e.target.value)}
                 className="min-h-[44px]"
+                value={form.subject}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, subject: e.target.value }))
+                }
               />
             </div>
 
+            {/* Content + Dictation */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <Label>{t.fields.content}</Label>
                 <DictationButton
-                  onTranscript={(text) =>
-                    setFormContent((prev) =>
-                      prev ? `${prev} ${text}` : text,
-                    )
-                  }
+                  onTranscript={handleTranscript}
+                  onInterim={handleInterim}
                 />
               </div>
               <Textarea
-                value={formContent}
-                onChange={(e) => setFormContent(e.target.value)}
-                rows={5}
+                className="min-h-[120px]"
+                value={form.content}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, content: e.target.value }))
+                }
+              />
+              {interimText && (
+                <p className="text-sm italic text-muted-foreground">
+                  {interimText}
+                </p>
+              )}
+            </div>
+
+            {/* Date/Time */}
+            <div className="space-y-1.5">
+              <Label>{t.fields.occurredAt}</Label>
+              <Input
+                type="datetime-local"
+                className="min-h-[44px]"
+                value={form.occurredAt}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, occurredAt: e.target.value }))
+                }
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label>{t.fields.occurredAt}</Label>
-                <Input
-                  type="datetime-local"
-                  value={formOccurredAt}
-                  onChange={(e) => setFormOccurredAt(e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </div>
+            {/* Duration (only for PHONE_CALL) */}
+            {showDuration && (
               <div className="space-y-1.5">
                 <Label>{t.fields.duration}</Label>
                 <Input
                   type="number"
-                  value={formDuration}
-                  onChange={(e) => setFormDuration(e.target.value)}
-                  className="min-h-[44px]"
                   min={0}
+                  className="min-h-[44px]"
+                  value={form.duration}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, duration: e.target.value }))
+                  }
                 />
               </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setDialogOpen(false)}
-                className="min-h-[44px]"
-              >
-                {texts.customers.actions.cancel}
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting || !formContent.trim()}
-                className="min-h-[44px]"
-              >
-                {submitting
-                  ? texts.customers.actions.saving
-                  : texts.customers.actions.save}
-              </Button>
-            </div>
+            )}
           </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => setDialogOpen(false)}
+            >
+              Abbrechen
+            </Button>
+            <Button
+              className="min-h-[44px]"
+              disabled={!form.content.trim() || submitting}
+              onClick={handleSubmit}
+            >
+              {submitting ? 'Wird gespeichert…' : 'Speichern'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Delete Confirm */}
-      <ConfirmDialog
-        open={!!deleteTarget}
+      <AlertDialog
+        open={deleteId !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null);
+          if (!open) setDeleteId(null);
         }}
-        title={t.deleteTitle}
-        description={t.deleteConfirm}
-        onConfirm={handleDelete}
-      />
-    </>
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Löschen</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.deleteConfirm}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>
+              Löschen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
   );
 }

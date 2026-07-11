@@ -8,56 +8,56 @@ import {
   IsDateString,
   IsEnum,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
-  MinLength,
+  Min,
 } from 'class-validator';
 
 export class CreateCommunicationDto {
   @ApiProperty({ enum: CommunicationEntityType })
   @IsEnum(CommunicationEntityType)
+  @IsNotEmpty()
   entityType!: CommunicationEntityType;
 
-  @ApiProperty({ example: 'cuid...' })
+  @ApiProperty()
   @IsString()
+  @IsNotEmpty()
   entityId!: string;
 
   @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
+  @IsOptional()
   contactId?: string;
 
   @ApiProperty({ enum: CommunicationType })
   @IsEnum(CommunicationType)
+  @IsNotEmpty()
   type!: CommunicationType;
 
-  @ApiPropertyOptional({ enum: CommunicationDirection })
-  @IsOptional()
+  @ApiPropertyOptional({ enum: CommunicationDirection, default: 'OUTGOING' })
   @IsEnum(CommunicationDirection)
+  @IsOptional()
   direction?: CommunicationDirection;
 
   @ApiPropertyOptional()
-  @IsOptional()
   @IsString()
+  @IsOptional()
   subject?: string;
 
   @ApiProperty()
   @IsString()
-  @MinLength(1)
+  @IsNotEmpty()
   content!: string;
 
   @ApiPropertyOptional()
-  @IsOptional()
   @IsDateString()
+  @IsOptional()
   occurredAt?: string;
 
-  @ApiPropertyOptional({ example: 15 })
-  @IsOptional()
-  @IsInt()
-  duration?: number;
-
   @ApiPropertyOptional()
+  @IsInt()
+  @Min(0)
   @IsOptional()
-  @IsString()
-  createdBy?: string;
+  duration?: number;
 }

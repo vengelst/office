@@ -225,7 +225,7 @@ export default function CustomerDetailPage(): React.ReactNode {
             {t.tabs.submissions}
           </TabsTrigger>
           <TabsTrigger value="communication" className="min-h-[44px]">
-            {t.tabs.communication}
+            {texts.communication.title}
           </TabsTrigger>
           <TabsTrigger value="documents" className="min-h-[44px]">
             {t.tabs.documents}
@@ -303,12 +303,8 @@ export default function CustomerDetailPage(): React.ReactNode {
         <TabsContent value="communication">
           <CommunicationTab
             entityType="CUSTOMER"
-            entityId={id}
-            contacts={customer.contacts?.map((c) => ({
-              id: c.id,
-              firstName: c.firstName,
-              lastName: c.lastName,
-            }))}
+            entityId={customer.id}
+            contacts={customer.contacts}
           />
         </TabsContent>
 

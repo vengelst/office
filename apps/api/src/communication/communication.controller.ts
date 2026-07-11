@@ -10,7 +10,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RoleCode } from '@prisma/client';
+import {
+  CommunicationEntityType,
+  CommunicationType,
+  RoleCode,
+} from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CommunicationService } from './communication.service';
@@ -26,30 +30,39 @@ export class CommunicationController {
   constructor(private readonly communication: CommunicationService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Kommunikationseinträge auflisten' })
+  @ApiOperation({ summary: 'Kommunikationseinträge auflisten (Paginierung, Filter)' })
   findAll(
-    @Query('entityType') entityType?: string,
+    @Query('entityType') entityType?: CommunicationEntityType,
     @Query('entityId') entityId?: string,
     @Query('contactId') contactId?: string,
-    @Query('type') type?: string,
+    @Query('type') type?: CommunicationType,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.communication.findAll({ entityType, entityId, contactId, type });
+    return this.communication.list({
+      entityType,
+      entityId,
+      contactId,
+      type,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Kommunikationseintrag Detail' })
+  @ApiOperation({ summary: 'Einzelnen Kommunikationseintrag laden' })
   findOne(@Param('id') id: string) {
-    return this.communication.findOne(id);
+    return this.communication.get(id);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Kommunikationseintrag anlegen' })
+  @ApiOperation({ summary: 'Kommunikationseintrag erstellen' })
   create(@Body() dto: CreateCommunicationDto) {
     return this.communication.create(dto);
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Kommunikationseintrag bearbeiten' })
+  @ApiOperation({ summary: 'Kommunikationseintrag aktualisieren' })
   update(@Param('id') id: string, @Body() dto: UpdateCommunicationDto) {
     return this.communication.update(id, dto);
   }

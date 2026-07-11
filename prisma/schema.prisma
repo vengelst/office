@@ -1307,3 +1307,4 @@ model Submission {
 
   @@index([customerId, status, deletedAt])
 }
+

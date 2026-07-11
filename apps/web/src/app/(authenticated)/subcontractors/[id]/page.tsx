@@ -12,7 +12,6 @@ import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
-import { CommunicationTab } from '@/components/communication/communication-tab';
 import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -20,6 +19,7 @@ import {
   workerFullName,
   type SubcontractorDetail,
 } from '@/lib/workers';
+import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
@@ -181,12 +181,12 @@ export default function SubcontractorDetailPage(): React.ReactNode {
         )}
       </section>
 
-      {/* Kommunikation */}
+      {/* Kommunikationshistorie */}
       <section className="space-y-3">
         <h3 className="text-sm font-semibold text-muted-foreground">
           {texts.communication.title}
         </h3>
-        <CommunicationTab entityType="SUBCONTRACTOR" entityId={id} />
+        <CommunicationTab entityType="SUBCONTRACTOR" entityId={sub.id} />
       </section>
 
       <ConfirmDialog
