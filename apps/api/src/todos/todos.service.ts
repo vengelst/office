@@ -168,7 +168,7 @@ export class TodosService {
     }
     if (dto.status === 'DONE') {
       data.completedAt = new Date();
-    } else if (dto.status && dto.status !== 'DONE') {
+    } else if (dto.status) {
       data.completedAt = null;
     }
 
