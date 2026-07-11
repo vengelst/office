@@ -5,6 +5,7 @@ import { slugify, fileSlug, compactNumber, dateSlug, timeSlug } from './slug.uti
 /** Ordnernamen-Mapping (DE) je Entity-Typ. */
 const CATEGORY_SLUGS: Record<string, string> = {
   CUSTOMER: 'kunden',
+  CONTACT: 'kunden',
   PROJECT: 'projekte',
   WORKER: 'monteure',
   VEHICLE: 'fahrzeuge',
@@ -117,6 +118,18 @@ export class StoragePathService {
           number: '',
         };
       }
+      case 'CONTACT': {
+        const cc = await this.prisma.customerContact.findUnique({
+          where: { id: entityId },
+          select: { customer: { select: { companyName: true, customerNumber: true } } },
+        });
+        if (!cc) return fallback(entityType, entityId);
+        return {
+          slug: `${slugify(cc.customer.companyName)}-${compactNumber(cc.customer.customerNumber)}`,
+          displayName: cc.customer.companyName,
+          number: cc.customer.customerNumber,
+        };
+      }
       default:
         return fallback(entityType, entityId);
     }
@@ -192,6 +205,7 @@ export class StoragePathService {
   driveCategoryName(entityType: string): string {
     const map: Record<string, string> = {
       CUSTOMER: 'Kunden',
+      CONTACT: 'Kunden',
       PROJECT: 'Projekte',
       WORKER: 'Monteure',
       VEHICLE: 'Fahrzeuge',
