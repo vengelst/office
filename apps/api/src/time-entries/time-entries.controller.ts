@@ -22,6 +22,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { TimeEntriesService } from './time-entries.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
@@ -78,6 +79,7 @@ export class TimeEntriesController {
   }
 
   @Public()
+  @UseGuards(ApiKeyGuard)
   @Get('project-status/:projectId')
   @ApiOperation({ summary: 'Stempel-Status aller Monteure eines Projekts (Kiosk)' })
   projectStatus(@Param('projectId') projectId: string) {
