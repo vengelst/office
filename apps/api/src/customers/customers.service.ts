@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { GoogleContactsService } from '../google-drive/google-contacts.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { CreateBranchDto } from './dto/create-branch.dto';
@@ -57,7 +59,12 @@ const detailInclude = {
 
 @Injectable()
 export class CustomersService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(CustomersService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly googleContacts: GoogleContactsService,
+  ) {}
 
   // ── Customer CRUD ────────────────────────────────────────────
 
@@ -199,13 +206,19 @@ export class CustomersService {
     if (dto.branchId) {
       await this.ensureBranch(customerId, dto.branchId);
     }
-    return this.prisma.customerContact.create({
+    const contact = await this.prisma.customerContact.create({
       data: {
         ...dto,
         birthday: dto.birthday ? new Date(dto.birthday) : undefined,
         customerId,
       },
+      include: { customer: { select: { companyName: true } } },
     });
+
+    this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
+      .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+
+    return contact;
   }
 
   async updateContact(customerId: string, id: string, dto: UpdateContactDto) {
@@ -213,18 +226,33 @@ export class CustomersService {
     if (dto.branchId) {
       await this.ensureBranch(customerId, dto.branchId);
     }
-    return this.prisma.customerContact.update({
+    const contact = await this.prisma.customerContact.update({
       where: { id },
       data: {
         ...dto,
         birthday: dto.birthday ? new Date(dto.birthday) : undefined,
       },
+      include: { customer: { select: { companyName: true } } },
     });
+
+    this.syncContactToGoogle(contact.id, contact, contact.customer.companyName)
+      .catch((err) => this.logger.warn(`Google Contacts Sync fehlgeschlagen: ${(err as Error).message}`));
+
+    return contact;
   }
 
   async removeContact(customerId: string, id: string) {
+    const contact = await this.prisma.customerContact.findUnique({
+      where: { id },
+      select: { googleContactId: true },
+    });
     await this.ensureContact(customerId, id);
     await this.prisma.customerContact.delete({ where: { id } });
+
+    if (contact?.googleContactId) {
+      this.googleContacts.deleteContact(contact.googleContactId)
+        .catch((err) => this.logger.warn(`Google Kontakt löschen fehlgeschlagen: ${(err as Error).message}`));
+    }
     return { id, deleted: true };
   }
 
@@ -365,6 +393,56 @@ export class CustomersService {
     });
     if (count === 0) {
       throw new NotFoundException('Bankverbindung nicht gefunden');
+    }
+  }
+
+  private async syncContactToGoogle(
+    contactId: string,
+    contact: {
+      firstName: string;
+      lastName: string;
+      title?: string | null;
+      email?: string | null;
+      phoneMobile?: string | null;
+      phoneLandline?: string | null;
+      role?: string | null;
+      department?: string | null;
+      addressLine1?: string | null;
+      postalCode?: string | null;
+      city?: string | null;
+      country?: string | null;
+      notes?: string | null;
+      googleContactId?: string | null;
+    },
+    companyName: string,
+  ): Promise<void> {
+    const data = {
+      firstName: contact.firstName,
+      lastName: contact.lastName,
+      title: contact.title ?? undefined,
+      email: contact.email ?? undefined,
+      phoneMobile: contact.phoneMobile ?? undefined,
+      phoneLandline: contact.phoneLandline ?? undefined,
+      role: contact.role ?? undefined,
+      department: contact.department ?? undefined,
+      company: companyName,
+      addressLine1: contact.addressLine1 ?? undefined,
+      postalCode: contact.postalCode ?? undefined,
+      city: contact.city ?? undefined,
+      country: contact.country ?? undefined,
+      notes: contact.notes ?? undefined,
+    };
+
+    if (contact.googleContactId) {
+      await this.googleContacts.updateContact(contact.googleContactId, data);
+    } else {
+      const resourceName = await this.googleContacts.createContact(data);
+      if (resourceName) {
+        await this.prisma.customerContact.update({
+          where: { id: contactId },
+          data: { googleContactId: resourceName },
+        });
+      }
     }
   }
 }
