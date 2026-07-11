@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -19,6 +20,8 @@ import {
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { TimeEntriesService } from './time-entries.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
@@ -39,6 +42,8 @@ export class TimeEntriesController {
   constructor(private readonly timeEntries: TimeEntriesService) {}
 
   @Get('live')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
   @ApiOperation({ summary: 'Alle aktuell eingestempelten Monteure' })
   live() {
     return this.timeEntries.live();

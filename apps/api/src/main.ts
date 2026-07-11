@@ -7,6 +7,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
+  const jwtSecret = process.env.JWT_SECRET;
+  if (process.env.NODE_ENV === 'production' && (!jwtSecret || jwtSecret === 'change-me-in-production')) {
+    console.error('FATAL: JWT_SECRET muss in Produktion gesetzt sein!');
+    process.exit(1);
+  }
+
   app.setGlobalPrefix('api');
 
   app.enableCors({
@@ -27,14 +33,16 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // ── Swagger / OpenAPI ────────────────────────────────────────
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Office API')
-    .setDescription('CRM, Projektverwaltung, Monteurverwaltung, Zeiterfassung')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, document);
+  if (process.env.NODE_ENV !== 'production') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Office API')
+      .setDescription('CRM, Projektverwaltung, Monteurverwaltung, Zeiterfassung')
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = process.env.API_PORT
     ? Number(process.env.API_PORT)
