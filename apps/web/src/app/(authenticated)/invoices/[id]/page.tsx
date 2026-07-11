@@ -52,6 +52,12 @@ import {
 } from '@/lib/invoices';
 import { texts } from '@/lib/texts';
 
+/**
+ * Detail-Seite einer einzelnen Rechnung.
+ * Zeigt Positionen (mit Inline-Editor), Zahlungen (mit Fortschrittsbalken)
+ * und Rechnungsdetails in einem Tab-Layout.
+ * Bietet Aktionen: Versenden, PDF-Download, Duplizieren, Stornieren und Löschen.
+ */
 export default function InvoiceDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -78,6 +84,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
     load();
   }, [load]);
 
+  /** Führt eine API-Aktion aus und aktualisiert die Rechnung bei Erfolg. */
   const runAction = async (
     fn: () => Promise<InvoiceDetail>,
     successMsg: string,
@@ -303,6 +310,11 @@ export default function InvoiceDetailPage(): React.ReactNode {
 
 // ── Tab 2: Zahlungen ───────────────────────────────────────────
 
+/**
+ * Zahlungs-Tab mit Fortschrittsanzeige (bezahlt/offen) und Zahlungstabelle.
+ * Zeigt den Zahlungsstand als Prozentbalken und ermöglicht das Erfassen
+ * und Löschen einzelner Zahlungseingänge.
+ */
 function PaymentsTab({
   invoice,
   onAdd,
@@ -403,6 +415,11 @@ function PaymentsTab({
 
 // ── Tab 3: Details ─────────────────────────────────────────────
 
+/**
+ * Detail-Tab mit allen Rechnungsmetadaten in zwei Spalten.
+ * Zeigt Rechnungsnummer, Typ, Status, Daten, Verknüpfungen zu
+ * Projekt/Kunde/Subunternehmer, Teilrechnungsdaten und Notizen.
+ */
 function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
   const t = texts.invoices.details;
 
@@ -534,6 +551,7 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
   );
 }
 
+/** Einfaches Label-Wert-Paar in der Rechnungsdetail-Ansicht. */
 function Field({
   label,
   value,
@@ -549,6 +567,7 @@ function Field({
   );
 }
 
+/** Label-Wert-Paar mit optionalem Link (z.B. zum verknüpften Kunden oder Projekt). */
 function FieldLink({
   label,
   href,

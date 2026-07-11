@@ -44,6 +44,13 @@ const AVAILABILITIES: WorkerAvailability[] = [
   'UNAVAILABLE',
 ];
 
+/**
+ * Detail-Seite eines einzelnen Monteurs/Mitarbeiters.
+ * Zeigt Stammdaten, Dokumente, Qualifikationen, Vertrag, Equipment
+ * und Projektzuweisungen in einem Tab-Layout.
+ * Bietet Verfügbarkeitswechsel, Foto-Upload, PIN-Verwaltung,
+ * Aktivierung/Deaktivierung und Löschen.
+ */
 export default function WorkerDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -59,6 +66,7 @@ export default function WorkerDetailPage(): React.ReactNode {
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
 
+  /** Lädt die vollständigen Mitarbeiterdaten inkl. aller Relationen vom API. */
   const load = useCallback(() => {
     workersApi
       .get(id)
@@ -91,6 +99,7 @@ export default function WorkerDetailPage(): React.ReactNode {
       .finally(() => setSaving(false));
   };
 
+  /** Ändert den Verfügbarkeitsstatus des Mitarbeiters (Verfügbar, Auf Projekt, Krank, etc.). */
   const handleAvailability = (value: WorkerAvailability): void => {
     workersApi
       .update(id, { availability: value })
@@ -349,6 +358,11 @@ export default function WorkerDetailPage(): React.ReactNode {
   );
 }
 
+/**
+ * Sektion zur PIN-Verwaltung eines Mitarbeiters.
+ * Erlaubt das Setzen einer 6-stelligen PIN für die Stempeluhr
+ * und den Versand per E-Mail an den Mitarbeiter.
+ */
 function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode {
   const t = texts.workers.pin;
   const { toast } = useToast();

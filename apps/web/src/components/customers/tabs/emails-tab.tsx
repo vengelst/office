@@ -38,6 +38,15 @@ const EMAIL_TYPES = [
   'OTHER',
 ] as const;
 
+/**
+ * Tab-Komponente zur Verwaltung von E-Mail-Adressen eines Kunden.
+ * Unterstützt verschiedene E-Mail-Typen (Allgemein, Buchhaltung, Service, etc.),
+ * Primär-Markierung und CRUD-Operationen in einem Dialog.
+ *
+ * @param customerId - ID des zugehörigen Kunden
+ * @param emails - Liste der vorhandenen E-Mail-Adressen
+ * @param onChange - Callback bei Datenänderung
+ */
 export function EmailsTab({
   customerId,
   emails,

@@ -22,8 +22,18 @@ import { ApiError } from '@/lib/api-client';
 import { maskIban } from '@/lib/format';
 import { texts } from '@/lib/texts';
 
+/** Maximale Anzahl Bankverbindungen pro Kunde. */
 const MAX = 2;
 
+/**
+ * Tab-Komponente zur Verwaltung von Bankverbindungen eines Kunden.
+ * Begrenzt auf maximal 2 Konten, mit IBAN-Maskierung in der Anzeige,
+ * Primär-Markierung und CRUD-Operationen.
+ *
+ * @param customerId - ID des zugehörigen Kunden
+ * @param bankAccounts - Bestehende Bankverbindungen
+ * @param onChange - Callback bei Datenänderung
+ */
 export function BankAccountsTab({
   customerId,
   bankAccounts,

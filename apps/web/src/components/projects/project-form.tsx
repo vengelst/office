@@ -60,6 +60,11 @@ const schema = z.object({
 
 export type ProjectFormValues = z.infer<typeof schema>;
 
+/**
+ * Wandelt Formularwerte in das API-Payload-Format.
+ * Konvertiert Strings zu Zahlen, leere IDs zu null und
+ * entfernt Stundenpaket-Felder wenn ein anderer Abrechnungsmodus gewählt ist.
+ */
 function toPayload(v: ProjectFormValues): Record<string, unknown> {
   const num = (s?: string): number | undefined => {
     if (s == null || s.trim() === '') return undefined;
@@ -95,6 +100,16 @@ function toPayload(v: ProjectFormValues): Record<string, unknown> {
 const isoDate = (v?: string | null): string =>
   v ? v.slice(0, 10) : '';
 
+/**
+ * Formular für die Stammdaten eines Projekts.
+ * Enthält Sektionen für Allgemein (Kunde, Niederlassung, Ansprechpartner, Leistungsart),
+ * Zeitplanung (Plan-/Ist-Termine), Abrechnung (Stundenpaket-Konditionen) und Pausenregelung.
+ * Lädt Kunden, Niederlassungen, Kontakte und Benutzer dynamisch nach.
+ *
+ * @param project - Das zu bearbeitende Projekt
+ * @param submitting - Ob gerade gespeichert wird
+ * @param onSubmit - Callback mit dem API-Payload beim Absenden
+ */
 export function ProjectForm({
   project,
   submitting,

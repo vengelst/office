@@ -42,6 +42,7 @@ const NO_FOLDER = '__none__';
 let seq = 0;
 const nextId = (): string => `pending-${Date.now()}-${seq++}`;
 
+/** Repräsentiert eine Datei in der Upload-Warteschlange mit Metadaten und Fortschritt. */
 interface PendingItem {
   id: string;
   file: File;
@@ -50,14 +51,24 @@ interface PendingItem {
   tags: string;
   expiry: string;
   folderId: string;
+  /** Object-URL der Bildvorschau, null bei Nicht-Bild-Dateien. */
   preview: string | null;
   progress: number;
   status: 'idle' | 'uploading' | 'done' | 'error';
 }
 
 /**
- * Upload-Dialog mit Drag&Drop, Kamera, Multi-Select und Bildbearbeitung.
- * Lädt jede Datei einzeln hoch (eigene Metadaten + Fortschritt pro Datei).
+ * Upload-Dialog mit Drag&Drop, Kamera-Aufnahme, Multi-Select und integrierter Bildbearbeitung.
+ * Jede Datei erhält individuelle Metadaten (Typ, Titel, Tags, Ablaufdatum, Ordner)
+ * und einen eigenen Fortschrittsbalken beim Upload.
+ *
+ * @param entityType - Typ der Ziel-Entität (z.B. 'CUSTOMER', 'PROJECT')
+ * @param entityId - ID der Ziel-Entität
+ * @param types - Verfügbare Dokumenttypen für den Kontext
+ * @param folders - Vorhandene Ordner zur Zuordnung
+ * @param defaultFolderId - Vorausgewählter Ordner
+ * @param initialFiles - Dateien die beim Öffnen direkt hinzugefügt werden (z.B. aus Drag&Drop)
+ * @param onUploaded - Callback nach erfolgreichem Upload (für Liste-Neuladen)
  */
 export function UploadDialog({
   open,
@@ -162,6 +173,7 @@ export function UploadDialog({
     if (e.dataTransfer.files?.length) addFiles(e.dataTransfer.files);
   };
 
+  /** Lädt alle ausstehenden Dateien sequenziell hoch und schließt den Dialog bei Erfolg. */
   const startUpload = async (): Promise<void> => {
     if (items.length === 0) return;
     setUploading(true);

@@ -79,6 +79,18 @@ const EMPTY: FormState = {
   notes: '',
 };
 
+/**
+ * Tab-Komponente zur Verwaltung von Niederlassungen (Standorten) eines Kunden.
+ * Bietet CRUD-Operationen, Geocoding von Adressen via Google Maps,
+ * eine Detail-Ansicht mit zugeordneten Ansprechpartnern und Routenplanung.
+ *
+ * @param customerId - ID des zugehörigen Kunden
+ * @param branches - Liste der Niederlassungen
+ * @param contacts - Alle Ansprechpartner des Kunden (für die Standort-Detail-Ansicht)
+ * @param onChange - Callback bei Datenänderung
+ * @param onOpenContact - Callback zum Öffnen eines Kontakts im Kontakte-Tab
+ * @param onAddContact - Callback zum Anlegen eines neuen Kontakts für eine Niederlassung
+ */
 export function BranchesTab({
   customerId,
   branches,
@@ -107,6 +119,7 @@ export function BranchesTab({
   const set = (k: keyof FormState, v: string): void =>
     setForm((prev) => ({ ...prev, [k]: v }));
 
+  /** Ermittelt Geo-Koordinaten und Google-Maps-URL aus der eingegebenen Adresse. */
   const handleGeocode = (): void => {
     const address = [
       form.addressLine1,

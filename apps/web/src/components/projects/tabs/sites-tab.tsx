@@ -27,7 +27,7 @@ import { texts } from '@/lib/texts';
 const num = (s: string): number | undefined =>
   s.trim() === '' ? undefined : Number(s);
 
-/** Adresse zusammensetzen für die Geocode-Abfrage. */
+/** Fügt Adressbestandteile zu einem Geocoding-tauglichen String zusammen. */
 function buildAddress(parts: {
   addressLine1: string;
   postalCode: string;
@@ -43,6 +43,14 @@ function buildAddress(parts: {
     .join(', ');
 }
 
+/**
+ * Tab-Komponente zur Verwaltung aller Standortinformationen eines Projekts.
+ * Gliedert sich in drei Bereiche: Hauptstandort (direkt am Projekt),
+ * zusätzliche Standorte (ProjectSites) und Unterkunft für Monteure.
+ *
+ * @param project - Das aktuelle Projekt mit allen Standortdaten
+ * @param onChange - Callback bei Datenänderung (löst Neuladen aus)
+ */
 export function SitesTab({
   project,
   onChange,
@@ -61,6 +69,11 @@ export function SitesTab({
 
 // ── Hauptstandort ──────────────────────────────────────────────
 
+/**
+ * Bearbeitungsbereich für den Hauptstandort eines Projekts.
+ * Speichert Adresse, Geo-Koordinaten, Zugangsinfos und Arbeitszeiten
+ * direkt auf dem Projekt-Objekt.
+ */
 function MainSite({
   project,
   onChange,
@@ -264,6 +277,10 @@ const EMPTY_SITE: SiteForm = {
   notes: '',
 };
 
+/**
+ * Verwaltung zusätzlicher Projektstandorte mit CRUD-Operationen.
+ * Jeder Standort hat eigene Adresse, Koordinaten und Zugangsinfos.
+ */
 function SitesList({
   project,
   onChange,
@@ -544,6 +561,10 @@ function SitesList({
 
 // ── Unterkunft ─────────────────────────────────────────────────
 
+/**
+ * Bearbeitungsbereich für die Monteur-Unterkunft eines Projekts.
+ * Speichert Adresse, Geo-Koordinaten und Notizen direkt auf dem Projekt.
+ */
 function Accommodation({
   project,
   onChange,

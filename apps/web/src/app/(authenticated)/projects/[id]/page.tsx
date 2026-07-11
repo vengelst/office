@@ -52,6 +52,12 @@ const STATUSES: ProjectStatus[] = [
   'CANCELED',
 ];
 
+/**
+ * Detail-Seite eines einzelnen Projekts.
+ * Zeigt Stammdaten-Formular, Standorte, Monteur-Zuweisungen, Equipment,
+ * Dokumente, E-Mail-Verteiler und Notizen-Verlauf in einem Tab-Layout.
+ * Bietet Statuswechsel mit Kommentar, Drucken und Löschen.
+ */
 export default function ProjectDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -72,6 +78,7 @@ export default function ProjectDetailPage(): React.ReactNode {
   const [statusComment, setStatusComment] = useState('');
   const [statusSaving, setStatusSaving] = useState(false);
 
+  /** Lädt die vollständigen Projektdaten inkl. aller Relationen vom API. */
   const load = useCallback(() => {
     projectsApi
       .get(id)
@@ -87,6 +94,7 @@ export default function ProjectDetailPage(): React.ReactNode {
     load();
   }, [load]);
 
+  /** Speichert Änderungen an den Projekt-Stammdaten über die API. */
   const handleSave = (payload: Record<string, unknown>): void => {
     setSaving(true);
     projectsApi
@@ -114,12 +122,14 @@ export default function ProjectDetailPage(): React.ReactNode {
       .catch(() => toast({ variant: 'destructive', description: t.toast.error }));
   };
 
+  /** Öffnet den Status-Änderungs-Dialog mit dem aktuellen Status vorausgewählt. */
   const openStatus = (): void => {
     if (project) setNewStatus(project.status);
     setStatusComment('');
     setStatusOpen(true);
   };
 
+  /** Sendet den Statuswechsel mit optionalem Kommentar an die API. */
   const submitStatus = (): void => {
     setStatusSaving(true);
     projectsApi

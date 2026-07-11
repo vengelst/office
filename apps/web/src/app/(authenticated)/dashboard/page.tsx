@@ -49,6 +49,7 @@ const cards = [
 
 type CardKey = (typeof cards)[number]['key'];
 
+/** Formatiert den Statistik-Wert je nach Karten-Typ für die Anzeige. */
 function formatValue(key: CardKey, stats: DashboardStats): string {
   switch (key) {
     case 'customers':
@@ -62,6 +63,12 @@ function formatValue(key: CardKey, stats: DashboardStats): string {
   }
 }
 
+/**
+ * Dashboard-Seite mit Überblick über die wichtigsten Kennzahlen.
+ * Zeigt Kunden-, Projekt-, Mitarbeiter-Anzahl, Wochenstunden,
+ * eingestempelte Monteure, Rechnungsstatus (offen/überfällig),
+ * Mitarbeiter-Verfügbarkeit mit Ablaufwarnungen und Fuhrpark-Status.
+ */
 export default function DashboardPage(): React.ReactNode {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -149,6 +156,10 @@ export default function DashboardPage(): React.ReactNode {
   );
 }
 
+/**
+ * Dashboard-Widget für den Fuhrpark.
+ * Zeigt Gesamtanzahl, zugewiesene Fahrzeuge und Ablaufwarnungen (TÜV, Versicherung etc.).
+ */
 function VehiclesWidget({
   vehicles,
   expiringCount,
@@ -206,6 +217,7 @@ function VehiclesWidget({
   );
 }
 
+/** Dashboard-Karte für aktuell eingestempelte Monteure mit Link zur Live-Ansicht. */
 function ClockedInCard({
   count,
   total,
@@ -239,6 +251,11 @@ function ClockedInCard({
   );
 }
 
+/**
+ * Dashboard-Widget für Rechnungen.
+ * Zeigt offene Ausgangsrechnungen (Betrag + Anzahl) und
+ * überfällige Rechnungen als Warnkarte mit Link zur Rechnungsliste.
+ */
 function InvoicesWidget({
   stats,
 }: {
@@ -314,6 +331,11 @@ function InvoicesWidget({
 
 const ABSENT: WorkerAvailability[] = ['SICK', 'VACATION', 'UNAVAILABLE'];
 
+/**
+ * Dashboard-Widget für Mitarbeiter-Verfügbarkeit.
+ * Zeigt Verteilung nach Status (Verfügbar/Auf Projekt/Abwesend)
+ * und Anzahl ablaufender Dokumente als Warnung.
+ */
 function WorkersWidget({
   workers,
   expiringCount,
@@ -404,6 +426,7 @@ function WorkersWidget({
   );
 }
 
+/** Einzelne Statistik-Zelle im Mitarbeiter-Widget mit Zahl, Badge und Label. */
 function Stat({
   value,
   label,

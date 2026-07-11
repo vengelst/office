@@ -12,6 +12,7 @@ import { texts } from '@/lib/texts';
 
 const t = texts.customers;
 
+/** Zeigt ein Label-Wert-Paar an, gibt null zurück wenn kein Wert vorhanden. */
 function field(label: string, value: string | number | null | undefined): ReactNode {
   if (!value) return null;
   return (
@@ -22,6 +23,7 @@ function field(label: string, value: string | number | null | undefined): ReactN
   );
 }
 
+/** Fügt Adressbestandteile zu einem lesbaren einzeiligen String zusammen. */
 function address(
   line1: string | null,
   line2: string | null,
@@ -33,6 +35,7 @@ function address(
   return parts.length ? parts.join(', ') : null;
 }
 
+/** Druckbereich-Sektion mit Überschrift und Seitenumbruch-Vermeidung. */
 function Section({ title, children }: { title: string; children: ReactNode }): ReactNode {
   return (
     <div className="mb-4 break-inside-avoid">
@@ -44,6 +47,13 @@ function Section({ title, children }: { title: string; children: ReactNode }): R
   );
 }
 
+/**
+ * Druck-Ansicht mit allen Kundendaten auf einer Seite.
+ * Beinhaltet Stammdaten, E-Mail-Adressen, Bankverbindungen,
+ * Niederlassungen und Ansprechpartner. Wird nur beim Drucken sichtbar.
+ *
+ * @param customer - Vollständige Kunden-Detaildaten
+ */
 export const CustomerPrintAll = forwardRef<HTMLDivElement, { customer: CustomerDetail }>(
   function CustomerPrintAll({ customer }, ref) {
     const addr = address(

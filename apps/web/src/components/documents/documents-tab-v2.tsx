@@ -484,7 +484,10 @@ export function DocumentsTabV2({
   );
 }
 
-/** Aktionen-Menü, geteilt zwischen Grid und Liste. */
+/**
+ * Dropdown-Aktionsmenü für Dokumente (Download, Ersetzen, Versionen, Löschen).
+ * Wird sowohl in der Grid- als auch in der Listenansicht verwendet.
+ */
 function ActionsMenu({
   onDownload,
   onReplace,
@@ -535,6 +538,7 @@ function ActionsMenu({
   );
 }
 
+/** Dokument als Kachel in der Grid-Ansicht mit Thumbnail, Badges und Aktionsmenü. */
 function GridCard({
   doc,
   typeLabel,
@@ -586,6 +590,7 @@ function GridCard({
   );
 }
 
+/** Dokument als Zeile in der Listenansicht mit Thumbnail, Metadaten und Aktionsmenü. */
 function ListRow({
   doc,
   typeLabel,
@@ -702,6 +707,7 @@ function VersionsDialog({
   );
 }
 
+/** Einzelne Version in der Versions-Historie mit Download-Button. */
 function VersionRow({
   doc,
   current,

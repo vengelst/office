@@ -55,7 +55,10 @@ const NONE = '__none__';
 const ALL = '__all__';
 const CONTACT_METHODS = ['EMAIL', 'PHONE', 'MOBILE'] as const;
 
-/** Externe Steuerung (z.B. Klick aus dem Niederlassungs-Detail). */
+/**
+ * Externe Steuerung der Kontakte-Ansicht, z.B. beim Klick auf
+ * "Kontakt bearbeiten" im Niederlassungs-Detail.
+ */
 export type ContactsExternalAction =
   | { kind: 'edit'; contact: CustomerContact }
   | { kind: 'create'; branchId: string | null };
@@ -96,6 +99,18 @@ const EMPTY: FormState = {
   isSignatory: false,
 };
 
+/**
+ * Tab-Komponente zur Verwaltung von Ansprechpartnern eines Kunden.
+ * Bietet CRUD-Operationen, Visitenkarten-Scan via OCR, Inline-Bearbeitung,
+ * Filterung nach Niederlassung und Gruppierung nach Standort.
+ *
+ * @param customerId - ID des zugehörigen Kunden
+ * @param contacts - Liste der bestehenden Kontakte
+ * @param branches - Niederlassungen des Kunden (für Filter und Zuordnung)
+ * @param onChange - Callback bei Datenänderung (löst Neuladen aus)
+ * @param externalAction - Optionale externe Steuerung (z.B. aus dem Niederlassungs-Tab)
+ * @param onExternalActionDone - Callback wenn die externe Aktion verarbeitet wurde
+ */
 export function ContactsTab({
   customerId,
   contacts,
@@ -133,6 +148,7 @@ export function ContactsTab({
   const [cardImages, setCardImages] = useState<Record<string, string>>({});
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
+  /** Lädt Visitenkarten-Bilder aller Kontakte parallel und baut eine Map contactId → Bild-URL. */
   const loadBusinessCards = useCallback(() => {
     const token =
       typeof window !== 'undefined'
@@ -308,6 +324,7 @@ export function ContactsTab({
       .finally(() => setUploadFor(null));
   };
 
+  /** Öffnet den Visitenkarten-Scan-Dialog und setzt alle Scan-bezogenen States zurück. */
   const openScanDialog = (): void => {
     setScanDialogOpen(true);
     setScanResult(null);
@@ -317,6 +334,7 @@ export function ContactsTab({
     setScanning(false);
   };
 
+  /** Verarbeitet ein ausgewähltes Visitenkarten-Bild: OCR-Analyse und Formular-Befüllung. */
   const onScanFileSelected = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0];
     e.target.value = '';
@@ -359,6 +377,7 @@ export function ContactsTab({
       .finally(() => setScanning(false));
   };
 
+  /** Speichert den via OCR erkannten Kontakt und lädt das Visitenkarten-Bild als Dokument hoch. */
   const saveScanResult = (): void => {
     const payload = {
       title: scanForm.title || undefined,
@@ -990,6 +1009,14 @@ export function ContactsTab({
   );
 }
 
+/**
+ * Bild-Komponente mit authentifiziertem Laden über Bearer-Token.
+ * Erzeugt eine Object-URL aus dem API-Response und gibt sie beim Unmount frei.
+ *
+ * @param src - URL zum geschützten Bild-Endpunkt
+ * @param alt - Alt-Text für das Bild
+ * @param onClick - Callback mit der Blob-URL (z.B. für Lightbox)
+ */
 function AuthImage({
   src,
   alt,
@@ -1040,6 +1067,7 @@ function AuthImage({
   );
 }
 
+/** Einfache Checkbox-Komponente mit Label und Touch-freundlicher Mindesthöhe. */
 function Checkbox({
   label,
   checked,

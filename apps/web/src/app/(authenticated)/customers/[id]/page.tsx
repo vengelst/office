@@ -32,6 +32,12 @@ import { customersApi, type CustomerDetail } from '@/lib/customers';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
+/**
+ * Detail-Seite eines einzelnen Kunden.
+ * Zeigt Stammdaten-Formular, E-Mails, Bankverbindungen, Niederlassungen,
+ * Ansprechpartner, Visitenkarten und Dokumente in einem Tab-Layout.
+ * Bietet Drucken (aktiver Tab oder Gesamtansicht) und Löschen.
+ */
 export default function CustomerDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -50,6 +56,7 @@ export default function CustomerDetailPage(): React.ReactNode {
   const [printAll, setPrintAll] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
+  /** Lädt die vollständigen Kundendaten inkl. aller Relationen vom API. */
   const load = useCallback(() => {
     customersApi
       .get(id)
@@ -65,6 +72,7 @@ export default function CustomerDetailPage(): React.ReactNode {
     load();
   }, [load]);
 
+  /** Speichert Änderungen an den Kunden-Stammdaten über die API. */
   const handleSave = (payload: Record<string, unknown>): void => {
     setSaving(true);
     customersApi

@@ -63,7 +63,11 @@ const schema = z.object({
 
 export type CustomerFormValues = z.infer<typeof schema>;
 
-/** Wandelt das Formular in das API-Payload (Strings → Zahlen / null). */
+/**
+ * Wandelt die Formularwerte in das API-Payload-Format.
+ * Konvertiert Strings zu Zahlen (Koordinaten, Zahlungsziel) und
+ * leere Strings zu undefined, damit sie nicht an die API gesendet werden.
+ */
 function toPayload(v: CustomerFormValues): Record<string, unknown> {
   const num = (s?: string): number | undefined => {
     if (s == null || s.trim() === '') return undefined;
@@ -100,6 +104,17 @@ interface CustomerFormProps {
   onCancel?: () => void;
 }
 
+/**
+ * Formular für die Stammdaten eines Kunden (Anlage und Bearbeitung).
+ * Enthält Sektionen für Basisdaten, Adresse, Geo-Koordinaten (mit Geocoding),
+ * Kontaktdaten, Steuerinformationen und Notizen.
+ * Nutzt react-hook-form mit Zod-Validierung.
+ *
+ * @param customer - Bestehender Kunde (bei Bearbeitung), undefined bei Neuanlage
+ * @param submitting - Ob gerade gespeichert wird (deaktiviert den Submit-Button)
+ * @param onSubmit - Callback mit dem API-Payload beim Absenden
+ * @param onCancel - Optionaler Callback für den Abbrechen-Button
+ */
 export function CustomerForm({
   customer,
   submitting,
@@ -156,6 +171,7 @@ export function CustomerForm({
   const longitude = watch('longitude');
   const mapsUrl = watch('mapsUrl');
 
+  /** Ermittelt Geo-Koordinaten und Maps-URL aus der eingegebenen Adresse per Geocoding-API. */
   const handleGeocode = (): void => {
     const address = [
       addressLine1,
@@ -377,6 +393,14 @@ export function CustomerForm({
   );
 }
 
+/**
+ * Wiederverwendbare Formularfeld-Komponente mit Label, Pflichtfeld-Markierung
+ * und optionaler Fehlermeldung. Wird in allen Formularen der App verwendet.
+ *
+ * @param label - Beschriftung des Feldes
+ * @param error - Optionale Fehlermeldung (z.B. aus Formular-Validierung)
+ * @param required - Zeigt einen roten Stern neben dem Label an
+ */
 export function Field({
   label,
   error,

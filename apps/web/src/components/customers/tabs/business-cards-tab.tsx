@@ -20,6 +20,15 @@ import { texts } from '@/lib/texts';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
+/**
+ * Tab-Komponente zur Anzeige und Verwaltung von Visitenkarten eines Kunden.
+ * Sammelt Visitenkarten sowohl vom Kunden als auch von dessen Kontakten,
+ * zeigt sie in einer Grid-Ansicht mit Lightbox und bietet Upload/Löschen.
+ *
+ * @param entityId - ID der übergeordneten Entität (Kunde, Projekt, etc.)
+ * @param entityType - Typ der Entität, Standard ist 'CUSTOMER'
+ * @param contacts - Kontakte des Kunden (für Zuordnung und Namensanzeige)
+ */
 export function BusinessCardsTab({
   entityId,
   entityType = 'CUSTOMER',
@@ -37,6 +46,7 @@ export function BusinessCardsTab({
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
+  /** Lädt alle Visitenkarten der Entität und ihrer Kontakte, dedupliziert und sortiert nach Datum. */
   const load = useCallback(() => {
     setLoading(true);
 
@@ -238,6 +248,14 @@ export function BusinessCardsTab({
   );
 }
 
+/**
+ * Visitenkarten-Bild mit authentifiziertem Laden.
+ * Zeigt einen Skeleton-Platzhalter bis das Bild geladen ist.
+ *
+ * @param docId - Dokument-ID für den Download-Endpunkt
+ * @param alt - Alt-Text des Bildes
+ * @param onClick - Callback mit Blob-URL (für Lightbox)
+ */
 function AuthCardImage({
   docId,
   alt,
