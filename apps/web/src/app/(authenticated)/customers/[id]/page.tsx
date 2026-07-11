@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Printer, Trash2 } from 'lucide-react';
@@ -8,6 +8,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { CustomerForm } from '@/components/customers/customer-form';
 import { RatingBadge } from '@/components/customers/rating-badge';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
@@ -19,6 +25,7 @@ import {
   type ContactsExternalAction,
 } from '@/components/customers/tabs/contacts-tab';
 import { BusinessCardsTab } from '@/components/customers/tabs/business-cards-tab';
+import { CustomerPrintAll } from '@/components/customers/customer-print-all';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi, type CustomerDetail } from '@/lib/customers';
@@ -40,6 +47,8 @@ export default function CustomerDetailPage(): React.ReactNode {
   const [activeTab, setActiveTab] = useState('master');
   const [contactAction, setContactAction] =
     useState<ContactsExternalAction | null>(null);
+  const [printAll, setPrintAll] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     customersApi
@@ -107,7 +116,7 @@ export default function CustomerDetailPage(): React.ReactNode {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href="/customers" className="hover:text-foreground">
@@ -133,14 +142,32 @@ export default function CustomerDetailPage(): React.ReactNode {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            className="no-print min-h-[44px]"
-            onClick={() => window.print()}
-          >
-            <Printer className="h-4 w-4" />
-            {t.actions.print}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="no-print min-h-[44px]">
+                <Printer className="h-4 w-4" />
+                {t.actions.print}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printTab}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setPrintAll(true);
+                  requestAnimationFrame(() => {
+                    window.print();
+                    setPrintAll(false);
+                  });
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printAll}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             variant="outline"
             className="no-print min-h-[44px] text-destructive"
@@ -152,7 +179,7 @@ export default function CustomerDetailPage(): React.ReactNode {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} data-tabs-root>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="master" className="min-h-[44px]">
             {t.tabs.master}
@@ -253,6 +280,8 @@ export default function CustomerDetailPage(): React.ReactNode {
         description={t.deleteConfirm}
         onConfirm={handleDelete}
       />
+
+      <CustomerPrintAll ref={printRef} customer={customer} />
     </div>
   );
 }

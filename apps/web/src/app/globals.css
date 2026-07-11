@@ -89,4 +89,12 @@
     background: white !important;
     color: black !important;
   }
+
+  /* Gesamtübersicht: Tabs ausblenden, Print-Content anzeigen */
+  .print-all-mode [data-tabs-root] {
+    display: none !important;
+  }
+  .print-all-mode .print-all-content {
+    display: block !important;
+  }
 }

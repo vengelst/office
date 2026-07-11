@@ -136,6 +136,8 @@ export const texts = {
       contacts: 'Ansprechpartner',
       businessCards: 'Visitenkarten',
       documents: 'Dokumente',
+      printTab: 'Aktuelle Ansicht drucken',
+      printAll: 'Gesamtübersicht drucken',
     },
     fields: {
       companyName: 'Firmenname',
