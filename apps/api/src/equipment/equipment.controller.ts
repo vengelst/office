@@ -145,7 +145,7 @@ export class EquipmentController {
     @Body() dto: AssignEquipmentDto,
     @CurrentUser() user: AuthUser,
   ) {
-    return this.equipment.assign(id, dto, user?.userId);
+    return this.equipment.assign(id, dto, user?.id);
   }
 
   @Post(':id/return')
