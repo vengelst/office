@@ -3,7 +3,8 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { apiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -137,6 +138,14 @@ export function WorkerMasterForm({
     },
   });
 
+  const [nationalities, setNationalities] = useState<string[]>([]);
+  useEffect(() => {
+    apiClient
+      .get<string[]>('/workers/nationalities')
+      .then(setNationalities)
+      .catch(() => undefined);
+  }, []);
+
   const availability = watch('availability');
   const hasDriversLicense = watch('hasDriversLicense');
   const addressLine1 = watch('addressLine1');
@@ -208,7 +217,16 @@ export function WorkerMasterForm({
             <Input {...register('placeOfBirth')} className="min-h-[44px]" />
           </Field>
           <Field label={f.nationality}>
-            <Input {...register('nationality')} className="min-h-[44px]" />
+            <Input
+              {...register('nationality')}
+              list="nationality-list"
+              className="min-h-[44px]"
+            />
+            <datalist id="nationality-list">
+              {nationalities.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
           </Field>
         </div>
       </section>

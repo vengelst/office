@@ -2,7 +2,7 @@
  * Typen und API-Funktionen für die Einstellungsverwaltung.
  * Umfasst SMTP/E-Mail-Konfiguration und Google-Drive-Speicheranbindung.
  */
-import { apiClient, apiFetch } from './api-client';
+import { apiClient, apiFetch, apiUpload } from './api-client';
 
 /** SMTP-Konfiguration für den E-Mail-Versand (Server, Zugangsdaten, Absender). */
 export interface SmtpConfig {
@@ -79,4 +79,16 @@ export const settingsApi = {
     apiClient.post<{ success: boolean; error?: string }>(
       '/settings/storage/test',
     ),
+
+  // Firmeninformationen
+  getCompanyInfo: () => apiClient.get<Record<string, string>>('/company'),
+  saveCompanyInfo: (data: Record<string, string>) =>
+    apiClient.post<{ success: true }>('/company', data),
+  uploadCompanyLogo: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiUpload<{ success: true; logoKey: string }>('/company/logo', formData);
+  },
+  getCompanyLogoKey: () =>
+    apiClient.get<{ logoKey: string | null }>('/company/logo'),
 };

@@ -1,10 +1,16 @@
 import Link from 'next/link';
-import { Mail, HardDrive, Coffee, Monitor } from 'lucide-react';
+import { Mail, HardDrive, Coffee, Monitor, Building2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
 import { texts } from '@/lib/texts';
 
 const settingsLinks = [
+  {
+    href: '/settings/company',
+    label: 'Firmeninformationen',
+    description: 'Logo, Adresse, Steuernummer, Kontaktdaten',
+    icon: Building2,
+  },
   {
     href: '/settings/email',
     label: texts.settings.nav.email,

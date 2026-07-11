@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InvoiceType } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import { PrismaService } from '../prisma/prisma.service';
-import { CompanyInfo, loadCompanyInfo } from './company.config';
+import { CompanyInfo, loadCompanyInfoFromDb } from './company.config';
 
 /**
  * Service zur PDF-Generierung von Rechnungen.
@@ -46,7 +46,7 @@ export class InvoicePdfService {
       throw new NotFoundException('Rechnung nicht gefunden');
     }
 
-    const company = loadCompanyInfo();
+    const company = await loadCompanyInfoFromDb(this.prisma);
 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];

@@ -24,6 +24,7 @@ export const texts = {
       operations: 'Betrieb',
       finance: 'Finanzen',
       admin: 'Administration',
+      settings: 'Einstellungen',
     },
   },
   login: {

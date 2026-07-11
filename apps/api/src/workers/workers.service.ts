@@ -119,6 +119,23 @@ export class WorkersService {
     private readonly emailService: EmailService,
   ) {}
 
+  // ── Nationalitäten ───────────────────────────────────────────
+
+  async getNationalities(): Promise<string[]> {
+    const results = await this.prisma.worker.findMany({
+      where: {
+        nationality: { not: null },
+        deletedAt: null,
+      },
+      select: { nationality: true },
+      distinct: ['nationality'],
+      orderBy: { nationality: 'asc' },
+    });
+    return results
+      .map((r) => r.nationality)
+      .filter((n): n is string => n !== null && n.trim() !== '');
+  }
+
   // ── Monteur CRUD ─────────────────────────────────────────────
 
   /**

@@ -47,6 +47,12 @@ export class WorkersController {
 
   // ── Statische Routen zuerst (vor :id) ────────────────────────
 
+  @Get('nationalities')
+  @ApiOperation({ summary: 'Alle bisher eingetragenen Nationalitäten' })
+  nationalities() {
+    return this.workers.getNationalities();
+  }
+
   @Get('expiring-documents')
   @ApiOperation({
     summary: 'Monteure mit ablaufenden Reisedokumenten (< 30 Tage)',

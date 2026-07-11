@@ -9,11 +9,8 @@ import {
   Clock,
   ClipboardList,
   Receipt,
-  Coffee,
   FolderArchive,
   Settings,
-  Mail,
-  HardDrive,
   type LucideIcon,
 } from 'lucide-react';
 import { texts } from '@/lib/texts';
@@ -55,22 +52,8 @@ export const navGroups: NavGroup[] = [
     items: [{ href: '/invoices', label: texts.nav.invoices, icon: Receipt }],
   },
   {
+    label: texts.nav.sections.settings,
     items: [
-      {
-        href: '/settings/break-rules',
-        label: texts.nav.breakRules,
-        icon: Coffee,
-      },
-      {
-        href: '/settings/email',
-        label: texts.settings.nav.email,
-        icon: Mail,
-      },
-      {
-        href: '/settings/storage',
-        label: texts.settings.nav.storage,
-        icon: HardDrive,
-      },
       { href: '/settings', label: texts.nav.settings, icon: Settings },
     ],
   },

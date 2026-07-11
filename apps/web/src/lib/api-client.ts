@@ -107,6 +107,47 @@ export async function apiFetch<T>(
   return data as T;
 }
 
+/**
+ * Upload-Wrapper für FormData (multipart/form-data).
+ * Setzt keinen Content-Type-Header (wird automatisch vom Browser gesetzt).
+ */
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+
+  const isJson = response.headers
+    .get('content-type')
+    ?.includes('application/json');
+  const data: unknown = isJson ? await response.json() : null;
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleUnauthorized();
+    }
+    const payload = (data as ApiErrorResponse | null) ?? undefined;
+    const message = payload
+      ? Array.isArray(payload.message)
+        ? payload.message.join(', ')
+        : payload.message
+      : `Request failed (${response.status})`;
+    throw new ApiError(message, response.status, payload);
+  }
+
+  return data as T;
+}
+
 /** Typisierter API-Client mit Convenience-Methoden für alle HTTP-Verben. */
 export const apiClient = {
   /** GET-Anfrage an den angegebenen API-Pfad. */
