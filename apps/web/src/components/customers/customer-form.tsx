@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, type ReactNode } from 'react';
-import { MapPin } from 'lucide-react';
+import { Loader2, MapPin, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,8 +18,14 @@ import {
 } from '@/components/ui/select';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { RouteButton } from '@/components/customers/contact-links';
+import {
+  ResearchPreviewDialog,
+  type PendingContact,
+} from '@/components/customers/research-preview-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { geocodeApi, type CustomerDetail } from '@/lib/customers';
+import { researchApi, type ResearchResult } from '@/lib/research';
+import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
 const LEGAL_FORM_OPTIONS: ComboboxOption[] = [
@@ -102,6 +108,7 @@ interface CustomerFormProps {
   submitting: boolean;
   onSubmit: (payload: Record<string, unknown>) => void;
   onCancel?: () => void;
+  onPendingContacts?: (contacts: PendingContact[]) => void;
 }
 
 /**
@@ -120,12 +127,17 @@ export function CustomerForm({
   submitting,
   onSubmit,
   onCancel,
+  onPendingContacts,
 }: CustomerFormProps): ReactNode {
   const f = texts.customers.fields;
   const s = texts.customers.sections;
   const a = texts.customers.actions;
+  const r = texts.customers.research;
   const { toast } = useToast();
   const [geocoding, setGeocoding] = useState(false);
+  const [researchLoading, setResearchLoading] = useState(false);
+  const [researchResult, setResearchResult] = useState<ResearchResult | null>(null);
+  const [showResearchDialog, setShowResearchDialog] = useState(false);
 
   const {
     register,
@@ -170,6 +182,7 @@ export function CustomerForm({
   const latitude = watch('latitude');
   const longitude = watch('longitude');
   const mapsUrl = watch('mapsUrl');
+  const websiteValue = watch('website');
 
   /** Ermittelt Geo-Koordinaten und Maps-URL aus der eingegebenen Adresse per Geocoding-API. */
   const handleGeocode = (): void => {
@@ -196,6 +209,60 @@ export function CustomerForm({
         }),
       )
       .finally(() => setGeocoding(false));
+  };
+
+  /** Startet die automatische Firmenrecherche anhand der eingegebenen Website-URL. */
+  const handleResearch = (): void => {
+    const url = websiteValue?.trim();
+    if (!url || url.length < 5) return;
+
+    setResearchLoading(true);
+    researchApi
+      .lookup(url)
+      .then((result) => {
+        setResearchResult(result);
+        setShowResearchDialog(true);
+      })
+      .catch((err) =>
+        toast({
+          variant: 'destructive',
+          description:
+            err instanceof ApiError ? err.message : r.serviceError,
+        }),
+      )
+      .finally(() => setResearchLoading(false));
+  };
+
+  /** Übernimmt ausgewählte Daten aus der Recherche ins Formular. */
+  const handleResearchApply = (data: {
+    selectedFields: Record<string, string>;
+    pendingContacts: PendingContact[];
+    socialNotes: string;
+  }): void => {
+    let fieldCount = 0;
+    for (const [key, value] of Object.entries(data.selectedFields)) {
+      if (key in schema.shape) {
+        setValue(key as keyof CustomerFormValues, value);
+        fieldCount++;
+      }
+    }
+
+    if (data.socialNotes) {
+      const currentNotes = watch('notes') || '';
+      const newNotes = currentNotes
+        ? `${currentNotes}\n\n--- Social Media ---\n${data.socialNotes}`
+        : `--- Social Media ---\n${data.socialNotes}`;
+      setValue('notes', newNotes);
+    }
+
+    if (data.pendingContacts.length > 0 && onPendingContacts) {
+      onPendingContacts(data.pendingContacts);
+    }
+
+    setShowResearchDialog(false);
+    toast({
+      description: r.applied(fieldCount, data.pendingContacts.length),
+    });
   };
 
   return (
@@ -357,7 +424,25 @@ export function CustomerForm({
             <Input {...register('phone')} className="min-h-[44px]" />
           </Field>
           <Field label={f.website}>
-            <Input {...register('website')} className="min-h-[44px]" />
+            <div className="flex gap-2">
+              <Input {...register('website')} className="min-h-[44px] flex-1" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResearch}
+                disabled={
+                  researchLoading || !websiteValue || websiteValue.trim().length < 5
+                }
+                className="min-h-[44px] shrink-0"
+              >
+                {researchLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Search className="h-4 w-4" />
+                )}
+                {researchLoading ? r.loading : r.button}
+              </Button>
+            </div>
           </Field>
           <Field label={f.vatId}>
             <Input {...register('vatId')} className="min-h-[44px]" />
@@ -389,6 +474,15 @@ export function CustomerForm({
           </Button>
         )}
       </div>
+
+      {researchResult && (
+        <ResearchPreviewDialog
+          open={showResearchDialog}
+          onOpenChange={setShowResearchDialog}
+          result={researchResult}
+          onApply={handleResearchApply}
+        />
+      )}
     </form>
   );
 }

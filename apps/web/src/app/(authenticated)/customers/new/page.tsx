@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Card, CardContent } from '@/components/ui/card';
 import { CustomerForm } from '@/components/customers/customer-form';
+import type { PendingContact } from '@/components/customers/research-preview-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi } from '@/lib/customers';
 import { ApiError } from '@/lib/api-client';
@@ -16,14 +17,47 @@ export default function NewCustomerPage(): React.ReactNode {
   const router = useRouter();
   const { toast } = useToast();
   const [submitting, setSubmitting] = useState(false);
+  const pendingContactsRef = useRef<PendingContact[]>([]);
   const t = texts.customers;
+
+  const handlePendingContacts = (contacts: PendingContact[]): void => {
+    pendingContactsRef.current = contacts;
+  };
 
   const handleSubmit = (payload: Record<string, unknown>): void => {
     setSubmitting(true);
     customersApi
       .create(payload)
-      .then((created) => {
+      .then(async (created) => {
         toast({ description: t.toast.created });
+
+        if (pendingContactsRef.current.length > 0) {
+          for (const contact of pendingContactsRef.current) {
+            try {
+              const contactPayload: Record<string, unknown> = {
+                firstName: contact.firstName || '',
+                lastName: contact.lastName || '',
+              };
+              if (contact.role) contactPayload.role = contact.role;
+              if (contact.department) contactPayload.department = contact.department;
+              if (contact.email) contactPayload.email = contact.email;
+              if (contact.phoneMobile) contactPayload.phoneMobile = contact.phoneMobile;
+              if (contact.phoneLandline) contactPayload.phoneLandline = contact.phoneLandline;
+              if (contact.linkedInUrl) contactPayload.linkedInUrl = contact.linkedInUrl;
+              contactPayload.syncToGoogle = contact.syncToGoogle;
+
+              await customersApi.createContact(created.id, contactPayload);
+            } catch (err) {
+              const name = [contact.firstName, contact.lastName].filter(Boolean).join(' ');
+              toast({
+                variant: 'destructive',
+                description: `Kontakt "${name}" konnte nicht angelegt werden.`,
+              });
+            }
+          }
+          pendingContactsRef.current = [];
+        }
+
         router.push(`/customers/${created.id}`);
       })
       .catch((err) => {
@@ -51,6 +85,7 @@ export default function NewCustomerPage(): React.ReactNode {
             submitting={submitting}
             onSubmit={handleSubmit}
             onCancel={() => router.push('/customers')}
+            onPendingContacts={handlePendingContacts}
           />
         </CardContent>
       </Card>
