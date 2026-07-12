@@ -763,45 +763,50 @@ export default function SystemPage() {
           </CardHeader>
           <CardContent>
             {system.processes.length > 0 ? (
-              <div className="rounded border overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b bg-muted/50">
-                      <th className="px-2 py-1.5 text-left font-medium">
-                        {t.processes.pid}
-                      </th>
-                      <th className="px-2 py-1.5 text-left font-medium">
-                        {t.processes.user}
-                      </th>
-                      <th className="px-2 py-1.5 text-right font-medium">
-                        {t.processes.cpu}
-                      </th>
-                      <th className="px-2 py-1.5 text-right font-medium">
-                        {t.processes.mem}
-                      </th>
-                      <th className="px-2 py-1.5 text-left font-medium">
-                        {t.processes.command}
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {system.processes.map((p, i) => (
-                      <tr key={i} className="border-b last:border-0">
-                        <td className="px-2 py-1 font-mono">{p.pid}</td>
-                        <td className="px-2 py-1">{p.user}</td>
-                        <td className="px-2 py-1 text-right">{p.cpu}</td>
-                        <td className="px-2 py-1 text-right">{p.mem}</td>
-                        <td
-                          className="px-2 py-1 font-mono truncate max-w-[200px]"
-                          title={p.command}
-                        >
-                          {p.command}
-                        </td>
+              <>
+                <div className="rounded border overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="px-2 py-1.5 text-left font-medium">
+                          {t.processes.pid}
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-medium">
+                          {t.processes.user}
+                        </th>
+                        <th className="px-2 py-1.5 text-right font-medium">
+                          {t.processes.cpu}
+                        </th>
+                        <th className="px-2 py-1.5 text-right font-medium">
+                          {t.processes.mem}
+                        </th>
+                        <th className="px-2 py-1.5 text-left font-medium">
+                          {t.processes.command}
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody>
+                      {system.processes.map((p, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-2 py-1 font-mono">{p.pid}</td>
+                          <td className="px-2 py-1">{p.user}</td>
+                          <td className="px-2 py-1 text-right">{p.cpu}</td>
+                          <td className="px-2 py-1 text-right">{p.mem}</td>
+                          <td
+                            className="px-2 py-1 font-mono truncate max-w-[200px]"
+                            title={p.command}
+                          >
+                            {p.command}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-2">
+                  Nur Prozesse innerhalb des API-Containers sichtbar.
+                </p>
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">
                 Keine Prozessdaten verfügbar.

@@ -1576,7 +1576,7 @@ export const texts = {
         nodeVersion: 'Node.js',
       },
       processes: {
-        title: 'Top 10 Prozesse',
+        title: 'Prozesse (Container)',
         pid: 'PID',
         user: 'Benutzer',
         cpu: 'CPU %',
