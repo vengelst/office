@@ -55,6 +55,7 @@ export interface SystemMetrics {
     nodeVersion: string;
   };
   processes: ProcessInfo[];
+  processSource: 'host' | 'container';
   osUsers: string[];
 }
 

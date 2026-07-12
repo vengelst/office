@@ -12,6 +12,19 @@ export class SystemInfoService {
   private readonly minioClient: MinioClient;
   private readonly ocrServiceUrl: string;
   private readonly researchServiceUrl: string;
+  private readonly sshAvailable: boolean;
+
+  private sshExec(cmd: string, timeout = 10000): string {
+    try {
+      return execSync(
+        `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -i /root/.ssh/host_key root@host.docker.internal "${cmd.replace(/"/g, '\\"')}"`,
+        { encoding: 'utf-8', timeout },
+      ).trim();
+    } catch (e) {
+      this.logger.debug(`SSH command failed: ${(e as Error).message}`);
+      return '';
+    }
+  }
 
   constructor(
     private readonly prisma: PrismaService,
@@ -34,6 +47,13 @@ export class SystemInfoService {
     this.researchServiceUrl =
       this.config.get<string>('RESEARCH_SERVICE_URL') ??
       'http://research-service:8000';
+
+    this.sshAvailable = fs.existsSync('/root/.ssh/host_key');
+    if (this.sshAvailable) {
+      this.logger.log('SSH host access available – host-level metrics enabled');
+    } else {
+      this.logger.warn('SSH key not found at /root/.ssh/host_key – using container-level metrics only');
+    }
   }
 
   async getSystemInfo() {
@@ -181,89 +201,66 @@ export class SystemInfoService {
       mem: string;
       command: string;
     }[] = [];
-    try {
-      const topOutput = execSync('top -bn1 2>/dev/null', {
-        encoding: 'utf-8',
-        timeout: 5000,
-      });
-      const lines = topOutput.split('\n');
-      const headerIdx = lines.findIndex((l) => l.includes('PID'));
-      if (headerIdx >= 0) {
-        const procLines = lines.slice(headerIdx + 1).filter((l) => l.trim());
-        processes = procLines.slice(0, 10).map((line) => {
+    let processSource: 'host' | 'container' = 'container';
+
+    if (this.sshAvailable) {
+      const psOutput = this.sshExec('ps aux --sort=-%cpu | head -11');
+      if (psOutput) {
+        processSource = 'host';
+        const psLines = psOutput.split('\n').slice(1);
+        processes = psLines.map((line) => {
           const parts = line.trim().split(/\s+/);
           return {
-            pid: parts[0] ?? '',
-            user: parts[2] ?? parts[1] ?? '',
-            cpu: parts.find((_, i) => lines[headerIdx]?.split(/\s+/)[i] === '%CPU') ?? parts[7] ?? '0',
-            mem: parts.find((_, i) => lines[headerIdx]?.split(/\s+/)[i] === '%VSZ') ?? parts[5] ?? '0',
-            command: parts.slice(8).join(' ').substring(0, 80) || (parts[parts.length - 1] ?? ''),
+            user: parts[0] ?? '',
+            pid: parts[1] ?? '',
+            cpu: parts[2] ?? '0',
+            mem: parts[3] ?? '0',
+            command: parts.slice(10).join(' ').substring(0, 80),
           };
         });
       }
-      if (processes.length === 0) {
-        const topOutput2 = execSync('top -bn1 2>/dev/null | tail -n +8 | head -10', {
+    }
+
+    if (processes.length === 0) {
+      try {
+        const topOutput = execSync('top -bn1 2>/dev/null', {
           encoding: 'utf-8',
           timeout: 5000,
         });
-        processes = topOutput2
-          .trim()
-          .split('\n')
-          .filter((l) => l.trim())
-          .map((line) => {
+        const lines = topOutput.split('\n');
+        const headerIdx = lines.findIndex((l) => l.includes('PID'));
+        if (headerIdx >= 0) {
+          const procLines = lines.slice(headerIdx + 1).filter((l) => l.trim());
+          processes = procLines.slice(0, 10).map((line) => {
             const p = line.trim().split(/\s+/);
             return {
               pid: p[0] ?? '',
-              user: p[2] ?? '',
+              user: p[2] ?? p[1] ?? '',
               cpu: p[7] ?? '0',
               mem: p[5] ?? '0',
-              command: p.slice(8).join(' ').substring(0, 80),
+              command: p.slice(8).join(' ').substring(0, 80) || (p[p.length - 1] ?? ''),
             };
           });
-      }
-    } catch {
-      try {
-        const psOut = execSync('ps -o pid,user,pcpu,pmem,comm 2>/dev/null || ps aux 2>/dev/null', {
-          encoding: 'utf-8',
-          timeout: 5000,
-        });
-        const psLines = psOut.trim().split('\n').slice(1);
-        processes = psLines.slice(0, 10).map((line) => {
-          const parts = line.trim().split(/\s+/);
-          return {
-            pid: parts[0] ?? '',
-            user: parts[1] ?? '',
-            cpu: parts[2] ?? '0',
-            mem: parts[3] ?? '0',
-            command: parts.slice(4).join(' ').substring(0, 80),
-          };
-        });
-      } catch (e2) {
-        this.logger.warn(`Process list not available: ${(e2 as Error).message}`);
+        }
+      } catch (e) {
+        this.logger.warn(`Process list not available: ${(e as Error).message}`);
       }
     }
 
     let osUsers: string[] = [];
-    try {
-      const whoOutput = execSync('who 2>/dev/null', { encoding: 'utf-8' });
-      osUsers = whoOutput
-        .trim()
-        .split('\n')
-        .filter((l) => l.trim());
-    } catch {
-      /* Container hat ggf. kein 'who' */
+    if (this.sshAvailable) {
+      const whoOutput = this.sshExec('who 2>/dev/null');
+      if (whoOutput) {
+        osUsers = whoOutput.split('\n').filter((l) => l.trim());
+      }
     }
     if (osUsers.length === 0) {
       try {
-        const passwd = fs.readFileSync('/etc/passwd', 'utf-8');
-        osUsers = passwd
+        const whoOutput = execSync('who 2>/dev/null', { encoding: 'utf-8' });
+        osUsers = whoOutput
+          .trim()
           .split('\n')
-          .filter((l) => l.trim() && !l.startsWith('#'))
-          .filter((l) => {
-            const uid = parseInt(l.split(':')[2]);
-            return uid >= 1000 || uid === 0;
-          })
-          .map((l) => l.split(':')[0]);
+          .filter((l) => l.trim());
       } catch {
         /* ignore */
       }
@@ -292,6 +289,7 @@ export class SystemInfoService {
         nodeVersion: process.version,
       },
       processes,
+      processSource,
       osUsers,
     };
   }
@@ -542,20 +540,19 @@ export class SystemInfoService {
     let hostUpdates: { available: boolean; count: number; packages: string[] } =
       { available: false, count: 0, packages: [] };
 
-    try {
-      if (fs.existsSync('/host/var/lib/apt/')) {
-        const output = execSync(
-          'chroot /host apt list --upgradable 2>/dev/null',
-          { encoding: 'utf-8', timeout: 15000 },
-        );
-        const packages = output
-          .trim()
-          .split('\n')
-          .filter((l) => l.includes('upgradable'));
-        hostUpdates = { available: true, count: packages.length, packages };
+    if (this.sshAvailable) {
+      try {
+        const output = this.sshExec('apt list --upgradable 2>/dev/null', 20000);
+        if (output) {
+          const packages = output
+            .trim()
+            .split('\n')
+            .filter((l) => l.includes('upgradable'));
+          hostUpdates = { available: true, count: packages.length, packages };
+        }
+      } catch {
+        /* SSH failed */
       }
-    } catch {
-      /* Host-Zugriff nicht verfügbar */
     }
 
     return { container: containerUpdates, host: hostUpdates };

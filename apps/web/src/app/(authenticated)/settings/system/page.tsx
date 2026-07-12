@@ -804,7 +804,9 @@ export default function SystemPage() {
                   </table>
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-2">
-                  Nur Prozesse innerhalb des API-Containers sichtbar.
+                  {system.processSource === 'host'
+                    ? 'Host-Prozesse (via SSH)'
+                    : 'Nur Prozesse innerhalb des API-Containers sichtbar.'}
                 </p>
               </>
             ) : (

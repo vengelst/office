@@ -2,7 +2,7 @@
 # Multi-Stage Build für Produktion.
 
 FROM node:20-alpine AS base
-RUN apk add --no-cache openssl && corepack enable
+RUN apk add --no-cache openssl openssh-client && corepack enable
 WORKDIR /app
 
 # ── Dependencies ───────────────────────────────────────────────

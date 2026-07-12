@@ -78,6 +78,11 @@ services:
       OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://ocr-service:8000}
       RESEARCH_SERVICE_URL: ${RESEARCH_SERVICE_URL:-http://research-service:8000}
       RESEARCH_API_KEY: ${RESEARCH_API_KEY}
+    volumes:
+      - /root/.ssh/office_monitor_key:/root/.ssh/host_key:ro
+      - /root/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:5701:3801"
     depends_on:
