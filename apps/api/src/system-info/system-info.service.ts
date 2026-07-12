@@ -197,7 +197,7 @@ export class SystemInfoService {
             user: parts[2] ?? parts[1] ?? '',
             cpu: parts.find((_, i) => lines[headerIdx]?.split(/\s+/)[i] === '%CPU') ?? parts[7] ?? '0',
             mem: parts.find((_, i) => lines[headerIdx]?.split(/\s+/)[i] === '%VSZ') ?? parts[5] ?? '0',
-            command: parts.slice(8).join(' ').substring(0, 80) || parts[parts.length - 1] ?? '',
+            command: parts.slice(8).join(' ').substring(0, 80) || (parts[parts.length - 1] ?? ''),
           };
         });
       }
