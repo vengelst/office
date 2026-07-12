@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Mail, HardDrive, Coffee, Monitor, Building2 } from 'lucide-react';
+import { Mail, HardDrive, Coffee, Monitor, Building2, Server } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
 import { texts } from '@/lib/texts';
@@ -34,6 +34,12 @@ const settingsLinks = [
     label: texts.kiosk.nav,
     description: 'Stempel-Terminal für die Baustelle einrichten',
     icon: Monitor,
+  },
+  {
+    href: '/settings/system',
+    label: texts.settings.nav.system,
+    description: 'CPU, RAM, Datenbank, Storage und Service-Monitoring',
+    icon: Server,
   },
 ];
 
