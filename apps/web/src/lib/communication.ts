@@ -48,7 +48,12 @@ export const communicationApi = {
   },
 
   create(
-    data: Omit<CommunicationEntry, 'id' | 'createdAt' | 'updatedAt'>,
+    data: Pick<CommunicationEntry, 'entityType' | 'entityId' | 'type' | 'direction' | 'content' | 'occurredAt'> & {
+      contactId?: string;
+      subject?: string;
+      duration?: number;
+      createdBy?: string;
+    },
   ): Promise<CommunicationEntry> {
     return apiClient.post<CommunicationEntry>('/communication', data);
   },

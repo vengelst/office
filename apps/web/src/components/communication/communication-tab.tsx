@@ -203,17 +203,17 @@ export function CommunicationTab({
     if (!form.content.trim()) return;
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = {
+      const payload: Parameters<typeof communicationApi.create>[0] = {
         entityType,
         entityId,
-        type: form.type,
-        direction: form.direction,
+        type: form.type as CommunicationEntry['type'],
+        direction: form.direction as CommunicationEntry['direction'],
         content: form.content,
         occurredAt: new Date(form.occurredAt).toISOString(),
+        ...(form.contactId ? { contactId: form.contactId } : {}),
+        ...(form.subject ? { subject: form.subject } : {}),
+        ...(form.duration ? { duration: parseInt(form.duration, 10) } : {}),
       };
-      if (form.contactId) payload.contactId = form.contactId;
-      if (form.subject) payload.subject = form.subject;
-      if (form.duration) payload.duration = parseInt(form.duration, 10);
       if (editingEntry) {
         await communicationApi.update(editingEntry.id, payload);
         toast({ description: t.toast.updated });
