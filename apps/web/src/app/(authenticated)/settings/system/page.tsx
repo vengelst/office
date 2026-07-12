@@ -356,6 +356,41 @@ export default function SystemPage() {
                 {t.disk.available}: {system.disk.available}
               </div>
             </div>
+            {system.disk.breakdown && system.disk.breakdown.length > 0 && (
+              <div className="border-t pt-3 mt-3 space-y-1.5">
+                <p className="text-xs font-medium mb-2">Speicher-Aufteilung</p>
+                {system.disk.breakdown.map((item) => {
+                  const totalBytes = system.disk.breakdown.reduce((s, b) => s + b.sizeBytes, 0);
+                  const pct = totalBytes > 0 ? Math.round((item.sizeBytes / totalBytes) * 100) : 0;
+                  return (
+                    <div key={item.label} className="space-y-0.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">{item.label}</span>
+                        <span className="font-mono">{item.size} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted">
+                        <div
+                          className={`h-full rounded-full transition-all ${item.label === 'Frei' ? 'bg-green-500' : 'bg-blue-500'}`}
+                          style={{ width: `${Math.min(pct, 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+                {database.size !== 'N/A' && (
+                  <div className="flex justify-between text-xs pt-1 border-t">
+                    <span className="text-muted-foreground">PostgreSQL Datenbank</span>
+                    <span className="font-mono">{database.size}</span>
+                  </div>
+                )}
+                {storage.available && (
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">MinIO Storage</span>
+                    <span className="font-mono">{storage.totalSize}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

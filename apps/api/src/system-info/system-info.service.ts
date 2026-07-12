@@ -77,16 +77,68 @@ export class SystemInfoService {
       cpuUsagePercent = Math.min((avgLoad / cpus.length) * 100, 100);
     }
 
-    let disk = { total: '', used: '', available: '', usagePercent: 0 };
+    let disk: {
+      total: string;
+      used: string;
+      available: string;
+      usagePercent: number;
+      breakdown: { label: string; size: string; sizeBytes: number }[];
+    } = { total: '', used: '', available: '', usagePercent: 0, breakdown: [] };
     try {
       const dfOutput = execSync('df -h / | tail -1', { encoding: 'utf-8' }).trim();
       const parts = dfOutput.split(/\s+/);
-      disk = {
-        total: parts[1],
-        used: parts[2],
-        available: parts[3],
-        usagePercent: parseInt(parts[4]) || 0,
-      };
+      disk.total = parts[1];
+      disk.used = parts[2];
+      disk.available = parts[3];
+      disk.usagePercent = parseInt(parts[4]) || 0;
+
+      const dfBytes = execSync('df / | tail -1', { encoding: 'utf-8' }).trim();
+      const bParts = dfBytes.split(/\s+/);
+      const totalBytes = (parseInt(bParts[1]) || 0) * 1024;
+      const usedBytes = (parseInt(bParts[2]) || 0) * 1024;
+
+      const duDirs = [
+        { path: '/app', label: 'Applikation' },
+        { path: '/var/log', label: 'Logs' },
+        { path: '/tmp', label: 'Temp' },
+      ];
+
+      const breakdown: { label: string; size: string; sizeBytes: number }[] = [];
+      let knownBytes = 0;
+
+      for (const dir of duDirs) {
+        try {
+          const duOut = execSync(`du -sb ${dir.path} 2>/dev/null | cut -f1`, {
+            encoding: 'utf-8',
+            timeout: 5000,
+          }).trim();
+          const bytes = parseInt(duOut) || 0;
+          if (bytes > 0) {
+            breakdown.push({ label: dir.label, size: this.formatBytes(bytes), sizeBytes: bytes });
+            knownBytes += bytes;
+          }
+        } catch { /* skip */ }
+      }
+
+      const osSystemBytes = Math.max(0, usedBytes - knownBytes);
+      if (osSystemBytes > 0) {
+        breakdown.unshift({
+          label: 'Betriebssystem & Pakete',
+          size: this.formatBytes(osSystemBytes),
+          sizeBytes: osSystemBytes,
+        });
+      }
+
+      const freeBytes = Math.max(0, totalBytes - usedBytes);
+      if (freeBytes > 0) {
+        breakdown.push({
+          label: 'Frei',
+          size: this.formatBytes(freeBytes),
+          sizeBytes: freeBytes,
+        });
+      }
+
+      disk.breakdown = breakdown;
     } catch (e) {
       this.logger.warn(`Disk info not available: ${(e as Error).message}`);
     }
@@ -130,22 +182,65 @@ export class SystemInfoService {
       command: string;
     }[] = [];
     try {
-      const psOutput = execSync('ps aux --sort=-%cpu | head -11', {
+      const topOutput = execSync('top -bn1 2>/dev/null', {
         encoding: 'utf-8',
+        timeout: 5000,
       });
-      const psLines = psOutput.trim().split('\n').slice(1);
-      processes = psLines.map((line) => {
-        const parts = line.trim().split(/\s+/);
-        return {
-          user: parts[0],
-          pid: parts[1],
-          cpu: parts[2],
-          mem: parts[3],
-          command: parts.slice(10).join(' ').substring(0, 80),
-        };
-      });
-    } catch (e) {
-      this.logger.warn(`Process list not available: ${(e as Error).message}`);
+      const lines = topOutput.split('\n');
+      const headerIdx = lines.findIndex((l) => l.includes('PID'));
+      if (headerIdx >= 0) {
+        const procLines = lines.slice(headerIdx + 1).filter((l) => l.trim());
+        processes = procLines.slice(0, 10).map((line) => {
+          const parts = line.trim().split(/\s+/);
+          return {
+            pid: parts[0] ?? '',
+            user: parts[2] ?? parts[1] ?? '',
+            cpu: parts.find((_, i) => lines[headerIdx]?.split(/\s+/)[i] === '%CPU') ?? parts[7] ?? '0',
+            mem: parts.find((_, i) => lines[headerIdx]?.split(/\s+/)[i] === '%VSZ') ?? parts[5] ?? '0',
+            command: parts.slice(8).join(' ').substring(0, 80) || parts[parts.length - 1] ?? '',
+          };
+        });
+      }
+      if (processes.length === 0) {
+        const topOutput2 = execSync('top -bn1 2>/dev/null | tail -n +8 | head -10', {
+          encoding: 'utf-8',
+          timeout: 5000,
+        });
+        processes = topOutput2
+          .trim()
+          .split('\n')
+          .filter((l) => l.trim())
+          .map((line) => {
+            const p = line.trim().split(/\s+/);
+            return {
+              pid: p[0] ?? '',
+              user: p[2] ?? '',
+              cpu: p[7] ?? '0',
+              mem: p[5] ?? '0',
+              command: p.slice(8).join(' ').substring(0, 80),
+            };
+          });
+      }
+    } catch {
+      try {
+        const psOut = execSync('ps -o pid,user,pcpu,pmem,comm 2>/dev/null || ps aux 2>/dev/null', {
+          encoding: 'utf-8',
+          timeout: 5000,
+        });
+        const psLines = psOut.trim().split('\n').slice(1);
+        processes = psLines.slice(0, 10).map((line) => {
+          const parts = line.trim().split(/\s+/);
+          return {
+            pid: parts[0] ?? '',
+            user: parts[1] ?? '',
+            cpu: parts[2] ?? '0',
+            mem: parts[3] ?? '0',
+            command: parts.slice(4).join(' ').substring(0, 80),
+          };
+        });
+      } catch (e2) {
+        this.logger.warn(`Process list not available: ${(e2 as Error).message}`);
+      }
     }
 
     let osUsers: string[] = [];

@@ -14,11 +14,18 @@ export interface SystemMemory {
   usagePercent: number;
 }
 
+export interface DiskBreakdownItem {
+  label: string;
+  size: string;
+  sizeBytes: number;
+}
+
 export interface SystemDisk {
   total: string;
   used: string;
   available: string;
   usagePercent: number;
+  breakdown: DiskBreakdownItem[];
 }
 
 export interface NetworkInterface {
