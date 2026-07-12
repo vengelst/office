@@ -752,8 +752,8 @@ export default function SystemPage() {
         </Card>
       </div>
 
-      {/* Top Processes + Top DB Tables */}
-      <div className="grid gap-4 md:grid-cols-2 mb-6">
+      {/* Top Processes */}
+      <div className="grid gap-4 mb-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">
@@ -764,48 +764,34 @@ export default function SystemPage() {
           <CardContent>
             {system.processes.length > 0 ? (
               <>
-                <div className="rounded border overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead>
-                      <tr className="border-b bg-muted/50">
-                        <th className="px-2 py-1.5 text-left font-medium">
-                          {t.processes.pid}
-                        </th>
-                        <th className="px-2 py-1.5 text-left font-medium">
-                          {t.processes.user}
-                        </th>
-                        <th className="px-2 py-1.5 text-right font-medium">
-                          {t.processes.cpu}
-                        </th>
-                        <th className="px-2 py-1.5 text-right font-medium">
-                          {t.processes.mem}
-                        </th>
-                        <th className="px-2 py-1.5 text-left font-medium">
-                          {t.processes.command}
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {system.processes.map((p, i) => (
-                        <tr key={i} className="border-b last:border-0">
-                          <td className="px-2 py-1 font-mono">{p.pid}</td>
-                          <td className="px-2 py-1">{p.user}</td>
-                          <td className="px-2 py-1 text-right">{p.cpu}</td>
-                          <td className="px-2 py-1 text-right">{p.mem}</td>
-                          <td
-                            className="px-2 py-1 font-mono truncate max-w-[200px]"
-                            title={p.command}
-                          >
-                            {p.command}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div className="space-y-1.5">
+                  {system.processes.map((p, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start gap-3 rounded border px-3 py-2 text-xs"
+                    >
+                      <div className="flex shrink-0 items-center gap-3">
+                        <span className="font-mono text-muted-foreground w-12 text-right">{p.pid}</span>
+                        <span className="w-14 text-muted-foreground">{p.user}</span>
+                        <Badge variant={parseFloat(p.cpu) > 10 ? 'destructive' : 'secondary'} className="w-16 justify-center font-mono">
+                          {p.cpu}% CPU
+                        </Badge>
+                        <Badge variant="outline" className="w-16 justify-center font-mono">
+                          {p.mem}% RAM
+                        </Badge>
+                      </div>
+                      <span
+                        className="font-mono text-muted-foreground break-all leading-relaxed"
+                        title={p.command}
+                      >
+                        {p.command}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <p className="text-[10px] text-muted-foreground mt-2">
                   {system.processSource === 'host'
-                    ? 'Host-Prozesse (via SSH)'
+                    ? 'Host-Prozesse (via SSH) – Top 15 nach CPU-Auslastung'
                     : 'Nur Prozesse innerhalb des API-Containers sichtbar.'}
                 </p>
               </>
@@ -817,6 +803,10 @@ export default function SystemPage() {
           </CardContent>
         </Card>
 
+      </div>
+
+      {/* Top DB Tables */}
+      <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-center gap-2 text-base">

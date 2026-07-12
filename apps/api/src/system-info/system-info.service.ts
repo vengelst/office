@@ -204,18 +204,19 @@ export class SystemInfoService {
     let processSource: 'host' | 'container' = 'container';
 
     if (this.sshAvailable) {
-      const psOutput = this.sshExec('ps aux --sort=-%cpu | head -11');
+      const psOutput = this.sshExec('ps aux --sort=-%cpu --cols 300 | head -16');
       if (psOutput) {
         processSource = 'host';
         const psLines = psOutput.split('\n').slice(1);
         processes = psLines.map((line) => {
           const parts = line.trim().split(/\s+/);
+          const fullCommand = parts.slice(10).join(' ');
           return {
             user: parts[0] ?? '',
             pid: parts[1] ?? '',
             cpu: parts[2] ?? '0',
             mem: parts[3] ?? '0',
-            command: parts.slice(10).join(' ').substring(0, 80),
+            command: fullCommand,
           };
         });
       }
