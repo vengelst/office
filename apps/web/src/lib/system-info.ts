@@ -134,6 +134,26 @@ export interface AppStats {
   error?: string;
 }
 
+export interface DockerContainer {
+  name: string;
+  memUsage: string;
+  memLimit: string;
+  memPercent: string;
+}
+
+export interface DockerMemory {
+  available: boolean;
+  containers: DockerContainer[];
+}
+
+export interface MemoryProcess {
+  pid: string;
+  user: string;
+  mem: string;
+  rss: string;
+  command: string;
+}
+
 export interface SystemInfo {
   system: SystemMetrics;
   database: DatabaseMetrics;
@@ -141,6 +161,8 @@ export interface SystemInfo {
   services: ServiceHealthMap;
   osUpdates: OsUpdates;
   appStats: AppStats;
+  dockerMemory: DockerMemory;
+  memoryProcesses: MemoryProcess[];
 }
 
 export async function fetchSystemInfo(): Promise<SystemInfo> {

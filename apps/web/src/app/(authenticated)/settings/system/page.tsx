@@ -158,7 +158,7 @@ export default function SystemPage() {
 
   if (!data) return null;
 
-  const { system, database, storage, services, osUpdates, appStats } = data;
+  const { system, database, storage, services, osUpdates, appStats, dockerMemory, memoryProcesses } = data;
   const serviceList = [
     services.api,
     services.postgresql,
@@ -394,6 +394,88 @@ export default function SystemPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Memory by App (Docker + Top Processes) */}
+      {(dockerMemory?.available || (memoryProcesses && memoryProcesses.length > 0)) && (
+        <div className="grid gap-4 md:grid-cols-2 mb-6">
+          {dockerMemory?.available && dockerMemory.containers.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Server className="h-4 w-4" />
+                  Speicherverbrauch pro App
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {dockerMemory.containers.map((c) => {
+                    const pct = parseFloat(c.memPercent) || 0;
+                    const barColor = pct > 80 ? 'bg-red-500' : pct > 50 ? 'bg-yellow-500' : 'bg-blue-500';
+                    return (
+                      <div key={c.name} className="space-y-1">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="font-medium">{c.name}</span>
+                          <span className="text-muted-foreground font-mono text-xs">
+                            {c.memUsage} / {c.memLimit}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 flex-1 rounded-full bg-muted">
+                            <div
+                              className={`h-full rounded-full transition-all ${barColor}`}
+                              style={{ width: `${Math.min(pct, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-mono w-12 text-right">{c.memPercent}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-3">
+                  Docker Container – Arbeitsspeicher (via SSH)
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {memoryProcesses && memoryProcesses.length > 0 && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <MemoryStick className="h-4 w-4" />
+                  Top 10 Prozesse nach RAM
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded border overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/50">
+                        <th className="px-2 py-1.5 text-left font-medium">Prozess</th>
+                        <th className="px-2 py-1.5 text-right font-medium">RAM</th>
+                        <th className="px-2 py-1.5 text-right font-medium">%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {memoryProcesses.map((p, i) => (
+                        <tr key={i} className="border-b last:border-0">
+                          <td className="px-2 py-1.5 font-mono truncate max-w-[300px]" title={p.command}>
+                            <span className="text-muted-foreground">{p.user}</span>{' '}
+                            {p.command.length > 60 ? p.command.substring(0, 60) + '…' : p.command}
+                          </td>
+                          <td className="px-2 py-1.5 text-right font-mono whitespace-nowrap">{p.rss}</td>
+                          <td className="px-2 py-1.5 text-right font-mono">{p.mem}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {/* Service Health + OS Updates */}
       <div className="grid gap-4 md:grid-cols-2 mb-6">

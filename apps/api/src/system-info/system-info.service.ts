@@ -73,7 +73,10 @@ export class SystemInfoService {
       this.getAppStats(),
     ]);
 
-    return { system, database, storage, services, osUpdates, appStats };
+    const dockerMemory = this.getDockerMemory();
+    const memoryProcesses = this.getTopMemoryProcesses();
+
+    return { system, database, storage, services, osUpdates, appStats, dockerMemory, memoryProcesses };
   }
 
   private async getSystemMetrics() {
@@ -631,6 +634,51 @@ export class SystemInfoService {
         output: (e as Error).message,
       };
     }
+  }
+
+  private getDockerMemory(): { available: boolean; containers: { name: string; memUsage: string; memLimit: string; memPercent: string }[] } {
+    if (!this.sshAvailable) {
+      return { available: false, containers: [] };
+    }
+    const output = this.sshExec("docker stats --no-stream --format '{{.Name}}|{{.MemUsage}}|{{.MemPerc}}' 2>/dev/null");
+    if (!output) {
+      return { available: false, containers: [] };
+    }
+    const containers = output
+      .split('\n')
+      .filter((l) => l.trim())
+      .map((line) => {
+        const [name, memUsage, memPercent] = line.split('|');
+        const memParts = (memUsage ?? '').split('/').map((s) => s.trim());
+        return {
+          name: name?.trim() ?? '',
+          memUsage: memParts[0] ?? '0',
+          memLimit: memParts[1] ?? '0',
+          memPercent: (memPercent ?? '0%').trim(),
+        };
+      })
+      .sort((a, b) => parseFloat(b.memPercent) - parseFloat(a.memPercent));
+    return { available: true, containers };
+  }
+
+  private getTopMemoryProcesses(): { pid: string; user: string; mem: string; rss: string; command: string }[] {
+    if (!this.sshAvailable) return [];
+    const output = this.sshExec('ps aux --sort=-%mem --cols 300 | head -11');
+    if (!output) return [];
+    return output
+      .split('\n')
+      .slice(1)
+      .map((line) => {
+        const parts = line.trim().split(/\s+/);
+        const rssKb = parseInt(parts[5] ?? '0');
+        return {
+          pid: parts[1] ?? '',
+          user: parts[0] ?? '',
+          mem: parts[3] ?? '0',
+          rss: this.formatBytes(rssKb * 1024),
+          command: parts.slice(10).join(' '),
+        };
+      });
   }
 
   private formatBytes(bytes: number): string {
