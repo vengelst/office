@@ -30,6 +30,13 @@
           "locationAlwaysAndWhenInUsePermission": "Die App benötigt den Standort für die Zeiterfassung.",
           "locationWhenInUsePermission": "Die App benötigt den Standort für die Zeiterfassung."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Die App benötigt Zugriff auf Fotos für die Dokumentation.",
+          "cameraPermission": "Die App benötigt Zugriff auf die Kamera für Foto-Dokumentation."
+        }
       ]
     ],
     "experiments": {
