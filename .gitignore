@@ -36,3 +36,4 @@ coverage/
 
 # Docker volumes (if mapped locally)
 docker/data/
+kiosk.apk
