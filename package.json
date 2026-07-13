@@ -11,6 +11,7 @@
     "dev": "pnpm -r --parallel dev",
     "dev:web": "pnpm --filter @office/web dev",
     "dev:api": "pnpm --filter @office/api dev",
+    "dev:mobile": "pnpm --filter @office/mobile start",
     "build": "pnpm -r build",
     "build:web": "pnpm --filter @office/web build",
     "build:api": "pnpm --filter @office/api build",

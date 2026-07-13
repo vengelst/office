@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "VH Kiosk",
+    "slug": "vh-kiosk",
+    "scheme": "vhkiosk",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "platforms": ["android"],
+    "android": {
+      "package": "de.vivahome.kiosk",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#030712"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Die App benötigt Zugriff auf die Kamera für Foto-Dokumentation."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Die App benötigt den Standort für die Zeiterfassung.",
+          "locationWhenInUsePermission": "Die App benötigt den Standort für die Zeiterfassung."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
