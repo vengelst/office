@@ -13,11 +13,15 @@ export class SystemInfoService {
   private readonly ocrServiceUrl: string;
   private readonly researchServiceUrl: string;
   private readonly sshAvailable: boolean;
+  private readonly sshHost: string;
+  private readonly sshPort: number;
+  private readonly sshUser: string;
+  private readonly sshKeyPath: string;
 
   private sshExec(cmd: string, timeout = 10000): string {
     try {
       return execSync(
-        `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -i /root/.ssh/host_key root@host.docker.internal "${cmd.replace(/"/g, '\\"')}"`,
+        `ssh -o StrictHostKeyChecking=no -o ConnectTimeout=3 -p ${this.sshPort} -i ${this.sshKeyPath} ${this.sshUser}@${this.sshHost} "${cmd.replace(/"/g, '\\"')}"`,
         { encoding: 'utf-8', timeout },
       ).trim();
     } catch (e) {
@@ -48,11 +52,22 @@ export class SystemInfoService {
       this.config.get<string>('RESEARCH_SERVICE_URL') ??
       'http://research-service:8000';
 
-    this.sshAvailable = fs.existsSync('/root/.ssh/host_key');
+    this.sshHost =
+      this.config.get<string>('HOST_SSH_HOST') ?? 'host.docker.internal';
+    this.sshPort = Number(this.config.get<string>('HOST_SSH_PORT') ?? 2805);
+    this.sshUser = this.config.get<string>('HOST_SSH_USER') ?? 'root';
+    this.sshKeyPath =
+      this.config.get<string>('HOST_SSH_KEY_PATH') ?? '/root/.ssh/host_key';
+
+    this.sshAvailable = fs.existsSync(this.sshKeyPath);
     if (this.sshAvailable) {
-      this.logger.log('SSH host access available – host-level metrics enabled');
+      this.logger.log(
+        `SSH host access available (${this.sshUser}@${this.sshHost}:${this.sshPort}) – host-level metrics enabled`,
+      );
     } else {
-      this.logger.warn('SSH key not found at /root/.ssh/host_key – using container-level metrics only');
+      this.logger.warn(
+        `SSH key not found at ${this.sshKeyPath} – using container-level metrics only`,
+      );
     }
   }
 
