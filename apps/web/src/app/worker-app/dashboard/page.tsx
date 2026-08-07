@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Camera,
+  ChevronRight,
+  ListChecks,
   LogOut,
   MapPin,
   MapPinOff,
@@ -34,6 +36,7 @@ import {
   type WorkerMeAssignment,
 } from '@/lib/timesheets';
 import { texts } from '@/lib/texts';
+import { T } from '@/lib/i18n-work-items';
 import { cn } from '@/lib/utils';
 
 function dayStart(d: Date): number {
@@ -259,6 +262,18 @@ export default function WorkerDashboardPage(): React.ReactNode {
   const clockedIn = status?.clockedIn ?? false;
   const activeProject = clockedIn ? status?.project : null;
 
+  /**
+   * Arbeitsitems gibt es nur für item-basierte Projekte. `itemBased` liefert
+   * `/worker-auth/me` je Zuweisung mit – der Stempel-Status selbst kennt das
+   * Flag nicht, daher der Abgleich über die Projekt-ID (wie in der APK).
+   */
+  const itemBasedActive =
+    clockedIn &&
+    !!activeProject &&
+    (worker.assignments ?? []).some(
+      (a) => a.project.id === activeProject.id && a.project.itemBased === true,
+    );
+
   return (
     <div className="flex flex-1 flex-col gap-6 px-5 py-6">
       {/* Kopf: Monteur + GPS + Logout */}
@@ -399,6 +414,32 @@ export default function WorkerDashboardPage(): React.ReactNode {
               : t.dashboard.start}
         </button>
       </section>
+
+      {/* Arbeitsitems – nur bei item-basiertem, aktuell gestempeltem Projekt */}
+      {itemBasedActive && activeProject && (
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              `/worker-app/work-items?projectId=${encodeURIComponent(activeProject.id)}`,
+            )
+          }
+          className="flex min-h-[72px] w-full items-center gap-3 rounded-xl border bg-card p-4 text-left transition active:scale-[0.99]"
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10">
+            <ListChecks className="h-6 w-6 text-primary" />
+          </span>
+          <span className="flex-1">
+            <span className="block text-base font-semibold">
+              {T.workItems.de}
+            </span>
+            <span className="block text-sm text-muted-foreground">
+              {T.workItems.sk}
+            </span>
+          </span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </button>
+      )}
 
       {/* Foto-Bereich */}
       <section>

@@ -68,6 +68,73 @@ export default function DownloadPage() {
           Version 1.0.0 &middot; Android
         </p>
 
+        {/* PWA – gleiche Funktionen wie die APK, für iPhone/iPad und Android */}
+        <div className="rounded-xl border border-gray-800 bg-gray-900 p-5 text-left">
+          <h2 className="mb-1 text-sm font-semibold text-gray-300">
+            iPhone / iPad – App über Safari
+          </h2>
+          <p className="mb-3 text-xs text-gray-500">
+            Ohne Installation aus dem Store: Die Web-App kann alles, was die
+            Android-App kann – Stempeln und Arbeitsitems (Pracovné položky).
+          </p>
+          <ol className="space-y-2 text-sm text-gray-400">
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-blue-400">
+                1
+              </span>
+              <span>
+                <a
+                  href="/worker-app"
+                  className="font-semibold text-blue-400 underline"
+                >
+                  {origin ? `${origin}/worker-app` : '/worker-app'}
+                </a>{' '}
+                in <strong className="text-gray-300">Safari</strong> öffnen
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-blue-400">
+                2
+              </span>
+              <span>
+                <strong className="text-gray-300">Teilen</strong>-Symbol antippen
+                (Quadrat mit Pfeil nach oben)
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-blue-400">
+                3
+              </span>
+              <span>
+                <strong className="text-gray-300">
+                  Zum Home-Bildschirm
+                </strong>{' '}
+                wählen und bestätigen
+              </span>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-800 text-xs font-bold text-blue-400">
+                4
+              </span>
+              <span>
+                App vom Home-Bildschirm starten und mit der{' '}
+                <strong className="text-gray-300">PIN</strong> anmelden
+              </span>
+            </li>
+          </ol>
+          <p className="mt-3 text-xs text-gray-500">
+            Android: In Chrome über das Menü „App installieren“ – alternativ die
+            APK oben.
+          </p>
+          <p className="mt-3 text-xs text-gray-500">
+            Shared-Tablet auf der Baustelle:{' '}
+            <a href="/kiosk" className="text-blue-400 underline">
+              /kiosk
+            </a>{' '}
+            (Projekt einmalig im Setup wählen, danach PIN-Betrieb).
+          </p>
+        </div>
+
         {/* QR Code */}
         {qrContent && (
           <div className="space-y-2">

@@ -46,6 +46,8 @@ export interface WorkerMeAssignment {
     id: string;
     projectNumber: string;
     title: string;
+    /** Item-Modus des Projekts – schaltet die Arbeitsitems-Oberfläche frei. */
+    itemBased: boolean;
     customer: { companyName: string } | null;
   };
 }
@@ -345,8 +347,12 @@ export function clearWorkerSession(): void {
   window.localStorage.removeItem(WORKER_USER_KEY);
 }
 
-/** Fetch-Wrapper für Worker-Endpoints (eigenes Token, 401 → PIN-Seite). */
-async function workerFetch<T>(
+/**
+ * Fetch-Wrapper für Worker-Endpoints (eigenes Token, 401 → PIN-Seite).
+ * Exportiert, damit weitere Monteur-Clients (z. B. `worker-work-items.ts`)
+ * dieselbe Token- und 401-Behandlung nutzen statt sie zu kopieren.
+ */
+export async function workerFetch<T>(
   path: string,
   options: { method?: string; body?: unknown } = {},
 ): Promise<T> {
@@ -381,8 +387,8 @@ async function workerFetch<T>(
   return data as T;
 }
 
-/** Multipart-Upload (Arbeitsfoto) mit Worker-Token. */
-async function workerUpload<T>(path: string, form: FormData): Promise<T> {
+/** Multipart-Upload (Arbeitsfoto, Item-Fotos) mit Worker-Token. */
+export async function workerUpload<T>(path: string, form: FormData): Promise<T> {
   const token = getWorkerToken();
   const res = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',

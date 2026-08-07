@@ -191,6 +191,20 @@ office/
 - **Build**: Lokal mit EAS CLI (`eas build --platform android --profile preview --local`)
 - **Paket**: `de.vivahome.kiosk` (kiosk.apk, ~118 MB)
 
+### 20. Arbeitsitems – Monteur-Oberfläche im Web + PWA
+- **Feature-Parität zur APK** (SPEZ-arbeitsitems.md §13): Liste (aktuelles Item,
+  eigene, offener Pool, Suche nach Kennung), Detail (Metadaten, Umfang DE+SK,
+  Material DE+SK), Nehmen, Item-Zeit start/stop, Block-PDF, Fertig (≥2 Fotos),
+  Nacharbeit – alles mit denselben Monteur-Endpunkten (Worker-Token)
+- **Zwei Einstiege, eine Implementierung**: `/worker-app/work-items` (persönliches
+  Gerät, auch iPhone/iPad) und `/kiosk` (Tablet, festes Projekt) nutzen die
+  gemeinsamen Komponenten unter `apps/web/src/components/worker-work-items/`
+- **Einstieg nur** wenn eingestempelt **und** Projekt im Item-Modus (`itemBased`)
+- **PWA**: `manifest.webmanifest` + Icons + Apple-Meta, schlanker Service Worker
+  (nur Build-Assets, kein Offline für API); Installation über Safari
+  („Zum Home-Bildschirm“) bzw. Chrome („App installieren“)
+- **`/download`**: APK für Android, PWA-Anleitung für iPhone/iPad
+
 ---
 
 ## Offene Aufgaben

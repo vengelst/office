@@ -13,11 +13,27 @@ import {
   type ClockStatus,
   type KioskWorkerStatus,
 } from '@/lib/timesheets';
+import { WorkItemsList } from '@/components/worker-work-items/work-items-list';
+import { WorkItemDetail } from '@/components/worker-work-items/work-item-detail';
+import { T } from '@/lib/i18n-work-items';
 import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
 
-type KioskState = 'idle' | 'action' | 'confirmation';
+/**
+ * Mindest-Leerlauf auf den Arbeitsitems-Screens.
+ *
+ * Der Kiosk-Auto-Logout (Default 15 s) passt zum Stempeln mit zwei Tipps, nicht
+ * zum Lesen einer Arbeitskarte oder zum Fotografieren – dabei liegt das Tablet
+ * unberührt in der Hand. Jede Interaktion setzt den Zähler wie gewohnt zurück,
+ * nur das Fenster ist hier größer (nie kleiner als die konfigurierte Zeit).
+ */
+const ITEMS_IDLE_SECONDS = 180;
+
+type KioskState = 'idle' | 'action' | 'confirmation' | 'items' | 'itemDetail';
+
+/** Screens, auf denen die Monteur-Session weiterläuft (Auto-Logout aktiv). */
+const SESSION_STATES: KioskState[] = ['action', 'items', 'itemDetail'];
 
 interface GpsData {
   latitude: number;
@@ -68,6 +84,9 @@ export default function KioskTerminalPage() {
   // Admin PIN dialog
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
+
+  // Arbeitsitems (SPEZ-arbeitsitems.md 6/13) – gleiche Komponenten wie /worker-app
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   // Load config
   useEffect(() => {
@@ -145,12 +164,16 @@ export default function KioskTerminalPage() {
     });
   }, []);
 
-  // Auto-logout countdown
+  // Auto-logout countdown (läuft auf allen Screens der Monteur-Session)
   useEffect(() => {
-    if (state !== 'action' || !config) return;
+    if (!SESSION_STATES.includes(state) || !config) return;
+    const limit =
+      state === 'action'
+        ? config.autoLogoutSeconds
+        : Math.max(config.autoLogoutSeconds, ITEMS_IDLE_SECONDS);
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - lastInteraction.current) / 1000);
-      const remaining = Math.max(0, config.autoLogoutSeconds - elapsed);
+      const remaining = Math.max(0, limit - elapsed);
       setCountdown(remaining);
       if (remaining === 0) {
         resetToIdle();
@@ -172,6 +195,7 @@ export default function KioskTerminalPage() {
     setPinError('');
     setGps(null);
     setGpsStatus('inactive');
+    setSelectedItemId(null);
     clearWorkerSession();
     loadLiveOverview();
   }, [loadLiveOverview]);
@@ -311,6 +335,18 @@ export default function KioskTerminalPage() {
 
   if (!config) return null;
 
+  /**
+   * Ist das Kiosk-Projekt item-basiert?
+   *
+   * Bewusst zur Laufzeit aus `/worker-auth/me` gelesen (Zuweisung des gerade
+   * angemeldeten Monteurs) statt aus der gespeicherten Kiosk-Config: Ein alter
+   * Config-Eintrag im LocalStorage kennt das Flag nicht, und der Item-Modus
+   * kann im Büro jederzeit umgeschaltet werden.
+   */
+  const itemBasedProject = (worker?.assignments ?? []).some(
+    (a) => a.project.id === config.projectId && a.project.itemBased === true,
+  );
+
   const timeStr = clock.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
   const dateStr = clock.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -321,6 +357,51 @@ export default function KioskTerminalPage() {
         <div className="text-8xl">✅</div>
         <p className="text-center text-3xl font-bold">{confirmMessage}</p>
         <p className="text-xl text-gray-400">{confirmSubtext}</p>
+      </div>
+    );
+  }
+
+  // ── ARBEITSITEMS (Liste / Detail) ──
+  // Gleiche Komponenten wie `/worker-app` – ein Screen, zwei Einstiege.
+  // Jede Berührung zählt als Aktivität, damit der Auto-Logout nicht zuschlägt.
+  if ((state === 'items' || state === 'itemDetail') && worker) {
+    return (
+      <div onClick={resetActivity} onTouchStart={resetActivity} onKeyDown={resetActivity}>
+        {state === 'items' ? (
+          <WorkItemsList
+            workerId={worker.id}
+            projectId={config.projectId}
+            onActivity={resetActivity}
+            onSelect={(id) => {
+              resetActivity();
+              setSelectedItemId(id);
+              setState('itemDetail');
+            }}
+            onBack={() => {
+              resetActivity();
+              setState('action');
+            }}
+          />
+        ) : (
+          selectedItemId && (
+            <WorkItemDetail
+              itemId={selectedItemId}
+              workerId={worker.id}
+              onActivity={resetActivity}
+              onBack={() => {
+                resetActivity();
+                setSelectedItemId(null);
+                setState('items');
+              }}
+            />
+          )
+        )}
+        {/* Auto-Logout erst kurz vorher einblenden – sonst stört er beim Lesen. */}
+        {countdown > 0 && countdown <= 30 && (
+          <div className="fixed bottom-2 left-0 right-0 text-center text-xs text-gray-500">
+            {t.autoLogout(countdown)}
+          </div>
+        )}
       </div>
     );
   }
@@ -411,6 +492,18 @@ export default function KioskTerminalPage() {
                     className="hidden"
                   />
                 </label>
+              )}
+              {/* Arbeitsitems – nur bei item-basiertem Projekt und eingestempelt */}
+              {itemBasedProject && (
+                <button
+                  onClick={() => {
+                    resetActivity();
+                    setState('items');
+                  }}
+                  className="w-full max-w-md rounded-xl bg-blue-600/90 px-6 py-4 text-center text-xl font-semibold text-white transition hover:bg-blue-500 active:scale-95"
+                >
+                  📋 {T.workItems.de} / {T.workItems.sk}
+                </button>
               )}
             </>
           )}

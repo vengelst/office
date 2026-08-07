@@ -307,13 +307,29 @@ Bestehend weiter nutzen:
 
 ## 13. App-Oberflächen (grob)
 
-### Monteur-App
+### Monteur-Oberfläche
+
+Die Monteur-Oberfläche gibt es **zweimal**: als Android-App (`apps/mobile`, APK)
+und im Web (`/worker-app` für das persönliche Gerät inkl. iPhone/iPad,
+`/kiosk` für das Baustellen-Tablet). Beide sind **feature-paritätisch** –
+kein Flow, keine Aktion und kein Guard darf nur auf einer Plattform existieren.
+Das Web ist zusätzlich als PWA installierbar („Zum Home-Bildschirm“), damit
+Apple-Geräte ohne Store dieselbe App bekommen.
+
+Funktionen (identisch auf beiden Wegen):
 
 - Projekt stempeln (bestehend)
 - Items suchen/nehmen per Kennung; aktuelles Item wechseln
 - Detail: Metadaten + Materialtabelle + PDF
 - Fertig (≥2–3 Fotos) / Nacharbeit
 - Offene Items nach Login am Folgetag
+
+Verbindlich bei Änderungen:
+
+- Gleiche Monteur-Endpunkte (Worker-Token), kein Office-JWT im Monteur-Pfad.
+- Texte DE + SK identisch: `apps/mobile/lib/i18n-work-items.ts` und
+  `apps/web/src/lib/i18n-work-items.ts` immer **gemeinsam** pflegen.
+- Neue Aktionen werden auf beiden Plattformen umgesetzt oder gar nicht.
 
 ### Web Büro (intern)
 

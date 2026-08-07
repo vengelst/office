@@ -1,20 +1,18 @@
 /**
- * Zweisprachige Labels (DE + SK) der Arbeitsitems-Screens.
+ * Zweisprachige Labels (DE + SK) der Arbeitsitems-Oberfläche im Web.
  *
- * ⚠️ Sync mit `apps/web/src/lib/i18n-work-items.ts` – die Web-Monteur-Oberfläche
- * (`/worker-app`, `/kiosk`) ist feature- und textgleich zur APK
- * (SPEZ-arbeitsitems.md Abschnitt 13). Textänderungen hier **immer** dort
- * nachziehen (und umgekehrt).
+ * ⚠️ Sync mit `apps/mobile/lib/i18n-work-items.ts` – Web und APK müssen
+ * feature- und textgleich sein (SPEZ-arbeitsitems.md Abschnitt 13).
+ * Wird ein Text hier geändert, **muss** die Mobile-Datei mitgeändert werden
+ * (und umgekehrt). Der Block `T` unterhalb ist eine 1:1-Kopie; nur der
+ * ausdrücklich markierte Abschnitt am Ende enthält Web-spezifische Zusätze
+ * (Overlay/Blob-PDF gibt es auf dem Gerät nicht).
  *
  * SPEZ-arbeitsitems.md Abschnitt 4.1 / 13: „Sprache Monteur-UI: DE + SK“.
  * Bewusst eine flache Konstanten-Map statt eines i18n-Frameworks – es gibt
  * keine Sprachumschaltung, jedes Label zeigt **beide** Sprachen.
- *
- * Konvention:
- *  - `t.x` = zusammengesetztes Label „Deutsch / Slovensky“ für Buttons
- *  - `de`/`sk` getrennt, wo die Sprachen zweizeilig dargestellt werden
  */
-import type { WorkItemPdfFailure, WorkItemStatus } from './work-items';
+import type { WorkItemPdfFailure, WorkItemStatus } from './worker-work-items';
 
 /** Ein Begriff in beiden Sprachen. */
 export interface Bilingual {
@@ -43,7 +41,10 @@ export function statusLabel(status: WorkItemStatus): string {
   return both(STATUS_LABELS[status]);
 }
 
-/** Badge-Farben je Status (dunkles Theme). */
+/**
+ * Badge-Farben je Status (dunkles Theme).
+ * Gleiche Farbwerte wie Mobile, hier als Tailwind-taugliche Inline-Styles.
+ */
 export const STATUS_COLORS: Record<
   WorkItemStatus,
   { bg: string; text: string }
@@ -165,6 +166,15 @@ export const T = {
     de: 'Offene Items bleiben dir zugeordnet.',
     sk: 'Otvorené položky ostávajú priradené tebe.',
   },
+
+  // ── Nur Web ──────────────────────────────────────────────────
+  // Kein Gegenstück in der APK: Dort öffnet ein externer PDF-Viewer,
+  // im Browser liegt das PDF als Blob in einem Overlay.
+  back: { de: 'Zurück', sk: 'Späť' },
+  close: { de: 'Schließen', sk: 'Zavrieť' },
+  openInNewTab: { de: 'In neuem Tab öffnen', sk: 'Otvoriť na novej karte' },
+  loading: { de: 'Lädt…', sk: 'Načítava…' },
+  refresh: { de: 'Aktualisieren', sk: 'Obnoviť' },
 } satisfies Record<string, Bilingual>;
 
 /** Fehlertexte beim Öffnen des Block-PDFs (`WorkItemPdfError.reason`). */
