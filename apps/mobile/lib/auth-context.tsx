@@ -9,6 +9,7 @@ import { router } from 'expo-router';
 import {
   workerApi,
   getToken,
+  setToken,
   setWorkerSession,
   clearSession,
   type WorkerMe,
@@ -46,8 +47,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = useCallback(async (pin: string) => {
     const res = await workerApi.pinLogin(pin);
-    await setWorkerSession(res.token, res.user);
-    setWorker(res.user);
+    // Token zuerst ablegen, damit der anschließende /me-Call authentifiziert ist.
+    await setToken(res.accessToken);
+    const me = await workerApi.me();
+    await setWorkerSession(res.accessToken, me);
+    setWorker(me);
     router.replace('/(app)');
   }, []);
 

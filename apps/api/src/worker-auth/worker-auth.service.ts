@@ -14,6 +14,8 @@ export class WorkerAuthService {
    * inkl. seiner aktiven Projektzuweisungen. Die Zuweisungen werden von der
    * Monteur-App benötigt, um das einzustempelnde Projekt auszuwählen
    * (aktuell = startDate <= heute, zukünftig = startDate > heute).
+   * `project.itemBased` sagt der App, ob für dieses Projekt der
+   * Arbeitsitems-Bereich angeboten wird – so entfällt ein Extra-Call.
    */
   async me(workerId: string) {
     const worker = await this.prisma.worker.findFirst({
@@ -41,6 +43,9 @@ export class WorkerAuthService {
                 id: true,
                 projectNumber: true,
                 title: true,
+                // Steuert in der Monteur-App, ob der Arbeitsitems-Bereich
+                // für dieses Projekt angeboten wird (SPEZ-arbeitsitems.md).
+                itemBased: true,
                 customer: { select: { companyName: true } },
               },
             },

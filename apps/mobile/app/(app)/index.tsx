@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../lib/auth-context';
@@ -104,6 +105,18 @@ export default function DashboardScreen() {
 
   const clockedIn = status?.clockedIn ?? false;
   const activeProject = clockedIn ? status?.project : null;
+
+  /**
+   * Arbeitsitems gibt es nur für item-basierte Projekte. `itemBased` liefert
+   * `/worker-auth/me` je Zuweisung mit – der Stempel-Status selbst kennt das
+   * Flag nicht, daher der Abgleich über die Projekt-ID.
+   */
+  const itemBasedActive =
+    clockedIn &&
+    !!activeProject &&
+    (worker?.assignments ?? []).some(
+      (a) => a.project.id === activeProject.id && a.project.itemBased === true,
+    );
 
   const elapsedSeconds =
     status?.clockedIn && status.since
@@ -444,6 +457,29 @@ export default function DashboardScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        {/* Arbeitsitems – nur bei item-basiertem, aktuell gestempeltem Projekt */}
+        {itemBasedActive && activeProject && (
+          <TouchableOpacity
+            style={styles.workItemsCard}
+            onPress={() =>
+              router.push({
+                pathname: '/(app)/work-items',
+                params: { projectId: activeProject.id },
+              })
+            }
+            activeOpacity={0.8}
+          >
+            <View style={styles.workItemsIcon}>
+              <Ionicons name="list-outline" size={24} color="#3b82f6" />
+            </View>
+            <View style={styles.workItemsTexts}>
+              <Text style={styles.workItemsTitle}>Arbeitsitems</Text>
+              <Text style={styles.workItemsSubtitle}>Pracovné položky</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={22} color="#6b7280" />
+          </TouchableOpacity>
+        )}
 
         {/* Foto-Upload-Bereich */}
         {clockedIn && (
@@ -819,6 +855,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+  },
+
+  // Arbeitsitems-Einstieg
+  workItemsCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    minHeight: 72,
+  },
+  workItemsIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  workItemsTexts: {
+    flex: 1,
+  },
+  workItemsTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#f9fafb',
+  },
+  workItemsSubtitle: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginTop: 1,
   },
 
   // Photo Section

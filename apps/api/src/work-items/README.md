@@ -59,6 +59,12 @@ OPEN --claim--> IN_PROGRESS --reports/complete (min. 2 Fotos)--> REVIEW --approv
 | POST | `/work-items/:id/reports/complete` | Fertigmeldung, Multipart-Feld `photos`, min. 2 Fotos |
 | POST | `/work-items/:id/reports/rework` | Nacharbeit melden |
 
+`GET /worker-auth/me` liefert je Zuweisung `project.itemBased` mit – die
+Monteur-App blendet den Arbeitsitems-Bereich damit ohne Extra-Call ein.
+Block-PDFs sind für Monteure derzeit **nicht** abrufbar: `/documents/:id/download`
+ist auf `SUPERADMIN`/`OFFICE`/`PROJECT_MANAGER` beschränkt. Die App zeigt bis
+auf Weiteres nur die Planreferenz (`block.blockKey`, `pdfFile`, `pdfPage`).
+
 ### Kunden-PL – Rolle `CUSTOMER_PL` (bzw. `SUPERADMIN`), nur zugewiesene Projekte
 
 | Methode | Pfad | Zweck |

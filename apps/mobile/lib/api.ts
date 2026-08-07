@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL =
+export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
 const TOKEN_KEY = 'worker_token';
@@ -16,6 +16,8 @@ export interface WorkerMeAssignment {
     id: string;
     projectNumber: string;
     title: string;
+    /** Projekt arbeitet item-basiert → Arbeitsitems-Bereich anbieten. */
+    itemBased?: boolean;
     customer: { companyName: string } | null;
   };
 }
@@ -79,13 +81,27 @@ export interface ClockOutBody {
   sourceDevice?: string;
 }
 
+/**
+ * Antwort von `POST /worker-auth/pin-login`. Die API liefert das JWT als
+ * `accessToken` und dazu nur den schlanken Auth-Benutzer – das vollständige
+ * Monteur-Profil kommt danach über `GET /worker-auth/me`.
+ */
 export interface LoginResponse {
-  token: string;
-  user: WorkerMe;
+  accessToken: string;
+  user: {
+    id: string;
+    type: string;
+    roles: string[];
+    displayName: string;
+  };
 }
 
 export async function getToken(): Promise<string | null> {
   return SecureStore.getItemAsync(TOKEN_KEY);
+}
+
+export async function setToken(token: string): Promise<void> {
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
 }
 
 export async function setWorkerSession(
@@ -120,7 +136,12 @@ export class ApiError extends Error {
   }
 }
 
-async function apiFetch<T>(
+/**
+ * JSON-Request gegen die API. Hängt automatisch das Worker-Token an
+ * (außer `skipAuth`) und wirft bei Fehlern einen `ApiError` mit der
+ * Server-Meldung – die Screens zeigen diese direkt an.
+ */
+export async function apiFetch<T>(
   path: string,
   options: { method?: string; body?: unknown; skipAuth?: boolean } = {},
 ): Promise<T> {
@@ -147,6 +168,31 @@ async function apiFetch<T>(
       data && typeof data === 'object' && 'message' in data
         ? String((data as { message: string }).message)
         : `Request failed (${res.status})`;
+    throw new ApiError(msg, res.status);
+  }
+  return data as T;
+}
+
+/**
+ * Multipart-Request (Datei-Uploads). Setzt bewusst **keinen** Content-Type,
+ * damit `fetch` die Boundary selbst ergänzt – analog `workerApi.uploadPhoto`.
+ */
+export async function apiUpload<T>(path: string, form: FormData): Promise<T> {
+  const token = await getToken();
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    method: 'POST',
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    body: form,
+  });
+
+  const isJson = res.headers.get('content-type')?.includes('application/json');
+  const data: unknown = isJson ? await res.json() : null;
+
+  if (!res.ok) {
+    const msg =
+      data && typeof data === 'object' && 'message' in data
+        ? String((data as { message: string }).message)
+        : `Upload fehlgeschlagen (${res.status})`;
     throw new ApiError(msg, res.status);
   }
   return data as T;
