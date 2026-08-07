@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Priority, ProjectStatus, ServiceType } from '@prisma/client';
 import {
+  IsBoolean,
   IsEnum,
   IsISO8601,
   IsNumber,
@@ -206,4 +207,13 @@ export class CreateProjectDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  // ── Arbeitsitems ─────────────────────────────────────────────
+  @ApiPropertyOptional({
+    default: false,
+    description: 'Projekt wird über Arbeitsitems abgearbeitet (SPEZ-arbeitsitems.md)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  itemBased?: boolean;
 }

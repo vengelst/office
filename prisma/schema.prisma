@@ -19,6 +19,7 @@ enum RoleCode {
   OFFICE
   PROJECT_MANAGER
   WORKER
+  CUSTOMER_PL // Kunden-Projektleiter – getrennt von internen Rollen
 }
 
 enum CustomerStatus {
@@ -192,6 +193,26 @@ enum SubmissionStatus {
   CANCELLED
 }
 
+// ── Arbeitsitems (item-/positionsbasierte Arbeitszuteilung) ────
+
+enum WorkItemStatus {
+  OPEN // Offen – im Pool, keine Zuordnung
+  IN_PROGRESS // In Arbeit – bei einem/mehreren Monteuren
+  REVIEW // Kontrolle – wartet auf Kunden-PL
+  REWORK // Nacharbeit – nicht fertig, bleibt beim Monteur
+  APPROVED // Geprüft – abrechenbar
+}
+
+enum WorkItemReportType {
+  COMPLETED // Fertigmeldung (Pflicht: min. 2 Fotos)
+  REWORK // Nacharbeit
+}
+
+enum WorkItemReviewAction {
+  APPROVE // Geprüft / OK
+  FORCE_COMPLETE // Kunden-PL setzt selbst fertig
+}
+
 enum SubmissionPriority {
   LOW
   MEDIUM
@@ -227,6 +248,9 @@ model User {
   reviewedTimesheets   WeeklyTimesheet[]      @relation("TimesheetReviewer")
   approvedTimesheets   WeeklyTimesheet[]      @relation("TimesheetApprover")
   createdInvoices      Invoice[]              @relation("InvoiceCreator")
+
+  customerPlProjects ProjectCustomerPlAssignment[]
+  workItemReviews    WorkItemReview[]
 }
 
 model Role {
@@ -508,6 +532,7 @@ model Project {
   internalProjectManagerUserId String?
   primaryCustomerContactId     String?
   pauseRuleId                  String?
+  itemBased                    Boolean       @default(false) // Projekt wird über Work Items abgearbeitet
   notes                        String?
   createdAt                    DateTime      @default(now())
   updatedAt                    DateTime      @updatedAt
@@ -525,12 +550,15 @@ model Project {
   sites            ProjectSite[]
   equipment        ProjectEquipment[]
   statusHistory    ProjectStatusHistory[]
-  breakRules       BreakRule[]             @relation("ProjectBreakRules")
+  breakRules       BreakRule[]                   @relation("ProjectBreakRules")
   timeEntries      TimeEntry[]
   gpsEvents        GpsEvent[]
   weeklyTimesheets WeeklyTimesheet[]
   callLogs         CustomerCallLog[]
   invoices         Invoice[]
+  blocks           ProjectBlock[]
+  workItems        WorkItem[]
+  customerPls      ProjectCustomerPlAssignment[]
 
   @@index([customerId])
   @@index([status, deletedAt])
@@ -689,19 +717,22 @@ model Worker {
   shoeSize     String?
   clothingSize String? // S, M, L, XL, XXL, etc.
 
-  user               User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  subcontractor      Subcontractor?            @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
-  pins               WorkerPin[]
-  assignments        ProjectAssignment[]
-  vehicleAssignments WorkerVehicleAssignment[]
-  equipmentIssues    WorkerEquipmentIssue[]
-  timeEntries        TimeEntry[]
-  gpsEvents          GpsEvent[]
-  weeklyTimesheets   WeeklyTimesheet[]
-  languages          WorkerLanguage[]
-  certifications     WorkerCertification[]
-  teamMemberships        WorkerTeamMember[]
-  equipmentAssignments   EquipmentAssignment[]
+  user                 User?                     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  subcontractor        Subcontractor?            @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
+  pins                 WorkerPin[]
+  assignments          ProjectAssignment[]
+  vehicleAssignments   WorkerVehicleAssignment[]
+  equipmentIssues      WorkerEquipmentIssue[]
+  timeEntries          TimeEntry[]
+  gpsEvents            GpsEvent[]
+  weeklyTimesheets     WeeklyTimesheet[]
+  languages            WorkerLanguage[]
+  certifications       WorkerCertification[]
+  teamMemberships      WorkerTeamMember[]
+  equipmentAssignments EquipmentAssignment[]
+  workItemAssignments  WorkItemAssignment[]
+  workItemSessions     WorkItemSession[]
+  workItemReports      WorkItemReport[]
 
   @@index([deletedAt])
   @@index([subcontractorId])
@@ -714,30 +745,30 @@ enum SubcontractorType {
 }
 
 model Subcontractor {
-  id                String             @id @default(cuid())
+  id                String            @id @default(cuid())
   name              String
-  subcontractorType SubcontractorType  @default(SUBCONTRACTOR)
+  subcontractorType SubcontractorType @default(SUBCONTRACTOR)
   contactPerson     String?
-  email         String?
-  phone         String?
-  addressLine1  String?
-  addressLine2  String?
-  postalCode    String?
-  city          String?
-  country       String?
-  latitude      Float?
-  longitude     Float?
-  mapsUrl       String?
-  taxNumber     String?
-  vatId         String?
-  iban          String?
-  bic           String?
-  bankName      String?
-  notes         String?
-  active        Boolean   @default(true)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  deletedAt     DateTime?
+  email             String?
+  phone             String?
+  addressLine1      String?
+  addressLine2      String?
+  postalCode        String?
+  city              String?
+  country           String?
+  latitude          Float?
+  longitude         Float?
+  mapsUrl           String?
+  taxNumber         String?
+  vatId             String?
+  iban              String?
+  bic               String?
+  bankName          String?
+  notes             String?
+  active            Boolean           @default(true)
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  deletedAt         DateTime?
 
   workers  Worker[]
   invoices Invoice[]
@@ -878,50 +909,50 @@ model WorkerEquipmentIssue {
 }
 
 model Equipment {
-  id              String             @id @default(cuid())
+  id              String  @id @default(cuid())
   name            String
-  description     String?            @db.Text
+  description     String? @db.Text
   category        String?
   manufacturer    String?
   model           String?
   serialNumber    String?
-  inventoryNumber String?            @unique
+  inventoryNumber String? @unique
 
-  purchaseDate    DateTime?
-  purchasePrice   Decimal?           @db.Decimal(10, 2)
+  purchaseDate  DateTime?
+  purchasePrice Decimal?  @db.Decimal(10, 2)
 
-  status          EquipmentStatus    @default(AVAILABLE)
-  condition       EquipmentCondition @default(GOOD)
+  status    EquipmentStatus    @default(AVAILABLE)
+  condition EquipmentCondition @default(GOOD)
 
-  imageKey        String?
-  notes           String?            @db.Text
+  imageKey String?
+  notes    String? @db.Text
 
-  assignments     EquipmentAssignment[]
+  assignments EquipmentAssignment[]
 
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  deletedAt       DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([status, deletedAt])
   @@index([category, deletedAt])
 }
 
 model EquipmentAssignment {
-  id              String              @id @default(cuid())
-  equipmentId     String
-  equipment       Equipment           @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  workerId        String
-  worker          Worker              @relation(fields: [workerId], references: [id])
+  id          String    @id @default(cuid())
+  equipmentId String
+  equipment   Equipment @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  workerId    String
+  worker      Worker    @relation(fields: [workerId], references: [id])
 
-  assignedAt      DateTime            @default(now())
-  expectedReturn  DateTime?
-  returnedAt      DateTime?
+  assignedAt     DateTime  @default(now())
+  expectedReturn DateTime?
+  returnedAt     DateTime?
 
   notes           String?             @db.Text
   returnNotes     String?             @db.Text
   returnCondition EquipmentCondition?
 
-  assignedBy      String?
+  assignedBy String?
 
   @@index([equipmentId, returnedAt])
   @@index([workerId, returnedAt])
@@ -1073,14 +1104,14 @@ model Document {
   createdAt        DateTime     @default(now())
 
   // Neue Felder
-  storagePath  String? // Logischer Pfad: z.B. "customers/cuid123/contracts/vertrag.pdf"
-  thumbnailKey String? // MinIO-Key für Thumbnail (bei Bildern)
-  version      Int       @default(1)
-  replacesId   String? // ID des Vorgänger-Dokuments (bei Versionen)
-  isLatest     Boolean   @default(true) // Nur die aktuelle Version ist "latest"
-  expiryDate   DateTime? // Ablaufdatum (für Pässe, Zertifikate, etc.)
-  tags         String? // Komma-separierte Tags für Suche
-  uploadSource String? // "web", "camera", "mobile"
+  storagePath   String? // Logischer Pfad: z.B. "customers/cuid123/contracts/vertrag.pdf"
+  thumbnailKey  String? // MinIO-Key für Thumbnail (bei Bildern)
+  version       Int       @default(1)
+  replacesId    String? // ID des Vorgänger-Dokuments (bei Versionen)
+  isLatest      Boolean   @default(true) // Nur die aktuelle Version ist "latest"
+  expiryDate    DateTime? // Ablaufdatum (für Pässe, Zertifikate, etc.)
+  tags          String? // Komma-separierte Tags für Suche
+  uploadSource  String? // "web", "camera", "mobile"
   driveFileId   String? // Google Drive File-ID
   driveFolderId String? // Google Drive Ordner-ID
 
@@ -1129,19 +1160,19 @@ model DocumentFolder {
 // ──────────────────────────────────────────────────────────────
 
 model CommunicationEntry {
-  id            String                  @id @default(cuid())
-  entityType    CommunicationEntityType
-  entityId      String
-  contactId     String?
-  type          CommunicationType
-  direction     CommunicationDirection  @default(OUTGOING)
-  subject       String?
-  content       String                  @db.Text
-  occurredAt    DateTime                @default(now())
-  duration      Int?
-  createdBy     String?
-  createdAt     DateTime                @default(now())
-  updatedAt     DateTime                @updatedAt
+  id         String                  @id @default(cuid())
+  entityType CommunicationEntityType
+  entityId   String
+  contactId  String?
+  type       CommunicationType
+  direction  CommunicationDirection  @default(OUTGOING)
+  subject    String?
+  content    String                  @db.Text
+  occurredAt DateTime                @default(now())
+  duration   Int?
+  createdBy  String?
+  createdAt  DateTime                @default(now())
+  updatedAt  DateTime                @updatedAt
 
   @@index([entityType, entityId, occurredAt])
   @@index([contactId, occurredAt])
@@ -1171,26 +1202,26 @@ enum CommunicationDirection {
 // ──────────────────────────────────────────────────────────────
 
 model Todo {
-  id            String       @id @default(cuid())
+  id String @id @default(cuid())
 
-  title         String
-  description   String?      @db.Text
+  title       String
+  description String? @db.Text
 
-  status        TodoStatus   @default(OPEN)
-  priority      TodoPriority @default(MEDIUM)
+  status   TodoStatus   @default(OPEN)
+  priority TodoPriority @default(MEDIUM)
 
-  dueDate       DateTime?
-  completedAt   DateTime?
+  dueDate     DateTime?
+  completedAt DateTime?
 
-  assignedToId  String?
-  createdById   String?
+  assignedToId String?
+  createdById  String?
 
   linkedEntityType TodoEntityType?
   linkedEntityId   String?
   linkedEntityName String?
 
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([status, assignedToId, dueDate])
   @@index([linkedEntityType, linkedEntityId])
@@ -1329,35 +1360,200 @@ model InvoicePayment {
 // ──────────────────────────────────────────────────────────────
 
 model Submission {
-  id            String             @id @default(cuid())
-  customerId    String
-  customer      Customer           @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  id         String   @id @default(cuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
 
-  title         String
-  description   String?            @db.Text
-  reference     String?
-  source        String?
+  title       String
+  description String? @db.Text
+  reference   String?
+  source      String?
 
-  status        SubmissionStatus   @default(OPEN)
-  priority      SubmissionPriority @default(MEDIUM)
+  status   SubmissionStatus   @default(OPEN)
+  priority SubmissionPriority @default(MEDIUM)
 
-  deadline      DateTime?
-  startDate     DateTime?
-  endDate       DateTime?
+  deadline  DateTime?
+  startDate DateTime?
+  endDate   DateTime?
 
-  value         Decimal?           @db.Decimal(12, 2)
+  value Decimal? @db.Decimal(12, 2)
 
-  contactName   String?
-  contactEmail  String?
-  contactPhone  String?
+  contactName  String?
+  contactEmail String?
+  contactPhone String?
 
-  requirements  String?            @db.Text
-  notes         String?            @db.Text
+  requirements String? @db.Text
+  notes        String? @db.Text
 
-  createdAt     DateTime           @default(now())
-  updatedAt     DateTime           @updatedAt
-  deletedAt     DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
 
   @@index([customerId, status, deletedAt])
 }
 
+// ──────────────────────────────────────────────────────────────
+// Arbeitsitems (item-/positionsbasierte Arbeitszuteilung)
+// Siehe SPEZ-arbeitsitems.md
+// ──────────────────────────────────────────────────────────────
+
+/// Gruppierung von Work Items, typisch 1 PDF pro Block.
+model ProjectBlock {
+  id            String   @id @default(cuid())
+  projectId     String
+  blockKey      String // z.B. "Block-1" – eindeutig je Projekt
+  name          String?
+  pdfDocumentId String? // Referenz auf Document.id (Block-PDF)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItems WorkItem[]
+
+  @@unique([projectId, blockKey])
+  @@index([projectId])
+}
+
+/// Eine Arbeitseinheit (Position) am Projekt.
+model WorkItem {
+  id        String  @id @default(cuid())
+  projectId String
+  blockId   String?
+
+  /// Kennung zum Nehmen (Positions-/Raumnummer), eindeutig je Projekt
+  itemKey String
+  title   String?
+
+  // Metadaten aus der Planung
+  floor  String?
+  area   String?
+  room   String?
+  type   String?
+  rc     String?
+  detail String?
+
+  planPage   Int?
+  sheetNo    Int?
+  sheetTotal Int?
+
+  pdfFile String?
+  pdfPage Int?
+
+  workScopeDe String? @db.Text
+  workScopeSk String? @db.Text
+
+  status WorkItemStatus @default(OPEN)
+
+  importedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  block       ProjectBlock?        @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  materials   WorkItemMaterial[]
+  assignments WorkItemAssignment[]
+  sessions    WorkItemSession[]
+  reports     WorkItemReport[]
+  reviews     WorkItemReview[]
+
+  @@unique([projectId, itemKey])
+  @@index([projectId, status])
+  @@index([blockId])
+  @@index([itemKey])
+}
+
+/// Materialposition zu einem Work Item (aus Excel-Import).
+model WorkItemMaterial {
+  id         String   @id @default(cuid())
+  workItemId String
+  sortOrder  Int      @default(0)
+  qty        String? // "1", "2", "n. Detail"
+  qtyUnit    String? // "Stk.", "Satz"
+  materialDe String
+  materialSk String?
+  createdAt  DateTime @default(now())
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId])
+}
+
+/// Zuordnung eines CUSTOMER_PL-Users zu einem Projekt.
+model ProjectCustomerPlAssignment {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId, active])
+}
+
+/// Monteur-Zuordnung zu einem Work Item (aktiv von–bis).
+model WorkItemAssignment {
+  id         String    @id @default(cuid())
+  workItemId String
+  workerId   String
+  startedAt  DateTime  @default(now())
+  endedAt    DateTime?
+  active     Boolean   @default(true)
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  worker   Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId, active])
+  @@index([workerId, active])
+}
+
+/// Zeitintervall "aktuelles Item" eines Monteurs (Item-Zeit).
+/// Dauer = endedAt - startedAt, wenn endedAt gesetzt ist.
+model WorkItemSession {
+  id         String    @id @default(cuid())
+  workItemId String
+  workerId   String
+  startedAt  DateTime
+  endedAt    DateTime?
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  worker   Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId, workerId])
+  @@index([workerId, endedAt])
+}
+
+/// Rückmeldung des Monteurs: Fertigmeldung oder Nacharbeit.
+/// Fotos hängen über DocumentLink (entityType = "WORK_ITEM_REPORT", entityId = report.id).
+model WorkItemReport {
+  id         String             @id @default(cuid())
+  workItemId String
+  workerId   String
+  type       WorkItemReportType
+  comment    String?            @db.Text
+  reportedAt DateTime           @default(now())
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  worker   Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId, reportedAt])
+  @@index([workerId])
+}
+
+/// Prüfung durch den Kunden-PL (geprüft / selbst fertiggesetzt).
+model WorkItemReview {
+  id             String               @id @default(cuid())
+  workItemId     String
+  reviewerUserId String
+  action         WorkItemReviewAction
+  comment        String?              @db.Text
+  reviewedAt     DateTime             @default(now())
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  reviewer User     @relation(fields: [reviewerUserId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId, reviewedAt])
+  @@index([reviewerUserId])
+}

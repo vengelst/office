@@ -36,6 +36,11 @@ const ROLES: { code: RoleCode; name: string; description: string }[] = [
   { code: RoleCode.OFFICE, name: 'Büro', description: 'Verwaltung ohne Benutzerverwaltung' },
   { code: RoleCode.PROJECT_MANAGER, name: 'Projektleiter', description: 'Projektsteuerung und Stundenzettel' },
   { code: RoleCode.WORKER, name: 'Monteur', description: 'Mobile Zeiterfassung, eigene Daten' },
+  {
+    code: RoleCode.CUSTOMER_PL,
+    name: 'Kunden-PL',
+    description: 'Projektleiter des Kunden – Item-Prüfung und Wochenabzeichnung, kein interner Zugriff',
+  },
 ];
 
 const PERMISSIONS: string[] = [
@@ -65,12 +70,21 @@ const ROLE_PERMISSIONS: Record<RoleCode, (perm: string) => boolean> = {
   [RoleCode.PROJECT_MANAGER]: (perm) =>
     perm.endsWith('.view') || perm === 'projects.edit' || perm.startsWith('timesheets.'),
   [RoleCode.WORKER]: (perm) => perm.endsWith('.view'),
+  // Kunden-PL: nur Projekt-Einsicht und Stundenzettel-Abzeichnung
+  [RoleCode.CUSTOMER_PL]: (perm) =>
+    perm === 'projects.view' || perm === 'timesheets.view' || perm === 'timesheets.sign',
 };
 
 const USERS: { email: string; password: string; displayName: string; role: RoleCode }[] = [
   { email: 'admin@office.local', password: 'admin123', displayName: 'Administrator', role: RoleCode.SUPERADMIN },
   { email: 'buero@office.local', password: 'buero123', displayName: 'Büro Mitarbeiter', role: RoleCode.OFFICE },
   { email: 'pl@office.local', password: 'pl123', displayName: 'Projektleiter', role: RoleCode.PROJECT_MANAGER },
+  {
+    email: 'kunden-pl@office.local',
+    password: 'kundenpl123',
+    displayName: 'Kunden-Projektleiter',
+    role: RoleCode.CUSTOMER_PL,
+  },
 ];
 
 // ── Beispielkunden-Definition ──────────────────────────────────

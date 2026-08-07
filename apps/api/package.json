@@ -23,6 +23,7 @@
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
+    "exceljs": "^4.4.0",
     "googleapis": "^173.0.0",
     "minio": "^8.0.1",
     "nodemailer": "^9.0.3",

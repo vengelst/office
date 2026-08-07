@@ -17,6 +17,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { StoragePathService } from '../common/storage-path.service';
 import { GoogleDriveService } from '../google-drive/google-drive.service';
+import { WorkItemWorkflowService } from '../work-items/work-item-workflow.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
@@ -68,6 +69,7 @@ export class TimeEntriesService {
     private readonly storage: StorageService,
     private readonly storagePathService: StoragePathService,
     private readonly driveService: GoogleDriveService,
+    private readonly workItemWorkflow: WorkItemWorkflowService,
   ) {}
 
   // ── Stempeln ─────────────────────────────────────────────────
@@ -147,13 +149,21 @@ export class TimeEntriesService {
 
     await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_OUT);
 
+    // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
+    // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
+    const closedItemSessions =
+      await this.workItemWorkflow.closeOpenSessionsForWorker(
+        dto.workerId,
+        occurredAtClient,
+      );
+
     const grossMinutes = diffMinutes(
       open.occurredAtClient,
       occurredAtClient,
     );
 
     const status = await this.getStatus(dto.workerId);
-    return { ...status, lastGrossMinutes: grossMinutes };
+    return { ...status, lastGrossMinutes: grossMinutes, closedItemSessions };
   }
 
   // ── Abfragen ─────────────────────────────────────────────────
