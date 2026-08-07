@@ -197,7 +197,10 @@ Nacharbeit und „nur Kontrolle“ sind **nicht** abrechenbar.
 
 Abgeleitet vom Beispielblatt **TAS Arbeitskarte 05-A-01**. Spätere Lieferungen folgen diesem Format.
 
-**Beispiel-Excel im Repo:** [`docs/import-vorlagen/arbeitsitems-import-beispiel.xlsx`](docs/import-vorlagen/arbeitsitems-import-beispiel.xlsx)  
+**Beispiel-Excel im Repo:**
+- [`arbeitsitems-import-beispiel.xlsx`](arbeitsitems-import-beispiel.xlsx) (Projektwurzel)
+- [`docs/import-vorlagen/arbeitsitems-import-beispiel.xlsx`](docs/import-vorlagen/arbeitsitems-import-beispiel.xlsx)
+
 Blätter: `Anleitung` · `Items` · `Material` (Beispieldaten inkl. `05-A-01`).
 
 ### 11.1 Datei A — Items (eine Zeile = ein Item)
