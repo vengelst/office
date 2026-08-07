@@ -1,0 +1,415 @@
+/**
+ * Typen und API-Funktionen für die Arbeitsitems (SPEZ-arbeitsitems.md).
+ * Spiegelt die Büro-/Admin-Endpoints aus `apps/api/src/work-items/` wider.
+ *
+ * Der Excel-/CSV-Import läuft als Multipart-Upload (Feld `files`) und daher
+ * nicht über `apiClient` (JSON), sondern über `apiUpload` aus `api-client.ts`.
+ */
+import { apiClient, apiUpload } from './api-client';
+
+// ── Basis-Typen ────────────────────────────────────────────────
+
+export type WorkItemStatus =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'REVIEW'
+  | 'REWORK'
+  | 'APPROVED';
+
+/** Alle Status in Workflow-Reihenfolge (Filter, Zähler, Board-Spalten). */
+export const WORK_ITEM_STATUSES: WorkItemStatus[] = [
+  'OPEN',
+  'IN_PROGRESS',
+  'REVIEW',
+  'REWORK',
+  'APPROVED',
+];
+
+export type WorkItemReportType = 'COMPLETED' | 'REWORK';
+export type WorkItemReviewAction = 'APPROVE' | 'FORCE_COMPLETE';
+
+/** Block (PDF-Gruppe) eines Projekts inkl. Item-Anzahl. */
+export interface ProjectBlock {
+  id: string;
+  projectId: string;
+  blockKey: string;
+  name: string | null;
+  pdfDocumentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count: { workItems: number };
+}
+
+/** Block-Kurzform, wie sie am Item hängt. */
+export interface WorkItemBlockRef {
+  id: string;
+  blockKey: string;
+  name: string | null;
+  pdfDocumentId: string | null;
+}
+
+/** Aktive Zuordnung eines Monteurs zu einem Item. */
+export interface WorkItemAssignment {
+  id: string;
+  startedAt: string;
+  worker: {
+    id: string;
+    workerNumber: string;
+    firstName: string;
+    lastName: string;
+  };
+}
+
+/** Eine Materialzeile eines Items. */
+export interface WorkItemMaterial {
+  id: string;
+  sortOrder: number;
+  qty: string | null;
+  qtyUnit: string | null;
+  materialDe: string;
+  materialSk: string | null;
+}
+
+/** Zeitsession eines Monteurs am Item. */
+export interface WorkItemSession {
+  id: string;
+  startedAt: string;
+  endedAt: string | null;
+  worker: { id: string; firstName: string; lastName: string };
+}
+
+/** Rückmeldung des Monteurs (Fertig/Nacharbeit) inkl. Foto-Dokument-IDs. */
+export interface WorkItemReport {
+  id: string;
+  type: WorkItemReportType;
+  comment: string | null;
+  reportedAt: string;
+  worker: { id: string; firstName: string; lastName: string };
+  photoDocumentIds: string[];
+}
+
+/** Prüfung durch den Kunden-PL. */
+export interface WorkItemReview {
+  id: string;
+  action: WorkItemReviewAction;
+  comment: string | null;
+  reviewedAt: string;
+  reviewer: { id: string; displayName: string } | null;
+}
+
+/** Schlanke Projektion für Liste/Board. */
+export interface WorkItemListEntry {
+  id: string;
+  itemKey: string;
+  title: string | null;
+  status: WorkItemStatus;
+  floor: string | null;
+  area: string | null;
+  room: string | null;
+  type: string | null;
+  rc: string | null;
+  detail: string | null;
+  planPage: number | null;
+  pdfFile: string | null;
+  pdfPage: number | null;
+  importedAt: string | null;
+  updatedAt: string;
+  block: WorkItemBlockRef | null;
+  assignments: WorkItemAssignment[];
+  _count: { materials: number; reports: number };
+}
+
+/** Vollständige Item-Detailansicht. */
+export interface WorkItemDetail extends WorkItemListEntry {
+  projectId: string;
+  workScopeDe: string | null;
+  workScopeSk: string | null;
+  sheetNo: number | null;
+  sheetTotal: number | null;
+  createdAt: string;
+  project: {
+    id: string;
+    projectNumber: string;
+    title: string;
+    itemBased: boolean;
+  };
+  materials: WorkItemMaterial[];
+  sessions: WorkItemSession[];
+  reports: WorkItemReport[];
+  reviews: WorkItemReview[];
+}
+
+/** Antwort der Item-Liste inkl. Status-Zähler über das ganze Projekt. */
+export interface WorkItemListResponse {
+  items: WorkItemListEntry[];
+  total: number;
+  take: number;
+  skip: number;
+  statusCounts: Record<WorkItemStatus, number>;
+}
+
+/** Filter der Item-Liste. */
+export interface WorkItemListParams {
+  /** Ein oder mehrere Status, komma-separiert. */
+  status?: string;
+  blockKey?: string;
+  /** Suche in Kennung/Titel/Raum. */
+  q?: string;
+  take?: number;
+  skip?: number;
+}
+
+/** Item-Zeit: Summe je Monteur plus alle Sessions. */
+export interface WorkItemTimeSummary {
+  totalMinutes: number;
+  perWorker: Array<{
+    workerId: string;
+    name: string;
+    minutes: number;
+    sessions: number;
+    open: number;
+  }>;
+  sessions: Array<{
+    id: string;
+    startedAt: string;
+    endedAt: string | null;
+    minutes: number | null;
+    worker: { id: string; firstName: string; lastName: string };
+  }>;
+}
+
+/** Zusammenfassung eines Import-/Vorschaulaufs. */
+export interface WorkItemImportSummary {
+  dryRun: boolean;
+  itemsCreated: number;
+  itemsUpdated: number;
+  blocksCreated: number;
+  materialLinesImported: number;
+  itemsWithMaterialsReplaced: number;
+  orphanMaterialRows: number;
+  warnings: string[];
+  sources: string[];
+  itemKeys: string[];
+}
+
+/** Optionen des Imports (als Multipart-Felder neben den Dateien). */
+export interface WorkItemImportOptions {
+  /** Projekt automatisch auf itemBased=true setzen (Default der API: true). */
+  setItemBased?: boolean;
+  csvDelimiter?: string;
+}
+
+/** Benutzer mit Rolle CUSTOMER_PL. */
+export interface CustomerPlUser {
+  id: string;
+  email: string;
+  displayName: string;
+  isActive: boolean;
+}
+
+/** Kunden-PL-Zuordnung an einem Projekt. */
+export interface CustomerPlAssignment {
+  id: string;
+  projectId: string;
+  userId: string;
+  active: boolean;
+  createdAt: string;
+  user: CustomerPlUser;
+}
+
+// ── Anlege-/Änderungs-Payloads ─────────────────────────────────
+
+export interface CreateBlockPayload {
+  blockKey: string;
+  name?: string;
+  pdfDocumentId?: string;
+}
+
+export interface UpdateBlockPayload {
+  blockKey?: string;
+  name?: string;
+  /** `null` löst die PDF-Verknüpfung. */
+  pdfDocumentId?: string | null;
+}
+
+export interface WorkItemPayload {
+  itemKey?: string;
+  blockKey?: string;
+  title?: string;
+  floor?: string;
+  area?: string;
+  room?: string;
+  type?: string;
+  rc?: string;
+  detail?: string;
+  planPage?: number;
+  sheetNo?: number;
+  sheetTotal?: number;
+  pdfFile?: string;
+  pdfPage?: number;
+  workScopeDe?: string;
+  workScopeSk?: string;
+}
+
+export interface MaterialLinePayload {
+  sortOrder?: number;
+  qty?: string;
+  qtyUnit?: string;
+  materialDe: string;
+  materialSk?: string;
+}
+
+// ── Status-Labels (DE) ─────────────────────────────────────────
+
+/**
+ * Deutsches Label eines Item-Status. Die Zuordnung liegt bewusst hier
+ * (nicht in `texts.ts`), damit Typ und Label zusammen gepflegt werden.
+ */
+export const WORK_ITEM_STATUS_LABELS: Record<WorkItemStatus, string> = {
+  OPEN: 'Offen',
+  IN_PROGRESS: 'In Arbeit',
+  REVIEW: 'Kontrolle',
+  REWORK: 'Nacharbeit',
+  APPROVED: 'Geprüft',
+};
+
+/** Deutsches Label eines Rückmeldungstyps. */
+export const WORK_ITEM_REPORT_LABELS: Record<WorkItemReportType, string> = {
+  COMPLETED: 'Fertigmeldung',
+  REWORK: 'Nacharbeit gemeldet',
+};
+
+/** Deutsches Label einer Kunden-PL-Prüfung. */
+export const WORK_ITEM_REVIEW_LABELS: Record<WorkItemReviewAction, string> = {
+  APPROVE: 'Geprüft',
+  FORCE_COMPLETE: 'Vom Kunden-PL fertiggesetzt',
+};
+
+/** Minuten als "3 h 05 min" (leer bei 0). */
+export function formatMinutes(minutes: number | null | undefined): string {
+  if (minutes == null || minutes <= 0) return '0 min';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h} h ${String(m).padStart(2, '0')} min` : `${m} min`;
+}
+
+// ── API ────────────────────────────────────────────────────────
+
+/** Baut das FormData für Import und Vorschau. */
+function buildImportForm(
+  files: File[],
+  options: WorkItemImportOptions = {},
+): FormData {
+  const form = new FormData();
+  files.forEach((file) => form.append('files', file));
+  if (options.setItemBased !== undefined) {
+    form.append('setItemBased', String(options.setItemBased));
+  }
+  if (options.csvDelimiter) {
+    form.append('csvDelimiter', options.csvDelimiter);
+  }
+  return form;
+}
+
+/** API-Client für Blöcke, Items, Material, Import und Kunden-PLs. */
+export const workItemsApi = {
+  // Blöcke
+  listBlocks: (projectId: string): Promise<ProjectBlock[]> =>
+    apiClient.get<ProjectBlock[]>(`/projects/${projectId}/blocks`),
+  createBlock: (
+    projectId: string,
+    body: CreateBlockPayload,
+  ): Promise<ProjectBlock> =>
+    apiClient.post<ProjectBlock>(`/projects/${projectId}/blocks`, body),
+  updateBlock: (
+    projectId: string,
+    blockId: string,
+    body: UpdateBlockPayload,
+  ): Promise<ProjectBlock> =>
+    apiClient.patch<ProjectBlock>(
+      `/projects/${projectId}/blocks/${blockId}`,
+      body,
+    ),
+  removeBlock: (projectId: string, blockId: string): Promise<unknown> =>
+    apiClient.delete<unknown>(`/projects/${projectId}/blocks/${blockId}`),
+
+  // Items
+  listItems(
+    projectId: string,
+    params: WorkItemListParams = {},
+  ): Promise<WorkItemListResponse> {
+    const q = new URLSearchParams();
+    if (params.status) q.set('status', params.status);
+    if (params.blockKey) q.set('blockKey', params.blockKey);
+    if (params.q) q.set('q', params.q);
+    if (params.take) q.set('take', String(params.take));
+    if (params.skip) q.set('skip', String(params.skip));
+    const qs = q.toString();
+    return apiClient.get<WorkItemListResponse>(
+      `/projects/${projectId}/work-items${qs ? `?${qs}` : ''}`,
+    );
+  },
+  createItem: (
+    projectId: string,
+    body: WorkItemPayload & { itemKey: string },
+  ): Promise<WorkItemDetail> =>
+    apiClient.post<WorkItemDetail>(`/projects/${projectId}/work-items`, body),
+  getItem: (id: string): Promise<WorkItemDetail> =>
+    apiClient.get<WorkItemDetail>(`/work-items/${id}`),
+  updateItem: (id: string, body: WorkItemPayload): Promise<WorkItemDetail> =>
+    apiClient.patch<WorkItemDetail>(`/work-items/${id}`, body),
+  removeItem: (id: string): Promise<unknown> =>
+    apiClient.delete<unknown>(`/work-items/${id}`),
+
+  // Material
+  listMaterials: (id: string): Promise<WorkItemMaterial[]> =>
+    apiClient.get<WorkItemMaterial[]>(`/work-items/${id}/materials`),
+  replaceMaterials: (
+    id: string,
+    materials: MaterialLinePayload[],
+  ): Promise<WorkItemMaterial[]> =>
+    apiClient.put<WorkItemMaterial[]>(`/work-items/${id}/materials`, {
+      materials,
+    }),
+
+  // Item-Zeit
+  itemTime: (id: string): Promise<WorkItemTimeSummary> =>
+    apiClient.get<WorkItemTimeSummary>(`/work-items/${id}/time`),
+
+  // Import (Multipart-Feld `files`)
+  previewImport: (
+    projectId: string,
+    files: File[],
+    options?: WorkItemImportOptions,
+  ): Promise<WorkItemImportSummary> =>
+    apiUpload<WorkItemImportSummary>(
+      `/projects/${projectId}/work-items/import/preview`,
+      buildImportForm(files, options),
+    ),
+  runImport: (
+    projectId: string,
+    files: File[],
+    options?: WorkItemImportOptions,
+  ): Promise<WorkItemImportSummary> =>
+    apiUpload<WorkItemImportSummary>(
+      `/projects/${projectId}/work-items/import`,
+      buildImportForm(files, options),
+    ),
+
+  // Kunden-PL
+  listCustomerPls: (projectId: string): Promise<CustomerPlAssignment[]> =>
+    apiClient.get<CustomerPlAssignment[]>(`/projects/${projectId}/customer-pls`),
+  listCustomerPlCandidates: (projectId: string): Promise<CustomerPlUser[]> =>
+    apiClient.get<CustomerPlUser[]>(
+      `/projects/${projectId}/customer-pls/candidates`,
+    ),
+  addCustomerPl: (
+    projectId: string,
+    userId: string,
+  ): Promise<CustomerPlAssignment> =>
+    apiClient.post<CustomerPlAssignment>(`/projects/${projectId}/customer-pls`, {
+      userId,
+    }),
+  removeCustomerPl: (projectId: string, userId: string): Promise<unknown> =>
+    apiClient.delete<unknown>(`/projects/${projectId}/customer-pls/${userId}`),
+};

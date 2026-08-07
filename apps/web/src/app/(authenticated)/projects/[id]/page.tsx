@@ -34,6 +34,8 @@ import { AssignmentsTab } from '@/components/projects/tabs/assignments-tab';
 import { EquipmentTab } from '@/components/projects/tabs/equipment-tab';
 import { EmailRecipientsTab } from '@/components/projects/tabs/email-recipients-tab';
 import { NotesHistoryTab } from '@/components/projects/tabs/notes-history-tab';
+import { WorkItemsTab } from '@/components/projects/tabs/work-items-tab';
+import { Badge } from '@/components/ui/badge';
 import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -195,6 +197,9 @@ export default function ProjectDetailPage(): React.ReactNode {
             </h1>
             <ProjectStatusBadge status={project.status} />
             <PriorityBadge priority={project.priority} />
+            {project.itemBased && (
+              <Badge variant="secondary">{t.workItems.badge}</Badge>
+            )}
           </div>
           <p className="font-mono text-sm text-muted-foreground">
             {project.projectNumber} · {project.customer.companyName}
@@ -249,6 +254,9 @@ export default function ProjectDetailPage(): React.ReactNode {
           <TabsTrigger value="equipment" className="min-h-[44px]">
             {t.tabs.equipment}
           </TabsTrigger>
+          <TabsTrigger value="arbeitsitems" className="min-h-[44px]">
+            {t.tabs.arbeitsitems}
+          </TabsTrigger>
           <TabsTrigger value="dokumente" className="min-h-[44px]">
             {t.tabs.dokumente}
           </TabsTrigger>
@@ -294,6 +302,10 @@ export default function ProjectDetailPage(): React.ReactNode {
             equipment={project.equipment}
             onChange={load}
           />
+        </TabsContent>
+
+        <TabsContent value="arbeitsitems">
+          <WorkItemsTab project={project} onProjectChange={load} />
         </TabsContent>
 
         <TabsContent value="dokumente">

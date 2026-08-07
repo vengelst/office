@@ -159,6 +159,9 @@ export const apiClient = {
   /** PATCH-Anfrage für partielle Updates. */
   patch: <T>(path: string, body?: unknown, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'PATCH', body }),
+  /** PUT-Anfrage zum vollständigen Ersetzen einer Ressource. */
+  put: <T>(path: string, body?: unknown, options?: RequestOptions) =>
+    apiFetch<T>(path, { ...options, method: 'PUT', body }),
   /** DELETE-Anfrage zum Entfernen einer Ressource. */
   delete: <T>(path: string, options?: RequestOptions) =>
     apiFetch<T>(path, { ...options, method: 'DELETE' }),

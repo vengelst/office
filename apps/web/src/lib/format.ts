@@ -59,6 +59,20 @@ export function formatDate(value?: string | null): string {
   });
 }
 
+/** ISO-Zeitstempel → deutsche Kurzform mit Uhrzeit ("07.08.2026, 14:32"). */
+export function formatDateTime(value?: string | null): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 /** Setzt eine vollständige Adresszeile zusammen. */
 export function joinAddress(parts: {
   addressLine1?: string | null;

@@ -161,6 +161,8 @@ export interface ProjectDetail {
   internalProjectManagerUserId: string | null;
   primaryCustomerContactId: string | null;
   pauseRuleId: string | null;
+  /** Projekt wird über Arbeitsitems abgearbeitet (SPEZ-arbeitsitems.md). */
+  itemBased: boolean;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
