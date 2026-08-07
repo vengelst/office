@@ -52,7 +52,8 @@ OPEN --claim--> IN_PROGRESS --reports/complete (min. 2 Fotos)--> REVIEW --approv
 | Methode | Pfad | Zweck |
 | --- | --- | --- |
 | GET | `/workers/me/work-items` | Eigene Items, offener Pool, laufende Session |
-| GET | `/workers/me/work-items/:id` | Item-Detail |
+| GET | `/workers/me/work-items/:id` | Item-Detail (inkl. `hasPdf`) |
+| GET | `/workers/me/work-items/:id/pdf` | Block-PDF dieses Items (Stream) |
 | POST | `/work-items/:id/claim` | Item nehmen |
 | POST | `/work-items/:id/sessions/start` | Aktuelles Item (beendet offene Sessions) |
 | POST | `/work-items/:id/sessions/stop` | Session beenden |
@@ -61,9 +62,58 @@ OPEN --claim--> IN_PROGRESS --reports/complete (min. 2 Fotos)--> REVIEW --approv
 
 `GET /worker-auth/me` liefert je Zuweisung `project.itemBased` mit – die
 Monteur-App blendet den Arbeitsitems-Bereich damit ohne Extra-Call ein.
-Block-PDFs sind für Monteure derzeit **nicht** abrufbar: `/documents/:id/download`
-ist auf `SUPERADMIN`/`OFFICE`/`PROJECT_MANAGER` beschränkt. Die App zeigt bis
-auf Weiteres nur die Planreferenz (`block.blockKey`, `pdfFile`, `pdfPage`).
+
+#### Block-PDF für Monteure
+
+`GET /workers/me/work-items/:id/pdf` ist genauso eng geschnitten wie der
+Foto-Endpunkt des Kunden-PLs – **kein** genereller Dokument-Download für die
+Rolle `WORKER`, `/documents/:id/download` bleibt unverändert auf
+`SUPERADMIN`/`OFFICE`/`PROJECT_MANAGER` begrenzt.
+
+* Der Aufrufer nennt nur das **Item**; die Dokument-ID kommt ausschließlich aus
+  `item.block.pdfDocumentId` (`WorkItemsService.findWorkerPdf`). Eine
+  Dokument-ID von außen gibt es nicht.
+* Zugriff hat, wer eine aktive `WorkItemAssignment` an diesem Item **oder** eine
+  aktive `ProjectAssignment` am Projekt des Items hat
+  (`assertWorkerItemAccess`, identisch zu `GET /workers/me/work-items/:id`) –
+  sonst `403`.
+* Ohne Block-PDF: `404 „Kein PDF verknüpft“`. Einzelseiten je Item (SPEZ 10.2)
+  sind noch nicht modelliert, es gibt daher bewusst keinen Fallback.
+* Gestreamt wird über `DocumentsService.getDownload()` (interner Service-Aufruf,
+  kein Umweg über den `DocumentsController`).
+* `?inline=1` liefert `Content-Disposition: inline`, sonst `attachment`.
+
+`findOne` liefert zusätzlich `hasPdf: boolean` (abgeleitet aus
+`block.pdfDocumentId`), damit die Monteur-App den Button „Plan / PDF“ ohne
+Extra-Call ein- oder ausblenden kann. Die Planreferenz (`block.blockKey`,
+`pdfFile`, `pdfPage`) bleibt als Textzeile daneben stehen.
+
+Die Monteur-App kann den Endpunkt nicht direkt verlinken (ein externer Viewer
+schickt kein Bearer-Token): `openWorkItemPdf` in
+`apps/mobile/lib/work-items.ts` lädt die Datei nativ in den App-Cache und
+öffnet sie per Android-`ACTION_VIEW` auf einer `content://`-URI
+(`FLAG_GRANT_READ_URI_PERMISSION`); ohne installierten PDF-Betrachter greift
+der Teilen-Dialog.
+
+##### Smoke-Test
+
+```bash
+# 200 + application/pdf: Monteur mit Projekt-/Itemzuordnung, Block hat ein PDF
+curl -D- -o plan.pdf "$API/api/workers/me/work-items/$ITEM_ID/pdf?inline=1" \
+  -H "Authorization: Bearer $WORKER_TOKEN"
+
+# 403 „Kein Zugriff auf dieses Item“: Item eines fremden Projekts
+curl -i "$API/api/workers/me/work-items/$FOREIGN_ITEM_ID/pdf" \
+  -H "Authorization: Bearer $WORKER_TOKEN"
+
+# 404 „Kein PDF verknüpft“: Item ohne Block oder Block ohne pdfDocumentId
+curl -i "$API/api/workers/me/work-items/$ITEM_WITHOUT_PDF/pdf" \
+  -H "Authorization: Bearer $WORKER_TOKEN"
+
+# 403: Büro-Download bleibt rollenbasiert – Worker-Token hat hier nichts zu suchen
+curl -i "$API/api/documents/$PDF_DOCUMENT_ID/download" \
+  -H "Authorization: Bearer $WORKER_TOKEN"
+```
 
 ### Kunden-PL – Rolle `CUSTOMER_PL` (bzw. `SUPERADMIN`), nur zugewiesene Projekte
 

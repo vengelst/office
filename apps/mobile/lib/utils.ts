@@ -23,6 +23,17 @@ export function formatDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('de-DE');
 }
 
+/** Datum + Uhrzeit → "TT.MM.JJJJ, HH:MM" (Historien über mehrere Tage) */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '–';
+  return `${d.toLocaleDateString('de-DE')}, ${d.toLocaleTimeString('de-DE', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })}`;
+}
+
 /** Initialen aus Vor- und Nachname */
 export function initials(first: string, last: string): string {
   return `${first[0] ?? ''}${last[0] ?? ''}`.toUpperCase();

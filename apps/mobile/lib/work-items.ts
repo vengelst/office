@@ -7,8 +7,15 @@
  *  - `WorkItemsService.findOneForWorker` → `WorkItemDetail` (= `findOne`)
  *
  * Rückmeldungen laufen als Multipart (Feld `photos`) über `apiUpload`.
+ * Das Block-PDF ist Binärdaten hinter einem Bearer-Token und läuft daher nicht
+ * über `apiFetch`, sondern über `openWorkItemPdf` (Download → lokal öffnen).
  */
-import { apiFetch, apiUpload } from './api';
+import { File, Paths } from 'expo-file-system';
+import { getContentUriAsync } from 'expo-file-system/legacy';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as Sharing from 'expo-sharing';
+import { Platform } from 'react-native';
+import { API_BASE_URL, apiFetch, apiUpload, getToken } from './api';
 
 // ── Basis-Typen ────────────────────────────────────────────────
 
@@ -104,6 +111,8 @@ export interface WorkItemListEntry {
 
 /** Vollständige Detailansicht (`detailSelect` + `photoDocumentIds`). */
 export interface WorkItemDetail extends WorkItemListEntry {
+  /** Am Block hängt ein PDF – Button „Plan / PDF“ nur dann anbieten. */
+  hasPdf: boolean;
   projectId: string;
   workScopeDe: string | null;
   workScopeSk: string | null;
@@ -227,6 +236,121 @@ export function formatQty(line: WorkItemMaterial): string {
     qty = Number.isFinite(num) ? String(num) : line.qty;
   }
   return [qty, line.qtyUnit].filter(Boolean).join(' ');
+}
+
+// ── Block-PDF (Unterlage) ──────────────────────────────────────
+
+/** Warum das Öffnen der Unterlage fehlgeschlagen ist (Texte in `i18n-work-items`). */
+export type WorkItemPdfFailure =
+  | 'unauthorized'
+  | 'notFound'
+  | 'noViewer'
+  | 'download';
+
+/** Fehler beim Laden/Öffnen des Block-PDFs – die UI zeigt den Grund DE + SK. */
+export class WorkItemPdfError extends Error {
+  readonly reason: WorkItemPdfFailure;
+
+  constructor(reason: WorkItemPdfFailure) {
+    super(`Block-PDF nicht verfügbar (${reason})`);
+    this.name = 'WorkItemPdfError';
+    this.reason = reason;
+  }
+}
+
+/** Dateinamen-tauglicher Rest einer Kennung ("05-A/01" → "05-a-01"). */
+function fileSlug(value: string): string {
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'plan'
+  );
+}
+
+/**
+ * HTTP-Status aus der Fehlermeldung eines fehlgeschlagenen Downloads.
+ * Die URL wird vorher entfernt – ein Port wie `:443` wäre sonst ein „Status“.
+ */
+function httpStatusOf(err: unknown): number | null {
+  const message = err instanceof Error ? err.message : String(err);
+  const match = /\b([45]\d{2})\b/.exec(message.replace(/https?:\/\/\S+/gi, ''));
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Lädt das Block-PDF des Items in den App-Cache und öffnet es.
+ *
+ * Ein Direktlink scheidet aus: Der Endpunkt verlangt das Bearer-Token, das ein
+ * externer Viewer oder Browser nicht mitschickt. Deshalb lädt die App die Datei
+ * selbst (nativer Stream, kein Base64 im JS-Speicher) und übergibt sie danach
+ * lokal weiter:
+ *
+ *  1. Android `ACTION_VIEW` auf eine `content://`-URI des App-FileProviders –
+ *     `flags: 1` = `FLAG_GRANT_READ_URI_PERMISSION`, sonst darf der Viewer nicht lesen.
+ *  2. Fällt das aus (kein PDF-Betrachter installiert), greift der Teilen-Dialog.
+ *
+ * @param item - Item mit Kennung und Block (für den Cache-Dateinamen)
+ * @throws WorkItemPdfError mit dem Grund für die Anzeige DE + SK
+ */
+export async function openWorkItemPdf(item: {
+  id: string;
+  itemKey: string;
+  block: WorkItemBlockRef | null;
+}): Promise<void> {
+  const token = await getToken();
+  if (!token) throw new WorkItemPdfError('unauthorized');
+
+  const target = new File(
+    Paths.cache,
+    `plan-${fileSlug(item.block?.blockKey ?? item.itemKey)}.pdf`,
+  );
+  if (target.exists) target.delete();
+
+  try {
+    await File.downloadFileAsync(
+      `${API_BASE_URL}/workers/me/work-items/${item.id}/pdf?inline=1`,
+      target,
+      { headers: { Authorization: `Bearer ${token}` }, idempotent: true },
+    );
+  } catch (err) {
+    const status = httpStatusOf(err);
+    if (status === 404) throw new WorkItemPdfError('notFound');
+    if (status === 401 || status === 403) throw new WorkItemPdfError('unauthorized');
+    throw new WorkItemPdfError('download');
+  }
+
+  await openLocalPdf(target.uri);
+}
+
+/** Übergibt die heruntergeladene Datei an einen Viewer bzw. den Teilen-Dialog. */
+async function openLocalPdf(fileUri: string): Promise<void> {
+  if (Platform.OS === 'android') {
+    try {
+      const contentUri = await getContentUriAsync(fileUri);
+      await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+        data: contentUri,
+        type: 'application/pdf',
+        flags: 1,
+      });
+      return;
+    } catch {
+      // Kein PDF-Betrachter installiert → unten der Teilen-Dialog.
+    }
+  }
+
+  // Die Datei liegt bereits lokal – ab hier kann nur noch das Öffnen scheitern.
+  try {
+    if (!(await Sharing.isAvailableAsync())) {
+      throw new WorkItemPdfError('noViewer');
+    }
+    await Sharing.shareAsync(fileUri, {
+      mimeType: 'application/pdf',
+      UTI: 'com.adobe.pdf',
+    });
+  } catch {
+    throw new WorkItemPdfError('noViewer');
+  }
 }
 
 // ── API ────────────────────────────────────────────────────────

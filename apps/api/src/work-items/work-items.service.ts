@@ -194,6 +194,9 @@ export class WorkItemsService {
 
     return {
       ...item,
+      // Abgeleitetes UI-Flag: spart der Monteur-App die Prüfung auf
+      // `block.pdfDocumentId` und bleibt stabil, falls die PDF-Quelle wächst.
+      hasPdf: item.block?.pdfDocumentId != null,
       reports: item.reports.map((report) => ({
         ...report,
         photoDocumentIds: photos.get(report.id) ?? [],
@@ -361,6 +364,22 @@ export class WorkItemsService {
    * @param workerId - UUID des Monteurs (aus dem Worker-Token)
    */
   async findOneForWorker(id: string, workerId: string) {
+    await this.assertWorkerItemAccess(id, workerId);
+    return this.findOne(id);
+  }
+
+  /**
+   * Stellt sicher, dass der Monteur dieses Item sehen darf: aktive Zuordnung
+   * am Item **oder** aktive Zuordnung am Projekt des Items (konsistent zu
+   * `claim` und `findOneForWorker`).
+   *
+   * @param id - UUID des Work Items
+   * @param workerId - UUID des Monteurs (aus dem Worker-Token)
+   * @returns Das Item (schlanke Projektion aus `ensureItem`)
+   * @throws NotFoundException wenn das Item nicht existiert
+   * @throws ForbiddenException wenn weder Item- noch Projektzuordnung besteht
+   */
+  async assertWorkerItemAccess(id: string, workerId: string) {
     const item = await this.ensureItem(id);
     const [itemAssignment, projectAssignment] = await Promise.all([
       this.prisma.workItemAssignment.findFirst({
@@ -375,7 +394,45 @@ export class WorkItemsService {
     if (!itemAssignment && !projectAssignment) {
       throw new ForbiddenException('Kein Zugriff auf dieses Item');
     }
-    return this.findOne(id);
+    return item;
+  }
+
+  /**
+   * Ermittelt das Block-PDF, das der Monteur zu diesem Item öffnen darf.
+   *
+   * Bewusst eng: Die Dokument-ID kommt **ausschließlich** aus
+   * `item.block.pdfDocumentId` – der Aufrufer kann keine Dokument-ID
+   * mitgeben. Damit bleibt `/documents/:id/download` für Monteure zu und es
+   * gibt keinen Weg, über dieses Item an fremde Dokumente zu kommen.
+   * Einzelseiten je Item (SPEZ 10.2) sind noch nicht modelliert; solange es
+   * dafür kein Feld gibt, bleibt es beim Block-PDF.
+   *
+   * @param id - UUID des Work Items
+   * @param workerId - UUID des Monteurs (aus dem Worker-Token)
+   * @returns Dokument-ID des Block-PDFs samt Kontext für Dateiname/Log
+   * @throws NotFoundException wenn am Block kein PDF hinterlegt ist
+   */
+  async findWorkerPdf(
+    id: string,
+    workerId: string,
+  ): Promise<{ documentId: string; itemKey: string; blockKey: string }> {
+    await this.assertWorkerItemAccess(id, workerId);
+
+    const item = await this.prisma.workItem.findUnique({
+      where: { id },
+      select: {
+        itemKey: true,
+        block: { select: { blockKey: true, pdfDocumentId: true } },
+      },
+    });
+    if (!item?.block?.pdfDocumentId) {
+      throw new NotFoundException('Kein PDF verknüpft');
+    }
+    return {
+      documentId: item.block.pdfDocumentId,
+      itemKey: item.itemKey,
+      blockKey: item.block.blockKey,
+    };
   }
 
   // ── Kunden-PL-Sicht ──────────────────────────────────────────

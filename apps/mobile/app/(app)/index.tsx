@@ -28,6 +28,7 @@ import {
 } from '../../lib/api';
 import { formatDuration, formatTime, initials, dayStart } from '../../lib/utils';
 import { getCurrentPosition } from '../../lib/location';
+import { T, both } from '../../lib/i18n-work-items';
 
 export default function DashboardScreen() {
   const { worker, logout } = useAuth();
@@ -47,6 +48,8 @@ export default function DashboardScreen() {
   const [photoBusy, setPhotoBusy] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** Nach dem Ausstempeln einmalig einblenden: Items bleiben zugeordnet. */
+  const [clockedOutHint, setClockedOutHint] = useState(false);
 
   const refresh = useCallback(
     async (workerId: string) => {
@@ -143,6 +146,7 @@ export default function DashboardScreen() {
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Vibration.vibrate(60);
+      setClockedOutHint(false);
       await refresh(worker.id);
     } catch (err) {
       Alert.alert(
@@ -168,6 +172,9 @@ export default function DashboardScreen() {
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       Vibration.vibrate([0, 40, 40, 40]);
+      // Item-Sessions schließt die API beim Ausstempeln, die Zuordnung bleibt –
+      // das einmal sagen, statt den Monteur rätseln zu lassen (SPEZ 5.1).
+      setClockedOutHint(itemBasedActive);
       await refresh(worker.id);
     } catch (err) {
       Alert.alert(
@@ -456,6 +463,10 @@ export default function DashboardScreen() {
               </>
             )}
           </TouchableOpacity>
+
+          {!clockedIn && clockedOutHint && (
+            <Text style={styles.clockOutHint}>{both(T.openItemsStay)}</Text>
+          )}
         </View>
 
         {/* Arbeitsitems – nur bei item-basiertem, aktuell gestempeltem Projekt */}
@@ -855,6 +866,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  clockOutHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
 
   // Arbeitsitems-Einstieg

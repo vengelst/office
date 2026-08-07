@@ -34,18 +34,21 @@ import { useAuth } from '../../../lib/auth-context';
 import { ApiError, workerApi, type ClockStatus } from '../../../lib/api';
 import {
   MIN_COMPLETION_PHOTOS,
+  WorkItemPdfError,
   formatQty,
+  openWorkItemPdf,
   workItemsApi,
   type PickedPhoto,
   type WorkItemDetail,
 } from '../../../lib/work-items';
 import {
+  PDF_ERRORS,
   STATUS_COLORS,
   T,
   both,
   statusLabel,
 } from '../../../lib/i18n-work-items';
-import { formatTime } from '../../../lib/utils';
+import { formatDateTime, formatTime } from '../../../lib/utils';
 
 /** Art der offenen Rückmeldung im Foto-Dialog. */
 type ReportMode = 'complete' | 'rework';
@@ -60,6 +63,8 @@ export default function WorkItemDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState(false);
+
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const [reportMode, setReportMode] = useState<ReportMode | null>(null);
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
@@ -145,6 +150,20 @@ export default function WorkItemDetailScreen() {
   };
 
   const handleStopSession = () => runAction(() => workItemsApi.stopSession(itemId));
+
+  /** Block-PDF laden und im Viewer öffnen (SPEZ 6.5 „Unterlage öffnen“). */
+  const handleOpenPdf = async () => {
+    if (!item || pdfBusy) return;
+    setPdfBusy(true);
+    try {
+      await openWorkItemPdf(item);
+    } catch (err) {
+      const reason = err instanceof WorkItemPdfError ? err.reason : 'download';
+      Alert.alert(both(T.error), both(PDF_ERRORS[reason]));
+    } finally {
+      setPdfBusy(false);
+    }
+  };
 
   // ── Foto-Auswahl ─────────────────────────────────────────────
 
@@ -313,10 +332,36 @@ export default function WorkItemDetailScreen() {
 
           {item.detail && <Text style={styles.detailText}>{item.detail}</Text>}
 
-          {planLine.length > 0 && (
-            <View style={styles.planRow}>
-              <Ionicons name="document-outline" size={16} color="#9ca3af" />
-              <Text style={styles.planText}>{planLine}</Text>
+          {/* Unterlage: Planreferenz („Block · Datei · Seite 3“) + PDF-Button */}
+          {(planLine.length > 0 || item.hasPdf) && (
+            <View style={styles.planSection}>
+              {planLine.length > 0 && (
+                <View style={styles.planRow}>
+                  <Ionicons name="document-outline" size={16} color="#9ca3af" />
+                  <Text style={styles.planText}>{planLine}</Text>
+                </View>
+              )}
+              {item.hasPdf && (
+                <TouchableOpacity
+                  style={[styles.pdfButton, pdfBusy && styles.pdfButtonBusy]}
+                  onPress={handleOpenPdf}
+                  disabled={pdfBusy}
+                  activeOpacity={0.8}
+                >
+                  {pdfBusy ? (
+                    <ActivityIndicator size="small" color="#f9fafb" />
+                  ) : (
+                    <Ionicons
+                      name="document-text-outline"
+                      size={20}
+                      color="#f9fafb"
+                    />
+                  )}
+                  <Text style={styles.pdfButtonText}>
+                    {pdfBusy ? both(T.openingPdf) : both(T.openPdf)}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
         </View>
@@ -358,23 +403,79 @@ export default function WorkItemDetailScreen() {
           </View>
         )}
 
-        {/* Rückmeldungen */}
+        {/* Rückmeldungen (neueste zuerst) */}
         {item.reports.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.cardLabel}>{both(T.reports)}</Text>
-            {item.reports.map((report) => (
-              <View key={report.id} style={styles.reportRow}>
-                <Text style={styles.reportType}>
-                  {report.type === 'COMPLETED'
-                    ? both(T.complete)
-                    : both(T.rework)}
-                </Text>
-                <Text style={styles.reportMeta}>
-                  {formatTime(report.reportedAt)} ·{' '}
+            {item.reports.map((report, idx) => (
+              <View
+                key={report.id}
+                style={[
+                  styles.historyRow,
+                  idx < item.reports.length - 1 && styles.historyBorder,
+                ]}
+              >
+                <View style={styles.historyHead}>
+                  <Ionicons
+                    name={
+                      report.type === 'COMPLETED'
+                        ? 'checkmark-done'
+                        : 'build-outline'
+                    }
+                    size={15}
+                    color={report.type === 'COMPLETED' ? '#4ade80' : '#f59e0b'}
+                  />
+                  <Text style={styles.historyType}>
+                    {report.type === 'COMPLETED'
+                      ? both(T.complete)
+                      : both(T.rework)}
+                  </Text>
+                </View>
+                <Text style={styles.historyMeta}>
+                  {formatDateTime(report.reportedAt)} · {both(T.byWorker)}{' '}
+                  {report.worker.firstName} {report.worker.lastName} ·{' '}
                   {report.photoDocumentIds.length} {both(T.photos)}
                 </Text>
                 {report.comment && (
-                  <Text style={styles.reportComment}>{report.comment}</Text>
+                  <Text style={styles.historyComment}>{report.comment}</Text>
+                )}
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Kontrollen des Kunden-PLs (nur lesen) */}
+        {item.reviews.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.cardLabel}>{both(T.reviews)}</Text>
+            {item.reviews.map((review, idx) => (
+              <View
+                key={review.id}
+                style={[
+                  styles.historyRow,
+                  idx < item.reviews.length - 1 && styles.historyBorder,
+                ]}
+              >
+                <View style={styles.historyHead}>
+                  <Ionicons
+                    name="shield-checkmark-outline"
+                    size={15}
+                    color="#60a5fa"
+                  />
+                  <Text style={styles.historyType}>
+                    {review.action === 'APPROVE'
+                      ? both(T.approvedReview)
+                      : both(T.forcedReview)}
+                  </Text>
+                </View>
+                <Text style={styles.historyMeta}>
+                  {formatDateTime(review.reviewedAt)}
+                  {review.reviewer
+                    ? ` · ${both(T.byWorker)} ${review.reviewer.displayName}`
+                    : ''}
+                </Text>
+                {review.comment && (
+                  <Text style={styles.historyComment}>{review.comment}</Text>
                 )}
               </View>
             ))}
@@ -772,19 +873,42 @@ const styles = StyleSheet.create({
     color: '#d1d5db',
     marginTop: 12,
   },
-  planRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  planSection: {
+    gap: 10,
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#1f2937',
   },
+  planRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   planText: {
     flex: 1,
     fontSize: 13,
     color: '#9ca3af',
+  },
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: 'rgba(59, 130, 246, 0.35)',
+    borderRadius: 12,
+    minHeight: 52,
+    paddingHorizontal: 16,
+  },
+  pdfButtonBusy: {
+    opacity: 0.7,
+  },
+  pdfButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#f9fafb',
   },
 
   // Arbeitsumfang
@@ -832,21 +956,30 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
 
-  // Rückmeldungen
-  reportRow: {
-    paddingVertical: 8,
+  // Historie (Rückmeldungen und Kontrollen)
+  historyRow: {
+    paddingVertical: 10,
   },
-  reportType: {
+  historyBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937',
+  },
+  historyHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  historyType: {
     fontSize: 14,
     fontWeight: '600',
     color: '#f9fafb',
   },
-  reportMeta: {
+  historyMeta: {
     fontSize: 12,
     color: '#6b7280',
-    marginTop: 1,
+    marginTop: 2,
   },
-  reportComment: {
+  historyComment: {
     fontSize: 13,
     color: '#d1d5db',
     marginTop: 4,

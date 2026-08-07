@@ -132,6 +132,8 @@ export interface WorkItemListEntry {
 
 /** Vollständige Item-Detailansicht. */
 export interface WorkItemDetail extends WorkItemListEntry {
+  /** Am Block hängt ein PDF (abgeleitet aus `block.pdfDocumentId`). */
+  hasPdf: boolean;
   projectId: string;
   workScopeDe: string | null;
   workScopeSk: string | null;

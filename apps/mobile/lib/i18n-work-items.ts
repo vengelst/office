@@ -9,7 +9,7 @@
  *  - `t.x` = zusammengesetztes Label „Deutsch / Slovensky“ für Buttons
  *  - `de`/`sk` getrennt, wo die Sprachen zweizeilig dargestellt werden
  */
-import type { WorkItemStatus } from './work-items';
+import type { WorkItemPdfFailure, WorkItemStatus } from './work-items';
 
 /** Ein Begriff in beiden Sprachen. */
 export interface Bilingual {
@@ -77,6 +77,10 @@ export const T = {
   page: { de: 'Seite', sk: 'Strana' },
   reports: { de: 'Rückmeldungen', sk: 'Hlásenia' },
   photos: { de: 'Fotos', sk: 'Fotky' },
+  reviews: { de: 'Kontrollen', sk: 'Kontroly' },
+  approvedReview: { de: 'Kontrolle bestanden', sk: 'Kontrola úspešná' },
+  forcedReview: { de: 'Vom PL fertig gesetzt', sk: 'Ukončené vedúcim' },
+  byWorker: { de: 'von', sk: 'od' },
 
   // Aktionen
   claim: { de: 'Nehmen', sk: 'Prevziať' },
@@ -85,6 +89,8 @@ export const T = {
   stopTime: { de: 'Zeit stoppen', sk: 'Zastaviť čas' },
   complete: { de: 'Fertig', sk: 'Hotovo' },
   rework: { de: 'Nacharbeit', sk: 'Dodatočná práca' },
+  openPdf: { de: 'Plan / PDF', sk: 'Plán / PDF' },
+  openingPdf: { de: 'PDF wird geladen…', sk: 'PDF sa načítava…' },
   camera: { de: 'Kamera', sk: 'Fotoaparát' },
   gallery: { de: 'Galerie', sk: 'Galéria' },
   send: { de: 'Senden', sk: 'Odoslať' },
@@ -150,4 +156,28 @@ export const T = {
     de: 'Daten konnten nicht geladen werden.',
     sk: 'Údaje sa nepodarilo načítať.',
   },
+  openItemsStay: {
+    de: 'Offene Items bleiben dir zugeordnet.',
+    sk: 'Otvorené položky ostávajú priradené tebe.',
+  },
 } satisfies Record<string, Bilingual>;
+
+/** Fehlertexte beim Öffnen des Block-PDFs (`WorkItemPdfError.reason`). */
+export const PDF_ERRORS: Record<WorkItemPdfFailure, Bilingual> = {
+  unauthorized: {
+    de: 'Kein Zugriff auf diesen Plan.',
+    sk: 'Žiadny prístup k tomuto plánu.',
+  },
+  notFound: {
+    de: 'Für diesen Block ist kein PDF hinterlegt.',
+    sk: 'Pre tento blok nie je uložené žiadne PDF.',
+  },
+  noViewer: {
+    de: 'Es ist keine App zum Öffnen von PDFs installiert.',
+    sk: 'Nie je nainštalovaná žiadna aplikácia na otváranie PDF.',
+  },
+  download: {
+    de: 'Plan konnte nicht geladen werden.',
+    sk: 'Plán sa nepodarilo načítať.',
+  },
+};
