@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -9,14 +10,17 @@ import {
   BreakScopeType,
   DocumentType,
   Prisma,
+  RoleCode,
   SignerType,
   TimeEntryType,
   WeeklyTimesheetStatus,
 } from '@prisma/client';
+import { AuthUser } from '@office/types';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { DocumentsService } from '../documents/documents.service';
 import { StoragePathService } from '../common/storage-path.service';
+import { WorkItemsService } from '../work-items/work-items.service';
 import { TimesheetPdfService } from './pdf.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
 import { UpdateDayDto } from './dto/update-day.dto';
@@ -38,6 +42,13 @@ const SORTABLE_FIELDS = [
   'totalMinutesNet',
 ] as const;
 type SortField = (typeof SORTABLE_FIELDS)[number];
+
+/** Interne Rollen – sie sehen und bearbeiten alle Stundenzettel wie bisher. */
+const INTERNAL_ROLES: string[] = [
+  RoleCode.SUPERADMIN,
+  RoleCode.OFFICE,
+  RoleCode.PROJECT_MANAGER,
+];
 
 /** Status, in denen der Stundenzettel editiert/neu generiert werden darf. */
 const EDITABLE_STATUSES: WeeklyTimesheetStatus[] = [
@@ -133,7 +144,54 @@ export class TimesheetsService {
     private readonly documentsService: DocumentsService,
     private readonly storagePathService: StoragePathService,
     private readonly pdfService: TimesheetPdfService,
+    private readonly workItems: WorkItemsService,
   ) {}
+
+  // ── Projekt-Einschränkung für Kunden-PLs ─────────────────────
+
+  /**
+   * Projekt-Einschränkung des angemeldeten Benutzers.
+   * Interne Rollen (SUPERADMIN/OFFICE/PROJECT_MANAGER) bleiben unbeschränkt;
+   * ein reiner Kunden-PL sieht nur Projekte mit aktiver Zuordnung
+   * (`ProjectCustomerPlAssignment`, siehe SPEZ-arbeitsitems.md 4.2).
+   *
+   * @param user - Angemeldeter Benutzer (JWT); ohne Angabe keine Einschränkung
+   * @returns `null` = alle Projekte, sonst die erlaubten Projekt-IDs
+   */
+  async projectScopeFor(user?: AuthUser): Promise<string[] | null> {
+    if (!user) return null;
+    if (user.roles.some((role) => INTERNAL_ROLES.includes(role))) return null;
+    return this.workItems.findCustomerPlProjectIds(user);
+  }
+
+  /**
+   * Stellt sicher, dass der Benutzer auf den Stundenzettel zugreifen darf.
+   *
+   * @throws ForbiddenException wenn das Projekt nicht zugewiesen ist
+   */
+  async assertProjectAccess(projectId: string, user?: AuthUser): Promise<void> {
+    const scope = await this.projectScopeFor(user);
+    if (scope && !scope.includes(projectId)) {
+      throw new ForbiddenException('Kein Zugriff auf dieses Projekt');
+    }
+  }
+
+  /** Detail inkl. Zugriffsprüfung (Kunden-PL nur eigene Projekte). */
+  async findOneForUser(id: string, user?: AuthUser) {
+    const sheet = await this.findOne(id);
+    await this.assertProjectAccess(sheet.projectId, user);
+    return sheet;
+  }
+
+  /**
+   * Genehmigt („abzeichnen“) inkl. Zugriffsprüfung – für den Kunden-PL
+   * der einzige schreibende Stundenzettel-Vorgang.
+   */
+  async approveForUser(id: string, user: AuthUser) {
+    const sheet = await this.findOne(id);
+    await this.assertProjectAccess(sheet.projectId, user);
+    return this.approve(id, user.type === 'user' ? user.id : null);
+  }
 
   // ── Liste / Detail ───────────────────────────────────────────
 
@@ -141,9 +199,10 @@ export class TimesheetsService {
    * Liefert eine paginierte und filterbare Liste der Wochenstundenzettel.
    *
    * @param params - Filter (Monteur, Projekt, KW, Status), Paginierung und Sortierung
+   * @param user - Angemeldeter Benutzer; schränkt einen Kunden-PL auf seine Projekte ein
    * @returns Paginierte Liste mit Stundenzettel-Übersichtsdaten
    */
-  async findAll(params: ListTimesheetsParams) {
+  async findAll(params: ListTimesheetsParams, user?: AuthUser) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
     const skip = (page - 1) * limit;
@@ -168,6 +227,17 @@ export class TimesheetsService {
           (Object.values(WeeklyTimesheetStatus) as string[]).includes(s),
         );
       if (statuses.length) where.status = { in: statuses };
+    }
+
+    // Kunden-PL: harte Einschränkung auf zugewiesene Projekte. Ein Projektfilter
+    // außerhalb des Scopes ergibt eine leere Liste statt fremder Daten.
+    const scope = await this.projectScopeFor(user);
+    if (scope) {
+      where.projectId = {
+        in: params.projectId
+          ? scope.filter((id) => id === params.projectId)
+          : scope,
+      };
     }
 
     const orderBy: Prisma.WeeklyTimesheetOrderByWithRelationInput[] =

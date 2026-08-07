@@ -9,12 +9,15 @@ import {
   Wrench,
   Clock,
   ClipboardList,
+  ClipboardCheck,
   Receipt,
   FolderArchive,
   CheckSquare,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
+import type { AuthUser } from '@office/types';
+import { isCustomerPlOnly } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 
 export interface NavItem {
@@ -65,3 +68,30 @@ export const navGroups: NavGroup[] = [
 
 /** Flache Liste aller Nav-Items (z. B. für Active-State-Lookups). */
 export const navItems: NavItem[] = navGroups.flatMap((g) => g.items);
+
+/**
+ * Navigation des Kunden-PLs – bewusst nur Item-Prüfung und Stundenzettel.
+ * Interne Bereiche (Kunden, Stammdaten, Rechnungen, Einstellungen …) fehlen
+ * hier vollständig (SPEZ-arbeitsitems.md 4.2).
+ */
+export const customerPlNavGroups: NavGroup[] = [
+  {
+    items: [
+      {
+        href: '/pl',
+        label: texts.customerPl.nav.projects,
+        icon: FolderKanban,
+      },
+      {
+        href: '/pl/timesheets',
+        label: texts.customerPl.nav.timesheets,
+        icon: ClipboardCheck,
+      },
+    ],
+  },
+];
+
+/** Navigationsgruppen passend zu den Rollen des angemeldeten Benutzers. */
+export function navGroupsForUser(user: AuthUser | null | undefined): NavGroup[] {
+  return isCustomerPlOnly(user) ? customerPlNavGroups : navGroups;
+}

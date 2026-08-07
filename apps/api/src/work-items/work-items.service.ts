@@ -42,6 +42,12 @@ const listSelect = {
       },
     },
   },
+  // Letzte Rückmeldung – Board-Spalte "letzte Meldung" (Büro und Kunden-PL).
+  reports: {
+    orderBy: { reportedAt: 'desc' },
+    take: 1,
+    select: { id: true, type: true, reportedAt: true },
+  },
   _count: { select: { materials: true, reports: true } },
 } satisfies Prisma.WorkItemSelect;
 
@@ -426,6 +432,65 @@ export class WorkItemsService {
     });
     if (!assignment) {
       throw new ForbiddenException('Kein Zugriff auf dieses Projekt');
+    }
+  }
+
+  /**
+   * Projekt-IDs, für die der Benutzer als Kunden-PL aktiv freigeschaltet ist.
+   * Basis für projektbezogene Filter außerhalb dieses Moduls (z. B. Stundenzettel).
+   *
+   * @param user - Angemeldeter Benutzer (JWT)
+   * @returns Projekt-IDs (leer, wenn keine Zuordnung besteht)
+   */
+  async findCustomerPlProjectIds(user: AuthUser): Promise<string[]> {
+    if (user.type !== 'user') {
+      throw new ForbiddenException('Kunden-PL-Zugriff erfordert einen Benutzer-Login');
+    }
+    const assignments = await this.prisma.projectCustomerPlAssignment.findMany({
+      where: { userId: user.id, active: true, project: { deletedAt: null } },
+      select: { projectId: true },
+    });
+    return assignments.map((a) => a.projectId);
+  }
+
+  /**
+   * Prüft, ob ein Foto-Dokument zu diesem Item gehört und der Kunden-PL es
+   * sehen darf. Erlaubt sind nur Dokumente, die am Item selbst oder an einer
+   * seiner Rückmeldungen hängen – bewusst keine breite Dokumentfreigabe.
+   *
+   * @param itemId - UUID des Work Items
+   * @param documentId - UUID des Dokuments
+   * @param user - Angemeldeter Benutzer (JWT)
+   * @throws ForbiddenException wenn das Projekt nicht zugewiesen ist
+   * @throws NotFoundException wenn das Dokument nicht zu diesem Item gehört
+   */
+  async assertCustomerPlPhotoAccess(
+    itemId: string,
+    documentId: string,
+    user: AuthUser,
+  ): Promise<void> {
+    const item = await this.ensureItem(itemId);
+    await this.assertCustomerPlAccess(item.projectId, user);
+
+    const reports = await this.prisma.workItemReport.findMany({
+      where: { workItemId: itemId },
+      select: { id: true },
+    });
+    const link = await this.prisma.documentLink.findFirst({
+      where: {
+        documentId,
+        OR: [
+          { entityType: 'WORK_ITEM', entityId: itemId },
+          {
+            entityType: 'WORK_ITEM_REPORT',
+            entityId: { in: reports.map((r) => r.id) },
+          },
+        ],
+      },
+      select: { id: true },
+    });
+    if (!link) {
+      throw new NotFoundException('Foto gehört nicht zu diesem Item');
     }
   }
 

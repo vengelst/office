@@ -72,8 +72,33 @@ auf Weiteres nur die Planreferenz (`block.blockKey`, `pdfFile`, `pdfPage`).
 | GET | `/pl/projects` | Eigene item-basierte Projekte |
 | GET | `/pl/projects/:projectId/work-items` | Board-Daten inkl. Status-Zähler |
 | GET | `/pl/work-items/:id` | Item-Detail inkl. Foto-IDs |
+| GET | `/pl/work-items/:id/photos/:documentId` | Foto einer Rückmeldung (Stream) |
 | POST | `/work-items/:id/reviews/approve` | Kontrolle bestanden |
 | POST | `/work-items/:id/reviews/force-complete` | PL setzt selbst fertig |
+
+Der Foto-Endpunkt ist bewusst eng geschnitten: `/documents/:id/download` bleibt
+für `CUSTOMER_PL` gesperrt; gestreamt wird nur ein Dokument, das per
+`DocumentLink` am Item (`WORK_ITEM`) oder an einer seiner Rückmeldungen
+(`WORK_ITEM_REPORT`) hängt – und nur, wenn das Projekt zugewiesen ist
+(`assertCustomerPlPhotoAccess`).
+
+### Stundenzettel des Kunden-PLs
+
+Der Kunden-PL zeichnet Wochenstunden ab (SPEZ-arbeitsitems.md 4.2/8.1). Dafür
+ist er in `TimesheetsController` **nur** für diese Endpunkte freigeschaltet:
+
+| Methode | Pfad | Zweck |
+| --- | --- | --- |
+| GET | `/timesheets` | Liste – gefiltert auf zugewiesene Projekte |
+| GET | `/timesheets/:id` | Detail – 403 bei fremdem Projekt |
+| GET | `/timesheets/:id/pdf` | PDF – 403 bei fremdem Projekt |
+| POST | `/timesheets/:id/approve` | Abzeichnen (nur aus Status `SUBMITTED`) |
+
+Generieren, Tageskorrektur, Einreichen, Zurückweisen, Archivieren und
+Unterschreiben bleiben den internen Rollen vorbehalten. Die Einschränkung
+berechnet `TimesheetsService.projectScopeFor()` aus
+`WorkItemsService.findCustomerPlProjectIds()` – interne Rollen erhalten
+`null` (keine Einschränkung), sodass sich für das Büro nichts ändert.
 
 ## Import
 

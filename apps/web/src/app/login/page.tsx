@@ -16,30 +16,31 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
+import { homeRouteFor } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 
 export default function LoginPage(): React.ReactNode {
   const router = useRouter();
-  const { login, isAuthenticated, isLoading } = useAuth();
+  const { login, isAuthenticated, isLoading, user } = useAuth();
   const { toast } = useToast();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Bereits angemeldet → direkt zum Dashboard.
+  // Bereits angemeldet → Startseite je nach Rolle (Kunden-PL: /pl).
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace('/dashboard');
+      router.replace(homeRouteFor(user));
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      await login(email, password);
-      router.replace('/dashboard');
+      const loggedIn = await login(email, password);
+      router.replace(homeRouteFor(loggedIn));
     } catch (error) {
       const message =
         error instanceof ApiError

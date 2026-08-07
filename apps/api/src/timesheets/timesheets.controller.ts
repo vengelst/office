@@ -31,6 +31,12 @@ import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
  * Controller für die Stundenzettel-Verwaltung.
  * Stellt Endpunkte für Generierung, Workflow (Einreichen, Genehmigen, Zurückweisen),
  * Tageskorrektur, Unterschriften und PDF-Export bereit.
+ *
+ * Der Kunden-PL (`CUSTOMER_PL`) ist bewusst nur für die lesenden Endpunkte und
+ * das Abzeichnen (`approve`) freigeschaltet – und dort zusätzlich auf seine
+ * zugewiesenen Projekte beschränkt (SPEZ-arbeitsitems.md 4.2/8.1).
+ * Generieren, Korrigieren, Einreichen, Zurückweisen, Archivieren und
+ * Unterschreiben bleiben den internen Rollen vorbehalten.
  */
 @ApiTags('timesheets')
 @ApiBearerAuth()
@@ -44,8 +50,13 @@ export class TimesheetsController {
   ) {}
 
   @Get()
-  @ApiOperation({ summary: 'Stundenzettel auflisten (Filter, Pagination)' })
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
+  @ApiOperation({
+    summary:
+      'Stundenzettel auflisten (Filter, Pagination); Kunden-PL nur eigene Projekte',
+  })
   findAll(
+    @CurrentUser() user: AuthUser,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
     @Query('workerId') workerId?: string,
@@ -56,17 +67,20 @@ export class TimesheetsController {
     @Query('sortBy') sortBy?: string,
     @Query('sortDir') sortDir?: 'asc' | 'desc',
   ) {
-    return this.timesheets.findAll({
-      page: page ? Number(page) : undefined,
-      limit: limit ? Number(limit) : undefined,
-      workerId,
-      projectId,
-      weekYear: weekYear ? Number(weekYear) : undefined,
-      weekNumber: weekNumber ? Number(weekNumber) : undefined,
-      status,
-      sortBy,
-      sortDir,
-    });
+    return this.timesheets.findAll(
+      {
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
+        workerId,
+        projectId,
+        weekYear: weekYear ? Number(weekYear) : undefined,
+        weekNumber: weekNumber ? Number(weekNumber) : undefined,
+        status,
+        sortBy,
+        sortDir,
+      },
+      user,
+    );
   }
 
   @Post('generate')
@@ -76,9 +90,10 @@ export class TimesheetsController {
   }
 
   @Get(':id')
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
   @ApiOperation({ summary: 'Stundenzettel-Detail (Tage + Unterschriften)' })
-  findOne(@Param('id') id: string) {
-    return this.timesheets.findOne(id);
+  findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.timesheets.findOneForUser(id, user);
   }
 
   @Patch(':id/days/:dayId')
@@ -99,10 +114,13 @@ export class TimesheetsController {
   }
 
   @Post(':id/approve')
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Stundenzettel genehmigen' })
+  @ApiOperation({
+    summary: 'Stundenzettel genehmigen / abzeichnen (Kunden-PL: eigene Projekte)',
+  })
   approve(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.timesheets.approve(id, user.type === 'user' ? user.id : null);
+    return this.timesheets.approveForUser(id, user);
   }
 
   @Post(':id/archive')
@@ -143,11 +161,14 @@ export class TimesheetsController {
   }
 
   @Get(':id/pdf')
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
   @ApiOperation({ summary: 'Stundenzettel als PDF exportieren' })
   async exportPdf(
     @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    await this.timesheets.findOneForUser(id, user);
     const { buffer, filename } = await this.pdf.generate(id);
     res.set({
       'Content-Type': 'application/pdf',

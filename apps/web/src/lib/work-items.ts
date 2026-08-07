@@ -1,11 +1,16 @@
 /**
  * Typen und API-Funktionen für die Arbeitsitems (SPEZ-arbeitsitems.md).
- * Spiegelt die Büro-/Admin-Endpoints aus `apps/api/src/work-items/` wider.
+ * Spiegelt die Büro-/Admin-Endpoints aus `apps/api/src/work-items/` wider
+ * sowie die Kunden-PL-Endpoints (`/pl/**`, siehe `customerPlApi` unten).
  *
  * Der Excel-/CSV-Import läuft als Multipart-Upload (Feld `files`) und daher
  * nicht über `apiClient` (JSON), sondern über `apiUpload` aus `api-client.ts`.
+ * Fotos sind Binärdaten und laufen über `fetch` mit Bearer-Token.
  */
-import { apiClient, apiUpload } from './api-client';
+import { ApiError, apiClient, apiUpload, TOKEN_STORAGE_KEY } from './api-client';
+
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
 // ── Basis-Typen ────────────────────────────────────────────────
 
@@ -116,6 +121,12 @@ export interface WorkItemListEntry {
   updatedAt: string;
   block: WorkItemBlockRef | null;
   assignments: WorkItemAssignment[];
+  /** Nur die jüngste Rückmeldung (Board-Spalte „letzte Meldung“). */
+  reports: Array<{
+    id: string;
+    type: WorkItemReportType;
+    reportedAt: string;
+  }>;
   _count: { materials: number; reports: number };
 }
 
@@ -215,6 +226,38 @@ export interface CustomerPlAssignment {
   active: boolean;
   createdAt: string;
   user: CustomerPlUser;
+}
+
+/** Projekt in der Kunden-PL-Übersicht (`GET /pl/projects`). */
+export interface CustomerPlProject {
+  id: string;
+  projectNumber: string;
+  title: string;
+  status: string;
+  itemBased: boolean;
+  customer: { id: string; companyName: string } | null;
+  _count: { workItems: number };
+}
+
+/** Board-Antwort des Kunden-PLs inkl. Projektkopf. */
+export interface CustomerPlBoardResponse extends WorkItemListResponse {
+  project: {
+    id: string;
+    projectNumber: string;
+    title: string;
+    itemBased: boolean;
+  } | null;
+}
+
+/** Antwort einer Prüfung (approve / force-complete). */
+export interface WorkItemReviewResult {
+  review: {
+    id: string;
+    action: WorkItemReviewAction;
+    comment: string | null;
+    reviewedAt: string;
+  };
+  workItem: WorkItemDetail;
 }
 
 // ── Anlege-/Änderungs-Payloads ─────────────────────────────────
@@ -412,4 +455,82 @@ export const workItemsApi = {
     }),
   removeCustomerPl: (projectId: string, userId: string): Promise<unknown> =>
     apiClient.delete<unknown>(`/projects/${projectId}/customer-pls/${userId}`),
+};
+
+// ── Kunden-PL (Rolle CUSTOMER_PL) ──────────────────────────────
+
+/** Query-String der Board-Filter (identisch zur Büro-Liste). */
+function boardQuery(params: WorkItemListParams): string {
+  const q = new URLSearchParams();
+  if (params.status) q.set('status', params.status);
+  if (params.blockKey) q.set('blockKey', params.blockKey);
+  if (params.q) q.set('q', params.q);
+  if (params.take) q.set('take', String(params.take));
+  if (params.skip) q.set('skip', String(params.skip));
+  const qs = q.toString();
+  return qs ? `?${qs}` : '';
+}
+
+/**
+ * Lädt ein Foto der Fertigmeldung als Object-URL.
+ * Der Kunden-PL hat bewusst keinen Zugriff auf `/documents/:id/download`;
+ * der Stream läuft item-gebunden über `/pl/work-items/:id/photos/:documentId`.
+ * Der Aufrufer ist für `URL.revokeObjectURL()` verantwortlich.
+ */
+async function plPhotoObjectUrl(
+  itemId: string,
+  documentId: string,
+): Promise<string> {
+  const token =
+    typeof window !== 'undefined'
+      ? window.localStorage.getItem(TOKEN_STORAGE_KEY)
+      : null;
+  const res = await fetch(
+    `${API_BASE_URL}/pl/work-items/${itemId}/photos/${documentId}`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+  );
+  if (!res.ok) {
+    throw new ApiError(`Foto konnte nicht geladen werden (${res.status})`, res.status);
+  }
+  return URL.createObjectURL(await res.blob());
+}
+
+/**
+ * API-Client des Kunden-PLs: eigene Projekte, Board, Item-Detail, Fotos
+ * sowie Prüfen (approve) und Selbst-Fertigsetzen (force-complete).
+ * Alle Endpunkte sind serverseitig auf die zugewiesenen Projekte begrenzt.
+ */
+export const customerPlApi = {
+  /** GET /pl/projects – item-basierte Projekte mit aktiver Kunden-PL-Zuordnung. */
+  projects: (): Promise<CustomerPlProject[]> =>
+    apiClient.get<CustomerPlProject[]>('/pl/projects'),
+
+  /** GET /pl/projects/:projectId/work-items – Board-Daten inkl. Status-Zähler. */
+  workItems: (
+    projectId: string,
+    params: WorkItemListParams = {},
+  ): Promise<CustomerPlBoardResponse> =>
+    apiClient.get<CustomerPlBoardResponse>(
+      `/pl/projects/${projectId}/work-items${boardQuery(params)}`,
+    ),
+
+  /** GET /pl/work-items/:id – Item-Detail inkl. Foto-IDs der Rückmeldungen. */
+  workItem: (id: string): Promise<WorkItemDetail> =>
+    apiClient.get<WorkItemDetail>(`/pl/work-items/${id}`),
+
+  /** Foto einer Rückmeldung als Object-URL (authentifiziert, item-gebunden). */
+  photoObjectUrl: plPhotoObjectUrl,
+
+  /** POST /work-items/:id/reviews/approve – Kontrolle bestanden → Geprüft. */
+  approve: (id: string, comment?: string): Promise<WorkItemReviewResult> =>
+    apiClient.post<WorkItemReviewResult>(`/work-items/${id}/reviews/approve`, {
+      comment,
+    }),
+
+  /** POST /work-items/:id/reviews/force-complete – PL setzt selbst fertig. */
+  forceComplete: (id: string, comment?: string): Promise<WorkItemReviewResult> =>
+    apiClient.post<WorkItemReviewResult>(
+      `/work-items/${id}/reviews/force-complete`,
+      { comment },
+    ),
 };

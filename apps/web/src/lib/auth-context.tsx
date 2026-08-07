@@ -19,7 +19,8 @@ interface AuthContextValue {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  /** Meldet an und liefert den angemeldeten Benutzer (für rollenabhängige Weiterleitung). */
+  login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -56,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
     setToken(res.accessToken);
     setUser(res.user);
+    return res.user;
   }, []);
 
   const logout = useCallback(async () => {

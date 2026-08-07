@@ -2,16 +2,31 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
 import { cn } from '@/lib/utils';
-import { navGroups } from './nav-items';
+import { navGroupsForUser } from './nav-items';
 
 interface SidebarNavProps {
   onNavigate?: () => void;
 }
 
-/** Gemeinsame Navigationsliste für Desktop-Sidebar und mobiles Sheet. */
+/**
+ * Gemeinsame Navigationsliste für Desktop-Sidebar und mobiles Sheet.
+ * Ein reiner Kunden-PL sieht nur seinen eigenen, reduzierten Bereich.
+ */
 export function SidebarNav({ onNavigate }: SidebarNavProps): React.ReactNode {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const navGroups = navGroupsForUser(user);
+
+  // Genauester Treffer gewinnt, damit z. B. /pl/timesheets nicht zusätzlich
+  // den Eintrag /pl markiert.
+  const activeHref = navGroups
+    .flatMap((group) => group.items.map((item) => item.href))
+    .filter(
+      (href) => pathname === href || pathname.startsWith(`${href}/`),
+    )
+    .sort((a, b) => b.length - a.length)[0];
 
   return (
     <nav className="flex flex-col gap-1 px-3 py-4">
@@ -28,9 +43,7 @@ export function SidebarNav({ onNavigate }: SidebarNavProps): React.ReactNode {
           <div className="flex flex-col gap-1">
             {group.items.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                pathname === item.href ||
-                pathname.startsWith(`${item.href}/`);
+              const isActive = activeHref === item.href;
               return (
                 <Link
                   key={item.href}
