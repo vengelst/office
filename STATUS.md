@@ -194,7 +194,7 @@ office/
 ### 20. Arbeitsitems – Monteur-Oberfläche im Web + PWA
 - **Feature-Parität zur APK** (SPEZ-arbeitsitems.md §13): Liste (aktuelles Item,
   eigene, offener Pool, Suche nach Kennung), Detail (Metadaten, Umfang DE+SK,
-  Material DE+SK), Nehmen, Item-Zeit start/stop, Block-PDF, Fertig (≥2 Fotos),
+  Material DE+SK optional), Nehmen, Item-Zeit start/stop, Block-PDF, Fertig (≥2 Fotos),
   Nacharbeit – alles mit denselben Monteur-Endpunkten (Worker-Token)
 - **Zwei Einstiege, eine Implementierung**: `/worker-app/work-items` (persönliches
   Gerät, auch iPhone/iPad) und `/kiosk` (Tablet, festes Projekt) nutzen die
@@ -204,6 +204,9 @@ office/
   (nur Build-Assets, kein Offline für API); Installation über Safari
   („Zum Home-Bildschirm“) bzw. Chrome („App installieren“)
 - **`/download`**: APK für Android, PWA-Anleitung für iPhone/iPad
+- **Import-Soll (08.08.2026):** Primär Mehrseiten-PDF (1 Seite = 1 Order), Excel nur
+  Fallback; DB-Kern = Kennung + Arbeitsinhalt + Completion-Tracking; Material optional
+  (`SPEZ-arbeitsitems.md` §10) – Umsetzung noch offen
 
 ---
 

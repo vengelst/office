@@ -8,6 +8,19 @@ Sammlung von Ideen, die später umgesetzt oder geprüft werden sollen.
 
 <!-- Neue Ideen hier eintragen -->
 
+### [2026-08-08] – PDF-Primärimport für Arbeitsitems (1 Seite = 1 Order)
+
+Spez geändert (`SPEZ-arbeitsitems.md` §10): Excel ist nur noch Fallback.
+
+**Soll:**
+1. Mehrseiten-PDF hochladen (20–50 Seiten üblich) → automatisch 1 Item je Seite
+2. Optional Kartentyp-Template (Beispielseite, Felder zuordnen) – Layouts je Kunde unterschiedlich
+3. Extraktion nur Kennung + Arbeitsinhalt; Bauteile dürfen im PDF bleiben
+4. Büro-Vorschau → Commit → Pool „Offen“
+5. Completion-Tracking (wer/wann/Zeitraum) über bestehenden Item-Workflow
+
+**Nicht nötig:** Pflicht-Materialtabelle in der DB; AI-generiertes Excel pro Auftrag.
+
 ### [2026-08-08] – Abrechnung aus geprüften Arbeitsitems (UNIT_BASED)
 
 Arbeitsitems (Import, Monteur-Flow, Kunden-PL-Prüfung) sind umgesetzt. Offen bleibt die
