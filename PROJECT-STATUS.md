@@ -56,7 +56,7 @@
 
 1. **Google People API aktivieren** – People API + DWD-Scope `contacts` für Service Account (Contacts-Sync noch nicht produktiv)
 2. **APK persistent machen** – Volume-Mount in `docker-compose.prod.yml` für `kiosk.apk` (aktuell nach Rebuild per `docker cp`)
-3. **PDF-Primärimport Arbeitsitems** – Mehrseiten-PDF → 1 Seite = 1 Order, Vorschau/Commit; Excel nur Fallback (`SPEZ-arbeitsitems.md` §10)
+3. **PDF-Import Templates/OCR** – Minimal-Modus (1 Seite = 1 Order) ist live; Kartentyp-Template + Feld-Extraktion noch offen
 4. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 
 ### Mittlere Priorität

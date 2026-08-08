@@ -204,9 +204,9 @@ office/
   (nur Build-Assets, kein Offline für API); Installation über Safari
   („Zum Home-Bildschirm“) bzw. Chrome („App installieren“)
 - **`/download`**: APK für Android, PWA-Anleitung für iPhone/iPad
-- **Import-Soll (08.08.2026):** Primär Mehrseiten-PDF (1 Seite = 1 Order), Excel nur
-  Fallback; DB-Kern = Kennung + Arbeitsinhalt + Completion-Tracking; Material optional
-  (`SPEZ-arbeitsitems.md` §10) – Umsetzung noch offen
+- **PDF-Primärimport (08.08.2026):** Mehrseiten-PDF → Vorschau → Commit (1 Seite =
+  1 Order); Excel nur Fallback; Material optional (`SPEZ-arbeitsitems.md` §10 Minimal-Modus).
+  Template-Editor / OCR-Extraktion noch offen
 
 ---
 
