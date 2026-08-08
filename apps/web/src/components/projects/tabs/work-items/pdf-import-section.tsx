@@ -1,10 +1,17 @@
 'use client';
 
-import { useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, FileText, Play, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiError } from '@/lib/api-client';
 import { formatFileSize } from '@/lib/format';
@@ -15,10 +22,16 @@ import {
   type PdfPreviewItem,
   type PdfPreviewResponse,
 } from '@/lib/work-items';
+import {
+  workCardTemplatesApi,
+  type WorkCardTemplate,
+} from '@/lib/work-card-templates';
+
+const PREVIEW_TIMEOUT_MS = 180_000;
 
 /**
  * PDF-Primärimport: Mehrseiten-PDF → 1 Seite = 1 Arbeitsauftrag (Item).
- * Flow: PDF wählen → Vorschau → Kennungen/Titel editieren → Commit.
+ * Flow: PDF wählen → (optional Template) → Vorschau → Kennungen/Titel editieren → Commit.
  */
 export function PdfImportSection({
   projectId,
@@ -40,6 +53,14 @@ export function PdfImportSection({
   const [editItems, setEditItems] = useState<PdfPreviewItem[]>([]);
   const [commitResult, setCommitResult] = useState<PdfCommitResponse | null>(null);
 
+  // Template state
+  const [templates, setTemplates] = useState<WorkCardTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<string>('');
+
+  useEffect(() => {
+    workCardTemplatesApi.list().then(setTemplates).catch(() => {});
+  }, []);
+
   const fail = (err: unknown): void => {
     toast({
       variant: 'destructive',
@@ -56,17 +77,23 @@ export function PdfImportSection({
     setPreview(null);
     setEditItems([]);
     setCommitResult(null);
+    setTemplateId('');
     if (fileInput.current) fileInput.current.value = '';
   };
 
   const runPreview = (): void => {
     if (!file || !blockKey.trim()) return;
     setBusy('preview');
+
+    const abortController = new AbortController();
+    const timeoutId = setTimeout(() => abortController.abort(), PREVIEW_TIMEOUT_MS);
+
     workItemsApi
       .previewPdfImport(projectId, file, {
         blockKey: blockKey.trim(),
         blockName: blockName.trim() || undefined,
         itemKeyPrefix: prefix || undefined,
+        templateId: templateId || undefined,
       })
       .then((result) => {
         setPreview(result);
@@ -75,7 +102,10 @@ export function PdfImportSection({
         toast({ description: t.toastPreviewDone });
       })
       .catch(fail)
-      .finally(() => setBusy(null));
+      .finally(() => {
+        clearTimeout(timeoutId);
+        setBusy(null);
+      });
   };
 
   const runCommit = (): void => {
@@ -90,6 +120,9 @@ export function PdfImportSection({
           itemKey: i.itemKey,
           title: i.title || undefined,
           workScopeDe: i.workScopeDe || undefined,
+          workScopeSk: i.workScopeSk || undefined,
+          floor: i.floor || undefined,
+          room: i.room || undefined,
         })),
       })
       .then((result) => {
@@ -108,6 +141,10 @@ export function PdfImportSection({
       return next;
     });
   };
+
+  const hasOcrData = editItems.some(
+    (i) => i.floor || i.room || (i.ocrWarnings && i.ocrWarnings.length > 0),
+  );
 
   return (
     <div className="space-y-4">
@@ -149,6 +186,24 @@ export function PdfImportSection({
             className="min-h-[44px]"
           />
         </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium">{t.template}</label>
+          <Select value={templateId} onValueChange={setTemplateId}>
+            <SelectTrigger className="min-h-[44px]">
+              <SelectValue placeholder={t.templateNone} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">{t.templateNone}</SelectItem>
+              {templates.map((tpl) => (
+                <SelectItem key={tpl.id} value={tpl.id}>
+                  {tpl.name}
+                  {tpl.customer ? ` (${tpl.customer.companyName})` : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">{t.templateHint}</p>
+        </div>
       </div>
 
       {/* Datei + Aktionen */}
@@ -182,7 +237,11 @@ export function PdfImportSection({
           onClick={runPreview}
         >
           <Search className="h-4 w-4" />
-          {busy === 'preview' ? t.previewing : t.preview}
+          {busy === 'preview'
+            ? templateId && templateId !== 'none'
+              ? t.ocrLoading
+              : t.previewing
+            : t.preview}
         </Button>
         <Button
           className="min-h-[44px]"
@@ -229,6 +288,12 @@ export function PdfImportSection({
                     <th className="p-2 text-xs font-medium">{t.colKey}</th>
                     <th className="p-2 text-xs font-medium">{t.colTitle}</th>
                     <th className="p-2 text-xs font-medium">{t.colWorkScope}</th>
+                    {hasOcrData && (
+                      <>
+                        <th className="p-2 text-xs font-medium">{t.colFloor}</th>
+                        <th className="p-2 text-xs font-medium">{t.colRoom}</th>
+                      </>
+                    )}
                     <th className="p-2 text-xs font-medium">{t.colWarnings}</th>
                   </tr>
                 </thead>
@@ -257,11 +322,35 @@ export function PdfImportSection({
                           className="h-8 min-w-[200px] text-xs"
                         />
                       </td>
+                      {hasOcrData && (
+                        <>
+                          <td className="p-2">
+                            <Input
+                              value={item.floor ?? ''}
+                              onChange={(e) => updateItem(idx, 'floor', e.target.value)}
+                              className="h-8 min-w-[80px] text-xs"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <Input
+                              value={item.room ?? ''}
+                              onChange={(e) => updateItem(idx, 'room', e.target.value)}
+                              className="h-8 min-w-[100px] text-xs"
+                            />
+                          </td>
+                        </>
+                      )}
                       <td className="p-2">
                         {item.conflicts.length > 0 && (
                           <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
                             <AlertTriangle className="h-3 w-3" />
                             {item.conflicts[0]}
+                          </span>
+                        )}
+                        {item.ocrWarnings && item.ocrWarnings.length > 0 && (
+                          <span className="flex items-center gap-1 text-xs text-orange-600 dark:text-orange-400">
+                            <AlertTriangle className="h-3 w-3" />
+                            {item.ocrWarnings[0]}
                           </span>
                         )}
                       </td>

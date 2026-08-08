@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DocumentsModule } from '../documents/documents.module';
+import { OcrModule } from '../ocr/ocr.module';
+import { WorkCardTemplatesModule } from '../work-card-templates/work-card-templates.module';
 import { CustomerPlWorkItemsController } from './customer-pl-work-items.controller';
 import { ProjectCustomerPlsService } from './project-customer-pls.service';
 import { ProjectWorkItemsController } from './project-work-items.controller';
@@ -26,7 +28,7 @@ import { WorkerWorkItemsController } from './worker-work-items.controller';
  * Ausstempeln offene Item-Sessions schließen kann (TimeEntriesModule).
  */
 @Module({
-  imports: [DocumentsModule],
+  imports: [DocumentsModule, OcrModule, WorkCardTemplatesModule],
   controllers: [
     ProjectWorkItemsController,
     WorkItemsController,

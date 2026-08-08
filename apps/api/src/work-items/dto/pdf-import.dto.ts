@@ -58,6 +58,17 @@ export class PdfImportPreviewDto {
   @Transform(toBoolean)
   @IsBoolean()
   setItemBased?: boolean;
+
+  @ApiPropertyOptional({ description: 'Template-ID für OCR-Extraktion' })
+  @IsOptional()
+  @IsString()
+  templateId?: string;
+
+  @ApiPropertyOptional({ default: true, description: 'Extraktion durchführen (default true wenn templateId gesetzt)' })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean()
+  extract?: boolean;
 }
 
 /** Ein Item in der Commit-Liste. */
@@ -86,6 +97,16 @@ export class PdfImportItemDto {
   @IsOptional()
   @IsString()
   workScopeSk?: string;
+
+  @ApiPropertyOptional({ description: 'Geschoss' })
+  @IsOptional()
+  @IsString()
+  floor?: string;
+
+  @ApiPropertyOptional({ description: 'Raum' })
+  @IsOptional()
+  @IsString()
+  room?: string;
 }
 
 /** Body des Commit-Endpunkts (als JSON-Feld im Multipart oder als JSON-Body). */

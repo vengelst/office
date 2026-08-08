@@ -363,15 +363,16 @@ model Customer {
   updatedAt       DateTime       @updatedAt
   deletedAt       DateTime?
 
-  branches      CustomerBranch[]
-  contacts      CustomerContact[]
-  emails        CustomerEmail[]
-  bankAccounts  CustomerBankAccount[]
-  customerNotes CustomerNote[]
-  callLogs      CustomerCallLog[]
-  projects      Project[]
-  invoices      Invoice[]
-  submissions   Submission[]
+  branches          CustomerBranch[]
+  contacts          CustomerContact[]
+  emails            CustomerEmail[]
+  bankAccounts      CustomerBankAccount[]
+  customerNotes     CustomerNote[]
+  callLogs          CustomerCallLog[]
+  projects          Project[]
+  invoices          Invoice[]
+  submissions       Submission[]
+  workCardTemplates WorkCardTemplate[]
 
   @@index([status, deletedAt])
   @@index([companyName])
@@ -1556,4 +1557,22 @@ model WorkItemReview {
 
   @@index([workItemId, reviewedAt])
   @@index([reviewerUserId])
+}
+
+/// Kartentyp-Template für PDF-OCR-Extraktion (SPEZ §10.2 Punkt 3-4).
+/// Speichert Label-Hints und optionale Regex je Feld, damit der Extraktor
+/// OCR-Text einer Arbeitskarte automatisch in itemKey/workScope/etc. parsen kann.
+model WorkCardTemplate {
+  id         String   @id @default(cuid())
+  name       String
+  customerId String?
+  /// JSON: WorkCardFieldMapping[] – Felddefinitionen für die Extraktion
+  fields     Json
+  notes      String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
 }

@@ -1,7 +1,6 @@
 # Modul `work-items` – Arbeitsitems
 
-Umsetzung von `SPEZ-arbeitsitems.md` (Fundament: Schema, API, Excel-Import).
-Kein Web-/Mobile-UI, keine Abrechnung, kein PDF-OCR.
+Umsetzung von `SPEZ-arbeitsitems.md` (Fundament: Schema, API, Excel-Import, PDF-OCR-Extraktion).
 
 ## Modelle
 
@@ -150,7 +149,39 @@ berechnet `TimesheetsService.projectScopeFor()` aus
 `WorkItemsService.findCustomerPlProjectIds()` – interne Rollen erhalten
 `null` (keine Einschränkung), sodass sich für das Büro nichts ändert.
 
-## Import
+## PDF-Import mit Templates (Auftrag #8)
+
+Der PDF-Import (`POST /projects/:projectId/work-items/import-pdf/preview`) akzeptiert
+optional `templateId`. Ist ein Template angegeben, wird jede PDF-Seite via `pdftoppm`
+(poppler-utils) gerendert und per PaddleOCR Felder extrahiert (`WorkCardFieldExtractor`).
+
+### Kartentyp-Templates
+
+Templates (`WorkCardTemplate`) definieren Feld-Mappings für die OCR-Extraktion:
+
+| Methode | Pfad | Zweck |
+| --- | --- | --- |
+| GET | `/work-card-templates` | Liste (Filter `customerId` optional) |
+| GET | `/work-card-templates/:id` | Detail |
+| POST | `/work-card-templates` | Anlegen |
+| PATCH | `/work-card-templates/:id` | Ändern |
+| DELETE | `/work-card-templates/:id` | Löschen |
+| POST | `/work-card-templates/calibrate` | Beispielseite OCR → Rohtext + Vorschläge |
+
+Jede Feldzuordnung enthält `target` (itemKey, workScopeDe, etc.), `labelHints` (Labels
+auf der Karte) und optional `regex` sowie `captureLines`.
+
+### Ablauf mit Template
+
+1. Büro wählt Template im PDF-Import-Dropdown
+2. Preview sendet `templateId` mit
+3. API rasterisiert jede Seite → OCR → `WorkCardFieldExtractor` extrahiert Felder
+4. Vorausgefüllte Kennung/Titel/Arbeitsinhalt im Preview, editierbar
+5. Commit wie gewohnt (floor/room werden mitgeschrieben wenn vorhanden)
+
+Ohne Template: bisheriges Verhalten (Minimal-Modus, `Seite-NN`).
+
+## Import (Excel/CSV)
 
 * Akzeptiert `.xlsx`/`.xlsm` (Blätter `Items` und `Material`) und CSV.
 * Upsert je `(projectId, itemKey)`; **Materialzeilen eines enthaltenen Items

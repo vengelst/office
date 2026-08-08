@@ -31,6 +31,7 @@ import { EquipmentModule } from './equipment/equipment.module';
 import { CommunicationModule } from './communication/communication.module';
 import { TodosModule } from './todos/todos.module';
 import { SystemInfoModule } from './system-info/system-info.module';
+import { WorkCardTemplatesModule } from './work-card-templates/work-card-templates.module';
 import { WorkItemsModule } from './work-items/work-items.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
@@ -67,6 +68,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     CommunicationModule,
     TodosModule,
     SystemInfoModule,
+    WorkCardTemplatesModule,
     WorkItemsModule,
   ],
   controllers: [AppController],

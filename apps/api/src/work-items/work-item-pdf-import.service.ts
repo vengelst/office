@@ -4,6 +4,10 @@ import { PDFDocument } from 'pdf-lib';
 import { PrismaService } from '../prisma/prisma.service';
 import { DocumentsService } from '../documents/documents.service';
 import { UploadDocumentDto } from '../documents/dto/upload-document.dto';
+import { OcrService } from '../ocr/ocr.service';
+import { PdfPageRasterService } from '../work-card-templates/pdf-page-raster.service';
+import { extractWorkCardFields } from '../work-card-templates/work-card-field-extractor';
+import type { WorkCardFieldMapping } from '../work-card-templates/work-card-field.types';
 import { WorkItemsService } from './work-items.service';
 import { PdfImportCommitDto, PdfImportItemDto, PdfImportPreviewDto } from './dto/pdf-import.dto';
 
@@ -19,7 +23,11 @@ export interface PdfPreviewItem {
   itemKey: string;
   title: string;
   workScopeDe: string | null;
+  workScopeSk: string | null;
+  floor: string | null;
+  room: string | null;
   conflicts: string[];
+  ocrWarnings: string[];
 }
 
 /** Antwort des Preview-Endpunkts. */
@@ -50,6 +58,8 @@ export class WorkItemPdfImportService {
     private readonly prisma: PrismaService,
     private readonly workItems: WorkItemsService,
     private readonly documentsService: DocumentsService,
+    private readonly ocrService: OcrService,
+    private readonly rasterService: PdfPageRasterService,
   ) {}
 
   /**
@@ -106,21 +116,102 @@ export class WorkItemPdfImportService {
     });
     const existingKeys = new Set(existing.map((i) => i.itemKey));
 
-    const items: PdfPreviewItem[] = [];
-    for (let page = startPage; page <= endPage; page++) {
-      const itemKey = `${prefix}${String(page).padStart(digits, '0')}`;
-      const conflicts: string[] = [];
-      if (existingKeys.has(itemKey)) {
-        conflicts.push('existiert bereits – Commit würde upserten');
-        warnings.push(`itemKey ${itemKey} existiert bereits – Commit würde upserten`);
-      }
-      items.push({
-        pdfPage: page,
-        itemKey,
-        title: `Seite ${page}`,
-        workScopeDe: null,
-        conflicts,
+    // Template laden falls angegeben
+    let fieldMappings: WorkCardFieldMapping[] | null = null;
+    const useExtraction = dto.templateId && (dto.extract !== false);
+    if (useExtraction && dto.templateId) {
+      const template = await this.prisma.workCardTemplate.findUnique({
+        where: { id: dto.templateId },
       });
+      if (!template) {
+        throw new BadRequestException(`Template ${dto.templateId} nicht gefunden`);
+      }
+      fieldMappings = template.fields as unknown as WorkCardFieldMapping[];
+    }
+
+    const items: PdfPreviewItem[] = [];
+    const OCR_CONCURRENCY = 3;
+
+    if (fieldMappings) {
+      // OCR-Extraktion je Seite (sequentiell in kleinen Batches)
+      const pages = Array.from(
+        { length: endPage - startPage + 1 },
+        (_, i) => startPage + i,
+      );
+
+      for (let i = 0; i < pages.length; i += OCR_CONCURRENCY) {
+        const batch = pages.slice(i, i + OCR_CONCURRENCY);
+        const results = await Promise.allSettled(
+          batch.map((page) => this.extractFieldsForPage(buffer, page, fieldMappings!)),
+        );
+
+        for (let j = 0; j < batch.length; j++) {
+          const page = batch[j];
+          const result = results[j];
+          const fallbackKey = `${prefix}${String(page).padStart(digits, '0')}`;
+          const ocrWarnings: string[] = [];
+
+          let itemKey = fallbackKey;
+          let title = `Seite ${page}`;
+          let workScopeDe: string | null = null;
+          let workScopeSk: string | null = null;
+          let floor: string | null = null;
+          let room: string | null = null;
+
+          if (result.status === 'fulfilled') {
+            const { fields, warnings: w } = result.value;
+            ocrWarnings.push(...w);
+            if (fields.itemKey) itemKey = fields.itemKey;
+            if (fields.title) title = fields.title;
+            if (fields.workScopeDe) workScopeDe = fields.workScopeDe;
+            if (fields.workScopeSk) workScopeSk = fields.workScopeSk;
+            if (fields.floor) floor = fields.floor;
+            if (fields.room) room = fields.room;
+          } else {
+            ocrWarnings.push(`OCR-Fehler Seite ${page}: ${result.reason?.message ?? 'unbekannt'}`);
+            warnings.push(`OCR fehlgeschlagen auf Seite ${page} – Fallback auf Platzhalter`);
+          }
+
+          const conflicts: string[] = [];
+          if (existingKeys.has(itemKey)) {
+            conflicts.push('existiert bereits – Commit würde upserten');
+            warnings.push(`itemKey ${itemKey} existiert bereits – Commit würde upserten`);
+          }
+
+          items.push({
+            pdfPage: page,
+            itemKey,
+            title,
+            workScopeDe,
+            workScopeSk,
+            floor,
+            room,
+            conflicts,
+            ocrWarnings,
+          });
+        }
+      }
+    } else {
+      // Ohne Template: bisheriges Verhalten (Minimal-Modus)
+      for (let page = startPage; page <= endPage; page++) {
+        const itemKey = `${prefix}${String(page).padStart(digits, '0')}`;
+        const conflicts: string[] = [];
+        if (existingKeys.has(itemKey)) {
+          conflicts.push('existiert bereits – Commit würde upserten');
+          warnings.push(`itemKey ${itemKey} existiert bereits – Commit würde upserten`);
+        }
+        items.push({
+          pdfPage: page,
+          itemKey,
+          title: `Seite ${page}`,
+          workScopeDe: null,
+          workScopeSk: null,
+          floor: null,
+          room: null,
+          conflicts,
+          ocrWarnings: [],
+        });
+      }
     }
 
     return {
@@ -213,7 +304,7 @@ export class WorkItemPdfImportService {
       const importedAt = new Date();
 
       for (const item of dto.items) {
-        const data = {
+        const data: Record<string, any> = {
           blockId: block.id,
           title: item.title ?? `Seite ${item.pdfPage}`,
           pdfPage: item.pdfPage,
@@ -222,6 +313,8 @@ export class WorkItemPdfImportService {
           workScopeSk: item.workScopeSk ?? null,
           importedAt,
         };
+        if (item.floor) data.floor = item.floor;
+        if (item.room) data.room = item.room;
 
         if (existingByKey.has(item.itemKey)) {
           await tx.workItem.update({
@@ -258,6 +351,17 @@ export class WorkItemPdfImportService {
   }
 
   // ── Helfer ───────────────────────────────────────────────────
+
+  /** Rasterisiert eine PDF-Seite und extrahiert Felder via OCR + Template-Mapping. */
+  private async extractFieldsForPage(
+    pdfBuffer: Buffer,
+    pageNumber: number,
+    mappings: WorkCardFieldMapping[],
+  ) {
+    const imageBuffer = await this.rasterService.rasterizePage(pdfBuffer, pageNumber);
+    const ocrResult = await this.ocrService.extractText(imageBuffer, 'image/png');
+    return extractWorkCardFields(ocrResult, mappings);
+  }
 
   /** Validiert Multipart-PDF-Datei und gibt den Buffer zurück. */
   private validatePdfFile(file: Express.Multer.File | undefined): Buffer {
