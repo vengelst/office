@@ -509,6 +509,7 @@ export const workItemsApi = {
     projectId: string,
     file: File,
     options: PdfImportPreviewOptions,
+    request?: { signal?: AbortSignal },
   ): Promise<PdfPreviewResponse> => {
     const form = new FormData();
     form.append('file', file);
@@ -518,17 +519,21 @@ export const workItemsApi = {
     if (options.startPage !== undefined) form.append('startPage', String(options.startPage));
     if (options.endPage !== undefined) form.append('endPage', String(options.endPage));
     if (options.setItemBased !== undefined) form.append('setItemBased', String(options.setItemBased));
-    if (options.templateId) form.append('templateId', options.templateId);
+    // "none" / leer nie mitschicken – sonst 400 „Template none nicht gefunden“
+    const tid = options.templateId?.trim();
+    if (tid && tid !== 'none') form.append('templateId', tid);
     if (options.extract !== undefined) form.append('extract', String(options.extract));
     return apiUpload<PdfPreviewResponse>(
       `/projects/${projectId}/work-items/import-pdf/preview`,
       form,
+      request,
     );
   },
   runPdfImport: (
     projectId: string,
     file: File | null,
     options: PdfImportCommitOptions,
+    request?: { signal?: AbortSignal },
   ): Promise<PdfCommitResponse> => {
     const form = new FormData();
     if (file) form.append('file', file);
@@ -540,6 +545,7 @@ export const workItemsApi = {
     return apiUpload<PdfCommitResponse>(
       `/projects/${projectId}/work-items/import-pdf`,
       form,
+      request,
     );
   },
 

@@ -116,15 +116,18 @@ export class WorkItemPdfImportService {
     });
     const existingKeys = new Set(existing.map((i) => i.itemKey));
 
-    // Template laden falls angegeben
+    // OCR nur wenn explizit extract=true UND gültige templateId
+    // (Vorschau ohne OCR bleibt schnell; UI kann OCR separat anstoßen)
     let fieldMappings: WorkCardFieldMapping[] | null = null;
-    const useExtraction = dto.templateId && (dto.extract !== false);
-    if (useExtraction && dto.templateId) {
+    const templateId =
+      dto.templateId && dto.templateId !== 'none' ? dto.templateId : undefined;
+    const useExtraction = Boolean(templateId && dto.extract === true);
+    if (useExtraction && templateId) {
       const template = await this.prisma.workCardTemplate.findUnique({
-        where: { id: dto.templateId },
+        where: { id: templateId },
       });
       if (!template) {
-        throw new BadRequestException(`Template ${dto.templateId} nicht gefunden`);
+        throw new BadRequestException(`Template ${templateId} nicht gefunden`);
       }
       fieldMappings = template.fields as unknown as WorkCardFieldMapping[];
     }

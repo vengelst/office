@@ -114,6 +114,7 @@ export async function apiFetch<T>(
 export async function apiUpload<T>(
   path: string,
   formData: FormData,
+  options?: { signal?: AbortSignal },
 ): Promise<T> {
   const token = getToken();
   const headers: Record<string, string> = {};
@@ -125,6 +126,7 @@ export async function apiUpload<T>(
     method: 'POST',
     headers,
     body: formData,
+    signal: options?.signal,
   });
 
   const isJson = response.headers

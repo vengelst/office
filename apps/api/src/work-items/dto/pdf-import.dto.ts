@@ -59,12 +59,24 @@ export class PdfImportPreviewDto {
   @IsBoolean()
   setItemBased?: boolean;
 
-  @ApiPropertyOptional({ description: 'Template-ID für OCR-Extraktion' })
+  @ApiPropertyOptional({
+    description: 'Template-ID für OCR-Extraktion (leer/"none" = ohne Template)',
+  })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (value === undefined || value === null) return undefined;
+    const s = String(value).trim();
+    if (!s || s === 'none') return undefined;
+    return s;
+  })
   @IsString()
   templateId?: string;
 
-  @ApiPropertyOptional({ default: true, description: 'Extraktion durchführen (default true wenn templateId gesetzt)' })
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'OCR-Extraktion je Seite. Nur bei true und gültiger templateId. Default false (schnelle Vorschau).',
+  })
   @IsOptional()
   @Transform(toBoolean)
   @IsBoolean()
@@ -74,6 +86,7 @@ export class PdfImportPreviewDto {
 /** Ein Item in der Commit-Liste. */
 export class PdfImportItemDto {
   @ApiProperty({ description: 'Seitennummer im PDF' })
+  @Type(() => Number)
   @IsInt()
   @Min(1)
   pdfPage!: number;

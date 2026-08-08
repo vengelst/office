@@ -669,8 +669,17 @@ export const texts = {
         toastCommitDone: 'PDF-Import abgeschlossen – Items angelegt.',
         template: 'Kartentyp-Template',
         templateNone: 'Kein Template (Minimal-Modus)',
-        templateHint: 'Optional: Template wählen → OCR-Extraktion von Kennung, Arbeitsinhalt etc.',
-        ocrLoading: 'OCR je Seite – kann bei vielen Seiten dauern …',
+        templateHint:
+          'Optional: Template wählen, dann nach der Vorschau „OCR vorausfüllen“ – nicht bei „Vorschau laden“.',
+        flowHint:
+          'Ablauf: 1) Vorschau laden (schnell) → 2) optional OCR → 3) Import ausführen.',
+        ocrFill: 'OCR vorausfüllen',
+        ocrButtonHint:
+          'Liest jede PDF-Seite per OCR mit dem gewählten Template. Bei 20–50 Seiten kann das mehrere Minuten dauern.',
+        ocrLoading: 'OCR läuft je Seite – bitte warten …',
+        itemsReady: 'Aufträge in der Liste',
+        toastOcrDone: 'OCR-Extraktion abgeschlossen – bitte Kennungen prüfen.',
+        toastAborted: 'Vorgang abgebrochen (Zeitüberschreitung oder Abbruch).',
         colFloor: 'Geschoss',
         colRoom: 'Raum',
         colOcrWarnings: 'OCR-Hinweise',

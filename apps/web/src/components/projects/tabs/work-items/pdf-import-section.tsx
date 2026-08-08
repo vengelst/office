@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { AlertTriangle, FileText, Play, Search, X } from 'lucide-react';
+import { AlertTriangle, FileText, Play, ScanSearch, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,11 +27,16 @@ import {
   type WorkCardTemplate,
 } from '@/lib/work-card-templates';
 
-const PREVIEW_TIMEOUT_MS = 180_000;
+const PREVIEW_TIMEOUT_MS = 120_000;
+const OCR_TIMEOUT_MS = 600_000;
+const NONE = 'none';
 
 /**
  * PDF-Primärimport: Mehrseiten-PDF → 1 Seite = 1 Arbeitsauftrag (Item).
- * Flow: PDF wählen → (optional Template) → Vorschau → Kennungen/Titel editieren → Commit.
+ *
+ * Flow:
+ * 1. PDF + Block → schnelle Vorschau (ohne OCR) → Kennungen editieren → Import
+ * 2. Optional: Template wählen → „OCR vorausfüllen“ (kann bei vielen Seiten dauern)
  */
 export function PdfImportSection({
   projectId,
@@ -44,24 +49,37 @@ export function PdfImportSection({
   const t = texts.projects.workItems.pdfImport;
 
   const fileInput = useRef<HTMLInputElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
   const [file, setFile] = useState<File | null>(null);
   const [blockKey, setBlockKey] = useState('');
   const [blockName, setBlockName] = useState('');
   const [prefix, setPrefix] = useState('Seite-');
-  const [busy, setBusy] = useState<'preview' | 'commit' | null>(null);
+  const [busy, setBusy] = useState<'preview' | 'ocr' | 'commit' | null>(null);
   const [preview, setPreview] = useState<PdfPreviewResponse | null>(null);
   const [editItems, setEditItems] = useState<PdfPreviewItem[]>([]);
   const [commitResult, setCommitResult] = useState<PdfCommitResponse | null>(null);
-
-  // Template state
   const [templates, setTemplates] = useState<WorkCardTemplate[]>([]);
-  const [templateId, setTemplateId] = useState<string>('');
+  const [templateId, setTemplateId] = useState<string>(NONE);
 
   useEffect(() => {
     workCardTemplatesApi.list().then(setTemplates).catch(() => {});
+    return () => {
+      abortRef.current?.abort();
+    };
   }, []);
 
+  const resolvedTemplateId =
+    templateId && templateId !== NONE ? templateId : undefined;
+
   const fail = (err: unknown): void => {
+    if (err instanceof DOMException && err.name === 'AbortError') {
+      toast({
+        variant: 'destructive',
+        description: t.toastAborted,
+      });
+      return;
+    }
     toast({
       variant: 'destructive',
       description:
@@ -70,6 +88,8 @@ export function PdfImportSection({
   };
 
   const clear = (): void => {
+    abortRef.current?.abort();
+    abortRef.current = null;
     setFile(null);
     setBlockKey('');
     setBlockName('');
@@ -77,65 +97,122 @@ export function PdfImportSection({
     setPreview(null);
     setEditItems([]);
     setCommitResult(null);
-    setTemplateId('');
+    setTemplateId(NONE);
+    setBusy(null);
     if (fileInput.current) fileInput.current.value = '';
   };
 
+  const previewOptions = (extract: boolean) => ({
+    blockKey: blockKey.trim(),
+    blockName: blockName.trim() || undefined,
+    itemKeyPrefix: prefix || undefined,
+    templateId: resolvedTemplateId,
+    extract,
+  });
+
+  /** Schnelle Vorschau ohne OCR – Import ist danach sofort möglich. */
   const runPreview = (): void => {
     if (!file || !blockKey.trim()) return;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setBusy('preview');
 
-    const abortController = new AbortController();
-    const timeoutId = setTimeout(() => abortController.abort(), PREVIEW_TIMEOUT_MS);
+    const timeoutId = setTimeout(() => ac.abort(), PREVIEW_TIMEOUT_MS);
 
     workItemsApi
-      .previewPdfImport(projectId, file, {
-        blockKey: blockKey.trim(),
-        blockName: blockName.trim() || undefined,
-        itemKeyPrefix: prefix || undefined,
-        templateId: templateId || undefined,
+      .previewPdfImport(projectId, file, previewOptions(false), {
+        signal: ac.signal,
       })
       .then((result) => {
         setPreview(result);
-        setEditItems(result.items.map((i: PdfPreviewItem) => ({ ...i })));
+        setEditItems(result.items.map((i) => ({ ...i })));
         setCommitResult(null);
         toast({ description: t.toastPreviewDone });
       })
       .catch(fail)
       .finally(() => {
         clearTimeout(timeoutId);
+        if (abortRef.current === ac) abortRef.current = null;
+        setBusy(null);
+      });
+  };
+
+  /** OCR mit gewähltem Template – füllt Kennung/Arbeitsinhalt nach. */
+  const runOcrFill = (): void => {
+    if (!file || !blockKey.trim() || !resolvedTemplateId) return;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setBusy('ocr');
+
+    const timeoutId = setTimeout(() => ac.abort(), OCR_TIMEOUT_MS);
+
+    workItemsApi
+      .previewPdfImport(projectId, file, previewOptions(true), {
+        signal: ac.signal,
+      })
+      .then((result) => {
+        setPreview(result);
+        setEditItems(result.items.map((i) => ({ ...i })));
+        setCommitResult(null);
+        toast({ description: t.toastOcrDone });
+      })
+      .catch(fail)
+      .finally(() => {
+        clearTimeout(timeoutId);
+        if (abortRef.current === ac) abortRef.current = null;
         setBusy(null);
       });
   };
 
   const runCommit = (): void => {
     if (!file || editItems.length === 0) return;
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
     setBusy('commit');
+
+    const timeoutId = setTimeout(() => ac.abort(), PREVIEW_TIMEOUT_MS);
+
     workItemsApi
-      .runPdfImport(projectId, file, {
-        blockKey: blockKey.trim(),
-        blockName: blockName.trim() || undefined,
-        items: editItems.map((i: PdfPreviewItem) => ({
-          pdfPage: i.pdfPage,
-          itemKey: i.itemKey,
-          title: i.title || undefined,
-          workScopeDe: i.workScopeDe || undefined,
-          workScopeSk: i.workScopeSk || undefined,
-          floor: i.floor || undefined,
-          room: i.room || undefined,
-        })),
-      })
+      .runPdfImport(
+        projectId,
+        file,
+        {
+          blockKey: blockKey.trim(),
+          blockName: blockName.trim() || undefined,
+          items: editItems.map((i) => ({
+            pdfPage: i.pdfPage,
+            itemKey: i.itemKey,
+            title: i.title || undefined,
+            workScopeDe: i.workScopeDe || undefined,
+            workScopeSk: i.workScopeSk || undefined,
+            floor: i.floor || undefined,
+            room: i.room || undefined,
+          })),
+        },
+        { signal: ac.signal },
+      )
       .then((result) => {
         setCommitResult(result);
         toast({ description: t.toastCommitDone });
         onImported();
       })
       .catch(fail)
-      .finally(() => setBusy(null));
+      .finally(() => {
+        clearTimeout(timeoutId);
+        if (abortRef.current === ac) abortRef.current = null;
+        setBusy(null);
+      });
   };
 
-  const updateItem = (index: number, field: keyof PdfPreviewItem, value: string): void => {
-    setEditItems((prev: PdfPreviewItem[]) => {
+  const updateItem = (
+    index: number,
+    field: keyof PdfPreviewItem,
+    value: string,
+  ): void => {
+    setEditItems((prev) => {
       const next = [...prev];
       next[index] = { ...next[index], [field]: value };
       return next;
@@ -155,9 +232,9 @@ export function PdfImportSection({
         </h3>
         <p className="max-w-2xl text-sm text-muted-foreground">{t.subtitle}</p>
         <p className="text-xs text-muted-foreground">{t.hint}</p>
+        <p className="text-xs text-muted-foreground">{t.flowHint}</p>
       </div>
 
-      {/* Eingabefelder */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="mb-1 block text-xs font-medium">{t.blockKey}</label>
@@ -188,12 +265,12 @@ export function PdfImportSection({
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium">{t.template}</label>
-          <Select value={templateId} onValueChange={setTemplateId}>
+          <Select value={templateId || NONE} onValueChange={setTemplateId}>
             <SelectTrigger className="min-h-[44px]">
               <SelectValue placeholder={t.templateNone} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">{t.templateNone}</SelectItem>
+              <SelectItem value={NONE}>{t.templateNone}</SelectItem>
               {templates.map((tpl) => (
                 <SelectItem key={tpl.id} value={tpl.id}>
                   {tpl.name}
@@ -206,7 +283,6 @@ export function PdfImportSection({
         </div>
       </div>
 
-      {/* Datei + Aktionen */}
       <input
         ref={fileInput}
         type="file"
@@ -226,6 +302,7 @@ export function PdfImportSection({
           variant="outline"
           className="min-h-[44px]"
           onClick={() => fileInput.current?.click()}
+          disabled={busy !== null}
         >
           <FileText className="h-4 w-4" />
           {t.chooseFile}
@@ -237,11 +314,22 @@ export function PdfImportSection({
           onClick={runPreview}
         >
           <Search className="h-4 w-4" />
-          {busy === 'preview'
-            ? templateId && templateId !== 'none'
-              ? t.ocrLoading
-              : t.previewing
-            : t.preview}
+          {busy === 'preview' ? t.previewing : t.preview}
+        </Button>
+        <Button
+          variant="outline"
+          className="min-h-[44px]"
+          disabled={
+            !file ||
+            !blockKey.trim() ||
+            !resolvedTemplateId ||
+            busy !== null
+          }
+          onClick={runOcrFill}
+          title={t.ocrButtonHint}
+        >
+          <ScanSearch className="h-4 w-4" />
+          {busy === 'ocr' ? t.ocrLoading : t.ocrFill}
         </Button>
         <Button
           className="min-h-[44px]"
@@ -252,7 +340,12 @@ export function PdfImportSection({
           {busy === 'commit' ? t.committing : t.commit}
         </Button>
         {(file || preview) && (
-          <Button variant="ghost" className="min-h-[44px]" onClick={clear}>
+          <Button
+            variant="ghost"
+            className="min-h-[44px]"
+            onClick={clear}
+            disabled={busy !== null}
+          >
             <X className="h-4 w-4" />
             {t.clear}
           </Button>
@@ -267,15 +360,15 @@ export function PdfImportSection({
         </p>
       )}
 
-      {/* Vorschau-Tabelle */}
       {editItems.length > 0 && !commitResult && (
         <Card>
           <CardContent className="space-y-4 p-4">
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <p className="font-medium">{t.resultPreview}</p>
               {preview && (
                 <span className="text-xs text-muted-foreground">
-                  {t.pageCount}: {preview.pageCount}
+                  {t.pageCount}: {preview.pageCount} · {editItems.length}{' '}
+                  {t.itemsReady}
                 </span>
               )}
             </div>
@@ -304,21 +397,27 @@ export function PdfImportSection({
                       <td className="p-2">
                         <Input
                           value={item.itemKey}
-                          onChange={(e) => updateItem(idx, 'itemKey', e.target.value)}
+                          onChange={(e) =>
+                            updateItem(idx, 'itemKey', e.target.value)
+                          }
                           className="h-8 min-w-[120px] font-mono text-xs"
                         />
                       </td>
                       <td className="p-2">
                         <Input
                           value={item.title}
-                          onChange={(e) => updateItem(idx, 'title', e.target.value)}
+                          onChange={(e) =>
+                            updateItem(idx, 'title', e.target.value)
+                          }
                           className="h-8 min-w-[150px] text-xs"
                         />
                       </td>
                       <td className="p-2">
                         <Input
                           value={item.workScopeDe ?? ''}
-                          onChange={(e) => updateItem(idx, 'workScopeDe', e.target.value)}
+                          onChange={(e) =>
+                            updateItem(idx, 'workScopeDe', e.target.value)
+                          }
                           className="h-8 min-w-[200px] text-xs"
                         />
                       </td>
@@ -327,14 +426,18 @@ export function PdfImportSection({
                           <td className="p-2">
                             <Input
                               value={item.floor ?? ''}
-                              onChange={(e) => updateItem(idx, 'floor', e.target.value)}
+                              onChange={(e) =>
+                                updateItem(idx, 'floor', e.target.value)
+                              }
                               className="h-8 min-w-[80px] text-xs"
                             />
                           </td>
                           <td className="p-2">
                             <Input
                               value={item.room ?? ''}
-                              onChange={(e) => updateItem(idx, 'room', e.target.value)}
+                              onChange={(e) =>
+                                updateItem(idx, 'room', e.target.value)
+                              }
                               className="h-8 min-w-[100px] text-xs"
                             />
                           </td>
@@ -360,7 +463,6 @@ export function PdfImportSection({
               </table>
             </div>
 
-            {/* Warnungen */}
             {preview && preview.warnings.length > 0 && (
               <div className="space-y-1">
                 <p className="text-sm font-medium">{t.warnings}</p>
@@ -381,7 +483,6 @@ export function PdfImportSection({
         </Card>
       )}
 
-      {/* Commit-Ergebnis */}
       {commitResult && (
         <Card>
           <CardContent className="space-y-3 p-4">
@@ -389,11 +490,15 @@ export function PdfImportSection({
             <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
               <div className="rounded-md border p-3">
                 <p className="text-xs text-muted-foreground">{t.itemsCreated}</p>
-                <p className="text-lg font-semibold tabular-nums">{commitResult.itemsCreated}</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {commitResult.itemsCreated}
+                </p>
               </div>
               <div className="rounded-md border p-3">
                 <p className="text-xs text-muted-foreground">{t.itemsUpdated}</p>
-                <p className="text-lg font-semibold tabular-nums">{commitResult.itemsUpdated}</p>
+                <p className="text-lg font-semibold tabular-nums">
+                  {commitResult.itemsUpdated}
+                </p>
               </div>
             </div>
           </CardContent>
