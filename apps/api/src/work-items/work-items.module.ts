@@ -5,6 +5,7 @@ import { ProjectCustomerPlsService } from './project-customer-pls.service';
 import { ProjectWorkItemsController } from './project-work-items.controller';
 import { WorkItemBlocksService } from './work-item-blocks.service';
 import { WorkItemImportService } from './work-item-import.service';
+import { WorkItemPdfImportService } from './work-item-pdf-import.service';
 import { WorkItemWorkflowService } from './work-item-workflow.service';
 import { WorkItemsController } from './work-items.controller';
 import { WorkItemsService } from './work-items.service';
@@ -36,6 +37,7 @@ import { WorkerWorkItemsController } from './worker-work-items.controller';
     WorkItemsService,
     WorkItemBlocksService,
     WorkItemImportService,
+    WorkItemPdfImportService,
     WorkItemWorkflowService,
     ProjectCustomerPlsService,
   ],

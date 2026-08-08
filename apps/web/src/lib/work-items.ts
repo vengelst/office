@@ -212,6 +212,61 @@ export interface WorkItemImportOptions {
   csvDelimiter?: string;
 }
 
+// ── PDF-Import (Primär) ──────────────────────────────────────────
+
+/** Ein Item in der PDF-Vorschau-Antwort. */
+export interface PdfPreviewItem {
+  pdfPage: number;
+  itemKey: string;
+  title: string;
+  workScopeDe: string | null;
+  conflicts: string[];
+}
+
+/** Antwort des PDF-Preview-Endpunkts. */
+export interface PdfPreviewResponse {
+  pageCount: number;
+  blockKey: string;
+  items: PdfPreviewItem[];
+  warnings: string[];
+}
+
+/** Antwort des PDF-Commit-Endpunkts. */
+export interface PdfCommitResponse {
+  itemsCreated: number;
+  itemsUpdated: number;
+  blockId: string;
+  documentId: string | null;
+}
+
+/** Optionen für die PDF-Import-Vorschau. */
+export interface PdfImportPreviewOptions {
+  blockKey: string;
+  blockName?: string;
+  itemKeyPrefix?: string;
+  startPage?: number;
+  endPage?: number;
+  setItemBased?: boolean;
+}
+
+/** Ein Item, das der Nutzer editiert und an den Commit schickt. */
+export interface PdfImportCommitItem {
+  pdfPage: number;
+  itemKey: string;
+  title?: string;
+  workScopeDe?: string;
+  workScopeSk?: string;
+}
+
+/** Optionen für den PDF-Import-Commit. */
+export interface PdfImportCommitOptions {
+  blockKey: string;
+  blockName?: string;
+  pdfDocumentId?: string;
+  setItemBased?: boolean;
+  items: PdfImportCommitItem[];
+}
+
 /** Benutzer mit Rolle CUSTOMER_PL. */
 export interface CustomerPlUser {
   id: string;
@@ -440,6 +495,43 @@ export const workItemsApi = {
       `/projects/${projectId}/work-items/import`,
       buildImportForm(files, options),
     ),
+
+  // PDF-Import (Primär)
+  previewPdfImport: (
+    projectId: string,
+    file: File,
+    options: PdfImportPreviewOptions,
+  ): Promise<PdfPreviewResponse> => {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('blockKey', options.blockKey);
+    if (options.blockName) form.append('blockName', options.blockName);
+    if (options.itemKeyPrefix) form.append('itemKeyPrefix', options.itemKeyPrefix);
+    if (options.startPage !== undefined) form.append('startPage', String(options.startPage));
+    if (options.endPage !== undefined) form.append('endPage', String(options.endPage));
+    if (options.setItemBased !== undefined) form.append('setItemBased', String(options.setItemBased));
+    return apiUpload<PdfPreviewResponse>(
+      `/projects/${projectId}/work-items/import-pdf/preview`,
+      form,
+    );
+  },
+  runPdfImport: (
+    projectId: string,
+    file: File | null,
+    options: PdfImportCommitOptions,
+  ): Promise<PdfCommitResponse> => {
+    const form = new FormData();
+    if (file) form.append('file', file);
+    form.append('blockKey', options.blockKey);
+    if (options.blockName) form.append('blockName', options.blockName);
+    if (options.pdfDocumentId) form.append('pdfDocumentId', options.pdfDocumentId);
+    if (options.setItemBased !== undefined) form.append('setItemBased', String(options.setItemBased));
+    form.append('items', JSON.stringify(options.items));
+    return apiUpload<PdfCommitResponse>(
+      `/projects/${projectId}/work-items/import-pdf`,
+      form,
+    );
+  },
 
   // Kunden-PL
   listCustomerPls: (projectId: string): Promise<CustomerPlAssignment[]> =>

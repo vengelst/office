@@ -1,0 +1,315 @@
+'use client';
+
+import { useRef, useState, type ReactNode } from 'react';
+import { AlertTriangle, FileText, Play, Search, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/components/ui/use-toast';
+import { ApiError } from '@/lib/api-client';
+import { formatFileSize } from '@/lib/format';
+import { texts } from '@/lib/texts';
+import {
+  workItemsApi,
+  type PdfCommitResponse,
+  type PdfPreviewItem,
+  type PdfPreviewResponse,
+} from '@/lib/work-items';
+
+/**
+ * PDF-Primärimport: Mehrseiten-PDF → 1 Seite = 1 Arbeitsauftrag (Item).
+ * Flow: PDF wählen → Vorschau → Kennungen/Titel editieren → Commit.
+ */
+export function PdfImportSection({
+  projectId,
+  onImported,
+}: {
+  projectId: string;
+  onImported: () => void;
+}): ReactNode {
+  const { toast } = useToast();
+  const t = texts.projects.workItems.pdfImport;
+
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [blockKey, setBlockKey] = useState('');
+  const [blockName, setBlockName] = useState('');
+  const [prefix, setPrefix] = useState('Seite-');
+  const [busy, setBusy] = useState<'preview' | 'commit' | null>(null);
+  const [preview, setPreview] = useState<PdfPreviewResponse | null>(null);
+  const [editItems, setEditItems] = useState<PdfPreviewItem[]>([]);
+  const [commitResult, setCommitResult] = useState<PdfCommitResponse | null>(null);
+
+  const fail = (err: unknown): void => {
+    toast({
+      variant: 'destructive',
+      description:
+        err instanceof ApiError ? err.message : texts.projects.toast.error,
+    });
+  };
+
+  const clear = (): void => {
+    setFile(null);
+    setBlockKey('');
+    setBlockName('');
+    setPrefix('Seite-');
+    setPreview(null);
+    setEditItems([]);
+    setCommitResult(null);
+    if (fileInput.current) fileInput.current.value = '';
+  };
+
+  const runPreview = (): void => {
+    if (!file || !blockKey.trim()) return;
+    setBusy('preview');
+    workItemsApi
+      .previewPdfImport(projectId, file, {
+        blockKey: blockKey.trim(),
+        blockName: blockName.trim() || undefined,
+        itemKeyPrefix: prefix || undefined,
+      })
+      .then((result) => {
+        setPreview(result);
+        setEditItems(result.items.map((i: PdfPreviewItem) => ({ ...i })));
+        setCommitResult(null);
+        toast({ description: t.toastPreviewDone });
+      })
+      .catch(fail)
+      .finally(() => setBusy(null));
+  };
+
+  const runCommit = (): void => {
+    if (!file || editItems.length === 0) return;
+    setBusy('commit');
+    workItemsApi
+      .runPdfImport(projectId, file, {
+        blockKey: blockKey.trim(),
+        blockName: blockName.trim() || undefined,
+        items: editItems.map((i: PdfPreviewItem) => ({
+          pdfPage: i.pdfPage,
+          itemKey: i.itemKey,
+          title: i.title || undefined,
+          workScopeDe: i.workScopeDe || undefined,
+        })),
+      })
+      .then((result) => {
+        setCommitResult(result);
+        toast({ description: t.toastCommitDone });
+        onImported();
+      })
+      .catch(fail)
+      .finally(() => setBusy(null));
+  };
+
+  const updateItem = (index: number, field: keyof PdfPreviewItem, value: string): void => {
+    setEditItems((prev: PdfPreviewItem[]) => {
+      const next = [...prev];
+      next[index] = { ...next[index], [field]: value };
+      return next;
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1">
+        <h3 className="flex items-center gap-2 text-base font-semibold">
+          <FileText className="h-4 w-4" />
+          {t.title}
+        </h3>
+        <p className="max-w-2xl text-sm text-muted-foreground">{t.subtitle}</p>
+        <p className="text-xs text-muted-foreground">{t.hint}</p>
+      </div>
+
+      {/* Eingabefelder */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div>
+          <label className="mb-1 block text-xs font-medium">{t.blockKey}</label>
+          <Input
+            value={blockKey}
+            onChange={(e) => setBlockKey(e.target.value)}
+            placeholder={t.blockKeyPlaceholder}
+            className="min-h-[44px]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium">{t.blockName}</label>
+          <Input
+            value={blockName}
+            onChange={(e) => setBlockName(e.target.value)}
+            placeholder={t.blockNamePlaceholder}
+            className="min-h-[44px]"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium">{t.prefix}</label>
+          <Input
+            value={prefix}
+            onChange={(e) => setPrefix(e.target.value)}
+            placeholder={t.prefixPlaceholder}
+            className="min-h-[44px]"
+          />
+        </div>
+      </div>
+
+      {/* Datei + Aktionen */}
+      <input
+        ref={fileInput}
+        type="file"
+        accept=".pdf"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0] ?? null;
+          setFile(f);
+          setPreview(null);
+          setEditItems([]);
+          setCommitResult(null);
+        }}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          className="min-h-[44px]"
+          onClick={() => fileInput.current?.click()}
+        >
+          <FileText className="h-4 w-4" />
+          {t.chooseFile}
+        </Button>
+        <Button
+          variant="outline"
+          className="min-h-[44px]"
+          disabled={!file || !blockKey.trim() || busy !== null}
+          onClick={runPreview}
+        >
+          <Search className="h-4 w-4" />
+          {busy === 'preview' ? t.previewing : t.preview}
+        </Button>
+        <Button
+          className="min-h-[44px]"
+          disabled={editItems.length === 0 || busy !== null}
+          onClick={runCommit}
+        >
+          <Play className="h-4 w-4" />
+          {busy === 'commit' ? t.committing : t.commit}
+        </Button>
+        {(file || preview) && (
+          <Button variant="ghost" className="min-h-[44px]" onClick={clear}>
+            <X className="h-4 w-4" />
+            {t.clear}
+          </Button>
+        )}
+      </div>
+
+      {!file ? (
+        <p className="text-sm text-muted-foreground">{t.noFile}</p>
+      ) : (
+        <p className="font-mono text-xs">
+          {file.name} · {formatFileSize(file.size)}
+        </p>
+      )}
+
+      {/* Vorschau-Tabelle */}
+      {editItems.length > 0 && !commitResult && (
+        <Card>
+          <CardContent className="space-y-4 p-4">
+            <div className="flex items-center gap-3">
+              <p className="font-medium">{t.resultPreview}</p>
+              {preview && (
+                <span className="text-xs text-muted-foreground">
+                  {t.pageCount}: {preview.pageCount}
+                </span>
+              )}
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left">
+                    <th className="p-2 text-xs font-medium">{t.colPage}</th>
+                    <th className="p-2 text-xs font-medium">{t.colKey}</th>
+                    <th className="p-2 text-xs font-medium">{t.colTitle}</th>
+                    <th className="p-2 text-xs font-medium">{t.colWorkScope}</th>
+                    <th className="p-2 text-xs font-medium">{t.colWarnings}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editItems.map((item, idx) => (
+                    <tr key={item.pdfPage} className="border-b last:border-0">
+                      <td className="p-2 tabular-nums">{item.pdfPage}</td>
+                      <td className="p-2">
+                        <Input
+                          value={item.itemKey}
+                          onChange={(e) => updateItem(idx, 'itemKey', e.target.value)}
+                          className="h-8 min-w-[120px] font-mono text-xs"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <Input
+                          value={item.title}
+                          onChange={(e) => updateItem(idx, 'title', e.target.value)}
+                          className="h-8 min-w-[150px] text-xs"
+                        />
+                      </td>
+                      <td className="p-2">
+                        <Input
+                          value={item.workScopeDe ?? ''}
+                          onChange={(e) => updateItem(idx, 'workScopeDe', e.target.value)}
+                          className="h-8 min-w-[200px] text-xs"
+                        />
+                      </td>
+                      <td className="p-2">
+                        {item.conflicts.length > 0 && (
+                          <span className="flex items-center gap-1 text-xs text-amber-700 dark:text-amber-500">
+                            <AlertTriangle className="h-3 w-3" />
+                            {item.conflicts[0]}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Warnungen */}
+            {preview && preview.warnings.length > 0 && (
+              <div className="space-y-1">
+                <p className="text-sm font-medium">{t.warnings}</p>
+                <ul className="space-y-1">
+                  {preview.warnings.map((w, i) => (
+                    <li
+                      key={`${i}-${w}`}
+                      className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-500"
+                    >
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{w}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Commit-Ergebnis */}
+      {commitResult && (
+        <Card>
+          <CardContent className="space-y-3 p-4">
+            <p className="font-medium">{t.resultDone}</p>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">{t.itemsCreated}</p>
+                <p className="text-lg font-semibold tabular-nums">{commitResult.itemsCreated}</p>
+              </div>
+              <div className="rounded-md border p-3">
+                <p className="text-xs text-muted-foreground">{t.itemsUpdated}</p>
+                <p className="text-lg font-semibold tabular-nums">{commitResult.itemsUpdated}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
