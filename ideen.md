@@ -8,14 +8,6 @@ Sammlung von Ideen, die später umgesetzt oder geprüft werden sollen.
 
 <!-- Neue Ideen hier eintragen -->
 
-### [2026-08-08] – Kartentyp-Template + OCR/LLM für PDF-Import
-
-Minimal-Modus (PDF → 1 Item/Seite → Vorschau → Commit) ist umgesetzt. Offen:
-
-1. Kartentyp-Template (Beispielseite, Felder zuordnen) – Layouts je Kunde unterschiedlich
-2. Extraktion Kennung + Arbeitsinhalt aus der Seite (OCR/LLM)
-3. Optional Seiten-Thumbnails in der Vorschau
-
 ### [2026-08-08] – Abrechnung aus geprüften Arbeitsitems (UNIT_BASED)
 
 Arbeitsitems (Import, Monteur-Flow, Kunden-PL-Prüfung) sind umgesetzt. Offen bleibt die
@@ -27,9 +19,26 @@ Arbeitsitems (Import, Monteur-Flow, Kunden-PL-Prüfung) sind umgesetzt. Offen bl
 
 **Bezug:** `SPEZ-arbeitsitems.md`, `billingMode` im Projekt-Modul.
 
+### [2026-08-08] – PDF-Import Feinschliff (optional)
+
+Templates + OCR-Extraktion sind live. Optional später:
+
+1. Drag&Drop-Zone-Editor auf der Beispielseite
+2. Progress/SSE bei sehr großen PDFs (>50 Seiten)
+3. LLM-Fallback falls Label/Regex nicht reicht
+
 ---
 
 ## Umgesetzt / Erledigt
+
+### [2026-08-08] – Kartentyp-Templates + OCR-Extraktion
+
+Template-CRUD, Kalibrierung per Beispielseite, `pdftoppm` + OCR je Seite beim
+PDF-Preview, vorausgefüllte Kennung/Arbeitsinhalt. Siehe Auftrag #8.
+
+### [2026-08-08] – PDF-Primärimport Minimal-Modus
+
+Mehrseiten-PDF → 1 Item/Seite → Vorschau → Commit. Excel nur Fallback.
 
 ### [2026-06-30 → 2026-08] – Leistungspositionen / Arbeitsitems
 

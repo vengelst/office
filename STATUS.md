@@ -204,9 +204,10 @@ office/
   (nur Build-Assets, kein Offline für API); Installation über Safari
   („Zum Home-Bildschirm“) bzw. Chrome („App installieren“)
 - **`/download`**: APK für Android, PWA-Anleitung für iPhone/iPad
-- **PDF-Primärimport (08.08.2026):** Mehrseiten-PDF → Vorschau → Commit (1 Seite =
-  1 Order); Excel nur Fallback; Material optional (`SPEZ-arbeitsitems.md` §10 Minimal-Modus).
-  Template-Editor / OCR-Extraktion noch offen
+- **PDF-Primärimport + Templates/OCR (08.08.2026):** Mehrseiten-PDF → Vorschau →
+  Commit (1 Seite = 1 Order); optional Kartentyp-Template mit OCR-Extraktion
+  (Kennung/Arbeitsinhalt); Excel nur Fallback; Material optional
+  (`SPEZ-arbeitsitems.md` §10). Zone-Editor / LLM-Fallback noch offen
 
 ---
 
