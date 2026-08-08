@@ -220,7 +220,11 @@ export interface PdfPreviewItem {
   itemKey: string;
   title: string;
   workScopeDe: string | null;
+  workScopeSk: string | null;
+  floor: string | null;
+  room: string | null;
   conflicts: string[];
+  ocrWarnings: string[];
 }
 
 /** Antwort des PDF-Preview-Endpunkts. */
@@ -247,6 +251,8 @@ export interface PdfImportPreviewOptions {
   startPage?: number;
   endPage?: number;
   setItemBased?: boolean;
+  templateId?: string;
+  extract?: boolean;
 }
 
 /** Ein Item, das der Nutzer editiert und an den Commit schickt. */
@@ -256,6 +262,8 @@ export interface PdfImportCommitItem {
   title?: string;
   workScopeDe?: string;
   workScopeSk?: string;
+  floor?: string;
+  room?: string;
 }
 
 /** Optionen für den PDF-Import-Commit. */
@@ -510,6 +518,8 @@ export const workItemsApi = {
     if (options.startPage !== undefined) form.append('startPage', String(options.startPage));
     if (options.endPage !== undefined) form.append('endPage', String(options.endPage));
     if (options.setItemBased !== undefined) form.append('setItemBased', String(options.setItemBased));
+    if (options.templateId) form.append('templateId', options.templateId);
+    if (options.extract !== undefined) form.append('extract', String(options.extract));
     return apiUpload<PdfPreviewResponse>(
       `/projects/${projectId}/work-items/import-pdf/preview`,
       form,

@@ -10,6 +10,7 @@ import { ImportSection } from '@/components/projects/tabs/work-items/import-sect
 import { ItemDetailSheet } from '@/components/projects/tabs/work-items/item-detail-sheet';
 import { ItemsSection } from '@/components/projects/tabs/work-items/items-section';
 import { PdfImportSection } from '@/components/projects/tabs/work-items/pdf-import-section';
+import { TemplatesSection } from '@/components/projects/tabs/work-items/templates-section';
 import { ApiError } from '@/lib/api-client';
 import { projectsApi, type ProjectDetail } from '@/lib/projects';
 import { texts } from '@/lib/texts';
@@ -164,6 +165,9 @@ export function WorkItemsTab({
             <TabsTrigger value="import" className="min-h-[44px]">
               {t.sections.import}
             </TabsTrigger>
+            <TabsTrigger value="templates" className="min-h-[44px]">
+              {t.sections.templates}
+            </TabsTrigger>
             <TabsTrigger value="customerPls" className="min-h-[44px]">
               {t.sections.customerPls}
             </TabsTrigger>
@@ -213,6 +217,14 @@ export function WorkItemsTab({
             <Card className="mt-4">
               <CardContent className="pt-6">
                 <ImportSection projectId={projectId} onImported={afterImport} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="templates">
+            <Card>
+              <CardContent className="pt-6">
+                <TemplatesSection />
               </CardContent>
             </Card>
           </TabsContent>
