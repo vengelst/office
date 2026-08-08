@@ -1,149 +1,151 @@
-# Office App – Projekt-Status-Freeze (02.07.2026)
+# Office App – Projekt-Status
 
-## Aktueller Stand
+**Stand:** 08. August 2026  
+**Repository:** github.com/vengelst/office  
+**Branch:** `main`  
+**Letzter Commit:** `8359443` – Arbeitsitems Web/PWA (Parität zur APK)  
+**Produktion:** https://office.vivahome.de (`/opt/office` auf vivahome.de)
 
-**Repository:** github.com:vengelst/office.git  
-**Branch:** main  
-**Letzter Commit:** `34cf930` – Kiosk-Modus  
-**Alle Änderungen sind committed und auf GitHub gepusht.**
+> Ausführliche Feature-Liste und Architektur: **`STATUS.md`**  
+> Item-Modus-Spezifikation: **`SPEZ-arbeitsitems.md`**  
+> Deployment: **`DEPLOYMENT.md`**
 
 ---
 
 ## Implementierte Module (produktionsreif)
 
-| # | Modul | Commit | Beschreibung |
-|---|-------|--------|-------------|
-| 1 | Projektbasis | `41c01c2` | NestJS API, Next.js Web, PostgreSQL, MinIO, Docker, Auth (JWT) |
-| 2 | Kundenverwaltung | `c964876` | CRUD, Niederlassungen, Ansprechpartner, Bankverbindungen, Geocoding |
-| 3 | Projektverwaltung | `0f50521` | CRUD, 7-Tab-Detail, Standorte, Equipment, Timeline/Kalender |
-| 4 | Monteure/Teams/Subs | `a8edd60` | Workers mit 6 Tabs, Subunternehmen, Teams, Sprachen, Zertifikate |
-| 5 | Zeiterfassung | `ec0c8b0` | PIN-Login, Clock-In/Out, Stundenzettel, Unterschriften, PDF-Export |
-| 6 | Abrechnungen | `517e0e2` | Ausgangs-/Eingangsrechnungen, Auto-Generierung, Teilrechnungen, PDF |
-| 7 | Fahrzeuge | `cd2847b` | Fahrzeugverwaltung (rudimentär), Zuweisungen, TÜV-Warnungen |
-| 8 | Dokumente (Overhaul) | `5dc46e8` | Bild-Editor, Kamera, Ordner, Versionen, Lightbox, Multi-Upload |
-| 9 | PIN/E-Mail/Drive | `c03bfc1` | PIN-Verwaltung, SMTP-Config, Google Drive Sync, Delete/Deaktivieren |
-| 10 | Storage-Struktur | `981030b` | Lesbare MinIO-Pfade, Drive-Ordnerstruktur, Auto-PDF-Exports |
-| 11 | Kiosk-Modus | `34cf930` | Tablet-Stempeluhr, dunkles Theme, Live-Übersicht, GPS |
+| # | Modul | Beschreibung |
+|---|-------|-------------|
+| 1 | Projektbasis | NestJS API, Next.js Web, PostgreSQL, MinIO, Docker, JWT-Auth |
+| 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, Drucken, Google Contacts Sync |
+| 3 | Projektverwaltung | CRUD, 7-Tab-Detail, Baustellen, Zuweisungen, Kalender |
+| 4 | Monteure / Teams / Subs | Workers, Qualifikationen, Subunternehmen, Teams |
+| 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Stundenzettel, PDF, Live-Stempeluhr |
+| 6 | Abrechnungen | Ein-/Ausgangsrechnungen, Positionen, PDF, Zahlungsstatus |
+| 7 | Fahrzeuge | CRUD, Zuweisungen, TÜV-/Versicherungswarnungen, Dokumente |
+| 8 | Dokumente | Ordner, Versionen, Thumbnails, Kamera, Lightbox, Drive-Sync |
+| 9 | Storage / Drive / E-Mail | Lesbare MinIO-Pfade, Google Drive DWD, SMTP-Config |
+| 10 | Kiosk (Web) | Tablet-Stempeluhr, dunkles Theme, Live-Übersicht, GPS |
+| 11 | OCR | PaddleOCR-Microservice (Visitenkarten + Text) |
+| 12 | Auto-Recherche | Research-Microservice (Playwright + LLM), Vorschau-Dialog |
+| 13 | Equipment | Werkzeuge/Geräte, Zuordnung, Wartung, Fotos |
+| 14 | Kommunikation | Historie am Kunden inkl. Spracheingabe |
+| 15 | To-Dos | Prioritäten, Zuordnungen, Dashboard-Widget |
+| 16 | Ausschreibungen | Submission-Suche via Research-Service |
+| 17 | Einstellungen | Firmen-Stammdaten, Pausen, Storage, Cloud, System-Status |
+| 18 | Mobile Kiosk-App | Expo/Android APK (`de.vivahome.kiosk`), Download unter `/download` |
+| 19 | Arbeitsitems | Excel-Import, Büro-Tab, Mobile + Web/PWA Monteur-UI, Kunden-PL-Board |
 
 ---
 
 ## Tech-Stack
 
-- **Backend:** NestJS, Prisma ORM, PostgreSQL, MinIO (S3-kompatibel)
-- **Frontend:** Next.js 14, React, shadcn/ui, Tailwind CSS, React Hook Form + Zod
-- **Auth:** JWT (User + Worker-PIN), bcrypt
-- **PDF:** pdfkit
-- **E-Mail:** nodemailer
-- **Cloud:** Google Drive API (googleapis)
-- **Docker:** docker-compose.dev.yml (postgres, minio, api, web)
-- **Deployment:** Noch nicht konfiguriert (aktuell nur Docker Dev)
+- **Backend:** NestJS, Prisma ORM (v5.22), PostgreSQL 16, MinIO
+- **Frontend Web:** Next.js 14 (App Router), shadcn/ui, Tailwind, React Hook Form + Zod
+- **Frontend Mobile:** React Native / Expo SDK 53, EAS Build (lokal)
+- **Auth:** JWT (User + Worker-PIN), Rollen inkl. `CUSTOMER_PL`
+- **PDF:** pdfkit · **E-Mail:** nodemailer · **Cloud:** Google Drive / People API
+- **Neben-Services:** `ocr-service`, `research-service` (eigene Repos, Docker-Netz `vivahome`)
+- **Deployment:** Production auf vivahome.de (Docker Compose + Nginx + TLS)
 
 ---
 
 ## Offene Punkte / Backlog
 
-### Hohe Priorität (nächste Schritte)
+### Hohe Priorität
 
-1. **Seed-Daten-Bug:** Seed erstellt TimeEntries in der Zukunft → `getStatus()` findet falsche Clock-Outs. Fix: Seed so anpassen, dass keine Einträge nach "heute" generiert werden.
+1. **Google People API aktivieren** – People API + DWD-Scope `contacts` für Service Account (Contacts-Sync noch nicht produktiv)
+2. **APK persistent machen** – Volume-Mount in `docker-compose.prod.yml` für `kiosk.apk` (aktuell nach Rebuild per `docker cp`)
+3. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 
-2. **Unauthorized beim Kunden-Speichern:** Fix wurde implementiert (handleUnauthorized in api-client.ts + CORS), aber noch nicht vollständig verifiziert im Browser.
+### Mittlere Priorität
 
-3. **Worker-Equipment-Tab:** Backend-Endpoint für Equipment-Ausgaben fehlt noch – Tab ist aktuell read-only.
+4. **Mobile App** – Push-Notifications, Biometrie (optional), finales App-Branding
+5. **Offline-Modus** – Stempel lokal puffern und später syncen (Web-PWA cacht nur Build-Assets)
+6. **DATEV-Export** – geplant, noch nicht implementiert
+7. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
+8. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
 
-4. **DocumentsTab Upload-Dialog:** Zeigt bei Monteuren noch Kunden-Dokumenttypen statt monteurspezifische (types-for-context Endpoint existiert, muss im alten Upload-Dialog integriert werden).
+### Niedrige Priorität / bewusst zurückgestellt
 
-5. **Google Drive:** Noch nicht konfiguriert/getestet mit echtem Google Workspace. Service Account Key muss erstellt und in /settings/storage hinterlegt werden.
-
-6. **SMTP:** Noch nicht konfiguriert. Muss in /settings/email mit echten SMTP-Daten befüllt werden.
-
-### Mittlere Priorität (Verbesserungen)
-
-7. **Dashboard:** "Stunden diese Woche" zeigt 200h – Berechnung prüfen (weeklyPackageHours × Monteure, evtl. zu hoch durch Test-Projekte).
-
-8. **Kiosk:** Browser-Test noch ausstehend (visueller Test im Browser).
-
-9. **Offline-Modus:** Worker-App/Kiosk sollte bei Netzausfall Stempel lokal speichern und später synchronisieren.
-
-10. **DATEV-Export:** Für Abrechnungsmodul geplant, noch nicht implementiert.
-
-11. **Rechnungsvorlage:** User will eigene PDF-Vorlage hochladen (aktuell Standard-Layout).
-
-12. **Einheitsbasierte Abrechnung:** UNIT_BASED billingMode nur als Typ definiert, Detail-Logik fehlt.
-
-### Niedrige Priorität (nice-to-have)
-
-13. **Mahnwesen:** User hat explizit gesagt "kein Mahnwesen" – evtl. später.
-
-14. **Fahrtenbuch:** Für Fahrzeuge geplant, kommt später.
-
-15. **Tankkosten/Schadensmeldungen:** Fahrzeug-Management-Erweiterung, später.
-
-16. **Nacht-/Wochenend-Zuschläge:** User hat explizit gesagt "keine Zuschläge".
-
-17. **Deployment:** Production-Setup (Server, Domain, SSL, CI/CD) noch nicht geplant.
+9. **Mahnwesen** – bewusst kein Mahnwesen
+10. **Fahrtenbuch / Tankkosten / Schäden** – Fahrzeug-Erweiterungen später
+11. **Nacht-/Wochenend-Zuschläge** – bewusst keine Zuschläge
+12. **Reporting/Dashboards** – Auswertungen/Charts über das bestehende Dashboard hinaus
 
 ---
 
-## Datenbankstruktur (Prisma-Migrationen)
+## Datenbank (Prisma-Migrationen)
 
 ```
 prisma/migrations/
-├── 20260618_initial/
-├── 20260630073614_initial/
-├── 20260630081922_add_projects_module/
-├── 20260630200608_add_workers_module/
-├── 20260630212811_add_timesheets_module/
-├── 20260630220641_add_invoices_module/
-├── 20260630223422_extend_vehicles/
-├── 20260630225651_improve_documents/
-└── 20260701192000_add_drive_fields/
+├── 20260629085329_init
+├── 20260630081922_add_projects_module
+├── 20260630120000_add_customer_module
+├── 20260630200608_add_workers_module
+├── 20260630212811_add_timesheets_module
+├── 20260630220641_add_invoices_module
+├── 20260630223422_extend_vehicles
+├── 20260630225651_improve_documents
+├── 20260701192000_add_drive_fields
+├── 20260710123000_add_app_settings
+├── 20260711064500_add_google_contact_id
+├── 20260711091500_add_performance_indexes
+├── 20260711133500_add_subcontractor_type
+├── 20260711140000_add_sync_to_google
+├── 20260711160000_add_submissions
+├── 20260711163000_add_equipment
+├── 20260711170000_add_communication_entries
+├── 20260711173000_add_todos
+├── 20260807040000_work_items_fundament
+└── 20260807040100_seed_role_customer_pl
 ```
 
 ---
 
-## Konfigurationen (Docker Dev)
+## Deployment (Produktion)
 
-```
-API:      localhost:3901
-Web:      localhost:3900
-Postgres: localhost:5433 (User: office, DB: office)
-MinIO:    localhost:9002 (User: office_minio, PW: office_minio_pw)
+```bash
+cd /opt/office && git pull && \
+  docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
 ```
 
-**Admin-Login:** admin@office.local / admin123  
-**Worker-PINs:** 001001 (Marko), 001002 (Ivan), 001003 (Piotr), 001004 (Tomasz), 001005 (Stefan), 001006 (Ahmed)
+| Dienst | Port (Host) |
+|---|---|
+| Web | `127.0.0.1:5700` |
+| API | `127.0.0.1:5701` |
+| MinIO API / Console | `127.0.0.1:5702` / `5703` |
+| OCR | `127.0.0.1:5800` |
+
+Nginx: `office.vivahome.de` → Web/API, `minio.office.vivahome.de` → MinIO Console.
 
 ---
 
-## Ordnerstruktur Aufträge
+## Konfiguration (Docker Dev)
 
 ```
-claude-auftraege/
-├── claude-customers-v2.md      (Kunden-Verbesserungen)
-├── claude-projects.md          (Projektverwaltung)
-├── claude-workers.md           (Monteure/Teams/Subs)
-├── claude-timesheets.md        (Zeiterfassung)
-├── claude-invoices.md          (Abrechnungen)
-├── claude-vehicles.md          (Fahrzeuge)
-├── claude-documents.md         (Dokumente-Overhaul)
-└── drive-ordnerstruktur.md     (Google Drive Struktur-Definition)
+API:      localhost:3901  (Container intern 3801)
+Web:      localhost:3900  (Container intern 3800)
+Postgres: localhost:5433
+MinIO:    localhost:9002 (API), 9003 (Console)
+```
+
+**Admin-Login (Seed):** admin@office.local / admin123  
+Siehe auch `README.md` für Office-/PL-Accounts und PIN-Login.
+
+---
+
+## Aufträge (`claude-auftraege/`)
+
+```
+claude-fundament.md … claude-documents.md, drive-ordnerstruktur.md
+claude-arbeitsitems-01-fundament.md … 06-web-kiosk-pwa.md (+ 06-notizen.md)
 ```
 
 ---
 
-## Workflow-Erinnerung
+## Workflow
 
-- **Kleine Fixes:** Cursor direkt → Docker-Container rebuild
-- **Große Features:** Claude Code Auftrag in 2 Teilen (Backend → Frontend)
-- **Aufträge:** Spec in `claude-auftraege/` schreiben, dann `claude -p` mit --dangerously-skip-permissions
-- **Bei Timeout:** Auftrag in kleinere Teile splitten
-
----
-
-## Nächste große Features (noch nicht spezifiziert)
-
-1. **Deployment/Production** – Server-Setup, Domain, SSL
-2. **Benutzer-Rollen-Verwaltung** – Aktuell nur Admin, fehlt: Projektleiter, Büro, etc.
-3. **Benachrichtigungen** – E-Mail bei ablaufenden Dokumenten, Rechnungserinnerungen
-4. **Mobile PWA** – Worker-App als installierbare App
-5. **Reporting/Dashboards** – Auswertungen, Charts, Export
+- **Kleine Fixes:** Cursor direkt → commit/push → Server-Deploy
+- **Große Features:** Spec in `claude-auftraege/`, dann Cloud-Auftrag
+- Testen immer auf dem Server, nicht lokal mit Produktiv-Docker

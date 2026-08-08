@@ -6,32 +6,33 @@ Sammlung von Ideen, die später umgesetzt oder geprüft werden sollen.
 
 ## Offene Ideen
 
-### [2026-06-30] – Leistungspositionen aus Kunden-Excel als Arbeitsaufträge
+<!-- Neue Ideen hier eintragen -->
 
-Der Kunde liefert eine Excel-Liste mit Leistungspositionen (Tätigkeit, Maße, Preis, Zeitvorgabe). Diese Positionen sollen:
-1. **Importiert** werden können (Excel-Upload → Positionen im Projekt)
-2. Als **Arbeitsaufträge** für die Monteure erscheinen (im Kiosk/App sichtbar)
-3. Vom Monteur **einzeln bestätigt/abgehakt** werden ("Position X erledigt")
-4. Im Büro sichtbar sein: Welche Positionen sind erledigt, welche offen?
-5. Grundlage für die **Maß-/Einheits-Abrechnung** (billingMode: UNIT_BASED)
+### [2026-08-08] – Abrechnung aus geprüften Arbeitsitems (UNIT_BASED)
 
-**Verknüpfung:** Hängt zusammen mit dem Abrechnungsmodus "Nach Maß/Einheit" im Projekt-Modul. Wird als eigener Auftrag umgesetzt wenn die Basisfunktionen stehen.
+Arbeitsitems (Import, Monteur-Flow, Kunden-PL-Prüfung) sind umgesetzt. Offen bleibt die
+**automatische bzw. geführte Abrechnung** aus Items mit Status **Geprüft**:
 
-### [2026-06-30] – Auto-Recherche beim Anlegen neuer Kunden (Web-Scraping / KI)
+1. Positionen/Mengen aus geprüften Items in Rechnungszeilen übernehmen
+2. `billingMode: UNIT_BASED` / `MIXED` mit dem Item-Workflow verdrahten
+3. Büro-UI: „Rechnung aus geprüften Items“ (Filter nach Block/Zeitraum)
 
-Wenn ein neuer Kunde angelegt wird, soll das System automatisch Informationen sammeln:
-1. **Website des Kunden** crawlen → Hauptadresse, Impressum-Daten extrahieren
-2. **Standorte/Niederlassungen** finden (z.B. von Standort-Seite oder Google Maps)
-3. **Ansprechpartner/Mitarbeiter** suchen – auf der Kunden-Website, LinkedIn, Instagram, XING, etc.
-4. Gefundene Daten als **Vorschläge** anbieten (nicht blind übernehmen)
-5. Bei bestehenden Kontakten markieren: "Bereits bekannt / Kontakt vorhanden"
-
-**Technisch:** Könnte über KI-Agenten (Web-Scraping + LLM-Extraktion) oder APIs (Google Places, LinkedIn API) gelöst werden. Datenschutz beachten (DSGVO – nur öffentlich verfügbare Daten).
-
-**Priorität:** Komfort-Feature, nicht MVP-kritisch. Umsetzen wenn Kernmodule stehen.
+**Bezug:** `SPEZ-arbeitsitems.md`, `billingMode` im Projekt-Modul.
 
 ---
 
 ## Umgesetzt / Erledigt
 
-<!-- Erledigte Ideen hierher verschieben -->
+### [2026-06-30 → 2026-08] – Leistungspositionen / Arbeitsitems
+
+Excel-Import → Items im Projekt, Monteur-UI (App + Web/PWA/Kiosk), Fertig/Nacharbeit,
+Büro-Übersicht, Kunden-PL-Board. Siehe `SPEZ-arbeitsitems.md` und `STATUS.md` §20.
+
+**Rest:** Abrechnung aus geprüften Items → siehe offene Idee oben.
+
+### [2026-06-30 → 2026-07] – Auto-Recherche beim Anlegen neuer Kunden
+
+Research-Microservice (Playwright + LLM) + Proxy in der API + Vorschau-Dialog mit
+selektiver Übernahme im Kundenformular. Auch für Ausschreibungen genutzt.
+
+**Repo:** ausgelagert nach `address_pull` / Container `research-service`.
