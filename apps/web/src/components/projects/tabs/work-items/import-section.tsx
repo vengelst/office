@@ -85,6 +85,9 @@ export function ImportSection({
         <p className="max-w-2xl text-sm text-muted-foreground">
           {t.import.subtitle}
         </p>
+        <p className="text-xs text-amber-700 dark:text-amber-500">
+          {t.import.fallbackHint}
+        </p>
         <p className="text-xs text-muted-foreground">{t.import.templateHint}</p>
       </div>
 

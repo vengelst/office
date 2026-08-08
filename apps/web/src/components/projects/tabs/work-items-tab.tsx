@@ -9,6 +9,7 @@ import { CustomerPlsSection } from '@/components/projects/tabs/work-items/custom
 import { ImportSection } from '@/components/projects/tabs/work-items/import-section';
 import { ItemDetailSheet } from '@/components/projects/tabs/work-items/item-detail-sheet';
 import { ItemsSection } from '@/components/projects/tabs/work-items/items-section';
+import { PdfImportSection } from '@/components/projects/tabs/work-items/pdf-import-section';
 import { ApiError } from '@/lib/api-client';
 import { projectsApi, type ProjectDetail } from '@/lib/projects';
 import { texts } from '@/lib/texts';
@@ -205,6 +206,11 @@ export function WorkItemsTab({
 
           <TabsContent value="import">
             <Card>
+              <CardContent className="pt-6">
+                <PdfImportSection projectId={projectId} onImported={afterImport} />
+              </CardContent>
+            </Card>
+            <Card className="mt-4">
               <CardContent className="pt-6">
                 <ImportSection projectId={projectId} onImported={afterImport} />
               </CardContent>

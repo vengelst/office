@@ -7,11 +7,12 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FilesInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -19,9 +20,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
+import { AuthUser } from '@office/types';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CreateBlockDto, UpdateBlockDto } from './dto/block.dto';
+import { PdfImportCommitDto, PdfImportPreviewDto } from './dto/pdf-import.dto';
 import { CreateWorkItemDto } from './dto/work-item.dto';
 import {
   CreateCustomerPlDto,
@@ -31,10 +35,14 @@ import {
 import { ProjectCustomerPlsService } from './project-customer-pls.service';
 import { WorkItemBlocksService } from './work-item-blocks.service';
 import { WorkItemImportService } from './work-item-import.service';
+import { WorkItemPdfImportService } from './work-item-pdf-import.service';
 import { WorkItemsService } from './work-items.service';
 
 /** Maximale Größe je Import-Datei: 20 MB. */
 const MAX_IMPORT_SIZE = 20 * 1024 * 1024;
+
+/** Maximale Größe für PDF-Importe: 50 MB. */
+const MAX_PDF_IMPORT_SIZE = 50 * 1024 * 1024;
 
 /**
  * Büro-/Admin-Endpunkte der Arbeitsitems, projektbezogen.
@@ -60,6 +68,7 @@ export class ProjectWorkItemsController {
     private readonly workItems: WorkItemsService,
     private readonly blocks: WorkItemBlocksService,
     private readonly importer: WorkItemImportService,
+    private readonly pdfImporter: WorkItemPdfImportService,
     private readonly customerPls: ProjectCustomerPlsService,
   ) {}
 
@@ -99,7 +108,48 @@ export class ProjectWorkItemsController {
     return this.blocks.remove(projectId, blockId);
   }
 
-  // ── Import (statische Route vor den Item-Routen) ─────────────
+  // ── PDF-Import (primär) ──────────────────────────────────────
+
+  @Post('work-items/import-pdf/preview')
+  @ApiOperation({
+    summary: 'PDF-Import Vorschau (1 Seite = 1 Item, schreibt nicht)',
+    description:
+      'Multipart-Feld `file` mit PDF. Liefert je Seite einen Item-Entwurf mit ' +
+      'Platzhalter-Kennung. Bestehende Kennungen werden als Warnung gemeldet.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_PDF_IMPORT_SIZE } }),
+  )
+  previewPdfImport(
+    @Param('projectId') projectId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() dto: PdfImportPreviewDto,
+  ) {
+    return this.pdfImporter.preview(projectId, file, dto);
+  }
+
+  @Post('work-items/import-pdf')
+  @ApiOperation({
+    summary: 'PDF-Import ausführen (Items anlegen/aktualisieren)',
+    description:
+      'Multipart-Feld `file` (PDF) ODER `pdfDocumentId` + JSON-Feld `items` ' +
+      'mit der editierten Item-Liste. Neue Items: Status OPEN.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: MAX_PDF_IMPORT_SIZE } }),
+  )
+  commitPdfImport(
+    @Param('projectId') projectId: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body() dto: PdfImportCommitDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.pdfImporter.commit(projectId, file, dto, user.id);
+  }
+
+  // ── Excel-/CSV-Import (Fallback) ───────────────────────────────
 
   @Post('work-items/import')
   @ApiOperation({
