@@ -13,6 +13,11 @@ import {
   type ClockStatus,
   type KioskWorkerStatus,
 } from '@/lib/timesheets';
+import {
+  getOptimisticClockStatus,
+  startOfflineClockSync,
+} from '@/lib/offline-clock-queue';
+import { OfflineClockBanner } from '@/components/offline-clock-banner';
 import { WorkItemsList } from '@/components/worker-work-items/work-items-list';
 import { WorkItemDetail } from '@/components/worker-work-items/work-item-detail';
 import { T } from '@/lib/i18n-work-items';
@@ -106,6 +111,7 @@ export default function KioskTerminalPage() {
         return;
       }
       setConfig(c);
+      startOfflineClockSync();
       if (c.fullscreen) {
         document.documentElement.requestFullscreen?.().catch(() => {});
       }
@@ -233,8 +239,20 @@ export default function KioskTerminalPage() {
       const me = await kioskApi.me();
       setWorkerSession(token, me);
       setWorker(me);
-      const status = await kioskApi.status(me.id);
-      setClockStatus(status);
+      let status: ClockStatus;
+      try {
+        status = await kioskApi.status(me.id);
+      } catch {
+        status = {
+          clockedIn: false,
+          since: null,
+          durationMinutes: 0,
+          project: null,
+          timeEntryId: null,
+        };
+      }
+      const merged = await getOptimisticClockStatus(me.id, status);
+      setClockStatus(merged);
       setState('action');
       lastInteraction.current = Date.now();
       acquireGps();
@@ -253,7 +271,10 @@ export default function KioskTerminalPage() {
     setProcessing(true);
     try {
       const gpsData = gps ?? (await acquireGps());
-      await kioskApi.clockIn({
+      const assignment = (worker.assignments ?? []).find(
+        (a) => a.project.id === config.projectId,
+      );
+      const result = await kioskApi.clockIn({
         workerId: worker.id,
         projectId: config.projectId,
         latitude: gpsData?.latitude,
@@ -261,10 +282,31 @@ export default function KioskTerminalPage() {
         accuracy: gpsData?.accuracy,
         occurredAtClient: new Date().toISOString(),
         sourceDevice: 'kiosk',
+        projectSnapshot: assignment
+          ? {
+              id: assignment.project.id,
+              projectNumber: assignment.project.projectNumber,
+              title: assignment.project.title,
+            }
+          : {
+              id: config.projectId,
+              projectNumber: '',
+              title: config.projectTitle ?? '',
+            },
       });
+      setClockStatus(result);
       const now = formatTime(new Date().toISOString());
-      setConfirmMessage(t.confirmClockIn(`${worker.firstName} ${worker.lastName}`, now));
-      setConfirmSubtext(t.goodDay);
+      if (result.queued) {
+        setConfirmMessage(
+          `${worker.firstName} ${worker.lastName} – ${t.savedPending}`,
+        );
+        setConfirmSubtext(t.goodDay);
+      } else {
+        setConfirmMessage(
+          t.confirmClockIn(`${worker.firstName} ${worker.lastName}`, now),
+        );
+        setConfirmSubtext(t.goodDay);
+      }
       setState('confirmation');
       tryVibrate();
       setTimeout(resetToIdle, 3000);
@@ -276,25 +318,40 @@ export default function KioskTerminalPage() {
   };
 
   const handleClockOut = async () => {
-    if (!worker) return;
+    if (!worker || !config) return;
     resetActivity();
     setProcessing(true);
     try {
       const gpsData = gps ?? (await acquireGps());
-      const res = await kioskApi.clockOut({
+      const result = await kioskApi.clockOut({
         workerId: worker.id,
+        projectId: config.projectId,
         latitude: gpsData?.latitude,
         longitude: gpsData?.longitude,
         accuracy: gpsData?.accuracy,
         occurredAtClient: new Date().toISOString(),
         sourceDevice: 'kiosk',
       });
+      setClockStatus(result);
       const now = formatTime(new Date().toISOString());
-      const duration = res.lastGrossMinutes
-        ? formatDuration(res.lastGrossMinutes * 60)
-        : '';
-      setConfirmMessage(t.confirmClockOut(`${worker.firstName} ${worker.lastName}`, now, duration));
-      setConfirmSubtext(t.goodBye);
+      if (result.queued) {
+        setConfirmMessage(
+          `${worker.firstName} ${worker.lastName} – ${t.savedPending}`,
+        );
+        setConfirmSubtext(t.goodBye);
+      } else {
+        const duration = result.lastGrossMinutes
+          ? formatDuration(result.lastGrossMinutes * 60)
+          : '';
+        setConfirmMessage(
+          t.confirmClockOut(
+            `${worker.firstName} ${worker.lastName}`,
+            now,
+            duration,
+          ),
+        );
+        setConfirmSubtext(t.goodBye);
+      }
       setState('confirmation');
       tryVibrate();
       setTimeout(resetToIdle, 3000);
@@ -424,6 +481,12 @@ export default function KioskTerminalPage() {
         onClick={resetActivity}
         onTouchStart={resetActivity}
       >
+        <OfflineClockBanner
+          workerId={worker.id}
+          variant="dark"
+          className="mb-4"
+        />
+
         {/* Header */}
         <div className="flex items-start justify-between">
           <button
@@ -537,6 +600,8 @@ export default function KioskTerminalPage() {
   // ── IDLE STATE (PIN entry) ──
   return (
     <div className="flex min-h-screen flex-col p-6">
+      <OfflineClockBanner variant="dark" className="mb-4" />
+
       {/* Header */}
       <div className="flex items-start justify-between">
         <button

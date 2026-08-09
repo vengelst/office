@@ -124,6 +124,10 @@ export interface ClockInBody {
   occurredAtClient?: string;
   comment?: string;
   sourceDevice?: string;
+  /** Client-Event-UUID (Offline-Idempotenz); wird vom Offline-Wrapper gesetzt. */
+  clientEventId?: string;
+  /** Optionaler Projekt-Snapshot für optimistischen Offline-Status. */
+  projectSnapshot?: ClockProject | null;
 }
 
 /** Request-Body zum Ausstempeln eines Monteurs. */
@@ -135,6 +139,10 @@ export interface ClockOutBody {
   occurredAtClient?: string;
   comment?: string;
   sourceDevice?: string;
+  /** Client-Event-UUID (Offline-Idempotenz); wird vom Offline-Wrapper gesetzt. */
+  clientEventId?: string;
+  /** Lokal bekanntes Projekt (nur Queue; API braucht es nicht). */
+  projectId?: string;
 }
 
 // ── Wochenstundenzettel ────────────────────────────────────────
@@ -447,22 +455,22 @@ export const workerApi = {
     workerFetch<TodayEntry[]>(`/time-entries/today/${workerId}`),
   /**
    * POST /time-entries/clock-in – Stempelt einen Monteur auf ein Projekt ein.
+   * Offline-fähig (Auftrag #13): bei Netzfehler Queue + optimistischer Status.
    * @param body - Monteur-ID, Projekt-ID und optionale GPS-Koordinaten
    */
-  clockIn: (body: ClockInBody) =>
-    workerFetch<ClockStatus>('/time-entries/clock-in', {
-      method: 'POST',
-      body,
-    }),
+  clockIn: async (body: ClockInBody) => {
+    const { offlineAwareClockIn } = await import('./offline-clock-queue');
+    return offlineAwareClockIn(body);
+  },
   /**
    * POST /time-entries/clock-out – Stempelt einen Monteur aus.
+   * Offline-fähig (Auftrag #13): bei Netzfehler Queue + optimistischer Status.
    * @param body - Monteur-ID und optionale GPS-Koordinaten
    */
-  clockOut: (body: ClockOutBody) =>
-    workerFetch<ClockStatus>('/time-entries/clock-out', {
-      method: 'POST',
-      body,
-    }),
+  clockOut: async (body: ClockOutBody) => {
+    const { offlineAwareClockOut } = await import('./offline-clock-queue');
+    return offlineAwareClockOut(body);
+  },
   /**
    * POST /time-entries/upload-photo – Lädt ein Arbeitsfoto hoch.
    * @param form - FormData mit Bilddatei
@@ -630,22 +638,22 @@ export const kioskApi = {
     workerFetch<ClockStatus>(`/time-entries/status/${workerId}`),
   /**
    * POST /time-entries/clock-in – Stempelt einen Monteur im Kiosk ein.
+   * Offline-fähig (Auftrag #13): bei Netzfehler Queue + optimistischer Status.
    * @param body - Monteur-ID und Projekt-ID
    */
-  clockIn: (body: ClockInBody) =>
-    workerFetch<ClockStatus>('/time-entries/clock-in', {
-      method: 'POST',
-      body,
-    }),
+  clockIn: async (body: ClockInBody) => {
+    const { offlineAwareClockIn } = await import('./offline-clock-queue');
+    return offlineAwareClockIn(body);
+  },
   /**
    * POST /time-entries/clock-out – Stempelt einen Monteur im Kiosk aus.
+   * Offline-fähig (Auftrag #13): bei Netzfehler Queue + optimistischer Status.
    * @param body - Monteur-ID
    */
-  clockOut: (body: ClockOutBody) =>
-    workerFetch<ClockStatus & { lastGrossMinutes?: number }>('/time-entries/clock-out', {
-      method: 'POST',
-      body,
-    }),
+  clockOut: async (body: ClockOutBody) => {
+    const { offlineAwareClockOut } = await import('./offline-clock-queue');
+    return offlineAwareClockOut(body);
+  },
   /**
    * GET /time-entries/project-status/:projectId – Status aller Monteure eines Projekts.
    * @param projectId - Projekt-ID

@@ -88,30 +88,57 @@ export class TimeEntriesService {
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
 
+    // Idempotenter Replay: gleiche clientEventId → Status zurück, kein Insert.
+    if (dto.clientEventId) {
+      const existing = await this.findByClientEventId(dto.clientEventId);
+      if (existing) {
+        return this.getStatus(dto.workerId);
+      }
+    }
+
     const status = await this.getStatus(dto.workerId);
     if (status.clockedIn) {
+      // Offline-Sync liefert IN nach, Server hat bereits IN:
+      // gleiches Projekt → Idempotent-OK; anderes Projekt → Konflikt.
+      if (dto.clientEventId && status.project?.id === dto.projectId) {
+        return status;
+      }
+      if (dto.clientEventId && status.project?.id !== dto.projectId) {
+        throw new ConflictException(
+          'Monteur ist bereits auf einem anderen Projekt eingestempelt',
+        );
+      }
       throw new ConflictException('Monteur ist bereits eingestempelt');
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
-    const entry = await this.prisma.timeEntry.create({
-      data: {
-        workerId: dto.workerId,
-        projectId: dto.projectId,
-        entryType: TimeEntryType.CLOCK_IN,
-        occurredAtClient,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        accuracy: dto.accuracy,
-        comment: dto.comment,
-        sourceDevice: dto.sourceDevice,
-        createdByUserId: actor.type === 'user' ? actor.id : null,
-      },
-    });
+    try {
+      const entry = await this.prisma.timeEntry.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: dto.projectId,
+          entryType: TimeEntryType.CLOCK_IN,
+          occurredAtClient,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          comment: dto.comment,
+          sourceDevice: dto.sourceDevice,
+          clientEventId: dto.clientEventId ?? null,
+          createdByUserId: actor.type === 'user' ? actor.id : null,
+        },
+      });
 
-    await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_IN);
+      await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_IN);
 
-    return this.getStatus(dto.workerId);
+      return this.getStatus(dto.workerId);
+    } catch (err) {
+      // Race: paralleler Retry mit gleicher clientEventId → Unique-Violation → Replay.
+      if (dto.clientEventId && isUniqueClientEventConflict(err)) {
+        return this.getStatus(dto.workerId);
+      }
+      throw err;
+    }
   }
 
   /**
@@ -126,44 +153,62 @@ export class TimeEntriesService {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
 
+    // Idempotenter Replay: gleiche clientEventId → Status zurück, kein Insert.
+    if (dto.clientEventId) {
+      const existing = await this.findByClientEventId(dto.clientEventId);
+      if (existing) {
+        const status = await this.getStatus(dto.workerId);
+        return { ...status, lastGrossMinutes: 0, closedItemSessions: 0 };
+      }
+    }
+
     const open = await this.getOpenClockIn(dto.workerId);
     if (!open) {
       throw new ConflictException('Monteur ist nicht eingestempelt');
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
-    const entry = await this.prisma.timeEntry.create({
-      data: {
-        workerId: dto.workerId,
-        projectId: open.projectId,
-        entryType: TimeEntryType.CLOCK_OUT,
-        occurredAtClient,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        accuracy: dto.accuracy,
-        comment: dto.comment,
-        sourceDevice: dto.sourceDevice,
-        createdByUserId: actor.type === 'user' ? actor.id : null,
-      },
-    });
+    try {
+      const entry = await this.prisma.timeEntry.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: open.projectId,
+          entryType: TimeEntryType.CLOCK_OUT,
+          occurredAtClient,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          comment: dto.comment,
+          sourceDevice: dto.sourceDevice,
+          clientEventId: dto.clientEventId ?? null,
+          createdByUserId: actor.type === 'user' ? actor.id : null,
+        },
+      });
 
-    await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_OUT);
+      await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_OUT);
 
-    // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
-    // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
-    const closedItemSessions =
-      await this.workItemWorkflow.closeOpenSessionsForWorker(
-        dto.workerId,
+      // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
+      // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
+      const closedItemSessions =
+        await this.workItemWorkflow.closeOpenSessionsForWorker(
+          dto.workerId,
+          occurredAtClient,
+        );
+
+      const grossMinutes = diffMinutes(
+        open.occurredAtClient,
         occurredAtClient,
       );
 
-    const grossMinutes = diffMinutes(
-      open.occurredAtClient,
-      occurredAtClient,
-    );
-
-    const status = await this.getStatus(dto.workerId);
-    return { ...status, lastGrossMinutes: grossMinutes, closedItemSessions };
+      const status = await this.getStatus(dto.workerId);
+      return { ...status, lastGrossMinutes: grossMinutes, closedItemSessions };
+    } catch (err) {
+      if (dto.clientEventId && isUniqueClientEventConflict(err)) {
+        const status = await this.getStatus(dto.workerId);
+        return { ...status, lastGrossMinutes: 0, closedItemSessions: 0 };
+      }
+      throw err;
+    }
   }
 
   // ── Abfragen ─────────────────────────────────────────────────
@@ -420,6 +465,14 @@ export class TimeEntriesService {
 
   // ── intern ───────────────────────────────────────────────────
 
+  /** TimeEntry anhand clientEventId (Offline-Idempotenz). */
+  private async findByClientEventId(clientEventId: string) {
+    return this.prisma.timeEntry.findUnique({
+      where: { clientEventId },
+      select: { id: true, workerId: true, entryType: true },
+    });
+  }
+
   /** Letzter Stempel-Event eines Monteurs (CLOCK_IN/CLOCK_OUT). */
   private async getLatestClockEntry(workerId: string) {
     return this.prisma.timeEntry.findFirst({
@@ -541,4 +594,14 @@ function extensionFor(file: Express.Multer.File): string {
   }
   const fromMime = file.mimetype.split('/').pop();
   return (fromMime && /^[a-zA-Z0-9]{1,5}$/.test(fromMime) ? fromMime : 'jpg').toLowerCase();
+}
+
+/** Prisma P2002 auf clientEventId (paralleler Offline-Retry). */
+function isUniqueClientEventConflict(err: unknown): boolean {
+  return (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    err.code === 'P2002' &&
+    Array.isArray(err.meta?.target) &&
+    (err.meta.target as string[]).includes('clientEventId')
+  );
 }

@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   MinLength,
 } from 'class-validator';
 
@@ -48,4 +49,11 @@ export class ClockInDto {
   @IsOptional()
   @IsString()
   sourceDevice?: string;
+
+  @ApiPropertyOptional({
+    description: 'Client-Event-UUID (Offline-Idempotenz, UUID v4)',
+  })
+  @IsOptional()
+  @IsUUID('4')
+  clientEventId?: string;
 }

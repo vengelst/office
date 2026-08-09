@@ -1004,6 +1004,8 @@ model TimeEntry {
   accuracy         Float?
   comment          String?
   sourceDevice     String?
+  /// Client-seitige Event-UUID für Offline-Idempotenz (null = Alt/Online ohne Id)
+  clientEventId    String?       @unique
   createdByUserId  String?
   createdAt        DateTime      @default(now())
 

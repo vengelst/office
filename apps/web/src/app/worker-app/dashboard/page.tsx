@@ -35,6 +35,11 @@ import {
   type WorkerMe,
   type WorkerMeAssignment,
 } from '@/lib/timesheets';
+import {
+  getOptimisticClockStatus,
+  startOfflineClockSync,
+} from '@/lib/offline-clock-queue';
+import { OfflineClockBanner } from '@/components/offline-clock-banner';
 import { texts } from '@/lib/texts';
 import { T } from '@/lib/i18n-work-items';
 import { cn } from '@/lib/utils';
@@ -105,19 +110,27 @@ export default function WorkerDashboardPage(): React.ReactNode {
   }, [router]);
 
   const refresh = useCallback(async (workerId: string) => {
-    const [me, st, td] = await Promise.all([
-      workerApi.me(),
-      workerApi.status(workerId),
-      workerApi.today(workerId),
-    ]);
-    setWorker(me);
-    setStatus(st);
-    setToday(td);
+    try {
+      const [me, st, td] = await Promise.all([
+        workerApi.me(),
+        workerApi.status(workerId),
+        workerApi.today(workerId),
+      ]);
+      setWorker(me);
+      const merged = await getOptimisticClockStatus(workerId, st);
+      setStatus(merged);
+      setToday(td);
+    } catch {
+      // Offline: lokalen Queue-Status nutzen
+      const merged = await getOptimisticClockStatus(workerId, null);
+      setStatus(merged);
+    }
   }, []);
 
   useEffect(() => {
     const w = getStoredWorker();
     if (!w) return;
+    startOfflineClockSync();
     void refresh(w.id).catch(() => {});
     void getGeo().then((g) => setGpsOk(g !== null));
   }, [refresh]);
@@ -162,23 +175,38 @@ export default function WorkerDashboardPage(): React.ReactNode {
       toast({ description: t.toast.noProject });
       return;
     }
+    const assignment = (worker.assignments ?? []).find(
+      (a) => a.project.id === projectId,
+    );
     setBusy(true);
     try {
       const geo = await getGeo();
       setGpsOk(geo !== null);
-      await workerApi.clockIn({
+      const result = await workerApi.clockIn({
         workerId: worker.id,
         projectId,
         ...geo,
         occurredAtClient: new Date().toISOString(),
         sourceDevice:
           typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+        projectSnapshot: assignment
+          ? {
+              id: assignment.project.id,
+              projectNumber: assignment.project.projectNumber,
+              title: assignment.project.title,
+            }
+          : status?.project ?? null,
       });
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate(60);
       }
-      await refresh(worker.id);
-      toast({ description: t.toast.clockedIn });
+      setStatus(result);
+      if (result.queued) {
+        toast({ description: t.toast.savedPending });
+      } else {
+        await refresh(worker.id);
+        toast({ description: t.toast.clockedIn });
+      }
     } catch (err) {
       toast({
         description: err instanceof ApiError ? err.message : t.toast.error,
@@ -194,8 +222,9 @@ export default function WorkerDashboardPage(): React.ReactNode {
     try {
       const geo = await getGeo();
       setGpsOk(geo !== null);
-      await workerApi.clockOut({
+      const result = await workerApi.clockOut({
         workerId: worker.id,
+        projectId: status?.project?.id,
         ...geo,
         occurredAtClient: new Date().toISOString(),
         sourceDevice:
@@ -204,8 +233,13 @@ export default function WorkerDashboardPage(): React.ReactNode {
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([40, 40, 40]);
       }
-      await refresh(worker.id);
-      toast({ description: t.toast.clockedOut });
+      setStatus(result);
+      if (result.queued) {
+        toast({ description: t.toast.savedPending });
+      } else {
+        await refresh(worker.id);
+        toast({ description: t.toast.clockedOut });
+      }
     } catch (err) {
       toast({
         description: err instanceof ApiError ? err.message : t.toast.error,
@@ -276,6 +310,13 @@ export default function WorkerDashboardPage(): React.ReactNode {
 
   return (
     <div className="flex flex-1 flex-col gap-6 px-5 py-6">
+      <OfflineClockBanner
+        workerId={worker.id}
+        onSynced={() => {
+          void refresh(worker.id);
+        }}
+      />
+
       {/* Kopf: Monteur + GPS + Logout */}
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
