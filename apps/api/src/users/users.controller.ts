@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -52,5 +53,12 @@ export class UsersController {
   @ApiOperation({ summary: 'Benutzer deaktivieren' })
   remove(@Param('id') id: string) {
     return this.usersService.deactivate(id);
+  }
+
+  @Put(':id/pin')
+  @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
+  @ApiOperation({ summary: 'PIN für Kunden-PL setzen (6 Ziffern, global eindeutig)' })
+  setPin(@Param('id') id: string, @Body() body: { pin: string }) {
+    return this.usersService.setPin(id, body.pin);
   }
 }

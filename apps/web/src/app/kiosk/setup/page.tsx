@@ -14,6 +14,8 @@ interface Project {
   customer: { companyName: string } | null;
 }
 
+export type KioskMode = 'worker' | 'customer_pl';
+
 export interface KioskConfig {
   projectId: string;
   projectTitle: string;
@@ -21,6 +23,7 @@ export interface KioskConfig {
   cameraEnabled: boolean;
   fullscreen: boolean;
   adminPin: string;
+  mode: KioskMode;
 }
 
 export default function KioskSetupPage() {
@@ -31,6 +34,7 @@ export default function KioskSetupPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [mode, setMode] = useState<KioskMode>('worker');
   const [projectId, setProjectId] = useState('');
   const [autoLogout, setAutoLogout] = useState(15);
   const [cameraEnabled, setCameraEnabled] = useState(true);
@@ -64,9 +68,10 @@ export default function KioskSetupPage() {
       cameraEnabled,
       fullscreen,
       adminPin,
+      mode,
     };
     localStorage.setItem(KIOSK_CONFIG_KEY, JSON.stringify(config));
-    router.push('/kiosk/terminal');
+    router.push(mode === 'customer_pl' ? '/kiosk/pl' : '/kiosk/terminal');
   };
 
   if (loading) {
@@ -98,6 +103,35 @@ export default function KioskSetupPage() {
         <div>
           <h1 className="text-3xl font-bold">{t.title}</h1>
           <p className="mt-1 text-gray-400">{t.subtitle}</p>
+        </div>
+
+        {/* Modus */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-gray-300">
+            Modus
+          </label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setMode('worker')}
+              className={`flex-1 rounded-lg px-4 py-3 text-lg font-medium transition ${
+                mode === 'worker'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              Monteur
+            </button>
+            <button
+              onClick={() => setMode('customer_pl')}
+              className={`flex-1 rounded-lg px-4 py-3 text-lg font-medium transition ${
+                mode === 'customer_pl'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+              }`}
+            >
+              Kunden-PL
+            </button>
+          </div>
         </div>
 
         {/* Projekt */}

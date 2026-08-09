@@ -101,6 +101,10 @@ export default function KioskTerminalPage() {
         router.replace('/kiosk/setup');
         return;
       }
+      if (c.mode === 'customer_pl') {
+        router.replace('/kiosk/pl');
+        return;
+      }
       setConfig(c);
       if (c.fullscreen) {
         document.documentElement.requestFullscreen?.().catch(() => {});

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -634,17 +635,48 @@ export class WorkersService {
       throw new BadRequestException('PIN muss genau 6 Ziffern sein.');
     }
 
-    await this.prisma.workerPin.updateMany({
-      where: { workerId, isActive: true },
-      data: { isActive: false, validTo: new Date() },
+    const now = new Date();
+
+    // Global uniqueness: check against all active UserPins and other WorkerPins
+    const activeUserPins = await this.prisma.userPin.findMany({
+      where: {
+        isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+      },
+      select: { pinHash: true },
+    });
+    const otherWorkerPins = await this.prisma.workerPin.findMany({
+      where: {
+        isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+        workerId: { not: workerId },
+      },
+      select: { pinHash: true },
     });
 
     const pinHash = await bcrypt.hash(pin, 10);
+
+    for (const existing of [...activeUserPins, ...otherWorkerPins]) {
+      const collision = await bcrypt.compare(pin, existing.pinHash);
+      if (collision) {
+        throw new ConflictException(
+          'Diese PIN ist bereits vergeben. Bitte eine andere wählen.',
+        );
+      }
+    }
+
+    await this.prisma.workerPin.updateMany({
+      where: { workerId, isActive: true },
+      data: { isActive: false, validTo: now },
+    });
+
     await this.prisma.workerPin.create({
       data: {
         workerId,
         pinHash,
-        validFrom: new Date(),
+        validFrom: now,
         isActive: true,
       },
     });

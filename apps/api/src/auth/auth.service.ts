@@ -85,6 +85,43 @@ export class AuthService {
     throw new UnauthorizedException('Ungültige PIN');
   }
 
+  /** User-PIN → JWT für einen Benutzer (type: 'user', mind. CUSTOMER_PL). */
+  async userPinLogin(pin: string): Promise<LoginResponse> {
+    const now = new Date();
+    const activePins = await this.prisma.userPin.findMany({
+      where: {
+        isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+      },
+      include: {
+        user: { include: { roles: { include: { role: true } } } },
+      },
+    });
+
+    for (const userPin of activePins) {
+      if (!userPin.user.isActive) continue;
+      const match = await bcrypt.compare(pin, userPin.pinHash);
+      if (match) {
+        const roles = userPin.user.roles.map((ur) => ur.role.code);
+        if (!roles.includes('CUSTOMER_PL')) {
+          throw new UnauthorizedException(
+            'Nur Benutzer mit Rolle CUSTOMER_PL können sich per PIN anmelden',
+          );
+        }
+        const authUser: AuthUser = {
+          id: userPin.user.id,
+          type: 'user',
+          roles,
+          displayName: userPin.user.displayName,
+        };
+        return this.issueToken(authUser);
+      }
+    }
+
+    throw new UnauthorizedException('Ungültige PIN');
+  }
+
   /** Invalidiert die Session anhand des übergebenen Tokens. */
   async logout(token: string): Promise<{ success: true }> {
     await this.prisma.session.deleteMany({ where: { token } });

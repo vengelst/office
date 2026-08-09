@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { Plus, Trash2, UserCheck } from 'lucide-react';
+import { KeyRound, Plus, Trash2, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,7 +31,8 @@ import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
 import { useToast } from '@/components/ui/use-toast';
-import { ApiError } from '@/lib/api-client';
+import { Input } from '@/components/ui/input';
+import { ApiError, apiClient } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 import {
   workItemsApi,
@@ -61,6 +62,9 @@ export function CustomerPlsSection({
   const [userId, setUserId] = useState('');
   const [saving, setSaving] = useState(false);
   const [removing, setRemoving] = useState<CustomerPlAssignment | null>(null);
+  const [pinTarget, setPinTarget] = useState<CustomerPlAssignment | null>(null);
+  const [pinValue, setPinValue] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
 
   useEffect(() => {
     workItemsApi
@@ -100,6 +104,20 @@ export function CustomerPlsSection({
       })
       .catch(fail)
       .finally(() => setSaving(false));
+  };
+
+  const savePin = (): void => {
+    if (!pinTarget || !/^\d{6}$/.test(pinValue)) return;
+    setPinSaving(true);
+    apiClient
+      .put<{ success: true }>(`/users/${pinTarget.userId}/pin`, { pin: pinValue })
+      .then(() => {
+        toast({ description: t.customerPls.pinSet });
+        setPinTarget(null);
+        setPinValue('');
+      })
+      .catch(fail)
+      .finally(() => setPinSaving(false));
   };
 
   const confirmRemove = (): void => {
@@ -174,15 +192,30 @@ export function CustomerPlsSection({
                     </TableCell>
                     <TableCell>
                       {item.active && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-11 w-11 text-destructive"
-                          onClick={() => setRemoving(item)}
-                          aria-label={a.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11"
+                            onClick={() => {
+                              setPinValue('');
+                              setPinTarget(item);
+                            }}
+                            aria-label={t.customerPls.setPin}
+                            title={t.customerPls.setPin}
+                          >
+                            <KeyRound className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-11 w-11 text-destructive"
+                            onClick={() => setRemoving(item)}
+                            aria-label={a.delete}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -204,15 +237,29 @@ export function CustomerPlsSection({
                     <StateBadge item={item} />
                   </div>
                   {item.active && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-11 w-11 text-destructive"
-                      onClick={() => setRemoving(item)}
-                      aria-label={a.delete}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11"
+                        onClick={() => {
+                          setPinValue('');
+                          setPinTarget(item);
+                        }}
+                        aria-label={t.customerPls.setPin}
+                      >
+                        <KeyRound className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-11 w-11 text-destructive"
+                        onClick={() => setRemoving(item)}
+                        aria-label={a.delete}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   )}
                 </CardContent>
               </Card>
@@ -260,6 +307,52 @@ export function CustomerPlsSection({
               className="min-h-[44px]"
             >
               {saving ? a.saving : a.save}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={pinTarget !== null}
+        onOpenChange={(o) => !o && setPinTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.customerPls.pinDialogTitle}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t.customerPls.pinDialogHint}
+          </p>
+          {pinTarget && (
+            <p className="text-sm font-medium">
+              {pinTarget.user.displayName} · {pinTarget.user.email}
+            </p>
+          )}
+          <Field label={t.customerPls.pinLabel} required>
+            <Input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={pinValue}
+              onChange={(e) => setPinValue(e.target.value.replace(/\D/g, ''))}
+              placeholder={t.customerPls.pinPlaceholder}
+              className="min-h-[44px] text-center text-2xl tracking-[0.5em]"
+            />
+          </Field>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPinTarget(null)}
+              className="min-h-[44px]"
+            >
+              {a.cancel}
+            </Button>
+            <Button
+              onClick={savePin}
+              disabled={pinSaving || !/^\d{6}$/.test(pinValue)}
+              className="min-h-[44px]"
+            >
+              {pinSaving ? a.saving : t.customerPls.setPin}
             </Button>
           </DialogFooter>
         </DialogContent>
