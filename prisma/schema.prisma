@@ -251,6 +251,7 @@ model User {
 
   customerPlProjects ProjectCustomerPlAssignment[]
   workItemReviews    WorkItemReview[]
+  pins               UserPin[]
 }
 
 model Role {
@@ -835,6 +836,18 @@ model WorkerPin {
   createdAt DateTime  @default(now())
 
   worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+}
+
+model UserPin {
+  id        String    @id @default(cuid())
+  userId    String
+  pinHash   String
+  validFrom DateTime
+  validTo   DateTime?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 // ──────────────────────────────────────────────────────────────

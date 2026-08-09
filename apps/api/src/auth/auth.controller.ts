@@ -40,6 +40,15 @@ export class AuthController {
     return this.authService.pinLogin(dto.pin);
   }
 
+  @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @Post('user-pin-login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login mit User-PIN (Kunden-PL am Kiosk)' })
+  userPinLogin(@Body() dto: PinLoginDto): Promise<LoginResponse> {
+    return this.authService.userPinLogin(dto.pin);
+  }
+
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Post('logout')

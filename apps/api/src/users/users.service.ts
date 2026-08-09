@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -146,6 +147,71 @@ export class UsersService {
       data: { isActive: false },
       select: userSelect,
     });
+  }
+
+  /**
+   * Setzt eine 6-stellige PIN für einen CUSTOMER_PL-Benutzer.
+   * PINs müssen global eindeutig sein (über WorkerPin und UserPin).
+   */
+  async setPin(userId: string, pin: string): Promise<{ success: true }> {
+    if (!/^\d{6}$/.test(pin)) {
+      throw new BadRequestException('PIN muss genau 6 Ziffern sein.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { roles: { include: { role: true } } },
+    });
+    if (!user) throw new NotFoundException('Benutzer nicht gefunden');
+
+    const hasCustomerPl = user.roles.some((ur) => ur.role.code === 'CUSTOMER_PL');
+    if (!hasCustomerPl) {
+      throw new BadRequestException(
+        'PIN kann nur für Benutzer mit Rolle CUSTOMER_PL gesetzt werden.',
+      );
+    }
+
+    const pinHash = await bcrypt.hash(pin, SALT_ROUNDS);
+
+    // Global uniqueness: check against all active WorkerPins and UserPins
+    const now = new Date();
+    const activeWorkerPins = await this.prisma.workerPin.findMany({
+      where: {
+        isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+      },
+      select: { pinHash: true },
+    });
+    const activeUserPins = await this.prisma.userPin.findMany({
+      where: {
+        isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+        userId: { not: userId },
+      },
+      select: { pinHash: true },
+    });
+
+    for (const existing of [...activeWorkerPins, ...activeUserPins]) {
+      const collision = await bcrypt.compare(pin, existing.pinHash);
+      if (collision) {
+        throw new ConflictException(
+          'Diese PIN ist bereits vergeben. Bitte eine andere wählen.',
+        );
+      }
+    }
+
+    await this.prisma.userPin.updateMany({
+      where: { userId, isActive: true },
+      data: { isActive: false, validTo: now },
+    });
+
+    await this.prisma.userPin.create({
+      data: { userId, pinHash, validFrom: now, isActive: true },
+    });
+
+    return { success: true };
   }
 
   /** Löst Rollen-Codes in Datenbank-IDs auf. Wirft Fehler bei unbekannten Codes. */
