@@ -65,13 +65,13 @@ Die Kennung heißt nicht zwingend „Positionsnummer“ – sie kann auch Raumnu
 **Festgelegt:** Kunden-PL hat eine **eigene Rolle** und hat **nichts mit internen Rollen** zu tun (kein `PROJECT_MANAGER` / Office-User-Reuse).
 
 - Eigene Rolle im System: `CUSTOMER_PL`
-- Login wie andere Nutzer, **auch mit PIN**
-- Wird beim Projekt-Setup dem Projekt zugeordnet (**einer oder mehrere**)
+- **Primärer Einstieg:** Kiosk mit **PIN** (`/kiosk/pl`) – kein Office-App-Zugang für den Kunden nötig
+- Wird beim Projekt-Setup dem Projekt zugeordnet (**einer oder mehrere**); Büro setzt PIN + optionale **Zustell-E-Mail** für Stundenzettel-PDFs
 - Rechte (projektbezogen):
   - Fortschritt sehen: offen / in Arbeit / Kontrolle / Nacharbeit / geprüft
   - Erledigte Items laufend prüfen → **OK / Geprüft**
   - Items **selbstständig fertigsetzen** → Monteur(e) verlieren die Zuordnung
-  - **Stundenzettel je Woche** abzeichnen
+  - **Stundenzettel je Woche** abzeichnen (Signatur + Approve); PDF wird gespeichert und an die Zustell-E-Mail gesendet
 - Kein Zugriff auf interne Office-Funktionen (Stammdaten, Einstellungen, fremde Projekte usw.), außer was für PL-Prüfung und Wochenabzeichnung nötig ist
 
 ### 4.3 Internes Office / interner PL
@@ -297,14 +297,15 @@ Die Checkboxen auf der Karte werden **nicht** als Importfelder geführt. Perspek
 - **WorkItemSession** – Zeitintervalle (aktuelles Item ∩ gestempelt) → Zeitraum
 - **WorkItemReport** – Fertig / Nacharbeit, Fotos, Bemerkung, Zeitstempel
 - **WorkItemReview** – Kunden-PL, Aktion (geprüft / selbst fertig), Zeitstempel
-- **ProjectCustomerPlAssignment** – welche `CUSTOMER_PL`-User am Projekt
-- **WorkCardTemplate** *(Soll, neu)* – Kunden-/Kartentyp-Mapping für PDF-Extraktion
+- **ProjectCustomerPlAssignment** – welche `CUSTOMER_PL`-User am Projekt; optional `notificationEmail` für Stundenzettel-PDF
+- **UserPin** – Kiosk-PIN für Kunden-PL (global eindeutig vs. Worker-PIN)
+- **WorkCardTemplate** – Kunden-/Kartentyp-Mapping für PDF-Extraktion
 
 Bestehend weiter nutzen:
 
-- `TimeEntry` / Wochen-Stundenzettel (Abzeichnung durch Kunden-PL)
+- `TimeEntry` / Wochen-Stundenzettel (Abzeichnung durch Kunden-PL am Kiosk; PDF + E-Mail nach Approve)
 - Dokumente / Foto-Upload
-- Worker-PIN-Login (und PIN auch für Kunden-PL)
+- Worker-PIN-Login und User-PIN für Kunden-PL
 
 ---
 

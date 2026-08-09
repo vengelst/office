@@ -31,6 +31,15 @@ Templates + OCR-Extraktion sind live. Optional später:
 
 ## Umgesetzt / Erledigt
 
+### [2026-08-09] – Kunden-PL Kiosk-PIN + Stundenzettel-E-Mail
+
+Kiosk-Modus Kunden-PL (`/kiosk/pl`): PIN, Stundenliste, Signatur/Approve.
+Zustell-E-Mail am PL; nach Approve PDF-Mail. Aufträge #9 / #10.
+
+### [2026-08-09] – Mobiles Office-Menü scrollbar
+
+Hamburger-Sheet: Overflow-Container, untere Nav-Punkte erreichbar.
+
 ### [2026-08-08] – Kartentyp-Templates + OCR-Extraktion
 
 Template-CRUD, Kalibrierung per Beispielseite, `pdftoppm` + OCR je Seite beim

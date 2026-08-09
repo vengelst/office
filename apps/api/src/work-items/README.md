@@ -133,21 +133,26 @@ für `CUSTOMER_PL` gesperrt; gestreamt wird nur ein Dokument, das per
 
 ### Stundenzettel des Kunden-PLs
 
-Der Kunden-PL zeichnet Wochenstunden ab (SPEZ-arbeitsitems.md 4.2/8.1). Dafür
-ist er in `TimesheetsController` **nur** für diese Endpunkte freigeschaltet:
+Der Kunden-PL zeichnet Wochenstunden ab (SPEZ-arbeitsitems.md 4.2/8.1),
+**primär am Kiosk** (`/kiosk/pl`, User-PIN). In `TimesheetsController` ist er
+für diese Endpunkte freigeschaltet:
 
 | Methode | Pfad | Zweck |
 | --- | --- | --- |
 | GET | `/timesheets` | Liste – gefiltert auf zugewiesene Projekte |
 | GET | `/timesheets/:id` | Detail – 403 bei fremdem Projekt |
 | GET | `/timesheets/:id/pdf` | PDF – 403 bei fremdem Projekt |
+| POST | `/timesheets/:id/sign` | Signatur `CUSTOMER` |
 | POST | `/timesheets/:id/approve` | Abzeichnen (nur aus Status `SUBMITTED`) |
 
-Generieren, Tageskorrektur, Einreichen, Zurückweisen, Archivieren und
-Unterschreiben bleiben den internen Rollen vorbehalten. Die Einschränkung
-berechnet `TimesheetsService.projectScopeFor()` aus
-`WorkItemsService.findCustomerPlProjectIds()` – interne Rollen erhalten
-`null` (keine Einschränkung), sodass sich für das Büro nichts ändert.
+Nach Approve: PDF-Ablage + optional E-Mail an
+`ProjectCustomerPlAssignment.notificationEmail` (Fallback: `User.email`).
+Zustell-E-Mail setzen: `PATCH /projects/:projectId/customer-pls/:userId`.
+
+Generieren, Tageskorrektur, Einreichen, Zurückweisen und Archivieren bleiben
+den internen Rollen vorbehalten. Scope via
+`TimesheetsService.projectScopeFor()` /
+`WorkItemsService.findCustomerPlProjectIds()`.
 
 ## PDF-Import mit Templates (Auftrag #8)
 

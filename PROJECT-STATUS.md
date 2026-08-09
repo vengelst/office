@@ -1,9 +1,9 @@
 # Office App – Projekt-Status
 
-**Stand:** 08. August 2026  
+**Stand:** 09. August 2026  
 **Repository:** github.com/vengelst/office  
 **Branch:** `main`  
-**Letzter Commit:** `8359443` – Arbeitsitems Web/PWA (Parität zur APK)  
+**Letzter Commit:** `d6d5d4c` – Kunden-PL Zustell-E-Mail / Stundenzettel-PDF-Versand  
 **Produktion:** https://office.vivahome.de (`/opt/office` auf vivahome.de)
 
 > Ausführliche Feature-Liste und Architektur: **`STATUS.md`**  
@@ -20,12 +20,12 @@
 | 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, Drucken, Google Contacts Sync |
 | 3 | Projektverwaltung | CRUD, 7-Tab-Detail, Baustellen, Zuweisungen, Kalender |
 | 4 | Monteure / Teams / Subs | Workers, Qualifikationen, Subunternehmen, Teams |
-| 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Stundenzettel, PDF, Live-Stempeluhr |
+| 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Stundenzettel, PDF, Signaturen, Live-Stempeluhr |
 | 6 | Abrechnungen | Ein-/Ausgangsrechnungen, Positionen, PDF, Zahlungsstatus |
 | 7 | Fahrzeuge | CRUD, Zuweisungen, TÜV-/Versicherungswarnungen, Dokumente |
 | 8 | Dokumente | Ordner, Versionen, Thumbnails, Kamera, Lightbox, Drive-Sync |
 | 9 | Storage / Drive / E-Mail | Lesbare MinIO-Pfade, Google Drive DWD, SMTP-Config |
-| 10 | Kiosk (Web) | Tablet-Stempeluhr, dunkles Theme, Live-Übersicht, GPS |
+| 10 | Kiosk (Web) | Monteur-Stempeluhr **oder** Kunden-PL-Abzeichnung (`/kiosk/pl`), PIN, GPS |
 | 11 | OCR | PaddleOCR-Microservice (Visitenkarten + Text) |
 | 12 | Auto-Recherche | Research-Microservice (Playwright + LLM), Vorschau-Dialog |
 | 13 | Equipment | Werkzeuge/Geräte, Zuordnung, Wartung, Fotos |
@@ -34,7 +34,7 @@
 | 16 | Ausschreibungen | Submission-Suche via Research-Service |
 | 17 | Einstellungen | Firmen-Stammdaten, Pausen, Storage, Cloud, System-Status |
 | 18 | Mobile Kiosk-App | Expo/Android APK (`de.vivahome.kiosk`), Download unter `/download` |
-| 19 | Arbeitsitems | Excel-Import, Büro-Tab, Mobile + Web/PWA Monteur-UI, Kunden-PL-Board |
+| 19 | Arbeitsitems | PDF-/Excel-Import, Büro-Tab, Monteur Web/PWA/Kiosk, Kunden-PL (Kiosk-PIN + Zustell-E-Mail) |
 
 ---
 
@@ -99,7 +99,10 @@ prisma/migrations/
 ├── 20260711170000_add_communication_entries
 ├── 20260711173000_add_todos
 ├── 20260807040000_work_items_fundament
-└── 20260807040100_seed_role_customer_pl
+├── 20260807040100_seed_role_customer_pl
+├── 20260808140000_add_work_card_template
+├── 20260809100000_add_user_pin
+└── 20260809120000_add_customer_pl_notification_email
 ```
 
 ---
@@ -140,7 +143,9 @@ Siehe auch `README.md` für Office-/PL-Accounts und PIN-Login.
 
 ```
 claude-fundament.md … claude-documents.md, drive-ordnerstruktur.md
-claude-arbeitsitems-01-fundament.md … 06-web-kiosk-pwa.md (+ 06-notizen.md)
+claude-arbeitsitems-01 … 08 (PDF/Templates/OCR) – erledigt
+claude-arbeitsitems-09-kiosk-pl-timesheets.md – erledigt (Kiosk-PIN)
+claude-arbeitsitems-10-pl-timesheet-email.md – erledigt (Zustell-E-Mail + PDF-Mail)
 ```
 
 ---

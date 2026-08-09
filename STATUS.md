@@ -1,6 +1,6 @@
 # Office App – Projektstatus
 
-**Stand:** 13. Juli 2026  
+**Stand:** 09. August 2026  
 **Server:** office.vivahome.de (109.199.112.176)  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
@@ -110,11 +110,13 @@ office/
 - **Statusmanagement**: Entwurf → Gesendet → Bezahlt → Storniert
 
 ### 8. Zeiterfassung (`/timesheets`, `/time-entries`)
-- **Stundenzettel** pro Mitarbeiter/Woche
+- **Stundenzettel** pro Mitarbeiter/Woche (Einreichen → Abzeichnung → PDF)
+- **Digitale Signaturen** (WORKER / SUPERVISOR / MANAGER / CUSTOMER)
 - **Zeiteinträge** mit Start-/Endzeit, Projekt, Baustelle
 - **Baustellenfotos** bei Zeiterfassung (automatisch dem Projekt zugeordnet)
-- **PDF-Export** für Stundenzettel
-- **Kiosk-Modus** (`/kiosk/terminal`) – Tablet-Zeiterfassung auf der Baustelle mit PIN
+- **PDF-Export** + Ablage am Projekt; nach Kunden-PL-Approve zusätzlich **E-Mail mit PDF-Anhang**
+- **Kiosk Monteur** (`/kiosk/terminal`) – Tablet-Zeiterfassung / Items mit Worker-PIN
+- **Kiosk Kunden-PL** (`/kiosk/pl`) – PIN → eingereichte Wochenzettel sehen, unterschreiben & abzeichnen
 - **Worker-App** (`/worker-app`) – Monteur-Dashboard mit eigenen Zeiten
 - **Live-Stempeluhr** (`/time-clock/live`) – Echtzeit-Anzeige aller aktiven Monteure
 
@@ -209,6 +211,15 @@ office/
   (Kennung/Arbeitsinhalt); Excel nur Fallback; Material optional
   (`SPEZ-arbeitsitems.md` §10). Zone-Editor / LLM-Fallback noch offen
 
+### 21. Kunden-PL – Kiosk-Abzeichnung + Zustell-E-Mail (09.08.2026)
+- **Kein Office-App-Zugang nötig** – Abzeichnung primär am Kiosk
+- **UserPin** (6-stellig), global eindeutig vs. Worker-PIN; setzen unter Projekt → Arbeitsitems → Kunden-PL
+- **Kiosk-Setup:** Modus Monteur | Kunden-PL → `/kiosk/pl`
+- Flow: PIN → SUBMITTED-Zettel → Stundenliste → SignatureCanvas → `sign(CUSTOMER)` + `approve`
+- **Zustell-E-Mail** (`notificationEmail` an `ProjectCustomerPlAssignment`, sonst Fallback Login-E-Mail)
+- Nach Approve: PDF speichern **und** Mail mit Anhang (SMTP unter Einstellungen → E-Mail)
+- Aufträge: `#9` Kiosk-PIN, `#10` Zustell-E-Mail (`claude-auftraege/claude-arbeitsitems-09/10-*.md`)
+
 ---
 
 ## Offene Aufgaben
@@ -216,12 +227,6 @@ office/
 ### ⚠️ Google People API aktivieren
 1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
 2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
-
-### Kunden-PL am Kiosk (08.08./09.08.2026)
-- PIN setzen am Projekt (Arbeitsitems → Kunden-PL)
-- Kiosk-Setup Modus **Kunden-PL** → `/kiosk/pl`
-- Eingereichte Wochenzettel sehen, digital unterschreiben & abzeichnen
-- Kein Office-App-Zugang nötig
 
 ### 📱 Mobile App – Nächste Schritte
 - **Push-Notifications** – z.B. für Erinnerungen, Projektänderungen
