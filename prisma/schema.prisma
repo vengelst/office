@@ -318,6 +318,10 @@ model AuditLog {
   createdAt   DateTime @default(now())
 
   actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@index([actorUserId])
 }
 
 model Setting {
@@ -656,6 +660,8 @@ model ProjectAssignment {
   @@index([projectId])
   @@index([workerId])
   @@index([projectId, active])
+  @@index([workerId, active])
+  @@index([workerId, startDate, endDate])
 }
 
 model ProjectEmailRecipient {
@@ -1071,6 +1077,7 @@ model TimeEntry {
   @@index([workerId, projectId])
   @@index([occurredAtClient])
   @@index([projectId])
+  @@index([workerId, entryType, occurredAtClient])
 }
 
 model GpsEvent {
@@ -1087,8 +1094,12 @@ model GpsEvent {
   worker           Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
   project          Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
   relatedTimeEntry TimeEntry? @relation(fields: [relatedTimeEntryId], references: [id], onDelete: SetNull)
+
   @@index([workerId])
   @@index([recordedAt])
+  @@index([workerId, recordedAt])
+  @@index([projectId, recordedAt])
+  @@index([relatedTimeEntryId])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1129,6 +1140,7 @@ model WeeklyTimesheet {
   @@index([status])
   @@index([projectId])
   @@index([status, projectId])
+  @@index([workerId, status])
 }
 
 model WeeklyTimesheetDay {
@@ -1202,6 +1214,7 @@ model Document {
   @@index([isLatest])
   @@index([documentType])
   @@index([createdAt])
+  @@index([expiryDate])
 }
 
 model DocumentLink {
@@ -1342,6 +1355,7 @@ model EmailLog {
   createdAt         DateTime  @default(now())
   @@index([relatedEntityType, relatedEntityId])
   @@index([createdAt])
+  @@index([status, createdAt])
 }
 
 // ──────────────────────────────────────────────────────────────
