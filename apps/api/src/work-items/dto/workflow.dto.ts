@@ -3,10 +3,12 @@ import { Transform, Type } from 'class-transformer';
 import {
   IsArray,
   IsBoolean,
+  IsEmail,
   IsISO8601,
   IsOptional,
   IsString,
   MinLength,
+  ValidateIf,
 } from 'class-validator';
 
 /**
@@ -97,6 +99,22 @@ export class CreateCustomerPlDto {
   @IsString()
   @MinLength(1)
   userId!: string;
+}
+
+/**
+ * Kunden-PL-Zuordnung aktualisieren (z. B. Zustell-E-Mail für
+ * Stundenzettel-PDFs nach Approve).
+ */
+export class UpdateCustomerPlDto {
+  @ApiPropertyOptional({
+    description:
+      'Zustell-E-Mail für Stundenzettel-PDF; null/leer = Fallback auf User-E-Mail',
+    nullable: true,
+  })
+  @IsOptional()
+  @ValidateIf((_, v) => v != null && v !== '')
+  @IsEmail()
+  notificationEmail?: string | null;
 }
 
 /** Optionen des Excel-/CSV-Imports (Multipart-Felder neben den Dateien). */

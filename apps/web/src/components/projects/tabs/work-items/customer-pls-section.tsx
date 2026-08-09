@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { KeyRound, Plus, Trash2, UserCheck } from 'lucide-react';
+import { KeyRound, Mail, Plus, Trash2, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -40,9 +40,15 @@ import {
   type CustomerPlUser,
 } from '@/lib/work-items';
 
+/** Einfache E-Mail-Prüfung für die Dialog-Validierung. */
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 /**
  * Kunden-Projektleiter (Rolle CUSTOMER_PL) eines Projekts zuordnen und
  * wieder entfernen. Entfernen setzt die Zuordnung inaktiv (Historie bleibt).
+ * Zusätzlich: Kiosk-PIN und optionale Zustell-E-Mail für Stundenzettel-PDFs.
  */
 export function CustomerPlsSection({
   projectId,
@@ -65,6 +71,11 @@ export function CustomerPlsSection({
   const [pinTarget, setPinTarget] = useState<CustomerPlAssignment | null>(null);
   const [pinValue, setPinValue] = useState('');
   const [pinSaving, setPinSaving] = useState(false);
+  const [emailTarget, setEmailTarget] = useState<CustomerPlAssignment | null>(
+    null,
+  );
+  const [emailValue, setEmailValue] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
 
   useEffect(() => {
     workItemsApi
@@ -90,6 +101,11 @@ export function CustomerPlsSection({
   const openAdd = (): void => {
     setUserId('');
     setDialogOpen(true);
+  };
+
+  const openEmailDialog = (item: CustomerPlAssignment): void => {
+    setEmailValue(item.notificationEmail ?? '');
+    setEmailTarget(item);
   };
 
   const save = (): void => {
@@ -120,6 +136,36 @@ export function CustomerPlsSection({
       .finally(() => setPinSaving(false));
   };
 
+  const saveNotificationEmail = (): void => {
+    if (!emailTarget) return;
+    const trimmed = emailValue.trim();
+    if (trimmed !== '' && !isValidEmail(trimmed)) {
+      toast({
+        variant: 'destructive',
+        description: t.customerPls.emailValidation,
+      });
+      return;
+    }
+    setEmailSaving(true);
+    workItemsApi
+      .updateCustomerPl(projectId, emailTarget.userId, {
+        notificationEmail: trimmed === '' ? null : trimmed,
+      })
+      .then(() => {
+        toast({
+          description:
+            trimmed === ''
+              ? t.customerPls.emailCleared
+              : t.customerPls.emailSet,
+        });
+        setEmailTarget(null);
+        setEmailValue('');
+        onChange();
+      })
+      .catch(fail)
+      .finally(() => setEmailSaving(false));
+  };
+
   const confirmRemove = (): void => {
     if (!removing) return;
     workItemsApi
@@ -140,6 +186,48 @@ export function CustomerPlsSection({
     ) : (
       <Badge variant="secondary">{t.customerPls.inactive}</Badge>
     );
+
+  const ActionButtons = ({
+    item,
+  }: {
+    item: CustomerPlAssignment;
+  }): ReactNode =>
+    item.active ? (
+      <div className="flex gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11"
+          onClick={() => openEmailDialog(item)}
+          aria-label={t.customerPls.setNotificationEmail}
+          title={t.customerPls.setNotificationEmail}
+        >
+          <Mail className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11"
+          onClick={() => {
+            setPinValue('');
+            setPinTarget(item);
+          }}
+          aria-label={t.customerPls.setPin}
+          title={t.customerPls.setPin}
+        >
+          <KeyRound className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 text-destructive"
+          onClick={() => setRemoving(item)}
+          aria-label={a.delete}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+    ) : null;
 
   return (
     <div className="space-y-4">
@@ -185,38 +273,18 @@ export function CustomerPlsSection({
                       {item.user.displayName}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {item.user.email}
+                      <div>{item.user.email}</div>
+                      {item.notificationEmail ? (
+                        <div className="mt-0.5 text-xs">
+                          → {item.notificationEmail}
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <StateBadge item={item} />
                     </TableCell>
                     <TableCell>
-                      {item.active && (
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-11 w-11"
-                            onClick={() => {
-                              setPinValue('');
-                              setPinTarget(item);
-                            }}
-                            aria-label={t.customerPls.setPin}
-                            title={t.customerPls.setPin}
-                          >
-                            <KeyRound className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-11 w-11 text-destructive"
-                            onClick={() => setRemoving(item)}
-                            aria-label={a.delete}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
+                      <ActionButtons item={item} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -234,33 +302,14 @@ export function CustomerPlsSection({
                     <p className="truncate text-xs text-muted-foreground">
                       {item.user.email}
                     </p>
+                    {item.notificationEmail ? (
+                      <p className="truncate text-xs text-muted-foreground">
+                        → {item.notificationEmail}
+                      </p>
+                    ) : null}
                     <StateBadge item={item} />
                   </div>
-                  {item.active && (
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11"
-                        onClick={() => {
-                          setPinValue('');
-                          setPinTarget(item);
-                        }}
-                        aria-label={t.customerPls.setPin}
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-11 w-11 text-destructive"
-                        onClick={() => setRemoving(item)}
-                        aria-label={a.delete}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
+                  <ActionButtons item={item} />
                 </CardContent>
               </Card>
             ))}
@@ -353,6 +402,58 @@ export function CustomerPlsSection({
               className="min-h-[44px]"
             >
               {pinSaving ? a.saving : t.customerPls.setPin}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={emailTarget !== null}
+        onOpenChange={(o) => !o && setEmailTarget(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t.customerPls.emailDialogTitle}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            {t.customerPls.emailDialogHint}
+          </p>
+          {emailTarget && (
+            <p className="text-sm font-medium">
+              {emailTarget.user.displayName} · {emailTarget.user.email}
+            </p>
+          )}
+          <Field label={t.customerPls.emailLabel}>
+            <Input
+              type="email"
+              value={emailValue}
+              onChange={(e) => setEmailValue(e.target.value)}
+              placeholder={t.customerPls.emailPlaceholder}
+              className="min-h-[44px]"
+            />
+          </Field>
+          {emailTarget && !emailValue.trim() ? (
+            <p className="text-xs text-muted-foreground">
+              {t.customerPls.emailFallbackHint}: {emailTarget.user.email}
+            </p>
+          ) : null}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEmailTarget(null)}
+              className="min-h-[44px]"
+            >
+              {a.cancel}
+            </Button>
+            <Button
+              onClick={saveNotificationEmail}
+              disabled={
+                emailSaving ||
+                (emailValue.trim() !== '' && !isValidEmail(emailValue.trim()))
+              }
+              className="min-h-[44px]"
+            >
+              {emailSaving ? a.saving : a.save}
             </Button>
           </DialogFooter>
         </DialogContent>

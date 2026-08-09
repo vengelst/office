@@ -31,6 +31,7 @@ import {
   CreateCustomerPlDto,
   ImportWorkItemsDto,
   ListWorkItemsQueryDto,
+  UpdateCustomerPlDto,
 } from './dto/workflow.dto';
 import { ProjectCustomerPlsService } from './project-customer-pls.service';
 import { WorkItemBlocksService } from './work-item-blocks.service';
@@ -53,6 +54,7 @@ const MAX_PDF_IMPORT_SIZE = 50 * 1024 * 1024;
  *  - `POST             /projects/:projectId/work-items/import`  (Multipart, Feld `files`)
  *  - `POST             /projects/:projectId/work-items/import/preview`
  *  - `GET|POST         /projects/:projectId/customer-pls`
+ *  - `PATCH            /projects/:projectId/customer-pls/:userId`
  *  - `GET              /projects/:projectId/customer-pls/candidates`
  *  - `DELETE           /projects/:projectId/customer-pls/:userId`
  *
@@ -225,6 +227,16 @@ export class ProjectWorkItemsController {
     @Body() dto: CreateCustomerPlDto,
   ) {
     return this.customerPls.create(projectId, dto);
+  }
+
+  @Patch('customer-pls/:userId')
+  @ApiOperation({ summary: 'Kunden-PL-Zuordnung aktualisieren (Zustell-E-Mail)' })
+  updateCustomerPl(
+    @Param('projectId') projectId: string,
+    @Param('userId') userId: string,
+    @Body() dto: UpdateCustomerPlDto,
+  ) {
+    return this.customerPls.update(projectId, userId, dto);
   }
 
   @Delete('customer-pls/:userId')

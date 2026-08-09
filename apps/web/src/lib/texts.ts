@@ -809,6 +809,16 @@ export const texts = {
         pinValidation: 'PIN muss genau 6 Ziffern sein.',
         pinSet: 'PIN gesetzt',
         pinSetError: 'PIN konnte nicht gesetzt werden.',
+        setNotificationEmail: 'Zustell-E-Mail setzen',
+        emailDialogTitle: 'Zustell-E-Mail für Stundenzettel',
+        emailDialogHint:
+          'An diese Adresse wird das PDF nach dem Abzeichnen gesendet. Leer = Login-E-Mail des Kunden-PL.',
+        emailLabel: 'Zustell-E-Mail',
+        emailPlaceholder: 'pl@kunde.de',
+        emailValidation: 'Bitte eine gültige E-Mail-Adresse eingeben.',
+        emailSet: 'Zustell-E-Mail gespeichert.',
+        emailCleared: 'Zustell-E-Mail zurückgesetzt (Fallback Login-E-Mail).',
+        emailFallbackHint: 'Fallback: Login-E-Mail',
       },
       toast: {
         itemBasedOn: 'Projekt auf Item-Modus umgestellt.',

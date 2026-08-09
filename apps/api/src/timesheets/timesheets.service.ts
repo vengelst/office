@@ -20,6 +20,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { DocumentsService } from '../documents/documents.service';
 import { StoragePathService } from '../common/storage-path.service';
+import { EmailService } from '../email/email.service';
 import { WorkItemsService } from '../work-items/work-items.service';
 import { TimesheetPdfService } from './pdf.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
@@ -145,6 +146,7 @@ export class TimesheetsService {
     private readonly storagePathService: StoragePathService,
     private readonly pdfService: TimesheetPdfService,
     private readonly workItems: WorkItemsService,
+    private readonly emailService: EmailService,
   ) {}
 
   // ── Projekt-Einschränkung für Kunden-PLs ─────────────────────
@@ -572,10 +574,18 @@ export class TimesheetsService {
 
   /**
    * Generiert PDF, speichert in MinIO und erstellt Document-Eintrag.
+   * Genehmigt ein Kunden-PL mit aktiver Projektzuordnung, wird das PDF
+   * zusätzlich an `notificationEmail ?? user.email` gesendet.
+   * E-Mail-Fehler werden nur geloggt und blockieren den Approve nicht.
    */
   private async exportTimesheetPdf(
     timesheetId: string,
-    sheet: { weekNumber: number; worker: { id: string; firstName: string; lastName: string }; project: { id: string } },
+    sheet: {
+      weekNumber: number;
+      weekYear: number;
+      worker: { id: string; firstName: string; lastName: string };
+      project: { id: string; projectNumber: string; title: string };
+    },
     userId: string | null,
   ): Promise<void> {
     const { buffer } = await this.pdfService.generate(timesheetId);
@@ -603,6 +613,81 @@ export class TimesheetsService {
       title: `Stundenzettel KW${sheet.weekNumber} ${sheet.worker.lastName}`,
       userId,
     });
+
+    await this.sendTimesheetPdfToCustomerPl(sheet, userId, buffer, filename);
+  }
+
+  /**
+   * Sendet das genehmigte Stundenzettel-PDF an den genehmigenden Kunden-PL,
+   * sofern eine aktive Zuordnung am Projekt existiert.
+   * Fehler werden geloggt, nicht geworfen.
+   */
+  private async sendTimesheetPdfToCustomerPl(
+    sheet: {
+      weekNumber: number;
+      weekYear: number;
+      worker: { firstName: string; lastName: string };
+      project: { id: string; projectNumber: string; title: string };
+    },
+    userId: string | null,
+    buffer: Buffer,
+    filename: string,
+  ): Promise<void> {
+    if (!userId) return;
+
+    try {
+      const assignment = await this.prisma.projectCustomerPlAssignment.findFirst({
+        where: {
+          projectId: sheet.project.id,
+          userId,
+          active: true,
+        },
+        select: {
+          notificationEmail: true,
+          user: { select: { email: true, displayName: true } },
+        },
+      });
+      if (!assignment) return;
+
+      const to = assignment.notificationEmail?.trim() || assignment.user.email;
+      if (!to) {
+        this.logger.warn(
+          `Stundenzettel-PDF: keine Zustell-E-Mail für Kunden-PL ${userId}`,
+        );
+        return;
+      }
+
+      const workerName = `${sheet.worker.firstName} ${sheet.worker.lastName}`.trim();
+      const subject = `Stundenzettel KW${sheet.weekNumber}/${sheet.weekYear} – ${workerName}`;
+      const html = `<div style="font-family: sans-serif; padding: 20px; max-width: 560px;">
+  <h2 style="color: #333;">Stundenzettel abgezeichnet</h2>
+  <p>Hallo ${assignment.user.displayName},</p>
+  <p>der Stundenzettel wurde abgezeichnet und liegt als PDF bei.</p>
+  <ul style="color: #444; line-height: 1.6;">
+    <li><strong>Projekt:</strong> ${sheet.project.projectNumber} – ${sheet.project.title}</li>
+    <li><strong>Monteur:</strong> ${workerName}</li>
+    <li><strong>Woche:</strong> KW ${sheet.weekNumber}/${sheet.weekYear}</li>
+  </ul>
+  <p style="color: #666; font-size: 12px; margin-top: 24px;">Diese E-Mail wurde automatisch von Office generiert.</p>
+</div>`;
+
+      const result = await this.emailService.send(to, subject, html, [
+        {
+          filename,
+          content: buffer,
+          contentType: 'application/pdf',
+        },
+      ]);
+      if (!result.success) {
+        this.logger.warn(
+          `Stundenzettel-PDF-Mail fehlgeschlagen (${to}): ${result.error ?? 'unbekannt'}`,
+        );
+      }
+    } catch (err) {
+      this.logger.warn(
+        `Stundenzettel-PDF-Mail fehlgeschlagen: ${(err as Error).message}`,
+      );
+    }
   }
 
   /**

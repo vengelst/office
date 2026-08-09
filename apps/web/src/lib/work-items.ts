@@ -289,6 +289,8 @@ export interface CustomerPlAssignment {
   projectId: string;
   userId: string;
   active: boolean;
+  /** Optionale Zustell-Adresse für Stundenzettel-PDFs; Fallback: user.email */
+  notificationEmail: string | null;
   createdAt: string;
   user: CustomerPlUser;
 }
@@ -563,6 +565,15 @@ export const workItemsApi = {
     apiClient.post<CustomerPlAssignment>(`/projects/${projectId}/customer-pls`, {
       userId,
     }),
+  updateCustomerPl: (
+    projectId: string,
+    userId: string,
+    body: { notificationEmail: string | null },
+  ): Promise<CustomerPlAssignment> =>
+    apiClient.patch<CustomerPlAssignment>(
+      `/projects/${projectId}/customer-pls/${userId}`,
+      body,
+    ),
   removeCustomerPl: (projectId: string, userId: string): Promise<unknown> =>
     apiClient.delete<unknown>(`/projects/${projectId}/customer-pls/${userId}`),
 };

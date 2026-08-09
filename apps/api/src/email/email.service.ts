@@ -13,6 +13,13 @@ export interface SmtpConfig {
   secure: boolean;
 }
 
+/** Optionale Dateianhänge für `EmailService.send` (z. B. Stundenzettel-PDF). */
+export interface EmailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 const SMTP_KEYS = [
   'smtp_host',
   'smtp_port',
@@ -75,6 +82,7 @@ export class EmailService {
     to: string,
     subject: string,
     html: string,
+    attachments?: EmailAttachment[],
   ): Promise<{ success: boolean; messageId?: string; error?: string }> {
     try {
       const config = await this.getConfig();
@@ -87,6 +95,15 @@ export class EmailService {
         to,
         subject,
         html,
+        ...(attachments && attachments.length > 0
+          ? {
+              attachments: attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                contentType: a.contentType,
+              })),
+            }
+          : {}),
       });
       this.logger.log(`E-Mail gesendet an ${to}: ${info.messageId}`);
       return { success: true, messageId: info.messageId };

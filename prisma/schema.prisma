@@ -1494,11 +1494,14 @@ model WorkItemMaterial {
 
 /// Zuordnung eines CUSTOMER_PL-Users zu einem Projekt.
 model ProjectCustomerPlAssignment {
-  id        String   @id @default(cuid())
-  projectId String
-  userId    String
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id                String   @id @default(cuid())
+  projectId         String
+  userId            String
+  active            Boolean  @default(true)
+  /// Optionale Zustell-Adresse für Stundenzettel-PDFs nach Approve;
+  /// Fallback: User.email
+  notificationEmail String?
+  createdAt         DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

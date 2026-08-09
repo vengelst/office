@@ -6,7 +6,7 @@ import {
 import { RoleCode } from '@prisma/client';
 import { AuthUser } from '@office/types';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateCustomerPlDto } from './dto/workflow.dto';
+import { CreateCustomerPlDto, UpdateCustomerPlDto } from './dto/workflow.dto';
 import { WorkItemsService } from './work-items.service';
 
 const userSelect = {
@@ -93,6 +93,36 @@ export class ProjectCustomerPlsService {
       where: { projectId_userId: { projectId, userId: dto.userId } },
       update: { active: true },
       create: { projectId, userId: dto.userId },
+      include: { user: { select: userSelect } },
+    });
+  }
+
+  /**
+   * Aktualisiert Felder der Kunden-PL-Zuordnung (derzeit Zustell-E-Mail).
+   * Leerer String wird als `null` gespeichert (= Fallback auf User-E-Mail).
+   */
+  async update(projectId: string, userId: string, dto: UpdateCustomerPlDto) {
+    await this.workItems.ensureProject(projectId);
+    const assignment = await this.prisma.projectCustomerPlAssignment.findUnique({
+      where: { projectId_userId: { projectId, userId } },
+      select: { id: true },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Kunden-PL-Zuordnung nicht gefunden');
+    }
+
+    const notificationEmail =
+      dto.notificationEmail === undefined
+        ? undefined
+        : dto.notificationEmail === null || dto.notificationEmail.trim() === ''
+          ? null
+          : dto.notificationEmail.trim();
+
+    return this.prisma.projectCustomerPlAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        ...(notificationEmail !== undefined ? { notificationEmail } : {}),
+      },
       include: { user: { select: userSelect } },
     });
   }
