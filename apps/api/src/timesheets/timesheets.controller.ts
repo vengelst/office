@@ -146,15 +146,20 @@ export class TimesheetsController {
   }
 
   @Post(':id/sign')
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Unterschrift hinzufügen (Base64-PNG)' })
+  @ApiOperation({
+    summary:
+      'Digitale Unterschrift (Base64-PNG); Kunden-PL nur Typ CUSTOMER auf eigenen Projekten',
+  })
   sign(
     @Param('id') id: string,
     @Body() dto: SignTimesheetDto,
+    @CurrentUser() user: AuthUser,
     @Ip() ip: string,
     @Headers('user-agent') userAgent?: string,
   ) {
-    return this.timesheets.sign(id, dto, {
+    return this.timesheets.signForUser(id, dto, user, {
       ipAddress: ip,
       deviceInfo: userAgent,
     });

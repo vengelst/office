@@ -1308,13 +1308,14 @@ export const texts = {
       present: 'Unterschrift vorhanden',
       signedAt: 'Unterschrieben am',
       signAsWorker: 'Als Monteur unterschreiben',
-      signAsSupervisor: 'Als Vorarbeiter unterschreiben',
+      signAsSupervisor: 'Als Vorarbeiter / Büro unterschreiben',
+      signAsManager: 'Als Projektleiter unterschreiben',
       hint: 'Mit Finger oder Stift im Feld unterschreiben.',
     },
     signerType: {
       WORKER: 'Monteur',
-      CUSTOMER: 'Kunde',
-      SUPERVISOR: 'Vorarbeiter',
+      CUSTOMER: 'Kunden-PL',
+      SUPERVISOR: 'Vorarbeiter / Büro',
       MANAGER: 'Projektleiter',
     },
     actions: {
@@ -1471,8 +1472,17 @@ export const texts = {
       approving: 'Wird abgezeichnet …',
       approved: 'Abgezeichnet',
       approvedAt: 'Abgezeichnet am',
+      signedDigitally: 'digital unterschrieben',
+      signAndApprove: 'Digital unterschreiben & abzeichnen',
+      signHint:
+        'Am Wochenende: Unterschrift per Finger/Stift setzen – danach ist der Zettel freigegeben und im PDF sichtbar.',
+      signDialogTitle: 'Stundenzettel digital abzeichnen',
+      signDialogHint:
+        'Bitte mit Finger oder Stift unterschreiben. Die Unterschrift erscheint auf dem Wochen-PDF.',
       downloadPdf: 'PDF herunterladen',
       toastApproved: 'Stundenzettel abgezeichnet.',
+      toastSignedAndApproved:
+        'Unterschrift gespeichert und Stundenzettel abgezeichnet.',
       toastError: 'Aktion fehlgeschlagen.',
       week: 'Woche',
       totals: 'Wochensumme',

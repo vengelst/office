@@ -552,6 +552,14 @@ function SignaturesTab({
                 <PenLine className="h-4 w-4" />
                 {s.signAsSupervisor}
               </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={() => onSign('MANAGER')}
+              >
+                <PenLine className="h-4 w-4" />
+                {s.signAsManager}
+              </Button>
             </div>
           )}
         </CardContent>

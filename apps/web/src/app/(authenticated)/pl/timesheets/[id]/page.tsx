@@ -1,12 +1,33 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ArrowLeft, CheckCircle2, Download, MapPin, PenLine } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  MapPin,
+  PenLine,
+} from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
+import {
+  SignatureCanvas,
+  type SignatureCanvasHandle,
+} from '@/components/timesheets/signature-canvas';
+import { TimesheetStatusBadge } from '@/components/timesheets/timesheet-status-badge';
+import { EmptyState } from '@/components/customers/empty-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
@@ -17,10 +38,8 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { useToast } from '@/components/ui/use-toast';
-import { EmptyState } from '@/components/customers/empty-state';
-import { TimesheetStatusBadge } from '@/components/timesheets/timesheet-status-badge';
 import { ApiError } from '@/lib/api-client';
-import { workerFullName } from '@/lib/workers';
+import { useAuth } from '@/lib/auth-context';
 import {
   downloadTimesheetPdf,
   formatDate,
@@ -30,6 +49,7 @@ import {
   type TimesheetDetail,
 } from '@/lib/timesheets';
 import { texts } from '@/lib/texts';
+import { workerFullName } from '@/lib/workers';
 
 const DAY_KEYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
 
@@ -38,20 +58,21 @@ function weekdayLabel(iso: string): string {
 }
 
 /**
- * Wochen-Stundenzettel aus Sicht des Kunden-PLs: Tage read-only, dazu das
- * Abzeichnen (`POST /timesheets/:id/approve`) und der PDF-Export.
- * Korrigieren, Einreichen, Zurückweisen und Archivieren bleiben dem Büro
- * vorbehalten – die API lehnt sie für `CUSTOMER_PL` mit 403 ab.
+ * Wochen-Stundenzettel aus Sicht des Kunden-PLs: Tage read-only.
+ * Abzeichnen = digitale Unterschrift (CUSTOMER) + Status APPROVED.
+ * Korrigieren/Einreichen bleiben dem Büro vorbehalten.
  */
 export default function CustomerPlTimesheetDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const t = texts.customerPl.timesheets;
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [sheet, setSheet] = useState<TimesheetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [signOpen, setSignOpen] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -66,20 +87,9 @@ export default function CustomerPlTimesheetDetailPage(): React.ReactNode {
     load();
   }, [load]);
 
-  const approve = async (): Promise<void> => {
-    setBusy(true);
-    try {
-      setSheet(await timesheetsApi.approve(id));
-      toast({ description: t.toastApproved });
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        description: err instanceof ApiError ? err.message : t.toastError,
-      });
-    } finally {
-      setBusy(false);
-    }
-  };
+  const hasCustomerSignature = Boolean(
+    sheet?.signatures.some((s) => s.signerType === 'CUSTOMER'),
+  );
 
   if (loading) {
     return (
@@ -91,7 +101,9 @@ export default function CustomerPlTimesheetDetailPage(): React.ReactNode {
   }
 
   if (!sheet) {
-    return <EmptyState message={t.notFound} actionLabel={t.reload} onAction={load} />;
+    return (
+      <EmptyState message={t.notFound} actionLabel={t.reload} onAction={load} />
+    );
   }
 
   const canApprove = sheet.status === 'SUBMITTED';
@@ -115,49 +127,65 @@ export default function CustomerPlTimesheetDetailPage(): React.ReactNode {
         <TimesheetStatusBadge status={sheet.status} />
       </PageHeader>
 
-      {/* Abzeichnen */}
       <Card className="mb-4">
-        <CardContent className="flex flex-wrap items-center gap-3 p-4">
-          <Button
-            className="min-h-[44px]"
-            disabled={!canApprove || busy}
-            onClick={approve}
-          >
-            <PenLine className="h-4 w-4" />
-            {busy ? t.approving : t.approve}
-          </Button>
-          <Button
-            variant="outline"
-            className="min-h-[44px]"
-            onClick={() =>
-              downloadTimesheetPdf(
-                sheet.id,
-                `Stundenzettel_KW${sheet.weekNumber}_${workerFullName(sheet.worker)}.pdf`,
-              )
-                .then(() => toast({ description: texts.timesheets.toast.pdf }))
-                .catch(() =>
-                  toast({ variant: 'destructive', description: t.toastError }),
+        <CardContent className="space-y-3 p-4">
+          <p className="text-sm text-muted-foreground">{t.signHint}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              className="min-h-[44px]"
+              disabled={!canApprove || busy}
+              onClick={() => setSignOpen(true)}
+            >
+              <PenLine className="h-4 w-4" />
+              {busy ? t.approving : t.signAndApprove}
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() =>
+                downloadTimesheetPdf(
+                  sheet.id,
+                  `Stundenzettel_KW${sheet.weekNumber}_${workerFullName(sheet.worker)}.pdf`,
                 )
-            }
-          >
-            <Download className="h-4 w-4" />
-            {t.downloadPdf}
-          </Button>
-          {isApproved ? (
-            <p className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              {t.approvedAt} {formatDate(sheet.approvedAt)}
-              {sheet.approvedBy ? ` · ${sheet.approvedBy.displayName}` : ''}
-            </p>
-          ) : (
-            !canApprove && (
-              <p className="text-sm text-muted-foreground">{t.onlySubmitted}</p>
-            )
+                  .then(() => toast({ description: texts.timesheets.toast.pdf }))
+                  .catch(() =>
+                    toast({
+                      variant: 'destructive',
+                      description: t.toastError,
+                    }),
+                  )
+              }
+            >
+              <Download className="h-4 w-4" />
+              {t.downloadPdf}
+            </Button>
+            {isApproved ? (
+              <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                {t.approvedAt} {formatDate(sheet.approvedAt)}
+                {sheet.approvedBy ? ` · ${sheet.approvedBy.displayName}` : ''}
+                {hasCustomerSignature ? ` · ${t.signedDigitally}` : ''}
+              </p>
+            ) : (
+              !canApprove && (
+                <p className="text-sm text-muted-foreground">{t.onlySubmitted}</p>
+              )
+            )}
+          </div>
+
+          {sheet.signatures.length > 0 && (
+            <ul className="space-y-1 border-t pt-3 text-sm">
+              {sheet.signatures.map((sig) => (
+                <li key={sig.id} className="text-muted-foreground">
+                  {texts.timesheets.signerType[sig.signerType]}: {sig.signerName}{' '}
+                  · {formatDate(sig.signedAt)}
+                </li>
+              ))}
+            </ul>
           )}
         </CardContent>
       </Card>
 
-      {/* Wochenübersicht (read-only) */}
       {sheet.days.length === 0 ? (
         <EmptyState message={texts.timesheets.week.noData} />
       ) : (
@@ -240,6 +268,112 @@ export default function CustomerPlTimesheetDetailPage(): React.ReactNode {
           </Table>
         </Card>
       )}
+
+      {signOpen && (
+        <PlSignAndApproveDialog
+          sheetId={sheet.id}
+          defaultName={user?.displayName ?? ''}
+          busy={busy}
+          setBusy={setBusy}
+          onClose={() => setSignOpen(false)}
+          onDone={(updated) => {
+            setSheet(updated);
+            setSignOpen(false);
+            toast({ description: t.toastSignedAndApproved });
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+function PlSignAndApproveDialog({
+  sheetId,
+  defaultName,
+  busy,
+  setBusy,
+  onClose,
+  onDone,
+}: {
+  sheetId: string;
+  defaultName: string;
+  busy: boolean;
+  setBusy: (v: boolean) => void;
+  onClose: () => void;
+  onDone: (sheet: TimesheetDetail) => void;
+}): React.ReactNode {
+  const t = texts.customerPl.timesheets;
+  const signT = texts.timesheets.signDialog;
+  const { toast } = useToast();
+  const canvas = useRef<SignatureCanvasHandle>(null);
+  const [name, setName] = useState(defaultName);
+
+  const confirm = async (): Promise<void> => {
+    const dataUrl = canvas.current?.toDataURL();
+    if (!dataUrl) {
+      toast({ description: signT.empty });
+      return;
+    }
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      await timesheetsApi.sign(sheetId, {
+        signerType: 'CUSTOMER',
+        signerName: name.trim(),
+        signerRole: 'Kunden-PL',
+        signatureBase64: dataUrl,
+      });
+      const approved = await timesheetsApi.approve(sheetId);
+      onDone(approved);
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : t.toastError,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && !busy && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t.signDialogTitle}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">{t.signDialogHint}</p>
+          <div className="space-y-1.5">
+            <Label>{signT.name}</Label>
+            <Input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="min-h-[44px]"
+            />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {texts.timesheets.signatures.hint}
+          </p>
+          <SignatureCanvas ref={canvas} />
+        </div>
+        <DialogFooter className="gap-2">
+          <Button
+            variant="outline"
+            className="min-h-[44px]"
+            disabled={busy}
+            onClick={() => canvas.current?.clear()}
+          >
+            {signT.clear}
+          </Button>
+          <Button
+            className="min-h-[44px]"
+            disabled={busy || !name.trim()}
+            onClick={confirm}
+          >
+            {busy ? t.approving : t.signAndApprove}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

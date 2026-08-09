@@ -185,12 +185,47 @@ export class TimesheetsService {
 
   /**
    * Genehmigt („abzeichnen“) inkl. Zugriffsprüfung – für den Kunden-PL
-   * der einzige schreibende Stundenzettel-Vorgang.
+   * der einzige schreibende Stundenzettel-Vorgang neben der Unterschrift.
    */
   async approveForUser(id: string, user: AuthUser) {
     const sheet = await this.findOne(id);
     await this.assertProjectAccess(sheet.projectId, user);
     return this.approve(id, user.type === 'user' ? user.id : null);
+  }
+
+  /**
+   * Digitale Unterschrift mit Projekt-Zugriffsprüfung.
+   * Reine Kunden-PLs dürfen nur als `CUSTOMER` unterschreiben.
+   */
+  async signForUser(
+    id: string,
+    dto: SignTimesheetDto,
+    user: AuthUser,
+    meta: SignatureMeta,
+  ) {
+    const sheet = await this.findOne(id);
+    await this.assertProjectAccess(sheet.projectId, user);
+
+    const isCustomerPlOnly =
+      user.type === 'user' &&
+      user.roles.includes(RoleCode.CUSTOMER_PL) &&
+      !user.roles.some((r) =>
+        (
+          [
+            RoleCode.SUPERADMIN,
+            RoleCode.OFFICE,
+            RoleCode.PROJECT_MANAGER,
+          ] as string[]
+        ).includes(r),
+      );
+
+    if (isCustomerPlOnly && dto.signerType !== SignerType.CUSTOMER) {
+      throw new ForbiddenException(
+        'Kunden-PL darf Stundenzettel nur als Kunde / Projektleiter unterschreiben',
+      );
+    }
+
+    return this.sign(id, dto, meta);
   }
 
   // ── Liste / Detail ───────────────────────────────────────────
