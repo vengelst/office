@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Printer, RefreshCw, Trash2 } from 'lucide-react';
@@ -17,6 +17,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -27,6 +33,7 @@ import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { ProjectForm } from '@/components/projects/project-form';
+import { ProjectPrintAll } from '@/components/projects/project-print-all';
 import { ProjectStatusBadge } from '@/components/projects/status-badge';
 import { PriorityBadge } from '@/components/projects/priority-badge';
 import { SitesTab } from '@/components/projects/tabs/sites-tab';
@@ -74,6 +81,8 @@ export default function ProjectDetailPage(): React.ReactNode {
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('stammdaten');
+  const [printAll, setPrintAll] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   // Status ändern
   const [statusOpen, setStatusOpen] = useState(false);
@@ -178,7 +187,7 @@ export default function ProjectDetailPage(): React.ReactNode {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href="/projects" className="hover:text-foreground">
@@ -206,14 +215,32 @@ export default function ProjectDetailPage(): React.ReactNode {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            className="no-print min-h-[44px]"
-            onClick={() => window.print()}
-          >
-            <Printer className="h-4 w-4" />
-            {t.actions.print}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="no-print min-h-[44px]">
+                <Printer className="h-4 w-4" />
+                {t.actions.print}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printTab}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setPrintAll(true);
+                  requestAnimationFrame(() => {
+                    window.print();
+                    setPrintAll(false);
+                  });
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printAll}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" className="no-print min-h-[44px]" onClick={openStatus}>
             <RefreshCw className="h-4 w-4" />
             {t.actions.changeStatus}
@@ -240,7 +267,7 @@ export default function ProjectDetailPage(): React.ReactNode {
         />
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} data-tabs-root>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="stammdaten" className="min-h-[44px]">
             {t.tabs.stammdaten}
@@ -388,6 +415,8 @@ export default function ProjectDetailPage(): React.ReactNode {
         description={t.deleteConfirm}
         onConfirm={handleDelete}
       />
+
+      <ProjectPrintAll ref={printRef} project={project} />
     </div>
   );
 }

@@ -104,6 +104,8 @@ export const equipmentApi = {
     apiClient.patch<EquipmentDetail>(`/equipment/${id}`, body),
   remove: (id: string) =>
     apiClient.delete<{ id: string; deleted: boolean }>(`/equipment/${id}`),
+  bulkRemove: (ids: string[]) =>
+    apiClient.post<{ deleted: number; failed: number }>('/equipment/bulk-delete', { ids }),
   uploadImage: (id: string, file: File) => {
     const fd = new FormData();
     fd.append('file', file);

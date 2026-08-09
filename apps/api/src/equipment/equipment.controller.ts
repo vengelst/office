@@ -25,6 +25,7 @@ import type { Response } from 'express';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EquipmentService } from './equipment.service';
 import { CreateEquipmentDto } from './dto/create-equipment.dto';
@@ -102,6 +103,13 @@ export class EquipmentController {
   @ApiOperation({ summary: 'Gerät bearbeiten' })
   update(@Param('id') id: string, @Body() dto: UpdateEquipmentDto) {
     return this.equipment.update(id, dto);
+  }
+
+
+  @Post('bulk-delete')
+  @ApiOperation({ summary: 'Mehrfach löschen' })
+  bulkRemove(@Body() dto: BulkDeleteDto) {
+    return this.equipment.bulkRemove(dto.ids);
   }
 
   @Delete(':id')

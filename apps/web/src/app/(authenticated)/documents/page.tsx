@@ -23,6 +23,8 @@ import {
 } from '@/components/documents/document-visuals';
 import { DocumentLightbox } from '@/components/documents/document-lightbox';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
 import { useToast } from '@/components/ui/use-toast';
 import {
   documentsApi,
@@ -70,6 +72,7 @@ export default function DocumentsPage(): ReactNode {
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(search), 300);
@@ -110,6 +113,18 @@ export default function DocumentsPage(): ReactNode {
       return true;
     });
   }, [docs, onlyExpiring, debounced, docType, entityType]);
+
+  const bulk = useBulkSelection(filtered.map((d) => d.id));
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await documentsApi.bulkRemove(bulk.selectedIds);
+      toast({ description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.` });
+      bulk.clear();
+      load();
+    } catch (err) {
+      toast({ variant: 'destructive', description: err instanceof ApiError ? err.message : t.toast.error });
+    }
+  };
 
   const imageDocs = useMemo(
     () => filtered.filter((d) => isImage(d.mimeType)),
@@ -200,6 +215,8 @@ export default function DocumentsPage(): ReactNode {
         </Button>
       </div>
 
+      <BulkActionBar count={bulk.count} onDelete={() => setBulkOpen(true)} deleteLabel={t.delete} />
+
       {/* Ergebnisliste */}
       {loading ? (
         <div className="space-y-2">
@@ -221,6 +238,13 @@ export default function DocumentsPage(): ReactNode {
           <div className="divide-y rounded-lg border">
             {filtered.map((doc) => (
               <div key={doc.id} className="flex items-center gap-3 p-3">
+                <input
+                  type="checkbox"
+                  checked={bulk.isSelected(doc.id)}
+                  onChange={() => bulk.toggle(doc.id)}
+                  className="h-4 w-4 shrink-0"
+                  aria-label={`Auswählen ${doc.title || doc.originalFilename}`}
+                />
                 <button
                   type="button"
                   onClick={() => onOpen(doc)}
@@ -296,6 +320,14 @@ export default function DocumentsPage(): ReactNode {
           onClose={() => setLightbox(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Dokumente löschen?`}
+        description={t.deleteConfirm}
+        onConfirm={handleBulkDelete}
+      />
 
       <ConfirmDialog
         open={deleteId !== null}

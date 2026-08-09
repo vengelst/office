@@ -24,6 +24,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
+import { useToast } from '@/components/ui/use-toast';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { ApiError } from '@/lib/api-client';
 import { ProjectStatusBadge } from '@/components/projects/status-badge';
 import { PriorityBadge } from '@/components/projects/priority-badge';
 import {
@@ -49,6 +54,7 @@ type SortField = 'projectNumber' | 'title' | 'plannedStartDate' | 'priority';
 
 export default function ProjectsPage(): React.ReactNode {
   const router = useRouter();
+  const { toast } = useToast();
   const t = texts.projects;
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
@@ -58,6 +64,7 @@ export default function ProjectsPage(): React.ReactNode {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [data, setData] = useState<ProjectListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -97,6 +104,17 @@ export default function ProjectsPage(): React.ReactNode {
   };
 
   const items = data?.data ?? [];
+  const bulk = useBulkSelection(items.map((p) => p.id));
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await projectsApi.bulkRemove(bulk.selectedIds);
+      toast({ description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.` });
+      bulk.clear();
+      load();
+    } catch (err) {
+      toast({ variant: 'destructive', description: err instanceof ApiError ? err.message : t.toast.error });
+    }
+  };
   const isEmpty = !loading && items.length === 0;
   const noFilter = debounced.trim() === '' && status === ALL;
 
@@ -149,6 +167,8 @@ export default function ProjectsPage(): React.ReactNode {
         </Select>
       </div>
 
+      <BulkActionBar count={bulk.count} onDelete={() => setBulkOpen(true)} deleteLabel={t.actions.delete} />
+
       {loading ? (
         <ListSkeleton />
       ) : isEmpty ? (
@@ -171,6 +191,19 @@ export default function ProjectsPage(): React.ReactNode {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={bulk.allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = bulk.someSelected && !bulk.allSelected;
+                      }}
+                      onChange={bulk.toggleAll}
+                      aria-label="Alle auswählen"
+                      className="h-4 w-4"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableHead>
                   <SortHead
                     label={t.columns.projectNumber}
                     active={sortBy === 'projectNumber'}
@@ -206,6 +239,14 @@ export default function ProjectsPage(): React.ReactNode {
                     className="cursor-pointer"
                     onClick={() => router.push(`/projects/${p.id}`)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(p.id)}
+                        onChange={() => bulk.toggle(p.id)}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {p.projectNumber}
                     </TableCell>
@@ -232,7 +273,17 @@ export default function ProjectsPage(): React.ReactNode {
           {/* Mobile: Cards */}
           <div className="space-y-3 md:hidden">
             {items.map((p) => (
-              <MobileCard key={p.id} project={p} />
+              <div key={p.id} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={bulk.isSelected(p.id)}
+                  onChange={() => bulk.toggle(p.id)}
+                  className="mt-5 h-4 w-4"
+                />
+                <div className="min-w-0 flex-1">
+                  <MobileCard project={p} />
+                </div>
+              </div>
             ))}
           </div>
 
@@ -247,6 +298,14 @@ export default function ProjectsPage(): React.ReactNode {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Einträge löschen?`}
+        description={t.deleteConfirm}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   );
 }

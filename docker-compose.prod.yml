@@ -62,6 +62,10 @@ services:
     working_dir: /app
     env_file:
       - .env.production
+    volumes:
+      - /root/.ssh/office_monitor_key:/root/.ssh/host_key:ro
+      - /root/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      - office_backups_data:/data/backups
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
       JWT_SECRET: ${JWT_SECRET}
@@ -82,9 +86,7 @@ services:
       HOST_SSH_PORT: ${HOST_SSH_PORT:-2805}
       HOST_SSH_USER: ${HOST_SSH_USER:-root}
       HOST_SSH_KEY_PATH: ${HOST_SSH_KEY_PATH:-/root/.ssh/host_key}
-    volumes:
-      - /root/.ssh/office_monitor_key:/root/.ssh/host_key:ro
-      - /root/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      BACKUP_DIR: /data/backups
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
@@ -133,3 +135,5 @@ volumes:
     name: office_postgres_data
   office_minio_data:
     name: office_minio_data
+  office_backups_data:
+    name: office_backups_data

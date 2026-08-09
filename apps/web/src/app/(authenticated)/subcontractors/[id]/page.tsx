@@ -1,16 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
-import { ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronRight, Printer, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { WorkerAvatar } from '@/components/workers/worker-avatar';
 import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
 import { SubcontractorContactsTab } from '@/components/subcontractors/subcontractor-contacts-tab';
+import { SubcontractorPrintAll } from '@/components/subcontractors/subcontractor-print-all';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
 import { LocationMap } from '@/components/ui/location-map';
@@ -36,6 +44,9 @@ export default function SubcontractorDetailPage(): React.ReactNode {
   const [notFound, setNotFound] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('master');
+  const [printAll, setPrintAll] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     subcontractorsApi
@@ -102,7 +113,7 @@ export default function SubcontractorDetailPage(): React.ReactNode {
   }
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href="/subcontractors" className="hover:text-foreground">
           {t.title}
@@ -113,14 +124,42 @@ export default function SubcontractorDetailPage(): React.ReactNode {
 
       <div className="flex flex-wrap items-start justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">{sub.name}</h1>
-        <Button
-          variant="outline"
-          className="min-h-[44px] text-destructive"
-          onClick={() => setDeleteOpen(true)}
-        >
-          <Trash2 className="h-4 w-4" />
-          {t.actions.delete}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="no-print min-h-[44px]">
+                <Printer className="h-4 w-4" />
+                {t.actions.print}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printTab}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setPrintAll(true);
+                  requestAnimationFrame(() => {
+                    window.print();
+                    setPrintAll(false);
+                  });
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printAll}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button
+            variant="outline"
+            className="no-print min-h-[44px] text-destructive"
+            onClick={() => setDeleteOpen(true)}
+          >
+            <Trash2 className="h-4 w-4" />
+            {t.actions.delete}
+          </Button>
+        </div>
       </div>
 
       {sub.latitude != null && sub.longitude != null && (
@@ -134,69 +173,80 @@ export default function SubcontractorDetailPage(): React.ReactNode {
         />
       )}
 
-      <Card>
-        <CardContent className="pt-6">
-          <SubcontractorForm
-            subcontractor={sub}
-            submitting={saving}
-            onSubmit={handleSave}
+      <Tabs value={activeTab} onValueChange={setActiveTab} data-tabs-root>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
+          <TabsTrigger value="master" className="min-h-[44px]">
+            Stammdaten
+          </TabsTrigger>
+          <TabsTrigger value="contacts" className="min-h-[44px]">
+            {t.sections.contacts}
+          </TabsTrigger>
+          <TabsTrigger value="workers" className="min-h-[44px]">
+            {t.sections.workers}
+          </TabsTrigger>
+          <TabsTrigger value="communication" className="min-h-[44px]">
+            {texts.communication.title}
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="master">
+          <Card>
+            <CardContent className="pt-6">
+              <SubcontractorForm
+                subcontractor={sub}
+                submitting={saving}
+                onSubmit={handleSave}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="contacts">
+          <SubcontractorContactsTab
+            subcontractorId={sub.id}
+            contacts={sub.contacts ?? []}
+            onChange={load}
           />
-        </CardContent>
-      </Card>
+        </TabsContent>
 
-      <section className="space-y-3">
-        <SubcontractorContactsTab
-          subcontractorId={sub.id}
-          contacts={sub.contacts ?? []}
-          onChange={load}
-        />
-      </section>
-
-      {/* Zugehörige Monteure */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground">
-          {t.sections.workers}
-        </h3>
-        {sub.workers.length === 0 ? (
-          <EmptyState message={t.empties.workers} />
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {sub.workers.map((w) => (
-              <Link key={w.id} href={`/workers/${w.id}`} className="block">
-                <Card className="active:bg-muted/50">
-                  <CardContent className="flex items-center gap-3 p-4">
-                    <WorkerAvatar
-                      workerId={w.id}
-                      hasPhoto={!!w.photoPath}
-                      name={workerFullName(w)}
-                      size="md"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-medium">
-                        {workerFullName(w)}
-                      </p>
-                      <p className="font-mono text-xs text-muted-foreground">
-                        {w.workerNumber}
-                      </p>
-                      <div className="mt-1">
-                        <AvailabilityBadge availability={w.availability} />
+        <TabsContent value="workers">
+          {sub.workers.length === 0 ? (
+            <EmptyState message={t.empties.workers} />
+          ) : (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {sub.workers.map((w) => (
+                <Link key={w.id} href={`/workers/${w.id}`} className="block">
+                  <Card className="active:bg-muted/50">
+                    <CardContent className="flex items-center gap-3 p-4">
+                      <WorkerAvatar
+                        workerId={w.id}
+                        hasPhoto={!!w.photoPath}
+                        name={workerFullName(w)}
+                        size="md"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate font-medium">
+                          {workerFullName(w)}
+                        </p>
+                        <p className="font-mono text-xs text-muted-foreground">
+                          {w.workerNumber}
+                        </p>
+                        <div className="mt-1">
+                          <AvailabilityBadge availability={w.availability} />
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          )}
+        </TabsContent>
 
-      {/* Kommunikationshistorie */}
-      <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground">
-          {texts.communication.title}
-        </h3>
-        <CommunicationTab entityType="SUBCONTRACTOR" entityId={sub.id} />
-      </section>
+        <TabsContent value="communication">
+          <CommunicationTab entityType="SUBCONTRACTOR" entityId={sub.id} />
+        </TabsContent>
+      </Tabs>
 
       <ConfirmDialog
         open={deleteOpen}
@@ -205,6 +255,8 @@ export default function SubcontractorDetailPage(): React.ReactNode {
         description={t.deleteConfirm}
         onConfirm={handleDelete}
       />
+
+      <SubcontractorPrintAll ref={printRef} subcontractor={sub} />
     </div>
   );
 }

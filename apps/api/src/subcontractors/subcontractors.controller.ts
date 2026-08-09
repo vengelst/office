@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { SubcontractorsService } from './subcontractors.service';
 import { CreateSubcontractorDto } from './dto/create-subcontractor.dto';
@@ -64,6 +65,13 @@ export class SubcontractorsController {
   @ApiOperation({ summary: 'Subunternehmen bearbeiten' })
   update(@Param('id') id: string, @Body() dto: UpdateSubcontractorDto) {
     return this.subcontractors.update(id, dto);
+  }
+
+
+  @Post('bulk-delete')
+  @ApiOperation({ summary: 'Mehrfach löschen' })
+  bulkRemove(@Body() dto: BulkDeleteDto) {
+    return this.subcontractors.bulkRemove(dto.ids);
   }
 
   @Delete(':id')

@@ -179,6 +179,23 @@ export class CustomersService {
     return { id, deleted: true };
   }
 
+  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  async bulkRemove(ids: string[]) {
+    const results = [];
+    const errors = [];
+    for (const id of ids) {
+      try {
+        results.push(await this.remove(id));
+      } catch (err) {
+        errors.push({
+          id,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { deleted: results.length, failed: errors.length, results, errors };
+  }
+
   /** Erzeugt die nächste Kundennummer im Format K-YYYY-NNNN. */
   private async generateCustomerNumber(): Promise<string> {
     const year = new Date().getFullYear();

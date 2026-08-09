@@ -1615,3 +1615,74 @@ model WorkCardTemplate {
 
   @@index([customerId])
 }
+
+// ──────────────────────────────────────────────────────────────
+// Backup / Restore
+// ──────────────────────────────────────────────────────────────
+
+enum BackupJobStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum RestoreLogStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+  PARTIAL
+}
+
+/// Singleton-ähnliche Konfiguration für geplante Backups (eine Zeile erwartet).
+model BackupConfig {
+  id             String   @id @default(cuid())
+  enabled        Boolean  @default(false)
+  scheduleHour   Int      @default(2) // 0–23
+  scheduleMinute Int      @default(0) // 0–59
+  retentionDays  Int      @default(14)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+/// Ein ausgeführtes Full-Backup (manuell oder per Cron).
+model BackupJob {
+  id           String          @id @default(cuid())
+  status       BackupJobStatus @default(PENDING)
+  trigger      String          @default("manual") // manual | cron
+  triggeredBy  String? // User-ID oder null bei Cron
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  /// Absoluter Pfad zum Backup-Verzeichnis auf dem Server-Volume
+  filePath     String?
+  fileSize     BigInt?
+  errorMessage String?         @db.Text
+  createdAt    DateTime        @default(now())
+
+  restores RestoreLog[]
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+}
+
+/// Protokoll eines Restore-Vorgangs (selektiv nach Modulen).
+model RestoreLog {
+  id          String           @id @default(cuid())
+  backupJobId String?
+  status      RestoreLogStatus @default(PENDING)
+  /// JSON-Array der gewählten Module, z. B. ["customers","projects"]
+  modules     Json
+  triggeredBy String?
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  errorMessage String?         @db.Text
+  /// JSON-Details je Modul (Anzahl, Fehler)
+  details     Json?
+  createdAt   DateTime         @default(now())
+
+  backupJob BackupJob? @relation(fields: [backupJobId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([backupJobId])
+}

@@ -18,6 +18,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
+import { useToast } from '@/components/ui/use-toast';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { ApiError } from '@/lib/api-client';
 import {
   subcontractorsApi,
   type SubcontractorListItem,
@@ -29,12 +34,14 @@ const LIMIT = 25;
 
 export default function SubcontractorsPage(): React.ReactNode {
   const router = useRouter();
+  const { toast } = useToast();
   const t = texts.subcontractors;
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(1);
   const [data, setData] = useState<SubcontractorListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   useEffect(() => {
     const h = setTimeout(() => {
@@ -58,6 +65,17 @@ export default function SubcontractorsPage(): React.ReactNode {
   }, [load]);
 
   const items = data?.data ?? [];
+  const bulk = useBulkSelection(items.map((s) => s.id));
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await subcontractorsApi.bulkRemove(bulk.selectedIds);
+      toast({ description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.` });
+      bulk.clear();
+      load();
+    } catch (err) {
+      toast({ variant: 'destructive', description: err instanceof ApiError ? err.message : t.toast.error });
+    }
+  };
   const isEmpty = !loading && items.length === 0;
   const noSearch = debounced.trim() === '';
 
@@ -83,6 +101,8 @@ export default function SubcontractorsPage(): React.ReactNode {
         />
       </div>
 
+      <BulkActionBar count={bulk.count} onDelete={() => setBulkOpen(true)} deleteLabel={t.actions.delete} />
+
       {loading ? (
         <ListSkeleton />
       ) : isEmpty ? (
@@ -105,6 +125,19 @@ export default function SubcontractorsPage(): React.ReactNode {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={bulk.allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = bulk.someSelected && !bulk.allSelected;
+                      }}
+                      onChange={bulk.toggleAll}
+                      aria-label="Alle auswählen"
+                      className="h-4 w-4"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableHead>
                   <TableHead>{t.columns.name}</TableHead>
                   <TableHead>{t.columns.contactPerson}</TableHead>
                   <TableHead className="hidden lg:table-cell">
@@ -120,6 +153,14 @@ export default function SubcontractorsPage(): React.ReactNode {
                     className="cursor-pointer"
                     onClick={() => router.push(`/subcontractors/${s.id}`)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(s.id)}
+                        onChange={() => bulk.toggle(s.id)}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell>{s.contactPerson ?? '–'}</TableCell>
                     <TableCell className="hidden lg:table-cell">
@@ -137,7 +178,17 @@ export default function SubcontractorsPage(): React.ReactNode {
           {/* Mobile: Karten */}
           <div className="space-y-3 md:hidden">
             {items.map((s) => (
-              <MobileCard key={s.id} sub={s} />
+              <div key={s.id} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={bulk.isSelected(s.id)}
+                  onChange={() => bulk.toggle(s.id)}
+                  className="mt-5 h-4 w-4"
+                />
+                <div className="min-w-0 flex-1">
+                  <MobileCard sub={s} />
+                </div>
+              </div>
             ))}
           </div>
 
@@ -152,6 +203,14 @@ export default function SubcontractorsPage(): React.ReactNode {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Einträge löschen?`}
+        description={t.deleteConfirm}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   );
 }

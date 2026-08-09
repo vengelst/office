@@ -569,6 +569,23 @@ export class DocumentsService {
     return { id, deleted: true };
   }
 
+  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  async bulkRemove(ids: string[]) {
+    const results = [];
+    const errors = [];
+    for (const id of ids) {
+      try {
+        results.push(await this.remove(id));
+      } catch (err) {
+        errors.push({
+          id,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { deleted: results.length, failed: errors.length, results, errors };
+  }
+
   /**
    * Erzeugt – falls möglich – ein 300x300-Thumbnail (Cover-Fit) für Bilder.
    * Nutzt `sharp` falls verfügbar; bei fehlender Bibliothek oder Fehler

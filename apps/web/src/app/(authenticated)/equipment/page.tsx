@@ -31,6 +31,11 @@ import {
   type EquipmentListItem,
   type EquipmentListResponse,
 } from '@/lib/equipment';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
+import { useToast } from '@/components/ui/use-toast';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
 const LIMIT = 25;
@@ -80,6 +85,8 @@ export default function EquipmentPage(): React.ReactNode {
 
   const [data, setData] = useState<EquipmentListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const h = setTimeout(() => {
@@ -113,6 +120,17 @@ export default function EquipmentPage(): React.ReactNode {
   useEffect(() => { setPage(1); }, [statusFilter, categoryFilter]);
 
   const items = data?.data ?? [];
+  const bulk = useBulkSelection(items.map((item) => item.id));
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await equipmentApi.bulkRemove(bulk.selectedIds);
+      toast({ description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.` });
+      bulk.clear();
+      load();
+    } catch (err) {
+      toast({ variant: 'destructive', description: err instanceof ApiError ? err.message : t.toast.error });
+    }
+  };
   const isEmpty = !loading && items.length === 0;
   const noFilters =
     debounced.trim() === '' && statusFilter === ALL && categoryFilter === ALL;
@@ -173,6 +191,8 @@ export default function EquipmentPage(): React.ReactNode {
         </div>
       </div>
 
+      <BulkActionBar count={bulk.count} onDelete={() => setBulkOpen(true)} deleteLabel={t.actions.delete} />
+
       {loading ? (
         <div className="space-y-3">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -198,6 +218,19 @@ export default function EquipmentPage(): React.ReactNode {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={bulk.allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = bulk.someSelected && !bulk.allSelected;
+                      }}
+                      onChange={bulk.toggleAll}
+                      aria-label="Alle auswählen"
+                      className="h-4 w-4"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableHead>
                   <TableHead>{t.columns.name}</TableHead>
                   <TableHead>{t.columns.category}</TableHead>
                   <TableHead>{t.columns.status}</TableHead>
@@ -212,6 +245,14 @@ export default function EquipmentPage(): React.ReactNode {
                     className="cursor-pointer"
                     onClick={() => router.push(`/equipment/${item.id}`)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(item.id)}
+                        onChange={() => bulk.toggle(item.id)}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell className="font-medium">
                       {item.name}
                       {item.inventoryNumber && (
@@ -301,6 +342,14 @@ export default function EquipmentPage(): React.ReactNode {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Einträge löschen?`}
+        description={t.deleteConfirm}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   );
 }

@@ -342,6 +342,23 @@ export class WorkersService {
     return { id, deleted: true };
   }
 
+  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  async bulkRemove(ids: string[]) {
+    const results = [];
+    const errors = [];
+    for (const id of ids) {
+      try {
+        results.push(await this.remove(id));
+      } catch (err) {
+        errors.push({
+          id,
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    return { deleted: results.length, failed: errors.length, results, errors };
+  }
+
   // ── Ablaufwarnungen ──────────────────────────────────────────
 
   /** Monteure mit Reisepass/Aufenthalt/Arbeitserlaubnis-Ablauf in <30 Tagen. */
