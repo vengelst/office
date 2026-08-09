@@ -17,6 +17,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CustomersService } from './customers.service';
@@ -38,7 +40,8 @@ import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
  */
 @ApiTags('customers')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('customers')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('customers')
 export class CustomersController {

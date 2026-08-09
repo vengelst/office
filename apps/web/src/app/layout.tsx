@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { ThemeProvider } from '@/components/layout/theme-provider';
 import { AuthProvider } from '@/lib/auth-context';
+import { FeatureFlagsProvider } from '@/lib/feature-flags-context';
 import { Toaster } from '@/components/ui/toaster';
 import { texts } from '@/lib/texts';
 import './globals.css';
@@ -26,8 +27,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
-            {children}
-            <Toaster />
+            <FeatureFlagsProvider>
+              {children}
+              <Toaster />
+            </FeatureFlagsProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

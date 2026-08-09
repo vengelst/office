@@ -1,3 +1,8 @@
+/**
+ * Komponente: components/projects/tabs/work-items/item-detail-sheet.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';

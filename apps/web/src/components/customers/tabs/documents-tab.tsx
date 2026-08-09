@@ -1,3 +1,8 @@
+/**
+ * Komponente: components/customers/tabs/documents-tab.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import {

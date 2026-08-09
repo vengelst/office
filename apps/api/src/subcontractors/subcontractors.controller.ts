@@ -17,6 +17,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { SubcontractorsService } from './subcontractors.service';
@@ -27,7 +29,8 @@ import { UpdateSubcontractorContactDto } from './dto/update-subcontractor-contac
 
 @ApiTags('subcontractors')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('subcontractors')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('subcontractors')
 export class SubcontractorsController {

@@ -35,6 +35,7 @@ import { SystemInfoModule } from './system-info/system-info.module';
 import { WorkCardTemplatesModule } from './work-card-templates/work-card-templates.module';
 import { WorkItemsModule } from './work-items/work-items.module';
 import { BackupsModule } from './backups/backups.module';
+import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -43,6 +44,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     ConfigModule.forRoot({ isGlobal: true }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
     PrismaModule,
+    FeatureFlagsModule,
     AuthModule,
     UsersModule,
     CustomersModule,

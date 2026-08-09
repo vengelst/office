@@ -19,6 +19,8 @@ import { RoleCode, TodoEntityType, TodoPriority, TodoStatus } from '@prisma/clie
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { TodosService } from './todos.service';
@@ -28,7 +30,8 @@ import { UpdateTodoStatusDto } from './dto/update-todo-status.dto';
 
 @ApiTags('todos')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('todos')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('todos')
 export class TodosController {

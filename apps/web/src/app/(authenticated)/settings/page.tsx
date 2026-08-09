@@ -1,5 +1,14 @@
 import Link from 'next/link';
-import { Mail, HardDrive, Coffee, Monitor, Building2, Server, DatabaseBackup } from 'lucide-react';
+import {
+  Mail,
+  HardDrive,
+  Coffee,
+  Monitor,
+  Building2,
+  Server,
+  DatabaseBackup,
+  ToggleLeft,
+} from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
 import { texts } from '@/lib/texts';
@@ -34,6 +43,12 @@ const settingsLinks = [
     label: texts.settings.nav.breakRules,
     description: 'Automatische Pausenregelungen verwalten',
     icon: Coffee,
+  },
+  {
+    href: '/settings/features',
+    label: texts.settings.nav.features,
+    description: texts.settings.features.subtitle,
+    icon: ToggleLeft,
   },
   {
     href: '/kiosk/setup',

@@ -1,6 +1,6 @@
 /**
  * Komponente: customers / tabs / contacts-tab (Office-Web).
- * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ * Domänen-UI – Orchestrierung; Formular/Scan/Helfer ausgelagert.
  */
 
 'use client';
@@ -11,7 +11,6 @@ import {
   CreditCard,
   Gift,
   Linkedin,
-  Loader2,
   Pencil,
   Plus,
   Search,
@@ -19,16 +18,8 @@ import {
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -36,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { MailLink, PhoneLink } from '@/components/customers/contact-links';
 import { EmptyState } from '@/components/customers/empty-state';
@@ -54,72 +44,20 @@ import { uploadDocument } from '@/lib/upload';
 import { scanBusinessCard, type BusinessCardData } from '@/lib/ocr';
 import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
+import { AuthImage } from './contacts/contacts-helpers';
+import { ContactFormDialog } from './contacts/contact-form-dialog';
+import { ContactScanDialog } from './contacts/contact-scan-dialog';
+import {
+  ALL,
+  API_BASE_URL,
+  EMPTY,
+  NONE,
+  type ContactsExternalAction,
+  type FormState,
+} from './contacts/contacts-types';
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
+export type { ContactsExternalAction } from './contacts/contacts-types';
 
-const NONE = '__none__';
-const ALL = '__all__';
-const CONTACT_METHODS = ['EMAIL', 'PHONE', 'MOBILE'] as const;
-
-/**
- * Externe Steuerung der Kontakte-Ansicht, z.B. beim Klick auf
- * "Kontakt bearbeiten" im Niederlassungs-Detail.
- */
-export type ContactsExternalAction =
-  | { kind: 'edit'; contact: CustomerContact }
-  | { kind: 'create'; branchId: string | null };
-
-type FormState = {
-  title: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  department: string;
-  branchId: string;
-  email: string;
-  phoneMobile: string;
-  phoneLandline: string;
-  birthday: string;
-  linkedInUrl: string;
-  preferredContactMethod: string;
-  isAccountingContact: boolean;
-  isProjectContact: boolean;
-  isSignatory: boolean;
-  syncToGoogle: boolean;
-};
-
-const EMPTY: FormState = {
-  title: '',
-  firstName: '',
-  lastName: '',
-  role: '',
-  department: '',
-  branchId: NONE,
-  email: '',
-  phoneMobile: '',
-  phoneLandline: '',
-  birthday: '',
-  linkedInUrl: '',
-  preferredContactMethod: '',
-  isAccountingContact: false,
-  isProjectContact: false,
-  isSignatory: false,
-  syncToGoogle: true,
-};
-
-/**
- * Tab-Komponente zur Verwaltung von Ansprechpartnern eines Kunden.
- * Bietet CRUD-Operationen, Visitenkarten-Scan via OCR, Inline-Bearbeitung,
- * Filterung nach Niederlassung und Gruppierung nach Standort.
- *
- * @param customerId - ID des zugehörigen Kunden
- * @param contacts - Liste der bestehenden Kontakte
- * @param branches - Niederlassungen des Kunden (für Filter und Zuordnung)
- * @param onChange - Callback bei Datenänderung (löst Neuladen aus)
- * @param externalAction - Optionale externe Steuerung (z.B. aus dem Niederlassungs-Tab)
- * @param onExternalActionDone - Callback wenn die externe Aktion verarbeitet wurde
- */
 export function ContactsTab({
   customerId,
   contacts,
@@ -632,178 +570,16 @@ export function ContactsTab({
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? t.actions.edit : t.actions.addContact}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Field label={t.fields.title}>
-                <Input
-                  value={form.title}
-                  onChange={(e) => set('title', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.firstName} required>
-                <Input
-                  value={form.firstName}
-                  onChange={(e) => set('firstName', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.lastName} required>
-                <Input
-                  value={form.lastName}
-                  onChange={(e) => set('lastName', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Field label={t.fields.role}>
-                <Input
-                  value={form.role}
-                  onChange={(e) => set('role', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.department}>
-                <Input
-                  value={form.department}
-                  onChange={(e) => set('department', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-            </div>
-            <Field label={t.fields.branch}>
-              <Select
-                value={form.branchId}
-                onValueChange={(v) => set('branchId', v)}
-              >
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={NONE}>{t.headquarters}</SelectItem>
-                  {branches.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Field label={t.fields.email}>
-                <Input
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => set('email', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.phoneMobile}>
-                <Input
-                  value={form.phoneMobile}
-                  onChange={(e) => set('phoneMobile', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.phoneLandline}>
-                <Input
-                  value={form.phoneLandline}
-                  onChange={(e) => set('phoneLandline', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <Field label={t.fields.birthday}>
-                <Input
-                  type="date"
-                  value={form.birthday}
-                  onChange={(e) => set('birthday', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.linkedInUrl}>
-                <Input
-                  value={form.linkedInUrl}
-                  onChange={(e) => set('linkedInUrl', e.target.value)}
-                  className="min-h-[44px]"
-                />
-              </Field>
-              <Field label={t.fields.preferredContactMethod}>
-                <Select
-                  value={form.preferredContactMethod || NONE}
-                  onValueChange={(v) =>
-                    set('preferredContactMethod', v === NONE ? '' : v)
-                  }
-                >
-                  <SelectTrigger className="min-h-[44px]">
-                    <SelectValue placeholder="–" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>–</SelectItem>
-                    {CONTACT_METHODS.map((m) => (
-                      <SelectItem key={m} value={m}>
-                        {t.contactMethods[m]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </Field>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Checkbox
-                label={t.fields.isAccountingContact}
-                checked={form.isAccountingContact}
-                onChange={(v) => set('isAccountingContact', v)}
-              />
-              <Checkbox
-                label={t.fields.isProjectContact}
-                checked={form.isProjectContact}
-                onChange={(v) => set('isProjectContact', v)}
-              />
-              <Checkbox
-                label={t.fields.isSignatory}
-                checked={form.isSignatory}
-                onChange={(v) => set('isSignatory', v)}
-              />
-              <div className="flex flex-col">
-                <Checkbox
-                  label={t.research.syncGoogle}
-                  checked={form.syncToGoogle}
-                  onChange={(v) => set('syncToGoogle', v)}
-                />
-                <span className="ml-6 text-xs text-muted-foreground">
-                  {t.research.syncGoogleHint}
-                </span>
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setDialogOpen(false)}
-              className="min-h-[44px]"
-            >
-              {t.actions.cancel}
-            </Button>
-            <Button
-              onClick={save}
-              disabled={saving || !form.firstName || !form.lastName}
-              className="min-h-[44px]"
-            >
-              {saving ? t.actions.saving : t.actions.save}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ContactFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        editing={Boolean(editing)}
+        form={form}
+        setFormField={set}
+        branches={branches}
+        saving={saving}
+        onSave={save}
+      />
 
       <ConfirmDialog
         open={deleteId !== null}
@@ -813,208 +589,19 @@ export function ContactsTab({
         onConfirm={confirmDelete}
       />
 
-      <Dialog open={scanDialogOpen} onOpenChange={setScanDialogOpen}>
-        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t.actions.scanBusinessCard}</DialogTitle>
-          </DialogHeader>
-
-          {!scanResult && !scanning && (
-            <div className="flex flex-col items-center gap-4 py-8">
-              <Camera className="h-12 w-12 text-muted-foreground" />
-              <p className="text-center text-sm text-muted-foreground">
-                Fotografieren oder Bild einer Visitenkarte hochladen
-              </p>
-              <Button
-                onClick={() => scanInput.current?.click()}
-                className="min-h-[44px]"
-              >
-                <Camera className="h-4 w-4" />
-                Bild auswählen
-              </Button>
-            </div>
-          )}
-
-          {scanning && (
-            <div className="flex flex-col items-center gap-4 py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">
-                Visitenkarte wird analysiert …
-              </p>
-              {scanPreview && (
-                <img
-                  src={scanPreview}
-                  alt="Visitenkarte"
-                  className="mt-4 max-h-48 rounded-lg border object-contain"
-                />
-              )}
-            </div>
-          )}
-
-          {scanResult && !scanning && (
-            <>
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <div className="flex flex-col gap-2">
-                  {scanPreview && (
-                    <img
-                      src={scanPreview}
-                      alt="Visitenkarte"
-                      className="w-full rounded-lg border object-contain"
-                    />
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="min-h-[44px]"
-                    onClick={() => scanInput.current?.click()}
-                  >
-                    Anderes Bild wählen
-                  </Button>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <Field label={t.fields.title}>
-                      <Input
-                        value={scanForm.title}
-                        onChange={(e) =>
-                          setScanForm((p) => ({ ...p, title: e.target.value }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                    <Field label={t.fields.firstName} required>
-                      <Input
-                        value={scanForm.firstName}
-                        onChange={(e) =>
-                          setScanForm((p) => ({ ...p, firstName: e.target.value }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                    <Field label={t.fields.lastName} required>
-                      <Input
-                        value={scanForm.lastName}
-                        onChange={(e) =>
-                          setScanForm((p) => ({ ...p, lastName: e.target.value }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field label={t.fields.role}>
-                      <Input
-                        value={scanForm.role}
-                        onChange={(e) =>
-                          setScanForm((p) => ({ ...p, role: e.target.value }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                    <Field label={t.fields.department}>
-                      <Input
-                        value={scanForm.department}
-                        onChange={(e) =>
-                          setScanForm((p) => ({
-                            ...p,
-                            department: e.target.value,
-                          }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                  </div>
-                  <Field label={t.fields.email}>
-                    <Input
-                      type="email"
-                      value={scanForm.email}
-                      onChange={(e) =>
-                        setScanForm((p) => ({ ...p, email: e.target.value }))
-                      }
-                      className="min-h-[44px]"
-                    />
-                  </Field>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <Field label={t.fields.phoneMobile}>
-                      <Input
-                        value={scanForm.phoneMobile}
-                        onChange={(e) =>
-                          setScanForm((p) => ({
-                            ...p,
-                            phoneMobile: e.target.value,
-                          }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                    <Field label={t.fields.phoneLandline}>
-                      <Input
-                        value={scanForm.phoneLandline}
-                        onChange={(e) =>
-                          setScanForm((p) => ({
-                            ...p,
-                            phoneLandline: e.target.value,
-                          }))
-                        }
-                        className="min-h-[44px]"
-                      />
-                    </Field>
-                  </div>
-                  <Field label={t.fields.linkedInUrl}>
-                    <Input
-                      value={scanForm.linkedInUrl}
-                      onChange={(e) =>
-                        setScanForm((p) => ({
-                          ...p,
-                          linkedInUrl: e.target.value,
-                        }))
-                      }
-                      className="min-h-[44px]"
-                    />
-                  </Field>
-                  <Field label={t.fields.branch}>
-                    <Select
-                      value={scanForm.branchId}
-                      onValueChange={(v) =>
-                        setScanForm((p) => ({ ...p, branchId: v }))
-                      }
-                    >
-                      <SelectTrigger className="min-h-[44px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NONE}>{t.headquarters}</SelectItem>
-                        {branches.map((b) => (
-                          <SelectItem key={b.id} value={b.id}>
-                            {b.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => setScanDialogOpen(false)}
-                  className="min-h-[44px]"
-                >
-                  {t.actions.cancel}
-                </Button>
-                <Button
-                  onClick={saveScanResult}
-                  disabled={saving || !scanForm.firstName || !scanForm.lastName}
-                  className="min-h-[44px]"
-                >
-                  {saving ? t.actions.saving : t.actions.addContact}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ContactScanDialog
+        open={scanDialogOpen}
+        onOpenChange={setScanDialogOpen}
+        scanning={scanning}
+        scanPreview={scanPreview}
+        scanResult={scanResult}
+        scanForm={scanForm}
+        setScanForm={setScanForm}
+        branches={branches}
+        saving={saving}
+        scanInputRef={scanInput}
+        onSave={saveScanResult}
+      />
 
       <ContactSearchDialog
         open={searchDialogOpen}
@@ -1045,86 +632,5 @@ export function ContactsTab({
         </div>
       )}
     </div>
-  );
-}
-
-/**
- * Bild-Komponente mit authentifiziertem Laden über Bearer-Token.
- * Erzeugt eine Object-URL aus dem API-Response und gibt sie beim Unmount frei.
- *
- * @param src - URL zum geschützten Bild-Endpunkt
- * @param alt - Alt-Text für das Bild
- * @param onClick - Callback mit der Blob-URL (z.B. für Lightbox)
- */
-function AuthImage({
-  src,
-  alt,
-  className,
-  onClick,
-}: {
-  src: string;
-  alt: string;
-  className?: string;
-  onClick?: (blobUrl: string) => void;
-}): ReactNode {
-  const [blobUrl, setBlobUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    const token =
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem(TOKEN_STORAGE_KEY)
-        : null;
-
-    let objectUrl: string | undefined;
-    fetch(src, {
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error('load failed');
-        return res.blob();
-      })
-      .then((blob) => {
-        objectUrl = URL.createObjectURL(blob);
-        setBlobUrl(objectUrl);
-      })
-      .catch(() => setBlobUrl(null));
-
-    return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [src]);
-
-  if (!blobUrl) return null;
-
-  return (
-    <img
-      src={blobUrl}
-      alt={alt}
-      className={className}
-      onClick={() => onClick?.(blobUrl)}
-    />
-  );
-}
-
-/** Einfache Checkbox-Komponente mit Label und Touch-freundlicher Mindesthöhe. */
-function Checkbox({
-  label,
-  checked,
-  onChange,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-}): ReactNode {
-  return (
-    <label className="flex min-h-[44px] items-center gap-2 text-sm">
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4"
-      />
-      {label}
-    </label>
   );
 }

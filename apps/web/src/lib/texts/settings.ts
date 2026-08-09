@@ -55,6 +55,19 @@ export const settings = {
       breakRules: 'Pausenregeln',
       system: 'Server-Status',
       backup: 'Backup & Restore',
+      features: 'Feature-Flags',
+    },
+    features: {
+      title: 'Feature-Flags',
+      subtitle: 'Kernmodule ein- oder ausblenden (Navigation und API)',
+      back: 'Zurück zu Einstellungen',
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      readOnlyHint: 'Nur Superadmins können Feature-Flags ändern.',
+      toast: {
+        saved: 'Feature-Flags gespeichert.',
+        error: 'Speichern fehlgeschlagen.',
+      },
     },
     backup: {
       title: 'Backup & Restore',

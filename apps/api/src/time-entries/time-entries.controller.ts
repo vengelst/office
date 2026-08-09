@@ -27,6 +27,8 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { TimeEntriesService } from './time-entries.service';
 import { ClockInDto } from './dto/clock-in.dto';
@@ -43,6 +45,8 @@ const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
  */
 @ApiTags('time-entries')
 @ApiBearerAuth()
+@UseGuards(FeatureFlagGuard)
+@RequireFeature('timeClock')
 @Controller('time-entries')
 export class TimeEntriesController {
   constructor(private readonly timeEntries: TimeEntriesService) {}

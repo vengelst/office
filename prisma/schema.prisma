@@ -389,6 +389,7 @@ model CustomerEmail {
   isPrimary  Boolean @default(false)
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  @@index([customerId])
 }
 
 model CustomerBankAccount {
@@ -402,6 +403,7 @@ model CustomerBankAccount {
   notes         String?
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  @@index([customerId])
 }
 
 model CustomerBranch {
@@ -425,6 +427,7 @@ model CustomerBranch {
   customer Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
   contacts CustomerContact[]
   projects Project[]
+  @@index([customerId])
 }
 
 model CustomerContact {
@@ -458,6 +461,8 @@ model CustomerContact {
   branch             CustomerBranch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
   callLogs           CustomerCallLog[]
   primaryForProjects Project[]         @relation("PrimaryContact")
+  @@index([customerId])
+  @@index([branchId])
 }
 
 model CustomerNote {
@@ -469,6 +474,7 @@ model CustomerNote {
 
   customer  Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   createdBy User     @relation(fields: [createdByUserId], references: [id])
+  @@index([customerId])
 }
 
 model CustomerCallLog {
@@ -488,6 +494,8 @@ model CustomerCallLog {
   contact   CustomerContact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   project   Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   createdBy User             @relation(fields: [createdByUserId], references: [id])
+  @@index([customerId])
+  @@index([contactId])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -585,6 +593,7 @@ model ProjectSite {
   createdAt    DateTime @default(now())
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
 }
 
 model ProjectEquipment {
@@ -602,6 +611,7 @@ model ProjectEquipment {
   notes           String?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
 }
 
 model ProjectStatusHistory {
@@ -615,6 +625,7 @@ model ProjectStatusHistory {
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   changedBy User?   @relation(fields: [changedByUserId], references: [id], onDelete: SetNull)
+  @@index([projectId])
 }
 
 model ProjectNote {
@@ -626,6 +637,7 @@ model ProjectNote {
 
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdBy User    @relation(fields: [createdByUserId], references: [id])
+  @@index([projectId])
 }
 
 model ProjectAssignment {
@@ -641,6 +653,9 @@ model ProjectAssignment {
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
   worker  Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  @@index([projectId])
+  @@index([workerId])
+  @@index([projectId, active])
 }
 
 model ProjectEmailRecipient {
@@ -651,6 +666,7 @@ model ProjectEmailRecipient {
   name          String?
 
   project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  @@index([projectId])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -776,6 +792,9 @@ model Subcontractor {
   contacts SubcontractorContact[]
   invoices Invoice[]
   vehicles Vehicle[]
+  @@index([active])
+  @@index([deletedAt])
+  @@index([active, deletedAt])
 }
 
 model SubcontractorContact {
@@ -807,6 +826,7 @@ model WorkerLanguage {
   worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@unique([workerId, language])
+  @@index([workerId])
 }
 
 model WorkerCertification {
@@ -819,6 +839,7 @@ model WorkerCertification {
   notes      String?
 
   worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  @@index([workerId])
 }
 
 model WorkerTeam {
@@ -845,6 +866,8 @@ model WorkerTeamMember {
   worker Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
 
   @@unique([teamId, workerId, leftAt])
+  @@index([workerId])
+  @@index([teamId])
 }
 
 model WorkerPin {
@@ -857,6 +880,8 @@ model WorkerPin {
   createdAt DateTime  @default(now())
 
   worker Worker @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  @@index([workerId])
+  @@index([workerId, isActive])
 }
 
 model UserPin {
@@ -869,6 +894,8 @@ model UserPin {
   createdAt DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@index([userId, isActive])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -902,6 +929,8 @@ model Vehicle {
 
   subcontractor Subcontractor?            @relation(fields: [subcontractorId], references: [id], onDelete: SetNull)
   assignments   WorkerVehicleAssignment[]
+  @@index([active])
+  @@index([subcontractorId])
 }
 
 model WorkerVehicleAssignment {
@@ -914,6 +943,8 @@ model WorkerVehicleAssignment {
 
   worker  Worker  @relation(fields: [workerId], references: [id], onDelete: Cascade)
   vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  @@index([workerId])
+  @@index([vehicleId])
 }
 
 model EquipmentItem {
@@ -1011,6 +1042,8 @@ model BreakRule {
 
   project        Project?  @relation("ProjectBreakRules", fields: [projectId], references: [id], onDelete: Cascade)
   pausedProjects Project[] @relation("ProjectPauseRule")
+  @@index([projectId])
+  @@index([active])
 }
 
 model TimeEntry {
@@ -1037,6 +1070,7 @@ model TimeEntry {
 
   @@index([workerId, projectId])
   @@index([occurredAtClient])
+  @@index([projectId])
 }
 
 model GpsEvent {
@@ -1053,6 +1087,8 @@ model GpsEvent {
   worker           Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
   project          Project?   @relation(fields: [projectId], references: [id], onDelete: SetNull)
   relatedTimeEntry TimeEntry? @relation(fields: [relatedTimeEntryId], references: [id], onDelete: SetNull)
+  @@index([workerId])
+  @@index([recordedAt])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1090,6 +1126,9 @@ model WeeklyTimesheet {
   invoiceLines InvoiceLine[]
 
   @@unique([workerId, projectId, weekYear, weekNumber])
+  @@index([status])
+  @@index([projectId])
+  @@index([status, projectId])
 }
 
 model WeeklyTimesheetDay {
@@ -1108,6 +1147,7 @@ model WeeklyTimesheetDay {
   clockOutLongitude Float?
 
   weeklyTimesheet WeeklyTimesheet @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+  @@index([weeklyTimesheetId])
 }
 
 model WeeklyTimesheetSignature {
@@ -1122,6 +1162,7 @@ model WeeklyTimesheetSignature {
   deviceInfo         String?
 
   weeklyTimesheet WeeklyTimesheet @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+  @@index([weeklyTimesheetId])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1299,6 +1340,8 @@ model EmailLog {
   relatedEntityType String?
   relatedEntityId   String?
   createdAt         DateTime  @default(now())
+  @@index([relatedEntityType, relatedEntityId])
+  @@index([createdAt])
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1359,6 +1402,8 @@ model Invoice {
   @@index([projectId])
   @@index([subcontractorId])
   @@index([invoiceType, status])
+  @@index([issueDate])
+  @@index([dueDate])
 }
 
 model InvoiceLine {
@@ -1377,6 +1422,7 @@ model InvoiceLine {
 
   invoice         Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   weeklyTimesheet WeeklyTimesheet? @relation(fields: [weeklyTimesheetId], references: [id])
+  @@index([invoiceId])
 }
 
 model InvoicePayment {
@@ -1390,6 +1436,7 @@ model InvoicePayment {
   createdAt DateTime @default(now())
 
   invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  @@index([invoiceId])
 }
 
 // ──────────────────────────────────────────────────────────────

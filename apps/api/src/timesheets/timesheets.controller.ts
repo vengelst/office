@@ -25,6 +25,8 @@ import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { TimesheetsService } from './timesheets.service';
 import { TimesheetPdfService } from './pdf.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
@@ -45,7 +47,8 @@ import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
  */
 @ApiTags('timesheets')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('timesheets')
 @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
 @Controller('timesheets')
 export class TimesheetsController {

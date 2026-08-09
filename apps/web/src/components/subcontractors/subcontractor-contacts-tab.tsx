@@ -1,3 +1,8 @@
+/**
+ * Komponente: components/subcontractors/subcontractor-contacts-tab.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useState, type ReactNode } from 'react';

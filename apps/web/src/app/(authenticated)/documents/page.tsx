@@ -1,3 +1,8 @@
+/**
+ * Seite: app/(authenticated)/documents/page.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';

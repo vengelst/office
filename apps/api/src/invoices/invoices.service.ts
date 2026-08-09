@@ -1,149 +1,55 @@
 /**
  * Service für Invoices.
- * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ * Kapselt CRUD, Status-Workflow und Zahlungen; Generierung/PDF-Export sind ausgelagert.
  */
 
 import {
   BadRequestException,
   ConflictException,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
-  DocumentType,
-  InvoiceLineType,
   InvoiceStatus,
   InvoiceType,
   Prisma,
-  WeeklyTimesheetStatus,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { DocumentsService } from '../documents/documents.service';
-import { StoragePathService } from '../common/storage-path.service';
-import { InvoicePdfService } from './invoice-pdf.service';
-import { isoWeekRange } from '../timesheets/timesheet.util';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { CreateInvoiceLineDto } from './dto/create-invoice-line.dto';
 import { UpdateInvoiceLineDto } from './dto/update-invoice-line.dto';
 import { GenerateFromTimesheetsDto } from './dto/generate-from-timesheets.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { InvoiceExportService } from './invoice-export.service';
+import { InvoiceGenerationService } from './invoice-generation.service';
+import {
+  DEFAULT_PAYMENT_TERM_DAYS,
+  ListInvoicesParams,
+  OPEN_STATUSES,
+  SORTABLE_FIELDS,
+  SortField,
+  buildLineData,
+  coerceDate,
+  computeTotals,
+  detailInclude,
+  listSelect,
+  round2,
+} from './invoice-shared';
 
-/** Sortierbare Spalten der Rechnungsliste. */
-const SORTABLE_FIELDS = [
-  'invoiceNumber',
-  'issueDate',
-  'dueDate',
-  'total',
-  'status',
-  'createdAt',
-] as const;
-type SortField = (typeof SORTABLE_FIELDS)[number];
-
-/** Standard-Zahlungsziel (Tage), falls weder Rechnung noch Kunde eines setzen. */
-const DEFAULT_PAYMENT_TERM_DAYS = 14;
-
-/** Status, in denen offene Beträge entstehen. */
-const OPEN_STATUSES: InvoiceStatus[] = [
-  InvoiceStatus.SENT,
-  InvoiceStatus.PARTIALLY_PAID,
-];
-
-export interface ListInvoicesParams {
-  page?: number;
-  limit?: number;
-  search?: string;
-  type?: string;
-  status?: string;
-  projectId?: string;
-  customerId?: string;
-  subcontractorId?: string;
-  periodFrom?: string;
-  periodTo?: string;
-  sortBy?: string;
-  sortDir?: 'asc' | 'desc';
-}
-
-/** Schlanke Projektion für die Listenansicht. */
-const listSelect = {
-  id: true,
-  invoiceNumber: true,
-  invoiceType: true,
-  status: true,
-  periodFrom: true,
-  periodTo: true,
-  subtotal: true,
-  taxRate: true,
-  taxAmount: true,
-  total: true,
-  paidAmount: true,
-  isPartialInvoice: true,
-  partialNumber: true,
-  partialPercentage: true,
-  issueDate: true,
-  dueDate: true,
-  paidDate: true,
-  createdAt: true,
-  project: { select: { id: true, projectNumber: true, title: true } },
-  customer: { select: { id: true, companyName: true } },
-  subcontractor: { select: { id: true, name: true } },
-  _count: { select: { lines: true, payments: true } },
-} satisfies Prisma.InvoiceSelect;
-
-/** Vollständige Projektion für die Detailansicht. */
-const detailInclude = {
-  project: {
-    select: {
-      id: true,
-      projectNumber: true,
-      title: true,
-      billingMode: true,
-      weeklyPackageHours: true,
-      weeklyPackagePrice: true,
-      overtimeRatePerHour: true,
-    },
-  },
-  customer: {
-    select: {
-      id: true,
-      customerNumber: true,
-      companyName: true,
-      paymentTermDays: true,
-    },
-  },
-  subcontractor: { select: { id: true, name: true } },
-  createdBy: { select: { id: true, displayName: true } },
-  lines: { orderBy: { position: 'asc' } },
-  payments: { orderBy: { paidDate: 'asc' } },
-} satisfies Prisma.InvoiceInclude;
-
-/** Datumsfelder von ISO-Strings nach Date konvertieren. */
-function coerceDate(value?: string): Date | undefined | null {
-  if (value === undefined) return undefined;
-  if (value === null || value === '') return null;
-  return new Date(value);
-}
-
-/** Kaufmännisch auf 2 Nachkommastellen runden. */
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100;
-}
+export type { ListInvoicesParams } from './invoice-shared';
 
 /**
  * Service für die Rechnungsverwaltung.
  * Behandelt Erstellung, Bearbeitung, Status-Workflow (DRAFT → SENT → PAID),
- * PDF-Export, Zahlungserfassung und Generierung aus Stundenzetteln.
+ * Zahlungserfassung; PDF-Export und Stundenzettel-Generierung delegiert.
  */
 @Injectable()
 export class InvoicesService {
-  private readonly logger = new Logger(InvoicesService.name);
-
   constructor(
     private readonly prisma: PrismaService,
-    private readonly documentsService: DocumentsService,
-    private readonly storagePathService: StoragePathService,
-    private readonly pdfService: InvoicePdfService,
+    private readonly exportService: InvoiceExportService,
+    private readonly generationService: InvoiceGenerationService,
   ) {}
 
   // ── Liste / Detail ───────────────────────────────────────────
@@ -259,8 +165,8 @@ export class InvoicesService {
 
     const taxRate = dto.taxRate ?? 19;
     const invoiceNumber = await this.generateInvoiceNumber(dto.invoiceType);
-    const lines = this.buildLineData(dto.lines ?? []);
-    const totals = this.computeTotals(lines, taxRate);
+    const lines = buildLineData(dto.lines ?? []);
+    const totals = computeTotals(lines, taxRate);
 
     const invoice = await this.prisma.invoice.create({
       data: {
@@ -307,264 +213,7 @@ export class InvoicesService {
     dto: GenerateFromTimesheetsDto,
     userId: string | null,
   ) {
-    const project = await this.prisma.project.findFirst({
-      where: { id: dto.projectId, deletedAt: null },
-      select: {
-        id: true,
-        customerId: true,
-        billingMode: true,
-        weeklyPackageHours: true,
-        weeklyPackagePrice: true,
-        overtimeRatePerHour: true,
-      },
-    });
-    if (!project) {
-      throw new NotFoundException('Projekt nicht gefunden');
-    }
-
-    const from = new Date(dto.periodFrom);
-    const to = new Date(dto.periodTo);
-    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-      throw new BadRequestException('Ungültiger Zeitraum');
-    }
-
-    if (dto.invoiceType === InvoiceType.INCOMING) {
-      return this.generateIncoming(dto, project.id, from, to, userId);
-    }
-    return this.generateOutgoing(dto, project, from, to, userId);
-  }
-
-  /**
-   * Interner Helfer: Interner Helfer: Implementiert `generateOutgoing` (generate Outgoing).
-   */
-  private async generateOutgoing(
-    dto: GenerateFromTimesheetsDto,
-    project: {
-      id: string;
-      customerId: string;
-      billingMode: string | null;
-      weeklyPackageHours: number | null;
-      weeklyPackagePrice: number | null;
-      overtimeRatePerHour: number | null;
-    },
-    from: Date,
-    to: Date,
-    userId: string | null,
-  ) {
-    // Pauschal-Lines nur bei HOURLY_PACKAGE / MIXED.
-    const autoPackage =
-      project.billingMode === 'HOURLY_PACKAGE' ||
-      project.billingMode === 'MIXED';
-
-    const sheets = await this.loadApprovedTimesheets(project.id, from, to);
-
-    // Pro Kalenderwoche die Netto-Minuten aller Monteure aggregieren.
-    const byWeek = new Map<string, { year: number; week: number; net: number }>();
-    for (const s of sheets) {
-      const key = `${s.weekYear}-${s.weekNumber}`;
-      const agg = byWeek.get(key) ?? {
-        year: s.weekYear,
-        week: s.weekNumber,
-        net: 0,
-      };
-      agg.net += s.totalMinutesNet ?? 0;
-      byWeek.set(key, agg);
-    }
-
-    const lines: CreateInvoiceLineDto[] = [];
-    if (autoPackage) {
-      const weeks = [...byWeek.values()].sort(
-        (a, b) => a.year - b.year || a.week - b.week,
-      );
-      const packagePrice = project.weeklyPackagePrice ?? 0;
-      const packageHours = project.weeklyPackageHours ?? 0;
-      const overtimeRate = project.overtimeRatePerHour ?? 0;
-
-      for (const w of weeks) {
-        lines.push({
-          lineType: InvoiceLineType.WEEKLY_PACKAGE,
-          description: `Wochenpaket KW ${w.week}/${w.year}`,
-          quantity: 1,
-          unit: 'Pauschale',
-          unitPrice: packagePrice,
-        });
-
-        const netHours = round2(w.net / 60);
-        if (packageHours > 0 && netHours > packageHours && overtimeRate > 0) {
-          const overtimeHours = round2(netHours - packageHours);
-          lines.push({
-            lineType: InvoiceLineType.OVERTIME,
-            description: `Überstunden KW ${w.week}/${w.year}: ${overtimeHours} Std`,
-            quantity: overtimeHours,
-            unit: 'Std',
-            unitPrice: overtimeRate,
-          });
-        }
-      }
-    }
-
-    return this.createGenerated({
-      invoiceType: InvoiceType.OUTGOING,
-      projectId: project.id,
-      customerId: project.customerId,
-      subcontractorId: null,
-      from,
-      to,
-      taxRate: dto.taxRate ?? 19,
-      paymentTermDays:
-        (await this.customerPaymentTerm(project.customerId)) ?? null,
-      lines: this.buildLineData(lines),
-      userId,
-    });
-  }
-
-  /**
-   * Interner Helfer: Interner Helfer: Implementiert `generateIncoming` (generate Incoming).
-   *
-   * @param dto - Request-Body / Eingabedaten (GenerateFromTimesheetsDto)
-   * @param projectId - ID des Projekts (string)
-   * @param from - Zeitraum-Beginn (Date)
-   * @param to - Zeitraum-Ende (Date)
-   * @param userId - ID (userId) (string | null)
-   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
-   * @throws {BadRequestException} Bei ungültigen Eingaben
-   */
-  private async generateIncoming(
-    dto: GenerateFromTimesheetsDto,
-    projectId: string,
-    from: Date,
-    to: Date,
-    userId: string | null,
-  ) {
-    if (!dto.subcontractorId) {
-      throw new BadRequestException(
-        'Bei Eingangsrechnungen ist die Auswahl eines Subunternehmens erforderlich',
-      );
-    }
-    const sub = await this.prisma.subcontractor.findFirst({
-      where: { id: dto.subcontractorId, deletedAt: null },
-      select: { id: true },
-    });
-    if (!sub) {
-      throw new NotFoundException('Subunternehmen nicht gefunden');
-    }
-
-    const sheets = await this.loadApprovedTimesheets(projectId, from, to, {
-      worker: { subcontractorId: dto.subcontractorId },
-    });
-
-    // Pro Monteur + KW eine Position (Netto-Stunden × Stundensatz).
-    const lines: CreateInvoiceLineDto[] = [];
-    for (const s of sheets) {
-      const netHours = round2((s.totalMinutesNet ?? 0) / 60);
-      if (netHours <= 0) continue;
-      const rate = s.worker.hourlyRate ?? 0;
-      const name = `${s.worker.firstName} ${s.worker.lastName}`.trim();
-      lines.push({
-        lineType: InvoiceLineType.CUSTOM,
-        description: `${name}, KW ${s.weekNumber}/${s.weekYear}: ${netHours} Std × ${rate.toFixed(2)} €/Std`,
-        quantity: netHours,
-        unit: 'Std',
-        unitPrice: rate,
-        weeklyTimesheetId: s.id,
-      });
-    }
-
-    return this.createGenerated({
-      invoiceType: InvoiceType.INCOMING,
-      projectId,
-      customerId: null,
-      subcontractorId: dto.subcontractorId,
-      from,
-      to,
-      taxRate: dto.taxRate ?? 19,
-      paymentTermDays: null,
-      lines: this.buildLineData(lines),
-      userId,
-    });
-  }
-
-  /**
-   * Lädt genehmigte Stundenzettel eines Projekts, deren KW in [from,to] liegt.
-   */
-  private async loadApprovedTimesheets(
-    projectId: string,
-    from: Date,
-    to: Date,
-    extraWhere: Prisma.WeeklyTimesheetWhereInput = {},
-  ) {
-    const sheets = await this.prisma.weeklyTimesheet.findMany({
-      where: {
-        projectId,
-        status: WeeklyTimesheetStatus.APPROVED,
-        ...extraWhere,
-      },
-      select: {
-        id: true,
-        weekYear: true,
-        weekNumber: true,
-        totalMinutesNet: true,
-        worker: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            hourlyRate: true,
-            dailyRate: true,
-          },
-        },
-      },
-      orderBy: [{ weekYear: 'asc' }, { weekNumber: 'asc' }],
-    });
-
-    // Auf Wochen filtern, die sich mit dem Zeitraum überschneiden.
-    return sheets.filter((s) => {
-      const { start, end } = isoWeekRange(s.weekYear, s.weekNumber);
-      return start <= to && end >= from;
-    });
-  }
-
-  /**
-   * Gemeinsame Erstellung generierter Rechnungen (Status DRAFT).
-   *
-   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
-   */
-  private async createGenerated(input: {
-    invoiceType: InvoiceType;
-    projectId: string;
-    customerId: string | null;
-    subcontractorId: string | null;
-    from: Date;
-    to: Date;
-    taxRate: number;
-    paymentTermDays: number | null;
-    lines: Prisma.InvoiceLineCreateWithoutInvoiceInput[];
-    userId: string | null;
-  }) {
-    const totals = this.computeTotals(input.lines, input.taxRate);
-    const invoiceNumber = await this.generateInvoiceNumber(input.invoiceType);
-
-    const invoice = await this.prisma.invoice.create({
-      data: {
-        invoiceNumber,
-        invoiceType: input.invoiceType,
-        status: InvoiceStatus.DRAFT,
-        projectId: input.projectId,
-        customerId: input.customerId,
-        subcontractorId: input.subcontractorId,
-        periodFrom: input.from,
-        periodTo: input.to,
-        taxRate: input.taxRate,
-        subtotal: totals.subtotal,
-        taxAmount: totals.taxAmount,
-        total: totals.total,
-        paymentTermDays: input.paymentTermDays,
-        createdByUserId: input.userId,
-        lines: input.lines.length ? { create: input.lines } : undefined,
-      },
-      select: { id: true },
-    });
-    return this.findOne(invoice.id);
+    return this.generationService.generateFromTimesheets(dto, userId);
   }
 
   // ── Bearbeiten / Löschen (nur DRAFT) ─────────────────────────
@@ -664,101 +313,9 @@ export class InvoicesService {
     });
 
     // PDF-Export (async, non-blocking).
-    this.exportInvoicePdf(invoice)
-      .catch((err) => this.logger.warn(`Rechnungs-PDF-Export fehlgeschlagen: ${(err as Error).message}`));
+    this.exportService.exportInvoicePdfAsync(invoice);
 
     return this.findOne(id);
-  }
-
-  /**
-   * Generiert PDF, speichert in MinIO und erstellt Document-Einträge. Ausgangsrechnung → Projekt-Ordner + Kunden-Ordner. Eingangsrechnung → Subunternehmen-Ordner.
-   */
-  private async exportInvoicePdf(invoice: {
-    id: string;
-    invoiceNumber: string;
-    invoiceType: InvoiceType;
-    projectId: string | null;
-    customerId: string | null;
-    subcontractorId: string | null;
-    customer: { companyName: string } | null;
-    subcontractor: { name: string } | null;
-    createdBy: { id: string } | null;
-  }): Promise<void> {
-    const { buffer, filename: pdfFilename } = await this.pdfService.generate(invoice.id);
-
-    if (invoice.invoiceType === InvoiceType.OUTGOING) {
-      const partnerName = invoice.customer?.companyName ?? 'Unbekannt';
-      const readableFilename = this.storagePathService.buildInvoiceFilename(invoice.invoiceNumber, partnerName);
-
-      // Projekt-Ordner
-      if (invoice.projectId) {
-        const projectPath = await this.storagePathService.generatePath(
-          'PROJECT', invoice.projectId, 'INVOICE', readableFilename,
-        );
-        const additionalLinks: Array<{ entityType: string; entityId: string }> = [];
-        if (invoice.customerId) {
-          additionalLinks.push({ entityType: 'CUSTOMER', entityId: invoice.customerId });
-        }
-
-        await this.documentsService.createFromBuffer({
-          buffer,
-          filename: readableFilename,
-          mimeType: 'application/pdf',
-          documentType: DocumentType.INVOICE,
-          entityType: 'PROJECT',
-          entityId: invoice.projectId,
-          storagePath: projectPath,
-          title: `${invoice.invoiceNumber} ${partnerName}`,
-          userId: invoice.createdBy?.id ?? null,
-          additionalLinks,
-        });
-      }
-
-      // Kunden-Ordner (Kopie)
-      if (invoice.customerId) {
-        const customerPath = await this.storagePathService.generatePath(
-          'CUSTOMER', invoice.customerId, 'INVOICE', readableFilename,
-        );
-        await this.documentsService.createFromBuffer({
-          buffer,
-          filename: readableFilename,
-          mimeType: 'application/pdf',
-          documentType: DocumentType.INVOICE,
-          entityType: 'CUSTOMER',
-          entityId: invoice.customerId,
-          storagePath: customerPath,
-          title: `${invoice.invoiceNumber} ${partnerName}`,
-          userId: invoice.createdBy?.id ?? null,
-        });
-      }
-    } else {
-      // Eingangsrechnung → Subunternehmen-Ordner
-      if (invoice.subcontractorId) {
-        const subName = invoice.subcontractor?.name ?? 'Unbekannt';
-        const readableFilename = this.storagePathService.buildInvoiceFilename(invoice.invoiceNumber, subName);
-        const subPath = await this.storagePathService.generatePath(
-          'SUBCONTRACTOR', invoice.subcontractorId, 'INVOICE', readableFilename,
-        );
-        await this.documentsService.createFromBuffer({
-          buffer,
-          filename: readableFilename,
-          mimeType: 'application/pdf',
-          documentType: DocumentType.INVOICE,
-          entityType: 'SUBCONTRACTOR',
-          entityId: invoice.subcontractorId,
-          storagePath: subPath,
-          title: `${invoice.invoiceNumber} ${subName}`,
-          userId: invoice.createdBy?.id ?? null,
-        });
-      }
-    }
-
-    // pdfPath auf der Rechnung speichern.
-    const pdfStorageKey = `invoices/${invoice.invoiceNumber.replace(/[^a-zA-Z0-9-]/g, '')}.pdf`;
-    await this.prisma.invoice.update({
-      where: { id: invoice.id },
-      data: { pdfPath: pdfStorageKey },
-    });
   }
 
   /**
@@ -1137,48 +694,6 @@ export class InvoicesService {
   }
 
   /**
-   * Wandelt Line-DTOs in Prisma-Create-Inputs (mit Position + Summe) um.
-   *
-   * @param lines - Parameter `lines` (CreateInvoiceLineDto[])
-   * @returns Positionszeilen (Prisma.InvoiceLineCreateWithoutInvoiceInput[])
-   */
-  private buildLineData(
-    lines: CreateInvoiceLineDto[],
-  ): Prisma.InvoiceLineCreateWithoutInvoiceInput[] {
-    return lines.map((l, index) => {
-      const quantity = l.quantity ?? 1;
-      const unitPrice = l.unitPrice ?? 0;
-      return {
-        lineType: l.lineType,
-        position: l.position ?? index,
-        description: l.description,
-        quantity,
-        unit: l.unit,
-        unitPrice,
-        total: round2(quantity * unitPrice),
-        weeklyTimesheet: l.weeklyTimesheetId
-          ? { connect: { id: l.weeklyTimesheetId } }
-          : undefined,
-      };
-    });
-  }
-
-  /**
-   * Summen aus Positionsdaten berechnen.
-   *
-   * @returns Summenobjekt
-   */
-  private computeTotals(
-    lines: Array<{ total?: number }>,
-    taxRate: number,
-  ): { subtotal: number; taxAmount: number; total: number } {
-    const subtotal = round2(lines.reduce((sum, l) => sum + (l.total ?? 0), 0));
-    const taxAmount = round2((subtotal * taxRate) / 100);
-    const total = round2(subtotal + taxAmount);
-    return { subtotal, taxAmount, total };
-  }
-
-  /**
    * Summen anhand der gespeicherten Positionen neu berechnen.
    *
    * @param invoiceId - ID (invoiceId) (string)
@@ -1194,7 +709,7 @@ export class InvoicesService {
       select: { taxRate: true, lines: { select: { total: true } } },
     });
     if (!invoice) return;
-    const totals = this.computeTotals(
+    const totals = computeTotals(
       invoice.lines,
       taxRateOverride ?? invoice.taxRate,
     );

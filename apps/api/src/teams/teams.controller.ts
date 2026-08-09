@@ -16,6 +16,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { TeamsService } from './teams.service';
 import { CreateTeamDto } from './dto/create-team.dto';
@@ -24,7 +26,8 @@ import { CreateTeamMemberDto } from './dto/create-team-member.dto';
 
 @ApiTags('teams')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('teams')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('teams')
 export class TeamsController {

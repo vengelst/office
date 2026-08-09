@@ -1,3 +1,8 @@
+/**
+ * Seite: app/(authenticated)/settings/break-rules/page.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useEffect, useState } from 'react';

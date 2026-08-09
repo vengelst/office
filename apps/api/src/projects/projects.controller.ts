@@ -19,6 +19,8 @@ import { RoleCode } from '@prisma/client';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { ProjectsService } from './projects.service';
@@ -42,7 +44,8 @@ import { UpdateAssignmentDto } from './dto/update-assignment.dto';
  */
 @ApiTags('projects')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('projects')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('projects')
 export class ProjectsController {

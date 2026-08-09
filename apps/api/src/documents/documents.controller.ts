@@ -30,6 +30,8 @@ import type { Response } from 'express';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { DocumentsService, MAX_FILE_SIZE } from './documents.service';
@@ -46,7 +48,8 @@ import { LinkDocumentDto } from './dto/link-document.dto';
  */
 @ApiTags('documents')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('documents')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('documents')
 export class DocumentsController {

@@ -1,3 +1,8 @@
+/**
+ * Komponente: components/workers/subcontractor-form.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useForm } from 'react-hook-form';

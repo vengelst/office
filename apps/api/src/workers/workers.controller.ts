@@ -28,6 +28,8 @@ import {
 import { RoleCode } from '@prisma/client';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { WorkersService, MAX_PHOTO_SIZE } from './workers.service';
@@ -45,7 +47,8 @@ import { UpdateCertificationDto } from './dto/update-certification.dto';
  */
 @ApiTags('workers')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('workers')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('workers')
 export class WorkersController {

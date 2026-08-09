@@ -8,6 +8,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
+import { useFeatureFlags } from '@/lib/feature-flags-context';
+import { NAV_HREF_TO_FEATURE } from '@/lib/feature-flags';
 import { cn } from '@/lib/utils';
 import { navGroupsForUser } from './nav-items';
 
@@ -24,7 +26,17 @@ interface SidebarNavProps {
 export function SidebarNav({ onNavigate }: SidebarNavProps): React.ReactNode {
   const pathname = usePathname();
   const { user } = useAuth();
-  const navGroups = navGroupsForUser(user);
+  const { flags } = useFeatureFlags();
+  const navGroups = navGroupsForUser(user)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        const flagKey = NAV_HREF_TO_FEATURE[item.href];
+        if (!flagKey) return true;
+        return flags[flagKey] !== false;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 
   // Genauester Treffer gewinnt, damit z. B. /pl/timesheets nicht zusätzlich
   // den Eintrag /pl markiert.

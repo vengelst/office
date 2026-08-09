@@ -30,6 +30,8 @@ import type { Response } from 'express';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { RequireFeature } from '../feature-flags/require-feature.decorator';
+import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EquipmentService } from './equipment.service';
@@ -46,7 +48,8 @@ const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
  */
 @ApiTags('equipment')
 @ApiBearerAuth()
-@UseGuards(RolesGuard)
+@UseGuards(RolesGuard, FeatureFlagGuard)
+@RequireFeature('equipment')
 @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
 @Controller('equipment')
 export class EquipmentController {

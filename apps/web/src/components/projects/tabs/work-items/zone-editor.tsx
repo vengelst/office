@@ -1,3 +1,8 @@
+/**
+ * Komponente: components/projects/tabs/work-items/zone-editor.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import {

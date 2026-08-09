@@ -1,3 +1,8 @@
+/**
+ * Seite: app/(authenticated)/invoices/new/page.tsx (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useEffect, useState } from 'react';
