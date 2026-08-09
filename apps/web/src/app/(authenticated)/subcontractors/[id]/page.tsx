@@ -10,6 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { WorkerAvatar } from '@/components/workers/worker-avatar';
 import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
+import { SubcontractorContactsTab } from '@/components/subcontractors/subcontractor-contacts-tab';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
 import { LocationMap } from '@/components/ui/location-map';
@@ -142,6 +143,14 @@ export default function SubcontractorDetailPage(): React.ReactNode {
           />
         </CardContent>
       </Card>
+
+      <section className="space-y-3">
+        <SubcontractorContactsTab
+          subcontractorId={sub.id}
+          contacts={sub.contacts ?? []}
+          onChange={load}
+        />
+      </section>
 
       {/* Zugehörige Monteure */}
       <section className="space-y-3">

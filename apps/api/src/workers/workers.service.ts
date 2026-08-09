@@ -249,18 +249,22 @@ export class WorkersService {
    * @returns Der erstellte Monteur mit allen Relationen
    */
   async create(dto: CreateWorkerDto) {
-    this.assertSubcontractorRule(
-      dto.workerType ?? WorkerType.SUBCONTRACTED,
-      dto.subcontractorId ?? null,
-    );
-    if (dto.subcontractorId) {
-      await this.ensureSubcontractor(dto.subcontractorId);
+    const workerType = dto.workerType ?? WorkerType.EMPLOYED;
+    const subcontractorId =
+      workerType === WorkerType.SUBCONTRACTED
+        ? (dto.subcontractorId ?? null)
+        : null;
+    this.assertSubcontractorRule(workerType, subcontractorId);
+    if (subcontractorId) {
+      await this.ensureSubcontractor(subcontractorId);
     }
 
     const workerNumber = await this.generateWorkerNumber();
     const worker = await this.prisma.worker.create({
       data: {
         ...dto,
+        workerType,
+        subcontractorId,
         workerNumber,
         dateOfBirth: coerceDate(dto.dateOfBirth) ?? undefined,
         passportExpiry: coerceDate(dto.passportExpiry) ?? undefined,
@@ -292,20 +296,23 @@ export class WorkersService {
     }
 
     const nextType = dto.workerType ?? current.workerType;
-    const nextSubId =
+    let nextSubId =
       dto.subcontractorId === undefined
         ? current.subcontractorId
         : dto.subcontractorId || null;
+    if (nextType === WorkerType.EMPLOYED) {
+      nextSubId = null;
+    }
     this.assertSubcontractorRule(nextType, nextSubId);
     if (nextSubId) await this.ensureSubcontractor(nextSubId);
 
-    const { subcontractorId, ...rest } = dto;
+    const { subcontractorId: _ignored, ...rest } = dto;
     await this.prisma.worker.update({
       where: { id },
       data: {
         ...rest,
-        subcontractorId:
-          subcontractorId === undefined ? undefined : subcontractorId || null,
+        workerType: nextType,
+        subcontractorId: nextSubId,
         dateOfBirth: coerceDate(dto.dateOfBirth),
         passportExpiry: coerceDate(dto.passportExpiry),
         residencePermitExpiry: coerceDate(dto.residencePermitExpiry),

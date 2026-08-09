@@ -61,13 +61,14 @@
 5. ~~**Kunden-PL Kiosk Item-Board**~~ – erledigt (#11, live)
 6. ~~**PDF-Import Feinschliff**~~ – erledigt (#12, Chunked OCR + Zone-Editor + 50 MB)
 7. ~~**Offline-Stempeln**~~ – erledigt (#13, Queue + `clientEventId`)
-8. **Danach:** Mobile Push/Biometrie/Branding · Reporting/Charts
+8. ~~**Sub-Kontakte / freie Monteure**~~ – erledigt (#14)
+9. **Danach:** Mobile Push/Biometrie/Branding · Reporting/Charts
 
 ### Mittlere Priorität
 
-8. **DATEV-Export** – geplant, noch nicht implementiert
-9. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
-10. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
+10. **DATEV-Export** – geplant, noch nicht implementiert
+11. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
+12. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
 
 ### Niedrige Priorität / bewusst zurückgestellt
 

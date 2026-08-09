@@ -16,6 +16,8 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { SubcontractorsService } from './subcontractors.service';
 import { CreateSubcontractorDto } from './dto/create-subcontractor.dto';
 import { UpdateSubcontractorDto } from './dto/update-subcontractor.dto';
+import { CreateSubcontractorContactDto } from './dto/create-subcontractor-contact.dto';
+import { UpdateSubcontractorContactDto } from './dto/update-subcontractor-contact.dto';
 
 @ApiTags('subcontractors')
 @ApiBearerAuth()
@@ -47,7 +49,7 @@ export class SubcontractorsController {
   }
 
   @Get(':id')
-  @ApiOperation({ summary: 'Subunternehmen-Detail mit zugehörigen Monteuren' })
+  @ApiOperation({ summary: 'Subunternehmen-Detail mit Monteuren und Kontakten' })
   findOne(@Param('id') id: string) {
     return this.subcontractors.findOne(id);
   }
@@ -68,5 +70,41 @@ export class SubcontractorsController {
   @ApiOperation({ summary: 'Subunternehmen löschen (Soft-Delete)' })
   remove(@Param('id') id: string) {
     return this.subcontractors.remove(id);
+  }
+
+  // ── Kontakte ─────────────────────────────────────────────────
+
+  @Get(':id/contacts')
+  @ApiOperation({ summary: 'Kontakte eines Subunternehmens auflisten' })
+  listContacts(@Param('id') id: string) {
+    return this.subcontractors.listContacts(id);
+  }
+
+  @Post(':id/contacts')
+  @ApiOperation({ summary: 'Kontakt anlegen' })
+  createContact(
+    @Param('id') id: string,
+    @Body() dto: CreateSubcontractorContactDto,
+  ) {
+    return this.subcontractors.createContact(id, dto);
+  }
+
+  @Patch(':id/contacts/:contactId')
+  @ApiOperation({ summary: 'Kontakt bearbeiten' })
+  updateContact(
+    @Param('id') id: string,
+    @Param('contactId') contactId: string,
+    @Body() dto: UpdateSubcontractorContactDto,
+  ) {
+    return this.subcontractors.updateContact(id, contactId, dto);
+  }
+
+  @Delete(':id/contacts/:contactId')
+  @ApiOperation({ summary: 'Kontakt löschen' })
+  removeContact(
+    @Param('id') id: string,
+    @Param('contactId') contactId: string,
+  ) {
+    return this.subcontractors.removeContact(id, contactId);
   }
 }

@@ -15,10 +15,9 @@ import {
 } from '@/components/ui/select';
 import { Field } from '@/components/customers/customer-form';
 import { useToast } from '@/components/ui/use-toast';
+import { SubcontractorSelect } from '@/components/workers/subcontractor-select';
 import {
-  subcontractorsApi,
   workersApi,
-  type SubcontractorListItem,
   type WorkerDetail,
   type WorkerType,
 } from '@/lib/workers';
@@ -39,7 +38,6 @@ export function WorkerContractTab({
   const f = t.fields;
   const s = t.sections;
 
-  const [subs, setSubs] = useState<SubcontractorListItem[]>([]);
   const [saving, setSaving] = useState(false);
   const [workerType, setWorkerType] = useState<WorkerType>(worker.workerType);
   const [subcontractorId, setSubcontractorId] = useState(
@@ -57,11 +55,13 @@ export function WorkerContractTab({
   );
 
   useEffect(() => {
-    subcontractorsApi
-      .list({ active: true, limit: 100 })
-      .then((r) => setSubs(r.data))
-      .catch(() => setSubs([]));
-  }, []);
+    setWorkerType(worker.workerType);
+    setSubcontractorId(worker.subcontractorId ?? '');
+    setContractStart(dateOnly(worker.contractStart));
+    setContractEnd(dateOnly(worker.contractEnd));
+    setHourlyRate(worker.hourlyRate != null ? String(worker.hourlyRate) : '');
+    setDailyRate(worker.dailyRate != null ? String(worker.dailyRate) : '');
+  }, [worker]);
 
   const isSub = workerType === 'SUBCONTRACTED';
   const missingSub = isSub && !subcontractorId;
@@ -76,8 +76,7 @@ export function WorkerContractTab({
     if (missingSub) {
       toast({
         variant: 'destructive',
-        description:
-          'Für Subunternehmer-Monteure muss ein Subunternehmen gewählt werden.',
+        description: t.validation.subcontractorRequired,
       });
       return;
     }
@@ -107,7 +106,6 @@ export function WorkerContractTab({
   return (
     <Card>
       <CardContent className="space-y-8 pt-6">
-        {/* Typ & Subunternehmen */}
         <section className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">
             {s.typeSub}
@@ -116,7 +114,11 @@ export function WorkerContractTab({
             <Field label={f.type}>
               <Select
                 value={workerType}
-                onValueChange={(v) => setWorkerType(v as WorkerType)}
+                onValueChange={(v) => {
+                  const next = v as WorkerType;
+                  setWorkerType(next);
+                  if (next !== 'SUBCONTRACTED') setSubcontractorId('');
+                }}
               >
                 <SelectTrigger className="min-h-[44px]">
                   <SelectValue />
@@ -136,24 +138,14 @@ export function WorkerContractTab({
                 label={f.subcontractor}
                 required
                 error={
-                  missingSub ? 'Subunternehmen erforderlich' : undefined
+                  missingSub ? t.validation.subcontractorRequired : undefined
                 }
               >
-                <Select
+                <SubcontractorSelect
                   value={subcontractorId}
-                  onValueChange={setSubcontractorId}
-                >
-                  <SelectTrigger className="min-h-[44px]">
-                    <SelectValue placeholder="–" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subs.map((sub) => (
-                      <SelectItem key={sub.id} value={sub.id}>
-                        {sub.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={setSubcontractorId}
+                  required
+                />
               </Field>
             )}
           </div>
@@ -167,7 +159,6 @@ export function WorkerContractTab({
           )}
         </section>
 
-        {/* Vertragsdaten */}
         <section className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">
             {s.contractData}
@@ -192,7 +183,6 @@ export function WorkerContractTab({
           </div>
         </section>
 
-        {/* Stundensätze */}
         <section className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">
             {s.rates}
