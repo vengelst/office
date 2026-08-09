@@ -26,6 +26,7 @@ import {
 } from '@/components/customers/tabs/contacts-tab';
 import { BusinessCardsTab } from '@/components/customers/tabs/business-cards-tab';
 import { CustomerPrintAll } from '@/components/customers/customer-print-all';
+import { PrintLetterhead } from '@/components/layout/app-brand';
 import { SubmissionsTab } from '@/components/customers/tabs/submissions-tab';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { CommunicationTab } from '@/components/communication/communication-tab';
@@ -128,8 +129,9 @@ export default function CustomerDetailPage(): React.ReactNode {
 
   return (
     <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
+      <PrintLetterhead />
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground no-print">
         <Link href="/customers" className="hover:text-foreground">
           {t.title}
         </Link>

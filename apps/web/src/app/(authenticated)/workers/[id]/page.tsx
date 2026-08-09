@@ -32,6 +32,7 @@ import { WorkerContractTab } from '@/components/workers/worker-contract-tab';
 import { WorkerEquipmentTab } from '@/components/workers/worker-equipment-tab';
 import { WorkerProjectsTab } from '@/components/workers/worker-projects-tab';
 import { WorkerPrintAll } from '@/components/workers/worker-print-all';
+import { PrintLetterhead } from '@/components/layout/app-brand';
 import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { useToast } from '@/components/ui/use-toast';
@@ -187,8 +188,9 @@ export default function WorkerDetailPage(): React.ReactNode {
 
   return (
     <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
+      <PrintLetterhead />
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground no-print">
         <Link href="/workers" className="hover:text-foreground">
           {t.title}
         </Link>

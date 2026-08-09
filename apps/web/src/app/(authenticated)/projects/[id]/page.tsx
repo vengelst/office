@@ -34,6 +34,7 @@ import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { ProjectForm } from '@/components/projects/project-form';
 import { ProjectPrintAll } from '@/components/projects/project-print-all';
+import { PrintLetterhead } from '@/components/layout/app-brand';
 import { ProjectStatusBadge } from '@/components/projects/status-badge';
 import { PriorityBadge } from '@/components/projects/priority-badge';
 import { SitesTab } from '@/components/projects/tabs/sites-tab';
@@ -188,8 +189,9 @@ export default function ProjectDetailPage(): React.ReactNode {
 
   return (
     <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
+      <PrintLetterhead />
       {/* Breadcrumbs */}
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground no-print">
         <Link href="/projects" className="hover:text-foreground">
           {t.title}
         </Link>

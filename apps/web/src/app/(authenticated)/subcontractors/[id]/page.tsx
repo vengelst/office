@@ -19,6 +19,7 @@ import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
 import { SubcontractorContactsTab } from '@/components/subcontractors/subcontractor-contacts-tab';
 import { SubcontractorPrintAll } from '@/components/subcontractors/subcontractor-print-all';
+import { PrintLetterhead } from '@/components/layout/app-brand';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
 import { LocationMap } from '@/components/ui/location-map';
@@ -114,7 +115,8 @@ export default function SubcontractorDetailPage(): React.ReactNode {
 
   return (
     <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
-      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+      <PrintLetterhead />
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground no-print">
         <Link href="/subcontractors" className="hover:text-foreground">
           {t.title}
         </Link>

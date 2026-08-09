@@ -97,4 +97,8 @@
   .print-all-mode .print-all-content {
     display: block !important;
   }
+  /* Briefkopf nur bei Tab-Druck – Gesamtübersicht hat eigenes Logo */
+  .print-all-mode .print-letterhead {
+    display: none !important;
+  }
 }

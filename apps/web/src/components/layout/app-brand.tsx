@@ -7,8 +7,8 @@ import { texts } from '@/lib/texts';
 import { companyLogoUrl } from '@/lib/settings';
 
 /**
- * App-Brand: Firmenlogo (skaliert auf Header-Höhe) oder Fallback Building2 + „Office“.
- * Verwendung: Sidebar, Mobile-Header, Login, Druckkopf.
+ * App-Brand: Firmenlogo auf heller Fläche (sichtbar im Dark Mode)
+ * oder Fallback Building2 + „Office“.
  */
 export function AppBrand({
   className,
@@ -25,20 +25,19 @@ export function AppBrand({
   const iconSize =
     size === 'lg' ? 'h-10 w-10' : size === 'sm' ? 'h-5 w-5' : 'h-6 w-6';
 
-  // Feste Slot-Maße: Logo muss in die h-16-Headerzeile passen
-  const slot =
-    size === 'lg'
-      ? 'h-12 max-h-12 max-w-[220px]'
-      : size === 'sm'
-        ? 'h-7 max-h-7 max-w-[140px]'
-        : 'h-10 max-h-10 max-w-[200px]';
+  // Fester Slot in der h-16-Headerzeile; weißer Hintergrund für dunkle Logos
+  const slotH =
+    size === 'lg' ? 'h-12' : size === 'sm' ? 'h-8' : 'h-10';
+  const slotW =
+    size === 'lg' ? 'max-w-[240px]' : size === 'sm' ? 'max-w-[160px]' : 'max-w-[200px]';
 
   if (!failed) {
     return (
       <div
         className={cn(
-          'flex w-full min-w-0 items-center overflow-hidden',
-          slot,
+          'flex min-w-0 items-center overflow-hidden rounded-md bg-white px-2.5 py-1 shadow-sm',
+          slotH,
+          slotW,
           className,
         )}
       >
@@ -75,7 +74,7 @@ export function AppBrand({
   );
 }
 
-/** Nur das Logo-Bild für Drucklayouts (ohne Fallback-Text). */
+/** Firmenlogo nur beim Drucken (Tab-Druck und Gesamtübersicht). */
 export function CompanyLogoPrint({
   className,
 }: {
@@ -92,10 +91,22 @@ export function CompanyLogoPrint({
       src={companyLogoUrl(tick)}
       alt=""
       className={cn(
-        'block h-12 max-h-12 w-auto max-w-[180px] object-contain object-left',
+        'block h-14 max-h-14 w-auto max-w-[220px] object-contain object-left',
         className,
       )}
       onError={() => setFailed(true)}
     />
+  );
+}
+
+/**
+ * Briefkopf für Einzel-/Tab-Druck. Bei Gesamtübersicht ausgeblendet
+ * (dort hat PrintAll bereits ein eigenes Logo).
+ */
+export function PrintLetterhead(): ReactNode {
+  return (
+    <div className="print-letterhead mb-4 hidden border-b border-black/20 pb-3 print:block">
+      <CompanyLogoPrint />
+    </div>
   );
 }

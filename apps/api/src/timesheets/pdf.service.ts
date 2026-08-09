@@ -6,6 +6,7 @@ import { StorageService } from '../documents/storage.service';
 import { isoWeekRange } from './timesheet.util';
 
 const WEEKDAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+const COMPANY_LOGO_SETTING = 'company_logo_key';
 
 /**
  * Service zur PDF-Generierung von Wochenstundenzetteln.
@@ -38,6 +39,7 @@ export class TimesheetPdfService {
 
     // Signatur-Bilder vorab laden (Storage ist asynchron).
     const signatureImages = await this.loadSignatures(sheet.signatures);
+    const logo = await this.loadCompanyLogo();
 
     const doc = new PDFDocument({ size: 'A4', margin: 40 });
     const chunks: Buffer[] = [];
@@ -48,7 +50,16 @@ export class TimesheetPdfService {
     });
 
     // ── Header ──────────────────────────────────────────────
-    doc.fontSize(18).text('Wochenstundenzettel', { align: 'left' });
+    let titleY = 40;
+    if (logo) {
+      try {
+        doc.image(logo, 40, 36, { fit: [130, 44] });
+        titleY = 90;
+      } catch {
+        /* ungültiges Logo ignorieren */
+      }
+    }
+    doc.fontSize(18).text('Wochenstundenzettel', 40, titleY, { align: 'left' });
     doc.moveDown(0.3);
     doc.fontSize(10).fillColor('#444');
     doc.text(
@@ -237,6 +248,20 @@ export class TimesheetPdfService {
       }
     }
     return result;
+  }
+
+  /** Lädt das Firmenlogo aus dem Storage (falls hinterlegt). */
+  private async loadCompanyLogo(): Promise<Buffer | null> {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_SETTING },
+    });
+    if (!setting?.value) return null;
+    try {
+      const stream = await this.storage.getStream(setting.value);
+      return await streamToBuffer(stream);
+    } catch {
+      return null;
+    }
   }
 }
 
