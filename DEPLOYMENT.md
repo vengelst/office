@@ -139,6 +139,25 @@ docker compose -f docker-compose.prod.yml --env-file .env.production logs -f web
 docker compose -f docker-compose.prod.yml --env-file .env.production logs --tail=200 postgres
 ```
 
+### Kiosk-APK (Download)
+
+Die APK liegt **außerhalb** des Images und wird per Bind-Mount eingehängt:
+
+| Host | Container |
+|---|---|
+| `/opt/office/data/kiosk.apk` | `/app/apps/web/public/kiosk.apk` (ro) |
+
+Einmalig / nach neuem EAS-Build:
+
+```bash
+mkdir -p /opt/office/data
+# von lokal: scp apps/mobile/kiosk.apk root@vivahome.de:/opt/office/data/kiosk.apk
+# oder vom Server, falls noch unter /root:
+cp -n /root/kiosk.apk /opt/office/data/kiosk.apk
+```
+
+Die Datei muss vor dem Web-Container-Start existieren (sonst erzeugt Docker ein Verzeichnis).
+
 ### Was auf dem Server **nie** passieren darf
 
 - `git push` aus `/opt/office` heraus

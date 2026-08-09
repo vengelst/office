@@ -232,7 +232,7 @@ office/
 - **Push-Notifications** – z.B. für Erinnerungen, Projektänderungen
 - **Biometrische Authentifizierung** (optional, Fingerprint)
 - **App-Branding** – Eigenes Icon/Splash statt Platzhalter
-- **APK dauerhaft verfügbar machen** – Volume-Mount in `docker-compose.prod.yml` für `/app/apps/web/public/kiosk.apk`, damit die APK Container-Rebuilds überlebt (aktuell per `docker cp` eingelegt)
+- ~~**APK dauerhaft verfügbar machen**~~ – erledigt: Bind-Mount `/opt/office/data/kiosk.apk` → Web-Container `public/kiosk.apk`
 
 ### Dateien die aufgeteilt werden sollten
 | Datei | Zeilen | Empfehlung |
@@ -271,10 +271,20 @@ cd /opt/office && git pull && docker compose -f docker-compose.prod.yml --env-fi
 - Nginx Reverse Proxy auf dem Host für HTTPS-Terminierung
 
 ### APK-Deployment
-Die `kiosk.apk` ist **nicht** im Docker-Image enthalten (zu groß). Nach jedem Container-Rebuild:
-```bash
-docker cp /root/kiosk.apk office-web:/app/apps/web/public/kiosk.apk
+Die `kiosk.apk` ist **nicht** im Docker-Image enthalten (zu groß). Persistenz über Bind-Mount in `docker-compose.prod.yml`:
+
 ```
+/opt/office/data/kiosk.apk  →  /app/apps/web/public/kiosk.apk (ro)
+```
+
+Neue APK nach lokalem EAS-Build:
+```bash
+scp apps/mobile/kiosk.apk root@vivahome.de:/opt/office/data/kiosk.apk
+# Container neu starten nur nötig, wenn die Datei vorher fehlte (Mount-Typ):
+# docker compose -f docker-compose.prod.yml --env-file .env.production up -d web
+```
+
+**Wichtig:** Die Host-Datei muss **vor** dem ersten `up` existieren – sonst erzeugt Docker ein Verzeichnis statt einer Datei.
 
 ---
 

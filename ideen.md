@@ -8,6 +8,17 @@ Sammlung von Ideen, die später umgesetzt oder geprüft werden sollen.
 
 <!-- Neue Ideen hier eintragen -->
 
+### [2026-08-09] – Roadmap: Kiosk-PL Board, PDF-Import, Offline, Mobile, Reporting
+
+Umsetzung geplant (Reihenfolge flexibel):
+
+1. ~~APK persistent (Volume-Mount)~~ → erledigt (Bind-Mount)
+2. Kunden-PL Item-Board am `/kiosk/pl` → Spec Auftrag #11
+3. PDF-Import Feinschliff (Zone-Editor, Progress)
+4. Offline-Stempeln (PWA/Kiosk)
+5. Mobile: Push, Biometrie, Branding
+6. Reporting / Charts
+
 ### [2026-08-08] – Abrechnung aus geprüften Arbeitsitems (UNIT_BASED)
 
 Arbeitsitems (Import, Monteur-Flow, Kunden-PL-Prüfung) sind umgesetzt. Offen bleibt die

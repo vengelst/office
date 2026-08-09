@@ -55,24 +55,23 @@
 ### Hohe Priorität
 
 1. **Google People API aktivieren** – People API + DWD-Scope `contacts` für Service Account (Contacts-Sync noch nicht produktiv)
-2. **APK persistent machen** – Volume-Mount in `docker-compose.prod.yml` für `kiosk.apk` (aktuell nach Rebuild per `docker cp`)
+2. ~~**APK persistent machen**~~ – Bind-Mount `/opt/office/data/kiosk.apk` → Web `public/kiosk.apk`
 3. **PDF-Import Feinschliff** – Minimal-Modus + Templates/OCR live; optional Zone-Editor, Progress bei sehr großen PDFs
 4. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
+5. **Kunden-PL Kiosk Item-Board** – Spec: `claude-auftraege/claude-arbeitsitems-11-kiosk-pl-item-board.md`
+6. **Offline-Stempeln** · **Mobile Push/Biometrie/Branding** · **Reporting/Charts** – geplant
 
 ### Mittlere Priorität
 
-4. **Mobile App** – Push-Notifications, Biometrie (optional), finales App-Branding
-5. **Offline-Modus** – Stempel lokal puffern und später syncen (Web-PWA cacht nur Build-Assets)
-6. **DATEV-Export** – geplant, noch nicht implementiert
-7. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
-8. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
+7. **DATEV-Export** – geplant, noch nicht implementiert
+8. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
+9. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
 
 ### Niedrige Priorität / bewusst zurückgestellt
 
-9. **Mahnwesen** – bewusst kein Mahnwesen
-10. **Fahrtenbuch / Tankkosten / Schäden** – Fahrzeug-Erweiterungen später
-11. **Nacht-/Wochenend-Zuschläge** – bewusst keine Zuschläge
-12. **Reporting/Dashboards** – Auswertungen/Charts über das bestehende Dashboard hinaus
+10. **Mahnwesen** – bewusst kein Mahnwesen
+11. **Fahrtenbuch / Tankkosten / Schäden** – Fahrzeug-Erweiterungen später
+12. **Nacht-/Wochenend-Zuschläge** – bewusst keine Zuschläge
 
 ---
 
@@ -146,6 +145,7 @@ claude-fundament.md … claude-documents.md, drive-ordnerstruktur.md
 claude-arbeitsitems-01 … 08 (PDF/Templates/OCR) – erledigt
 claude-arbeitsitems-09-kiosk-pl-timesheets.md – erledigt (Kiosk-PIN)
 claude-arbeitsitems-10-pl-timesheet-email.md – erledigt (Zustell-E-Mail + PDF-Mail)
+claude-arbeitsitems-11-kiosk-pl-item-board.md – offen (Item-Board am /kiosk/pl)
 ```
 
 ---
