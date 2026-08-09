@@ -38,7 +38,7 @@ export function Header(): React.ReactNode {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b bg-card px-4 md:px-6">
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         {/* Mobiles Menü */}
         <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
           <SheetTrigger asChild>
@@ -52,7 +52,7 @@ export function Header(): React.ReactNode {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex w-64 flex-col gap-0 overflow-hidden p-0">
-            <SheetHeader className="flex h-16 shrink-0 flex-row items-center border-b px-6 text-left">
+            <SheetHeader className="flex h-16 shrink-0 flex-row items-center overflow-hidden border-b px-6 text-left">
               <SheetTitle className="sr-only">{texts.app.name}</SheetTitle>
               <AppBrand showTagline={false} />
             </SheetHeader>
@@ -61,6 +61,10 @@ export function Header(): React.ReactNode {
             </div>
           </SheetContent>
         </Sheet>
+        {/* Logo auch mobil oben links sichtbar */}
+        <div className="min-w-0 md:hidden">
+          <AppBrand showTagline={false} size="sm" />
+        </div>
       </div>
 
       <div className="flex items-center gap-2">

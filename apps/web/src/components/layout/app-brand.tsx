@@ -1,13 +1,13 @@
 'use client';
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Building2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { texts } from '@/lib/texts';
 import { companyLogoUrl } from '@/lib/settings';
 
 /**
- * App-Brand: Firmenlogo (falls hochgeladen) oder Fallback Building2 + „Office“.
+ * App-Brand: Firmenlogo (skaliert auf Header-Höhe) oder Fallback Building2 + „Office“.
  * Verwendung: Sidebar, Mobile-Header, Login, Druckkopf.
  */
 export function AppBrand({
@@ -19,61 +19,42 @@ export function AppBrand({
   showTagline?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }): ReactNode {
-  const [hasLogo, setHasLogo] = useState(false);
-  const [checked, setChecked] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [tick] = useState(() => Date.now());
-
-  useEffect(() => {
-    let cancelled = false;
-    const img = new Image();
-    img.onload = () => {
-      if (!cancelled) {
-        setHasLogo(true);
-        setChecked(true);
-      }
-    };
-    img.onerror = () => {
-      if (!cancelled) {
-        setHasLogo(false);
-        setChecked(true);
-      }
-    };
-    img.src = companyLogoUrl(tick);
-    return () => {
-      cancelled = true;
-    };
-  }, [tick]);
 
   const iconSize =
     size === 'lg' ? 'h-10 w-10' : size === 'sm' ? 'h-5 w-5' : 'h-6 w-6';
-  const logoHeight =
-    size === 'lg' ? 'h-10' : size === 'sm' ? 'h-6' : 'h-8';
 
-  if (!checked) {
-    // Kurz Placeholder in Brand-Größe, damit Layout nicht springt
-    return (
-      <div className={cn('flex items-center gap-2', className)}>
-        <div className={cn(logoHeight, 'w-24 animate-pulse rounded bg-muted')} />
-      </div>
-    );
-  }
+  // Feste Slot-Maße: Logo muss in die h-16-Headerzeile passen
+  const slot =
+    size === 'lg'
+      ? 'h-12 max-h-12 max-w-[220px]'
+      : size === 'sm'
+        ? 'h-7 max-h-7 max-w-[140px]'
+        : 'h-10 max-h-10 max-w-[200px]';
 
-  if (hasLogo) {
+  if (!failed) {
     return (
-      <div className={cn('flex items-center gap-2', className)}>
+      <div
+        className={cn(
+          'flex w-full min-w-0 items-center overflow-hidden',
+          slot,
+          className,
+        )}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={companyLogoUrl(tick)}
           alt={texts.app.name}
-          className={cn(logoHeight, 'w-auto max-w-[140px] object-contain')}
-          onError={() => setHasLogo(false)}
+          className="block h-full w-auto max-h-full max-w-full object-contain object-left"
+          onError={() => setFailed(true)}
         />
       </div>
     );
   }
 
   return (
-    <div className={cn('flex items-center gap-2', className)}>
+    <div className={cn('flex min-w-0 items-center gap-2', className)}>
       <Building2 className={cn(iconSize, 'shrink-0 text-primary')} />
       <div className="flex min-w-0 flex-col">
         <span
@@ -100,8 +81,10 @@ export function CompanyLogoPrint({
 }: {
   className?: string;
 }): ReactNode {
-  const [visible, setVisible] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [tick] = useState(() => Date.now());
+
+  if (failed) return null;
 
   return (
     // eslint-disable-next-line @next/next/no-img-element
@@ -109,12 +92,10 @@ export function CompanyLogoPrint({
       src={companyLogoUrl(tick)}
       alt=""
       className={cn(
-        'h-12 w-auto max-w-[180px] object-contain',
-        !visible && 'hidden',
+        'block h-12 max-h-12 w-auto max-w-[180px] object-contain object-left',
         className,
       )}
-      onLoad={() => setVisible(true)}
-      onError={() => setVisible(false)}
+      onError={() => setFailed(true)}
     />
   );
 }
