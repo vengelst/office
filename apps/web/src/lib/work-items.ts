@@ -233,7 +233,16 @@ export interface PdfPreviewResponse {
   blockKey: string;
   items: PdfPreviewItem[];
   warnings: string[];
+  /** Chunked Preview: erste/letzte Seite dieses Requests */
+  rangeStart?: number;
+  rangeEnd?: number;
 }
+
+/** Empfohlene Chunk-Größe für OCR-Preview (Seiten pro Request). */
+export const PDF_IMPORT_OCR_CHUNK_SIZE = 8;
+
+/** Max. PDF-Größe für Block-Import (muss zum API-Limit passen). */
+export const MAX_PDF_IMPORT_BYTES = 50 * 1024 * 1024;
 
 /** Antwort des PDF-Commit-Endpunkts. */
 export interface PdfCommitResponse {

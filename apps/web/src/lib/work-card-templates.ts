@@ -32,11 +32,21 @@ export const FIELD_TARGET_LABELS: Record<WorkCardFieldTarget, string> = {
   room: 'Raum',
 };
 
+/** Normierte Bounding-Box relativ zur Seite (0–1). */
+export interface WorkCardFieldZone {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 export interface WorkCardFieldMapping {
   target: WorkCardFieldTarget;
   labelHints: string[];
   regex?: string;
   captureLines?: number;
+  /** Normierte Zone – OCR-Blöcke in der Zone werden beim Import bevorzugt. */
+  zone?: WorkCardFieldZone;
 }
 
 export interface WorkCardTemplate {
@@ -63,6 +73,10 @@ export interface CalibrateResponse {
     regex?: string;
     sampleValue?: string;
   }>;
+  /** PNG/JPEG data-URL der Beispielseite für den Zone-Editor */
+  pageImageDataUrl: string;
+  imageWidth: number;
+  imageHeight: number;
 }
 
 export interface CreateWorkCardTemplatePayload {

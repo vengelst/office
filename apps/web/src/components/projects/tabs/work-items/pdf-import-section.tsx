@@ -17,6 +17,8 @@ import { ApiError } from '@/lib/api-client';
 import { formatFileSize } from '@/lib/format';
 import { texts } from '@/lib/texts';
 import {
+  MAX_PDF_IMPORT_BYTES,
+  PDF_IMPORT_OCR_CHUNK_SIZE,
   workItemsApi,
   type PdfCommitResponse,
   type PdfPreviewItem,
@@ -28,7 +30,8 @@ import {
 } from '@/lib/work-card-templates';
 
 const PREVIEW_TIMEOUT_MS = 120_000;
-const OCR_TIMEOUT_MS = 600_000;
+/** Timeout pro OCR-Chunk (nicht für das gesamte PDF). */
+const OCR_CHUNK_TIMEOUT_MS = 180_000;
 const NONE = 'none';
 
 /**
@@ -36,7 +39,7 @@ const NONE = 'none';
  *
  * Flow:
  * 1. PDF + Block → schnelle Vorschau (ohne OCR) → Kennungen editieren → Import
- * 2. Optional: Template wählen → „OCR vorausfüllen“ (kann bei vielen Seiten dauern)
+ * 2. Optional: Template wählen → „OCR vorausfüllen“ in Chunks mit Fortschritt
  */
 export function PdfImportSection({
   projectId,
@@ -61,6 +64,11 @@ export function PdfImportSection({
   const [commitResult, setCommitResult] = useState<PdfCommitResponse | null>(null);
   const [templates, setTemplates] = useState<WorkCardTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string>(NONE);
+  const [ocrProgress, setOcrProgress] = useState<{
+    done: number;
+    total: number;
+    failed: number;
+  } | null>(null);
 
   useEffect(() => {
     workCardTemplatesApi.list().then(setTemplates).catch(() => {});
@@ -87,6 +95,17 @@ export function PdfImportSection({
     });
   };
 
+  const assertFileSize = (f: File): boolean => {
+    if (f.size > MAX_PDF_IMPORT_BYTES) {
+      toast({
+        variant: 'destructive',
+        description: t.fileTooLarge((f.size / 1024 / 1024).toFixed(1)),
+      });
+      return false;
+    }
+    return true;
+  };
+
   const clear = (): void => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -99,24 +118,32 @@ export function PdfImportSection({
     setCommitResult(null);
     setTemplateId(NONE);
     setBusy(null);
+    setOcrProgress(null);
     if (fileInput.current) fileInput.current.value = '';
   };
 
-  const previewOptions = (extract: boolean) => ({
+  const previewOptions = (
+    extract: boolean,
+    range?: { startPage: number; endPage: number },
+  ) => ({
     blockKey: blockKey.trim(),
     blockName: blockName.trim() || undefined,
     itemKeyPrefix: prefix || undefined,
     templateId: resolvedTemplateId,
     extract,
+    startPage: range?.startPage,
+    endPage: range?.endPage,
   });
 
   /** Schnelle Vorschau ohne OCR – Import ist danach sofort möglich. */
   const runPreview = (): void => {
     if (!file || !blockKey.trim()) return;
+    if (!assertFileSize(file)) return;
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
     setBusy('preview');
+    setOcrProgress(null);
 
     const timeoutId = setTimeout(() => ac.abort(), PREVIEW_TIMEOUT_MS);
 
@@ -138,36 +165,108 @@ export function PdfImportSection({
       });
   };
 
-  /** OCR mit gewähltem Template – füllt Kennung/Arbeitsinhalt nach. */
-  const runOcrFill = (): void => {
+  /**
+   * OCR mit gewähltem Template – chunkweise (Option A), Fortschritt Seite X von N.
+   * Einzelseiten-Fehler (Server) brechen den Rest nicht ab.
+   */
+  const runOcrFill = async (): Promise<void> => {
     if (!file || !blockKey.trim() || !resolvedTemplateId) return;
+    if (!assertFileSize(file)) return;
+
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
     setBusy('ocr');
+    setCommitResult(null);
 
-    const timeoutId = setTimeout(() => ac.abort(), OCR_TIMEOUT_MS);
+    try {
+      // Seitezahl aus bestehender Vorschau oder schnellem Preview ohne OCR
+      let pageCount = preview?.pageCount ?? 0;
+      let baseItems = editItems;
 
-    workItemsApi
-      .previewPdfImport(projectId, file, previewOptions(true), {
-        signal: ac.signal,
-      })
-      .then((result) => {
-        setPreview(result);
-        setEditItems(result.items.map((i) => ({ ...i })));
-        setCommitResult(null);
+      if (pageCount === 0 || baseItems.length === 0) {
+        const base = await workItemsApi.previewPdfImport(
+          projectId,
+          file,
+          previewOptions(false),
+          { signal: ac.signal },
+        );
+        pageCount = base.pageCount;
+        baseItems = base.items.map((i) => ({ ...i }));
+        setPreview(base);
+        setEditItems(baseItems);
+      }
+
+      const total = pageCount;
+      const chunk = PDF_IMPORT_OCR_CHUNK_SIZE;
+      const merged = new Map<number, PdfPreviewItem>();
+      for (const item of baseItems) {
+        merged.set(item.pdfPage, { ...item });
+      }
+
+      const allWarnings: string[] = [];
+      let failedPages = 0;
+      let processed = 0;
+
+      setOcrProgress({ done: 0, total, failed: 0 });
+
+      for (let start = 1; start <= total; start += chunk) {
+        if (ac.signal.aborted) throw new DOMException('Aborted', 'AbortError');
+
+        const end = Math.min(start + chunk - 1, total);
+        const chunkTimeout = setTimeout(() => ac.abort(), OCR_CHUNK_TIMEOUT_MS);
+
+        try {
+          const result = await workItemsApi.previewPdfImport(
+            projectId,
+            file,
+            previewOptions(true, { startPage: start, endPage: end }),
+            { signal: ac.signal },
+          );
+
+          for (const item of result.items) {
+            merged.set(item.pdfPage, { ...item });
+            if (item.ocrWarnings?.some((w) => w.startsWith('OCR-Fehler'))) {
+              failedPages++;
+            }
+          }
+          allWarnings.push(...result.warnings);
+          processed = end;
+          setOcrProgress({ done: processed, total, failed: failedPages });
+
+          const nextItems = Array.from(merged.values()).sort(
+            (a, b) => a.pdfPage - b.pdfPage,
+          );
+          setEditItems(nextItems);
+          setPreview({
+            pageCount: total,
+            blockKey: blockKey.trim(),
+            items: nextItems,
+            warnings: [...new Set(allWarnings)],
+            rangeStart: 1,
+            rangeEnd: processed,
+          });
+        } finally {
+          clearTimeout(chunkTimeout);
+        }
+      }
+
+      if (failedPages > 0) {
+        toast({ description: t.toastOcrPartial });
+      } else {
         toast({ description: t.toastOcrDone });
-      })
-      .catch(fail)
-      .finally(() => {
-        clearTimeout(timeoutId);
-        if (abortRef.current === ac) abortRef.current = null;
-        setBusy(null);
-      });
+      }
+    } catch (err) {
+      fail(err);
+    } finally {
+      if (abortRef.current === ac) abortRef.current = null;
+      setBusy(null);
+    }
   };
 
   const runCommit = (): void => {
     if (!file || editItems.length === 0) return;
+    if (!assertFileSize(file)) return;
     abortRef.current?.abort();
     const ac = new AbortController();
     abortRef.current = ac;
@@ -290,10 +389,19 @@ export function PdfImportSection({
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
+          if (f && f.size > MAX_PDF_IMPORT_BYTES) {
+            toast({
+              variant: 'destructive',
+              description: t.fileTooLarge((f.size / 1024 / 1024).toFixed(1)),
+            });
+            if (fileInput.current) fileInput.current.value = '';
+            return;
+          }
           setFile(f);
           setPreview(null);
           setEditItems([]);
           setCommitResult(null);
+          setOcrProgress(null);
         }}
       />
 
@@ -325,11 +433,15 @@ export function PdfImportSection({
             !resolvedTemplateId ||
             busy !== null
           }
-          onClick={runOcrFill}
+          onClick={() => void runOcrFill()}
           title={t.ocrButtonHint}
         >
           <ScanSearch className="h-4 w-4" />
-          {busy === 'ocr' ? t.ocrLoading : t.ocrFill}
+          {busy === 'ocr'
+            ? ocrProgress
+              ? t.ocrProgress(ocrProgress.done, ocrProgress.total)
+              : t.ocrLoading
+            : t.ocrFill}
         </Button>
         <Button
           className="min-h-[44px]"
@@ -351,6 +463,27 @@ export function PdfImportSection({
           </Button>
         )}
       </div>
+
+      {busy === 'ocr' && ocrProgress && (
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span>{t.ocrProgress(ocrProgress.done, ocrProgress.total)}</span>
+            {ocrProgress.failed > 0 && (
+              <span className="text-orange-600 dark:text-orange-400">
+                {t.ocrProgressFailed(ocrProgress.failed)}
+              </span>
+            )}
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{
+                width: `${Math.round((ocrProgress.done / Math.max(ocrProgress.total, 1)) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
 
       {!file ? (
         <p className="text-sm text-muted-foreground">{t.noFile}</p>

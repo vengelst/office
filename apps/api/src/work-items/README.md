@@ -154,11 +154,16 @@ den internen Rollen vorbehalten. Scope via
 `TimesheetsService.projectScopeFor()` /
 `WorkItemsService.findCustomerPlProjectIds()`.
 
-## PDF-Import mit Templates (Auftrag #8)
+## PDF-Import mit Templates (Auftrag #8 / #12)
 
 Der PDF-Import (`POST /projects/:projectId/work-items/import-pdf/preview`) akzeptiert
-optional `templateId`. Ist ein Template angegeben, wird jede PDF-Seite via `pdftoppm`
+optional `templateId` und `extract=true`. Ist ein Template angegeben, wird jede PDF-Seite via `pdftoppm`
 (poppler-utils) gerendert und per PaddleOCR Felder extrahiert (`WorkCardFieldExtractor`).
+
+**Fortschritt (#12):** Client nutzt `startPage`/`endPage` in Chunks (ca. 8 Seiten) für sichtbaren
+OCR-Fortschritt. Block-PDF-Commit erlaubt bis **50 MB** (gezielt im Documents-Upload für diesen Pfad,
+nicht global). Feld-Mappings können optionale `zone`-Boxen (0–1) enthalten – OCR-Blöcke in der Zone
+werden bevorzugt, sonst Label/Regex.
 
 ### Kartentyp-Templates
 
@@ -173,8 +178,8 @@ Templates (`WorkCardTemplate`) definieren Feld-Mappings für die OCR-Extraktion:
 | DELETE | `/work-card-templates/:id` | Löschen |
 | POST | `/work-card-templates/calibrate` | Beispielseite OCR → Rohtext + Vorschläge |
 
-Jede Feldzuordnung enthält `target` (itemKey, workScopeDe, etc.), `labelHints` (Labels
-auf der Karte) und optional `regex` sowie `captureLines`.
+Jede Feldzuordnung enthält `target` (itemKey, workScopeDe, etc.), optional `labelHints`
+(Labels auf der Karte), optional `regex` / `captureLines` sowie optional `zone` `{x,y,w,h}` (0–1).
 
 ### Ablauf mit Template
 

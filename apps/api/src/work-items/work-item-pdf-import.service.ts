@@ -2,11 +2,20 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DocumentType } from '@prisma/client';
 import { PDFDocument } from 'pdf-lib';
 import { PrismaService } from '../prisma/prisma.service';
-import { DocumentsService } from '../documents/documents.service';
+import {
+  DocumentsService,
+  MAX_BLOCK_PDF_FILE_SIZE,
+} from '../documents/documents.service';
 import { UploadDocumentDto } from '../documents/dto/upload-document.dto';
 import { OcrService } from '../ocr/ocr.service';
-import { PdfPageRasterService } from '../work-card-templates/pdf-page-raster.service';
-import { extractWorkCardFields } from '../work-card-templates/work-card-field-extractor';
+import {
+  PdfPageRasterService,
+  type PdfRasterSession,
+} from '../work-card-templates/pdf-page-raster.service';
+import {
+  extractWorkCardFields,
+  getPngDimensions,
+} from '../work-card-templates/work-card-field-extractor';
 import type { WorkCardFieldMapping } from '../work-card-templates/work-card-field.types';
 import { WorkItemsService } from './work-items.service';
 import { PdfImportCommitDto, PdfImportItemDto, PdfImportPreviewDto } from './dto/pdf-import.dto';
@@ -14,8 +23,11 @@ import { PdfImportCommitDto, PdfImportItemDto, PdfImportPreviewDto } from './dto
 /** Maximale Seitenanzahl je PDF (Schutz vor Missbrauch). */
 const MAX_PDF_PAGES = 200;
 
-/** Maximale Dateigröße für PDFs: 50 MB. */
-const MAX_PDF_SIZE = 50 * 1024 * 1024;
+/** Maximale Dateigröße für PDFs: 50 MB (Import-Pfad). */
+const MAX_PDF_SIZE = MAX_BLOCK_PDF_FILE_SIZE;
+
+/** Empfohlene Chunk-Größe für Client-seitiges Progress (Seiten pro Request). */
+export const PDF_IMPORT_OCR_CHUNK_SIZE = 8;
 
 /** Ein Item in der Vorschau-Antwort. */
 export interface PdfPreviewItem {
@@ -36,6 +48,9 @@ export interface PdfPreviewResponse {
   blockKey: string;
   items: PdfPreviewItem[];
   warnings: string[];
+  /** Für Chunked Preview: erste/letzte verarbeitete Seite dieses Requests */
+  rangeStart?: number;
+  rangeEnd?: number;
 }
 
 /** Antwort des Commit-Endpunkts. */
@@ -48,7 +63,9 @@ export interface PdfCommitResponse {
 
 /**
  * PDF-Primärimport: Ein Mehrseiten-PDF wird je Seite als ein Work Item angelegt.
- * (SPEZ-arbeitsitems.md §10, Minimal-Modus ohne OCR/Template)
+ * (SPEZ-arbeitsitems.md §10)
+ *
+ * Progress: Client nutzt startPage/endPage in Chunks (Option A) – siehe Frontend.
  */
 @Injectable()
 export class WorkItemPdfImportService {
@@ -82,6 +99,8 @@ export class WorkItemPdfImportService {
 
   /**
    * Vorschau: Erzeugt die geplanten Items ohne zu schreiben.
+   * Bei extract=true: OCR je Seite; Einzelseiten-Fehler brechen den Rest nicht ab.
+   * Für sichtbaren Fortschritt: startPage/endPage chunkweise vom Client setzen.
    */
   async preview(
     projectId: string,
@@ -107,7 +126,7 @@ export class WorkItemPdfImportService {
     }
 
     const prefix = dto.itemKeyPrefix ?? 'Seite-';
-    const digits = String(endPage).length;
+    const digits = String(Math.max(endPage, pageCount)).length;
     const warnings: string[] = [];
 
     const existing = await this.prisma.workItem.findMany({
@@ -116,8 +135,6 @@ export class WorkItemPdfImportService {
     });
     const existingKeys = new Set(existing.map((i) => i.itemKey));
 
-    // OCR nur wenn explizit extract=true UND gültige templateId
-    // (Vorschau ohne OCR bleibt schnell; UI kann OCR separat anstoßen)
     let fieldMappings: WorkCardFieldMapping[] | null = null;
     const templateId =
       dto.templateId && dto.templateId !== 'none' ? dto.templateId : undefined;
@@ -136,72 +153,87 @@ export class WorkItemPdfImportService {
     const OCR_CONCURRENCY = 3;
 
     if (fieldMappings) {
-      // OCR-Extraktion je Seite (sequentiell in kleinen Batches)
       const pages = Array.from(
         { length: endPage - startPage + 1 },
         (_, i) => startPage + i,
       );
 
-      for (let i = 0; i < pages.length; i += OCR_CONCURRENCY) {
-        const batch = pages.slice(i, i + OCR_CONCURRENCY);
-        const results = await Promise.allSettled(
-          batch.map((page) => this.extractFieldsForPage(buffer, page, fieldMappings!)),
-        );
+      const session = await this.rasterService.createSession(buffer);
+      try {
+        for (let i = 0; i < pages.length; i += OCR_CONCURRENCY) {
+          const batch = pages.slice(i, i + OCR_CONCURRENCY);
+          const results = await Promise.allSettled(
+            batch.map((page) =>
+              this.extractFieldsForPage(session, page, fieldMappings!),
+            ),
+          );
 
-        for (let j = 0; j < batch.length; j++) {
-          const page = batch[j];
-          const result = results[j];
-          const fallbackKey = `${prefix}${String(page).padStart(digits, '0')}`;
-          const ocrWarnings: string[] = [];
+          for (let j = 0; j < batch.length; j++) {
+            const page = batch[j];
+            const result = results[j];
+            const fallbackKey = `${prefix}${String(page).padStart(digits, '0')}`;
+            const ocrWarnings: string[] = [];
 
-          let itemKey = fallbackKey;
-          let title = `Seite ${page}`;
-          let workScopeDe: string | null = null;
-          let workScopeSk: string | null = null;
-          let floor: string | null = null;
-          let room: string | null = null;
+            let itemKey = fallbackKey;
+            let title = `Seite ${page}`;
+            let workScopeDe: string | null = null;
+            let workScopeSk: string | null = null;
+            let floor: string | null = null;
+            let room: string | null = null;
 
-          if (result.status === 'fulfilled') {
-            const { fields, warnings: w } = result.value;
-            ocrWarnings.push(...w);
-            if (fields.itemKey) itemKey = fields.itemKey;
-            if (fields.title) title = fields.title;
-            if (fields.workScopeDe) workScopeDe = fields.workScopeDe;
-            if (fields.workScopeSk) workScopeSk = fields.workScopeSk;
-            if (fields.floor) floor = fields.floor;
-            if (fields.room) room = fields.room;
-          } else {
-            ocrWarnings.push(`OCR-Fehler Seite ${page}: ${result.reason?.message ?? 'unbekannt'}`);
-            warnings.push(`OCR fehlgeschlagen auf Seite ${page} – Fallback auf Platzhalter`);
+            if (result.status === 'fulfilled') {
+              const { fields, warnings: w } = result.value;
+              ocrWarnings.push(...w);
+              if (fields.itemKey) itemKey = fields.itemKey;
+              if (fields.title) title = fields.title;
+              if (fields.workScopeDe) workScopeDe = fields.workScopeDe;
+              if (fields.workScopeSk) workScopeSk = fields.workScopeSk;
+              if (fields.floor) floor = fields.floor;
+              if (fields.room) room = fields.room;
+            } else {
+              const reason =
+                result.reason instanceof Error
+                  ? result.reason.message
+                  : String(result.reason ?? 'unbekannt');
+              ocrWarnings.push(`OCR-Fehler Seite ${page}: ${reason}`);
+              warnings.push(
+                `OCR fehlgeschlagen auf Seite ${page} – Fallback auf Platzhalter`,
+              );
+            }
+
+            const conflicts: string[] = [];
+            if (existingKeys.has(itemKey)) {
+              conflicts.push('existiert bereits – Commit würde upserten');
+              warnings.push(
+                `itemKey ${itemKey} existiert bereits – Commit würde upserten`,
+              );
+            }
+
+            items.push({
+              pdfPage: page,
+              itemKey,
+              title,
+              workScopeDe,
+              workScopeSk,
+              floor,
+              room,
+              conflicts,
+              ocrWarnings,
+            });
           }
-
-          const conflicts: string[] = [];
-          if (existingKeys.has(itemKey)) {
-            conflicts.push('existiert bereits – Commit würde upserten');
-            warnings.push(`itemKey ${itemKey} existiert bereits – Commit würde upserten`);
-          }
-
-          items.push({
-            pdfPage: page,
-            itemKey,
-            title,
-            workScopeDe,
-            workScopeSk,
-            floor,
-            room,
-            conflicts,
-            ocrWarnings,
-          });
         }
+      } finally {
+        await session.dispose();
       }
     } else {
-      // Ohne Template: bisheriges Verhalten (Minimal-Modus)
       for (let page = startPage; page <= endPage; page++) {
         const itemKey = `${prefix}${String(page).padStart(digits, '0')}`;
         const conflicts: string[] = [];
         if (existingKeys.has(itemKey)) {
           conflicts.push('existiert bereits – Commit würde upserten');
-          warnings.push(`itemKey ${itemKey} existiert bereits – Commit würde upserten`);
+          warnings.push(
+            `itemKey ${itemKey} existiert bereits – Commit würde upserten`,
+          );
         }
         items.push({
           pdfPage: page,
@@ -222,6 +254,8 @@ export class WorkItemPdfImportService {
       blockKey: dto.blockKey,
       items,
       warnings,
+      rangeStart: startPage,
+      rangeEnd: endPage,
     };
   }
 
@@ -257,7 +291,10 @@ export class WorkItemPdfImportService {
       uploadDto.entityId = projectId;
       uploadDto.title = file.originalname;
 
-      const doc = await this.documentsService.upload(file, uploadDto, userId);
+      // Block-PDF: 50 MB erlaubt – nicht global für alle Documents
+      const doc = await this.documentsService.upload(file, uploadDto, userId, {
+        maxFileSize: MAX_PDF_SIZE,
+      });
       documentId = doc.id;
       pdfFileName = file.originalname;
     } else if (!dto.pdfDocumentId) {
@@ -270,7 +307,9 @@ export class WorkItemPdfImportService {
         select: { originalFilename: true },
       });
       if (!existingDoc) {
-        throw new BadRequestException(`Document ${dto.pdfDocumentId} nicht gefunden`);
+        throw new BadRequestException(
+          `Document ${dto.pdfDocumentId} nicht gefunden`,
+        );
       }
       pdfFileName = existingDoc.originalFilename;
     }
@@ -280,7 +319,6 @@ export class WorkItemPdfImportService {
     let blockId = '';
 
     await this.prisma.$transaction(async (tx) => {
-      // Block upsert
       const block = await tx.projectBlock.upsert({
         where: { projectId_blockKey: { projectId, blockKey: dto.blockKey } },
         update: {
@@ -297,7 +335,6 @@ export class WorkItemPdfImportService {
       });
       blockId = block.id;
 
-      // Bestandsabgleich
       const existing = await tx.workItem.findMany({
         where: { projectId },
         select: { id: true, itemKey: true },
@@ -337,7 +374,6 @@ export class WorkItemPdfImportService {
         }
       }
 
-      // Projekt auf itemBased setzen
       if (dto.setItemBased !== false) {
         await tx.project.update({
           where: { id: projectId },
@@ -357,13 +393,14 @@ export class WorkItemPdfImportService {
 
   /** Rasterisiert eine PDF-Seite und extrahiert Felder via OCR + Template-Mapping. */
   private async extractFieldsForPage(
-    pdfBuffer: Buffer,
+    session: PdfRasterSession,
     pageNumber: number,
     mappings: WorkCardFieldMapping[],
   ) {
-    const imageBuffer = await this.rasterService.rasterizePage(pdfBuffer, pageNumber);
+    const imageBuffer = await session.rasterizePage(pageNumber);
+    const imageSize = getPngDimensions(imageBuffer);
     const ocrResult = await this.ocrService.extractText(imageBuffer, 'image/png');
-    return extractWorkCardFields(ocrResult, mappings);
+    return extractWorkCardFields(ocrResult, mappings, imageSize);
   }
 
   /** Validiert Multipart-PDF-Datei und gibt den Buffer zurück. */

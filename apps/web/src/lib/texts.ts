@@ -675,11 +675,20 @@ export const texts = {
           'Ablauf: 1) Vorschau laden (schnell) → 2) optional OCR → 3) Import ausführen.',
         ocrFill: 'OCR vorausfüllen',
         ocrButtonHint:
-          'Liest jede PDF-Seite per OCR mit dem gewählten Template. Bei 20–50 Seiten kann das mehrere Minuten dauern.',
-        ocrLoading: 'OCR läuft je Seite – bitte warten …',
+          'Liest jede PDF-Seite per OCR mit dem gewählten Template (in Chunks). Bei vielen Seiten Fortschritt sichtbar.',
+        ocrLoading: 'OCR läuft …',
+        ocrProgress: (done: number, total: number): string =>
+          `OCR: Seite ${done} von ${total}`,
+        ocrProgressFailed: (n: number): string =>
+          n === 1 ? '1 Seite mit OCR-Fehler' : `${n} Seiten mit OCR-Fehler`,
+        fileTooLarge: (mb: string): string =>
+          `PDF zu groß (${mb} MB). Maximal 50 MB für den Block-Import.`,
         itemsReady: 'Aufträge in der Liste',
         toastOcrDone: 'OCR-Extraktion abgeschlossen – bitte Kennungen prüfen.',
-        toastAborted: 'Vorgang abgebrochen (Zeitüberschreitung oder Abbruch).',
+        toastOcrPartial:
+          'OCR teilweise abgeschlossen – Seiten mit Fehlern behalten Platzhalter.',
+        toastAborted:
+          'Vorgang abgebrochen (Zeitüberschreitung oder Abbruch). Bitte erneut versuchen oder kleinere Chunks.',
         colFloor: 'Geschoss',
         colRoom: 'Raum',
         colOcrWarnings: 'OCR-Hinweise',
@@ -700,6 +709,9 @@ export const texts = {
         regex: 'Regex (optional)',
         regexPlaceholder: 'z. B. \\d{2}-[A-Z]-\\d{2}',
         captureLines: 'Zeilen',
+        zone: 'Zone',
+        zoneSet: 'Zone gesetzt',
+        zoneClearField: 'Zone löschen',
         notes: 'Notizen',
         notesPlaceholder: 'Hinweise zum Template',
         save: 'Speichern',
@@ -711,14 +723,21 @@ export const texts = {
         empty: 'Noch keine Templates vorhanden.',
         calibrate: 'Kalibrieren',
         calibrateTitle: 'Template kalibrieren',
-        calibrateSubtitle: 'Beispielseite hochladen → OCR → Feldvorschläge',
+        calibrateSubtitle:
+          'Beispielseite hochladen → OCR → Feldvorschläge + Zonen auf der Seite markieren',
         calibrateChooseFile: 'Beispielseite wählen',
         calibrateRun: 'OCR starten',
         calibrateRunning: 'OCR läuft …',
         calibrateOcrText: 'Erkannter Text',
         calibrateSuggestions: 'Vorgeschlagene Feldzuordnungen',
-        calibrateApply: 'Vorschläge übernehmen',
+        calibrateApply: 'Vorschläge & Zonen übernehmen',
         calibrateNoSuggestions: 'Keine automatischen Vorschläge erkannt.',
+        zoneEditorTitle: 'Zonen auf der Beispielseite',
+        zoneDrawHint:
+          'Feld wählen, dann Rechteck auf der Seite ziehen. Zonen werden beim Import bevorzugt.',
+        zoneActiveField: 'Zone zeichnen für',
+        zoneRemove: 'Zone entfernen',
+        zonesList: 'Gesetzte Zonen',
         toastCreated: 'Template angelegt.',
         toastUpdated: 'Template gespeichert.',
         toastDeleted: 'Template gelöscht.',

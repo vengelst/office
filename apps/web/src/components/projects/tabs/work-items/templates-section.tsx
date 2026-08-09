@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  AlertTriangle,
   FileText,
   Pencil,
   Plus,
@@ -41,6 +40,10 @@ import {
   type WorkCardFieldTarget,
   type WorkCardTemplate,
 } from '@/lib/work-card-templates';
+import {
+  ZoneEditor,
+  type ZoneAssignment,
+} from './zone-editor';
 
 const t = texts.projects.workItems.templates;
 
@@ -57,6 +60,7 @@ function emptyFieldRow(): FieldRow {
     labelHints: [],
     regex: undefined,
     captureLines: undefined,
+    zone: undefined,
   };
 }
 
@@ -78,6 +82,7 @@ export function TemplatesSection(): ReactNode {
   const [calibrateFile, setCalibrateFile] = useState<File | null>(null);
   const [calibrating, setCalibrating] = useState(false);
   const [calibrateResult, setCalibrateResult] = useState<CalibrateResponse | null>(null);
+  const [drawnZones, setDrawnZones] = useState<ZoneAssignment[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -111,7 +116,7 @@ export function TemplatesSection(): ReactNode {
     setNotes(tpl.notes ?? '');
     setFields(
       tpl.fields.length > 0
-        ? tpl.fields.map((f) => ({ ...f, _key: ++rowCounter }))
+        ? tpl.fields.map((f) => ({ ...f, labelHints: f.labelHints ?? [], _key: ++rowCounter }))
         : [emptyFieldRow()],
     );
     setDialogOpen(true);
@@ -123,9 +128,12 @@ export function TemplatesSection(): ReactNode {
     try {
       const payload = {
         name: name.trim(),
-        fields: fields.map(({ _key, ...rest }) => ({
-          ...rest,
-          labelHints: rest.labelHints.length > 0 ? rest.labelHints : [],
+        fields: fields.map(({ _key, zone, ...rest }) => ({
+          target: rest.target,
+          labelHints: rest.labelHints?.length ? rest.labelHints : [],
+          ...(rest.regex ? { regex: rest.regex } : {}),
+          ...(rest.captureLines ? { captureLines: rest.captureLines } : {}),
+          ...(zone ? { zone } : {}),
         })),
         notes: notes.trim() || undefined,
       };
@@ -173,6 +181,11 @@ export function TemplatesSection(): ReactNode {
     try {
       const res = await workCardTemplatesApi.calibrate(calibrateFile);
       setCalibrateResult(res);
+      // Bestehende Zonen aus aktuellen Feldern vorbefüllen (falls Edit)
+      const fromFields: ZoneAssignment[] = fields
+        .filter((f) => f.zone)
+        .map((f) => ({ target: f.target, zone: f.zone! }));
+      setDrawnZones(fromFields);
     } catch (err) {
       fail(err);
     } finally {
@@ -182,13 +195,43 @@ export function TemplatesSection(): ReactNode {
 
   const applySuggestions = () => {
     if (!calibrateResult) return;
-    const newFields: FieldRow[] = calibrateResult.suggestedFields.map((s) => ({
-      _key: ++rowCounter,
-      target: s.target as WorkCardFieldTarget,
-      labelHints: s.labelHints,
-      regex: s.regex,
-      captureLines: undefined,
-    }));
+
+    const byTarget = new Map<WorkCardFieldTarget, FieldRow>();
+
+    for (const s of calibrateResult.suggestedFields) {
+      const target = s.target as WorkCardFieldTarget;
+      byTarget.set(target, {
+        _key: ++rowCounter,
+        target,
+        labelHints: s.labelHints,
+        regex: s.regex,
+        captureLines: undefined,
+        zone: undefined,
+      });
+    }
+
+    // Bestehende Felder behalten, wenn kein Vorschlag – und Zonen mergen
+    for (const f of fields) {
+      if (!byTarget.has(f.target)) {
+        byTarget.set(f.target, { ...f, _key: ++rowCounter });
+      }
+    }
+
+    for (const z of drawnZones) {
+      const existing = byTarget.get(z.target);
+      if (existing) {
+        byTarget.set(z.target, { ...existing, zone: z.zone });
+      } else {
+        byTarget.set(z.target, {
+          _key: ++rowCounter,
+          target: z.target,
+          labelHints: [],
+          zone: z.zone,
+        });
+      }
+    }
+
+    const newFields = Array.from(byTarget.values());
     if (newFields.length > 0) {
       setFields(newFields);
     }
@@ -224,6 +267,7 @@ export function TemplatesSection(): ReactNode {
                   <p className="font-medium">{tpl.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {tpl.fields.length} Felder
+                    {tpl.fields.some((f) => f.zone) ? ' · mit Zonen' : ''}
                     {tpl.customer ? ` · ${tpl.customer.companyName}` : ''}
                   </p>
                 </div>
@@ -277,7 +321,6 @@ export function TemplatesSection(): ReactNode {
               />
             </div>
 
-            {/* Calibrate button */}
             <Button
               variant="outline"
               size="sm"
@@ -285,20 +328,20 @@ export function TemplatesSection(): ReactNode {
                 setCalibrateOpen(true);
                 setCalibrateFile(null);
                 setCalibrateResult(null);
+                setDrawnZones([]);
               }}
             >
               <Search className="h-4 w-4" />
               {t.calibrate}
             </Button>
 
-            {/* Fields */}
             <div>
               <label className="mb-1 block text-xs font-medium">{t.fields}</label>
               <div className="space-y-2">
                 {fields.map((row) => (
                   <div
                     key={row._key}
-                    className="grid grid-cols-[1fr_1fr_1fr_60px_32px] items-start gap-2 rounded-md border p-2"
+                    className="grid grid-cols-[1fr_1fr_1fr_60px_70px_32px] items-start gap-2 rounded-md border p-2"
                   >
                     <div>
                       <label className="mb-0.5 block text-[10px] text-muted-foreground">
@@ -376,6 +419,29 @@ export function TemplatesSection(): ReactNode {
                         className="h-8 text-xs"
                       />
                     </div>
+                    <div>
+                      <label className="mb-0.5 block text-[10px] text-muted-foreground">
+                        {t.zone}
+                      </label>
+                      {row.zone ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-full px-1 text-[10px]"
+                          onClick={() =>
+                            updateField(row._key, { zone: undefined })
+                          }
+                          title={t.zoneClearField}
+                        >
+                          {t.zoneSet}
+                        </Button>
+                      ) : (
+                        <span className="flex h-8 items-center text-[10px] text-muted-foreground">
+                          —
+                        </span>
+                      )}
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -411,9 +477,9 @@ export function TemplatesSection(): ReactNode {
         </DialogContent>
       </Dialog>
 
-      {/* Kalibrieren-Dialog */}
+      {/* Kalibrieren-Dialog inkl. Zone-Editor */}
       <Dialog open={calibrateOpen} onOpenChange={setCalibrateOpen}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.calibrateTitle}</DialogTitle>
             <DialogDescription>{t.calibrateSubtitle}</DialogDescription>
@@ -428,6 +494,7 @@ export function TemplatesSection(): ReactNode {
               onChange={(e) => {
                 setCalibrateFile(e.target.files?.[0] ?? null);
                 setCalibrateResult(null);
+                setDrawnZones([]);
               }}
             />
             <div className="flex gap-2">
@@ -452,6 +519,25 @@ export function TemplatesSection(): ReactNode {
 
             {calibrateResult && (
               <>
+                {calibrateResult.pageImageDataUrl && (
+                  <div>
+                    <label className="mb-1 block text-xs font-medium">
+                      {t.zoneEditorTitle}
+                    </label>
+                    <ZoneEditor
+                      imageSrc={calibrateResult.pageImageDataUrl}
+                      zones={drawnZones}
+                      onChange={setDrawnZones}
+                      labels={{
+                        drawHint: t.zoneDrawHint,
+                        activeField: t.zoneActiveField,
+                        clearZone: t.zoneRemove,
+                        zonesList: t.zonesList,
+                      }}
+                    />
+                  </div>
+                )}
+
                 <div>
                   <label className="mb-1 block text-xs font-medium">
                     {t.calibrateOcrText}
@@ -499,7 +585,8 @@ export function TemplatesSection(): ReactNode {
                   )}
                 </div>
 
-                {calibrateResult.suggestedFields.length > 0 && (
+                {(calibrateResult.suggestedFields.length > 0 ||
+                  drawnZones.length > 0) && (
                   <Button onClick={applySuggestions}>
                     {t.calibrateApply}
                   </Button>

@@ -5,6 +5,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNumber,
   IsOptional,
   IsString,
   Max,
@@ -14,17 +15,50 @@ import {
 } from 'class-validator';
 import { WORK_CARD_FIELD_TARGETS } from '../work-card-field.types';
 
+export class WorkCardFieldZoneDto {
+  @ApiProperty({ description: 'Linke Kante 0–1' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  x!: number;
+
+  @ApiProperty({ description: 'Obere Kante 0–1' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(1)
+  y!: number;
+
+  @ApiProperty({ description: 'Breite 0–1' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001)
+  @Max(1)
+  w!: number;
+
+  @ApiProperty({ description: 'Höhe 0–1' })
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0.001)
+  @Max(1)
+  h!: number;
+}
+
 export class WorkCardFieldMappingDto {
   @ApiProperty({ description: 'Zielfeld', enum: WORK_CARD_FIELD_TARGETS })
   @IsString()
   @IsIn(WORK_CARD_FIELD_TARGETS)
   target!: string;
 
-  @ApiProperty({ description: 'Label-Hinweise (Überschriften auf der Karte)', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Label-Hinweise (Überschriften auf der Karte)',
+    type: [String],
+  })
+  @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  @ArrayMinSize(1)
-  labelHints!: string[];
+  labelHints?: string[];
 
   @ApiPropertyOptional({ description: 'Regex auf den Wert' })
   @IsOptional()
@@ -38,6 +72,15 @@ export class WorkCardFieldMappingDto {
   @Min(1)
   @Max(20)
   captureLines?: number;
+
+  @ApiPropertyOptional({
+    description: 'Normierte Zone 0–1 auf der Beispielseite (OCR-Blöcke in der Zone bevorzugen)',
+    type: WorkCardFieldZoneDto,
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => WorkCardFieldZoneDto)
+  zone?: WorkCardFieldZoneDto;
 }
 
 export class CreateWorkCardTemplateDto {
@@ -53,6 +96,7 @@ export class CreateWorkCardTemplateDto {
 
   @ApiProperty({ type: [WorkCardFieldMappingDto], description: 'Feldzuordnungen' })
   @IsArray()
+  @ArrayMinSize(1)
   @ValidateNested({ each: true })
   @Type(() => WorkCardFieldMappingDto)
   fields!: WorkCardFieldMappingDto[];

@@ -17,8 +17,17 @@ import {
 } from './dto/upload-document.dto';
 import { LinkDocumentDto } from './dto/link-document.dto';
 
-/** Maximale Dateigröße: 10 MB. */
+/** Maximale Dateigröße (allgemeiner Dokument-Upload): 10 MB. */
 export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+/** Erhöhtes Limit nur für Block-PDF-Import (Work Items): 50 MB. */
+export const MAX_BLOCK_PDF_FILE_SIZE = 50 * 1024 * 1024;
+
+/** Optionale Upload-Overrides (Least Privilege – nicht global erhöhen). */
+export interface DocumentUploadOptions {
+  /** Überschreibt MAX_FILE_SIZE für diesen Aufruf (z. B. Block-PDF-Import). */
+  maxFileSize?: number;
+}
 
 /** Erlaubte MIME-Type-Präfixe/Werte. */
 const ALLOWED_MIME_PATTERNS: RegExp[] = [
@@ -142,12 +151,17 @@ export class DocumentsService {
     file: Express.Multer.File | undefined,
     dto: UploadDocumentDto,
     userId: string | null,
+    options?: DocumentUploadOptions,
   ) {
     if (!file) {
       throw new BadRequestException('Keine Datei übermittelt');
     }
-    if (file.size > MAX_FILE_SIZE) {
-      throw new BadRequestException('Datei überschreitet 10 MB');
+    const maxSize = options?.maxFileSize ?? MAX_FILE_SIZE;
+    if (file.size > maxSize) {
+      const maxMb = (maxSize / 1024 / 1024).toFixed(0);
+      throw new BadRequestException(
+        `Datei überschreitet ${maxMb} MB (${(file.size / 1024 / 1024).toFixed(1)} MB)`,
+      );
     }
     if (!isAllowedMime(file.mimetype)) {
       throw new BadRequestException(`Dateityp nicht erlaubt: ${file.mimetype}`);

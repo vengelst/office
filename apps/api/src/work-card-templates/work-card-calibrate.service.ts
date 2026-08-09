@@ -1,7 +1,10 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { OcrService } from '../ocr/ocr.service';
 import { PdfPageRasterService } from './pdf-page-raster.service';
-import { suggestFieldMappings } from './work-card-field-extractor';
+import {
+  getPngDimensions,
+  suggestFieldMappings,
+} from './work-card-field-extractor';
 
 /** Max file size for calibrate: 10 MB */
 const MAX_CALIBRATE_SIZE = 10 * 1024 * 1024;
@@ -19,11 +22,15 @@ export interface CalibrateResponse {
     regex?: string;
     sampleValue?: string;
   }>;
+  /** PNG der Beispielseite als data-URL für den Zone-Editor */
+  pageImageDataUrl: string;
+  imageWidth: number;
+  imageHeight: number;
 }
 
 /**
  * Kalibrierung: Nimmt eine Beispielseite (Bild oder 1-Seiten-PDF),
- * führt OCR durch und liefert Rohtext + heuristische Feldvorschläge.
+ * führt OCR durch und liefert Rohtext + heuristische Feldvorschläge + Seitenbild.
  */
 @Injectable()
 export class WorkCardCalibrateService {
@@ -63,6 +70,22 @@ export class WorkCardCalibrateService {
       );
     }
 
+    // Für Zone-Editor brauchen wir PNG-Maße; Nicht-PNG → als PNG aus OCR-Pfad nicht nötig,
+    // Maße nur wenn PNG (Raster) oder aus raw buffer lesen wenn möglich.
+    let imageWidth = 0;
+    let imageHeight = 0;
+    let pageImageDataUrl: string;
+
+    if (mimeType === 'image/png') {
+      const dims = getPngDimensions(imageBuffer);
+      imageWidth = dims.width;
+      imageHeight = dims.height;
+      pageImageDataUrl = `data:image/png;base64,${imageBuffer.toString('base64')}`;
+    } else {
+      // JPEG/WebP: data-URL ohne IHDR-Maße – Client nutzt naturalWidth/Height
+      pageImageDataUrl = `data:${mimeType};base64,${imageBuffer.toString('base64')}`;
+    }
+
     const ocrResult = await this.ocr.extractText(imageBuffer, mimeType);
     const suggestedFields = suggestFieldMappings(ocrResult.text);
 
@@ -70,6 +93,9 @@ export class WorkCardCalibrateService {
       text: ocrResult.text,
       blocks: ocrResult.blocks,
       suggestedFields,
+      pageImageDataUrl,
+      imageWidth,
+      imageHeight,
     };
   }
 }
