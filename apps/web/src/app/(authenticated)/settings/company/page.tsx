@@ -14,7 +14,11 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiError } from '@/lib/api-client';
-import { companyLogoUrl, settingsApi } from '@/lib/settings';
+import {
+  companyLogoDarkUrl,
+  companyLogoUrl,
+  settingsApi,
+} from '@/lib/settings';
 
 const FIELDS = {
   firma: [
@@ -57,14 +61,24 @@ export default function CompanySettingsPage(): React.ReactNode {
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoTick, setLogoTick] = useState(0);
   const [logoBroken, setLogoBroken] = useState(false);
+  const [logoDarkKey, setLogoDarkKey] = useState<string | null>(null);
+  const [logoDarkTick, setLogoDarkTick] = useState(0);
+  const [logoDarkBroken, setLogoDarkBroken] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingDark, setUploadingDark] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const fileDarkRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    Promise.all([settingsApi.getCompanyInfo(), settingsApi.getCompanyLogoKey()])
-      .then(([info, logo]) => {
+    Promise.all([
+      settingsApi.getCompanyInfo(),
+      settingsApi.getCompanyLogoKey(),
+      settingsApi.getCompanyLogoDarkKey(),
+    ])
+      .then(([info, logo, logoDark]) => {
         setData(info);
         setLogoKey(logo.logoKey);
+        setLogoDarkKey(logoDark.logoKey);
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -109,6 +123,30 @@ export default function CompanySettingsPage(): React.ReactNode {
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const handleLogoDarkUpload = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDark(true);
+    try {
+      const result = await settingsApi.uploadCompanyLogoDark(file);
+      setLogoDarkKey(result.logoKey);
+      setLogoDarkBroken(false);
+      setLogoDarkTick(Date.now());
+      toast({ description: 'Dark-Mode-Logo hochgeladen' });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError ? err.message : 'Fehler beim Upload',
+      });
+    } finally {
+      setUploadingDark(false);
+      if (fileDarkRef.current) fileDarkRef.current.value = '';
     }
   };
 
@@ -162,7 +200,7 @@ export default function CompanySettingsPage(): React.ReactNode {
               Logo
             </h3>
             <p className="text-xs text-muted-foreground">
-              Erscheint in der App-Navigation, beim Drucken und auf
+              Erscheint in der App-Navigation (Hellmodus), beim Drucken und auf
               Rechnungs-PDFs. Empfohlen: PNG oder JPEG.
             </p>
             {logoKey && !logoBroken && (
@@ -190,6 +228,47 @@ export default function CompanySettingsPage(): React.ReactNode {
                 className="max-w-xs min-h-[44px]"
               />
               {uploading && (
+                <span className="text-sm text-muted-foreground">
+                  Wird hochgeladen…
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              Logo Dark Mode
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Helle Variante für die Navigation im Dark Mode. Fehlt sie, wird
+              das Standard-Logo verwendet. Druck und PDFs nutzen weiterhin das
+              Standard-Logo.
+            </p>
+            {logoDarkKey && !logoDarkBroken && (
+              <div className="mb-2 inline-block rounded border bg-zinc-900 p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={companyLogoDarkUrl(logoDarkTick || Date.now())}
+                  alt="Firmenlogo Dark Mode"
+                  className="h-20 max-w-[240px] object-contain"
+                  onError={() => setLogoDarkBroken(true)}
+                />
+              </div>
+            )}
+            {logoDarkKey && logoDarkBroken && (
+              <p className="text-sm text-amber-600">
+                Dark-Mode-Logo ist hinterlegt, konnte aber nicht geladen werden.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <Input
+                ref={fileDarkRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                onChange={handleLogoDarkUpload}
+                className="max-w-xs min-h-[44px]"
+              />
+              {uploadingDark && (
                 <span className="text-sm text-muted-foreground">
                   Wird hochgeladen…
                 </span>

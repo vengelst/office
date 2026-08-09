@@ -5,14 +5,16 @@
 
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Building2 } from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { cn } from '@/lib/utils';
 import { texts } from '@/lib/texts';
-import { companyLogoUrl } from '@/lib/settings';
+import { companyLogoDarkUrl, companyLogoUrl } from '@/lib/settings';
 
 /**
- * App-Brand: Firmenlogo auf heller Fläche (sichtbar im Dark Mode) oder Fallback Building2 + „Office“.
+ * App-Brand: Im Dark Mode helles Logo (Fallback Standard-Logo),
+ * sonst Standard-Logo. Print/PDF nutzen weiterhin nur das Standard-Logo.
  *
  * @param props - Komponenten-Props
  */
@@ -25,23 +27,44 @@ export function AppBrand({
   showTagline?: boolean;
   size?: 'sm' | 'md' | 'lg';
 }): ReactNode {
+  const { resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [usedFallback, setUsedFallback] = useState(false);
   const [tick] = useState(() => Date.now());
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    setFailed(false);
+    setUsedFallback(false);
+  }, [resolvedTheme]);
+
+  const isDark = mounted && resolvedTheme === 'dark';
+  const preferDarkLogo = isDark && !usedFallback;
+  const logoSrc = preferDarkLogo
+    ? companyLogoDarkUrl(tick)
+    : companyLogoUrl(tick);
 
   const iconSize =
     size === 'lg' ? 'h-10 w-10' : size === 'sm' ? 'h-5 w-5' : 'h-6 w-6';
 
-  // Fester Slot in der h-16-Headerzeile; weißer Hintergrund für dunkle Logos
   const slotH =
     size === 'lg' ? 'h-12' : size === 'sm' ? 'h-8' : 'h-10';
   const slotW =
     size === 'lg' ? 'max-w-[240px]' : size === 'sm' ? 'max-w-[160px]' : 'max-w-[200px]';
 
+  // Helles Dark-Logo: transparenter Slot. Standard-Logo im Dark Mode: weißer Slot.
+  const needsLightSlot = isDark && (!preferDarkLogo || failed);
+
   if (!failed) {
     return (
       <div
         className={cn(
-          'flex min-w-0 items-center overflow-hidden rounded-md bg-white px-2.5 py-1 shadow-sm',
+          'flex min-w-0 items-center overflow-hidden rounded-md px-2.5 py-1',
+          needsLightSlot ? 'bg-white shadow-sm' : null,
           slotH,
           slotW,
           className,
@@ -49,10 +72,17 @@ export function AppBrand({
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={companyLogoUrl(tick)}
+          key={logoSrc}
+          src={logoSrc}
           alt={texts.app.name}
           className="block h-full w-auto max-h-full max-w-full object-contain object-left"
-          onError={() => setFailed(true)}
+          onError={() => {
+            if (preferDarkLogo) {
+              setUsedFallback(true);
+              return;
+            }
+            setFailed(true);
+          }}
         />
       </div>
     );
@@ -82,6 +112,7 @@ export function AppBrand({
 
 /**
  * Firmenlogo nur beim Drucken (Tab-Druck und Gesamtübersicht).
+ * Immer Standard-Logo (nicht Dark-Variante).
  *
  * @param props - Komponenten-Props
  */

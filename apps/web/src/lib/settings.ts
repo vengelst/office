@@ -38,6 +38,16 @@ export function companyLogoUrl(cacheBust?: string | number): string {
   return cacheBust != null ? `${base}?t=${cacheBust}` : base;
 }
 
+/**
+ * Öffentliche URL zum hellen Firmenlogo für Dark Mode.
+ *
+ * @param cacheBust - Cache-Buster
+ */
+export function companyLogoDarkUrl(cacheBust?: string | number): string {
+  const base = `${API_BASE_URL}/company/logo-dark/file`;
+  return cacheBust != null ? `${base}?t=${cacheBust}` : base;
+}
+
 /** API-Client für System-Einstellungen (E-Mail/SMTP, Speicher/Google Drive). */
 export const settingsApi = {
   // E-Mail / SMTP
@@ -81,4 +91,14 @@ export const settingsApi = {
   },
   getCompanyLogoKey: () =>
     apiClient.get<{ logoKey: string | null }>('/company/logo'),
+  uploadCompanyLogoDark: async (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiUpload<{ success: true; logoKey: string }>(
+      '/company/logo-dark',
+      formData,
+    );
+  },
+  getCompanyLogoDarkKey: () =>
+    apiClient.get<{ logoKey: string | null }>('/company/logo-dark'),
 };

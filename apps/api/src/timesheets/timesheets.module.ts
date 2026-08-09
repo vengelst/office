@@ -5,6 +5,8 @@ import { WorkItemsModule } from '../work-items/work-items.module';
 import { TimesheetsController } from './timesheets.controller';
 import { TimesheetsService } from './timesheets.service';
 import { TimesheetPdfService } from './pdf.service';
+import { TimesheetGenerationService } from './timesheet-generation.service';
+import { TimesheetWorkflowService } from './timesheet-workflow.service';
 
 /**
  * `WorkItemsModule` liefert `WorkItemsService` – dort liegen die
@@ -15,7 +17,12 @@ import { TimesheetPdfService } from './pdf.service';
 @Module({
   imports: [DocumentsModule, WorkItemsModule, EmailModule],
   controllers: [TimesheetsController],
-  providers: [TimesheetsService, TimesheetPdfService],
+  providers: [
+    TimesheetsService,
+    TimesheetPdfService,
+    TimesheetGenerationService,
+    TimesheetWorkflowService,
+  ],
   exports: [TimesheetsService, TimesheetPdfService],
 })
 export class TimesheetsModule {}

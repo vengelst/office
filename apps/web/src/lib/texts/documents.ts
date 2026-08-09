@@ -14,6 +14,13 @@ export const documents = {
     onlyExpiring: 'Nur ablaufende',
     results: 'Treffer',
     noResults: 'Keine Dokumente gefunden.',
+    pagination: {
+      showing: 'Treffer',
+      page: 'Seite',
+      of: 'von',
+      prev: 'Zurück',
+      next: 'Weiter',
+    },
     linkedTo: 'Verknüpft mit',
     uploadedAt: 'Hochgeladen',
     uploadedBy: 'von',

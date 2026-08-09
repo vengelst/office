@@ -51,6 +51,26 @@ export class CompanyInfoDto {
 const COMPANY_SETTINGS_KEY = 'company_info';
 const COMPANY_LOGO_KEY = 'company-logo';
 const COMPANY_LOGO_SETTING = 'company_logo_key';
+const COMPANY_LOGO_DARK_KEY = 'company-logo-dark';
+const COMPANY_LOGO_DARK_SETTING = 'company_logo_dark_key';
+
+const ALLOWED_LOGO_MIME = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/svg+xml',
+];
+
+function logoMimeFromKey(key: string): string {
+  return key.endsWith('.png')
+    ? 'image/png'
+    : key.endsWith('.webp')
+      ? 'image/webp'
+      : key.endsWith('.svg')
+        ? 'image/svg+xml'
+        : 'image/jpeg';
+}
 
 @ApiTags('company')
 @ApiBearerAuth()
@@ -122,14 +142,7 @@ export class CompanyController {
     if (!file) {
       throw new BadRequestException('Keine Datei');
     }
-    const allowed = [
-      'image/png',
-      'image/jpeg',
-      'image/jpg',
-      'image/webp',
-      'image/svg+xml',
-    ];
-    if (file.mimetype && !allowed.includes(file.mimetype)) {
+    if (file.mimetype && !ALLOWED_LOGO_MIME.includes(file.mimetype)) {
       throw new BadRequestException('Nur Bilddateien (PNG, JPEG, WebP, SVG)');
     }
     const ext = (file.originalname.split('.').pop() ?? 'png').toLowerCase();
@@ -186,15 +199,70 @@ export class CompanyController {
     }
     const key = setting.value;
     const stream = await this.storage.getStream(key);
-    const mime = key.endsWith('.png')
-      ? 'image/png'
-      : key.endsWith('.webp')
-        ? 'image/webp'
-        : key.endsWith('.svg')
-          ? 'image/svg+xml'
-          : 'image/jpeg';
     res.set({
-      'Content-Type': mime,
+      'Content-Type': logoMimeFromKey(key),
+      'Cache-Control': 'public, max-age=300',
+    });
+    return new StreamableFile(stream);
+  }
+
+  @Post('logo-dark')
+  @ApiOperation({ summary: 'Helles Firmenlogo für Dark Mode hochladen' })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async uploadLogoDark(
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ): Promise<{ success: true; logoKey: string }> {
+    if (!file) {
+      throw new BadRequestException('Keine Datei');
+    }
+    if (file.mimetype && !ALLOWED_LOGO_MIME.includes(file.mimetype)) {
+      throw new BadRequestException('Nur Bilddateien (PNG, JPEG, WebP, SVG)');
+    }
+    const ext = (file.originalname.split('.').pop() ?? 'png').toLowerCase();
+    const logoKey = `${COMPANY_LOGO_DARK_KEY}.${ext}`;
+    const prev = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_DARK_SETTING },
+    });
+    if (prev?.value && prev.value !== logoKey) {
+      await this.storage.remove(prev.value).catch(() => undefined);
+    }
+    await this.storage.upload(logoKey, file.buffer, file.mimetype);
+    await this.prisma.appSetting.upsert({
+      where: { key: COMPANY_LOGO_DARK_SETTING },
+      update: { value: logoKey },
+      create: { key: COMPANY_LOGO_DARK_SETTING, value: logoKey },
+    });
+    return { success: true, logoKey };
+  }
+
+  @Get('logo-dark')
+  @ApiOperation({ summary: 'Dark-Mode-Firmenlogo-Key abrufen' })
+  async getLogoDarkKey(): Promise<{ logoKey: string | null }> {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_DARK_SETTING },
+    });
+    return { logoKey: setting?.value ?? null };
+  }
+
+  @Public()
+  @Roles()
+  @Get('logo-dark/file')
+  @ApiOperation({ summary: 'Dark-Mode-Firmenlogo als Datei-Stream' })
+  async getLogoDarkFile(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_DARK_SETTING },
+    });
+    if (!setting?.value) {
+      throw new NotFoundException('Kein Dark-Mode-Firmenlogo hinterlegt');
+    }
+    const key = setting.value;
+    const stream = await this.storage.getStream(key);
+    res.set({
+      'Content-Type': logoMimeFromKey(key),
       'Cache-Control': 'public, max-age=300',
     });
     return new StreamableFile(stream);

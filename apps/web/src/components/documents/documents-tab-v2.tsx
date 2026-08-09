@@ -98,6 +98,10 @@ export function DocumentsTabV2({
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_LIMIT = 25;
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFiles, setUploadFiles] = useState<File[] | undefined>(undefined);
@@ -119,6 +123,11 @@ export function DocumentsTabV2({
     return () => clearTimeout(id);
   }, [search]);
 
+  // Filterwechsel → erste Seite.
+  useEffect(() => {
+    setPage(1);
+  }, [folder, debounced, entityType, entityId]);
+
   const load = useCallback(() => {
     setLoading(true);
     documentsApi
@@ -127,7 +136,8 @@ export function DocumentsTabV2({
         entityId,
         folderId: folder !== ALL ? folder : undefined,
         search: debounced || undefined,
-        limit: 100,
+        page,
+        limit: PAGE_LIMIT,
       })
       .then((result) => {
         const data = result.data;
@@ -136,10 +146,16 @@ export function DocumentsTabV2({
         } else {
           setDocs(data);
         }
+        setTotal(result.total);
+        setTotalPages(result.totalPages);
       })
-      .catch(() => setDocs([]))
+      .catch(() => {
+        setDocs([]);
+        setTotal(0);
+        setTotalPages(1);
+      })
       .finally(() => setLoading(false));
-  }, [entityType, entityId, folder, debounced, excludeTypes]);
+  }, [entityType, entityId, folder, debounced, excludeTypes, page]);
 
   useEffect(() => {
     load();
@@ -441,6 +457,35 @@ export function DocumentsTabV2({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {total} {t.pagination.showing} · {t.pagination.page} {page}{' '}
+            {t.pagination.of} {totalPages}
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[44px]"
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              {t.pagination.prev}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="min-h-[44px]"
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            >
+              {t.pagination.next}
+            </Button>
+          </div>
         </div>
       )}
 

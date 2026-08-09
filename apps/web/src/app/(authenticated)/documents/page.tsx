@@ -44,6 +44,7 @@ import { formatDate, formatFileSize } from '@/lib/format';
 import { texts } from '@/lib/texts';
 
 const ALL = '__all__';
+const PAGE_LIMIT = 25;
 
 /** Detail-Pfad einer verknüpften Entität (sofern es eine eigene Seite gibt). */
 function entityHref(link: DocumentLink): string | null {
@@ -78,11 +79,18 @@ export default function DocumentsPage(): ReactNode {
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(search), 300);
     return () => clearTimeout(id);
   }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [debounced, docType, entityType, onlyExpiring]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -92,13 +100,28 @@ export default function DocumentsPage(): ReactNode {
           search: debounced || undefined,
           documentType: docType !== ALL ? docType : undefined,
           entityType: entityType !== ALL ? entityType : undefined,
-          limit: 100,
+          page,
+          limit: PAGE_LIMIT,
         });
     req
-      .then((result) => setDocs(Array.isArray(result) ? result : result.data))
-      .catch(() => setDocs([]))
+      .then((result) => {
+        if (Array.isArray(result)) {
+          setDocs(result);
+          setTotal(result.length);
+          setTotalPages(1);
+        } else {
+          setDocs(result.data);
+          setTotal(result.total);
+          setTotalPages(result.totalPages);
+        }
+      })
+      .catch(() => {
+        setDocs([]);
+        setTotal(0);
+        setTotalPages(1);
+      })
       .finally(() => setLoading(false));
-  }, [onlyExpiring, debounced, docType, entityType]);
+  }, [onlyExpiring, debounced, docType, entityType, page]);
 
   useEffect(() => {
     load();
@@ -170,6 +193,8 @@ export default function DocumentsPage(): ReactNode {
 
   const docTypeKeys = Object.keys(t.documentTypes);
   const entityKeys = Object.keys(t.entityTypes);
+  const showPagination = !onlyExpiring && totalPages > 1;
+  const resultCount = onlyExpiring ? filtered.length : total;
 
   return (
     <div>
@@ -239,7 +264,7 @@ export default function DocumentsPage(): ReactNode {
       ) : (
         <>
           <p className="mb-2 text-sm text-muted-foreground">
-            {filtered.length} {t.results}
+            {resultCount} {t.results}
           </p>
           <div className="divide-y rounded-lg border">
             {filtered.map((doc) => (
@@ -315,6 +340,35 @@ export default function DocumentsPage(): ReactNode {
               </div>
             ))}
           </div>
+
+          {showPagination && (
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
+                {total} {t.pagination.showing} · {t.pagination.page} {page}{' '}
+                {t.pagination.of} {totalPages}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[44px]"
+                  disabled={page <= 1}
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  {t.pagination.prev}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="min-h-[44px]"
+                  disabled={page >= totalPages}
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                >
+                  {t.pagination.next}
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
 
