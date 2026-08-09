@@ -1316,6 +1316,16 @@ async function seedWorkersModule(): Promise<void> {
   // ── Monteure (+ Sprachen + Zertifikate) ──────────────────────
   const workerIdByNumber = new Map<string, string>();
   for (const w of WORKERS) {
+    const existing = await prisma.worker.findUnique({
+      where: { workerNumber: w.workerNumber },
+      select: { id: true, deletedAt: true },
+    });
+    // Soft-gelöschte Demo-Monteure nicht reaktivieren (sonst Dashboard-Zähler falsch).
+    if (existing?.deletedAt) {
+      workerIdByNumber.set(w.workerNumber, existing.id);
+      continue;
+    }
+
     const data = {
       firstName: w.firstName,
       lastName: w.lastName,
@@ -1335,11 +1345,11 @@ async function seedWorkersModule(): Promise<void> {
       contractStart: yearsAgo(1),
       active: true,
     };
-    const worker = await prisma.worker.upsert({
-      where: { workerNumber: w.workerNumber },
-      update: data,
-      create: { workerNumber: w.workerNumber, ...data },
-    });
+    const worker = existing
+      ? await prisma.worker.update({ where: { id: existing.id }, data })
+      : await prisma.worker.create({
+          data: { workerNumber: w.workerNumber, ...data },
+        });
     workerIdByNumber.set(w.workerNumber, worker.id);
 
     for (const l of w.languages) {

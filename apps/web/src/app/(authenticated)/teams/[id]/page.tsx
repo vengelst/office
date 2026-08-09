@@ -61,10 +61,10 @@ export default function TeamDetailPage(): React.ReactNode {
   const [description, setDescription] = useState('');
   const [leaderId, setLeaderId] = useState<string>(NO_LEADER);
 
-  // Mitglied-hinzufügen-Dialog
+  // Mitglied-hinzufügen-Dialog (Mehrfachauswahl, kein Limit)
   const [addOpen, setAddOpen] = useState(false);
   const [allWorkers, setAllWorkers] = useState<WorkerListItem[]>([]);
-  const [newWorkerId, setNewWorkerId] = useState('');
+  const [selectedWorkerIds, setSelectedWorkerIds] = useState<string[]>([]);
   const [newRole, setNewRole] = useState('');
   const [addSaving, setAddSaving] = useState(false);
 
@@ -89,7 +89,7 @@ export default function TeamDetailPage(): React.ReactNode {
   useEffect(() => {
     if (!addOpen) return;
     workersApi
-      .list({ limit: 100 })
+      .list({ limit: 200 })
       .then((r) => setAllWorkers(r.data))
       .catch(() => setAllWorkers([]));
   }, [addOpen]);
@@ -116,27 +116,48 @@ export default function TeamDetailPage(): React.ReactNode {
       .finally(() => setSaving(false));
   };
 
-  const addMember = (): void => {
-    if (!newWorkerId) return;
+  const toggleWorker = (workerId: string): void => {
+    setSelectedWorkerIds((prev) =>
+      prev.includes(workerId)
+        ? prev.filter((x) => x !== workerId)
+        : [...prev, workerId],
+    );
+  };
+
+  const addMembers = (): void => {
+    if (selectedWorkerIds.length === 0) return;
     setAddSaving(true);
-    teamsApi
-      .addMember(id, {
-        workerId: newWorkerId,
-        role: newRole.trim() || undefined,
-      })
-      .then(() => {
-        toast({ description: t.toast.memberAdded });
+    const role = newRole.trim() || undefined;
+    Promise.allSettled(
+      selectedWorkerIds.map((workerId) =>
+        teamsApi.addMember(id, { workerId, role }),
+      ),
+    )
+      .then((results) => {
+        const ok = results.filter((r) => r.status === 'fulfilled').length;
+        const fail = results.length - ok;
+        if (ok > 0) {
+          toast({
+            description:
+              fail > 0
+                ? `${ok} hinzugefügt, ${fail} fehlgeschlagen.`
+                : t.toast.memberAdded,
+          });
+        } else {
+          const first = results.find((r) => r.status === 'rejected') as
+            | PromiseRejectedResult
+            | undefined;
+          const msg =
+            first?.reason instanceof ApiError
+              ? first.reason.message
+              : t.toast.error;
+          toast({ variant: 'destructive', description: msg });
+        }
         setAddOpen(false);
-        setNewWorkerId('');
+        setSelectedWorkerIds([]);
         setNewRole('');
         load();
       })
-      .catch((err) =>
-        toast({
-          variant: 'destructive',
-          description: err instanceof ApiError ? err.message : t.toast.error,
-        }),
-      )
       .finally(() => setAddSaving(false));
   };
 
@@ -320,32 +341,65 @@ export default function TeamDetailPage(): React.ReactNode {
         )}
       </section>
 
-      {/* Mitglied hinzufügen */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
+      {/* Mitglied hinzufügen (Mehrfachauswahl) */}
+      <Dialog
+        open={addOpen}
+        onOpenChange={(o) => {
+          setAddOpen(o);
+          if (!o) {
+            setSelectedWorkerIds([]);
+            setNewRole('');
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t.actions.addMember}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Field label={t.fields.worker} required>
-              <Select value={newWorkerId} onValueChange={setNewWorkerId}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue placeholder="–" />
-                </SelectTrigger>
-                <SelectContent>
-                  {selectableWorkers.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {workerFullName(w)} ({w.workerNumber})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {selectableWorkers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Keine weiteren aktiven Monteure verfügbar.
+                </p>
+              ) : (
+                <div className="max-h-64 space-y-1 overflow-y-auto rounded-md border p-2">
+                  {selectableWorkers.map((w) => {
+                    const checked = selectedWorkerIds.includes(w.id);
+                    return (
+                      <label
+                        key={w.id}
+                        className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-md px-2 hover:bg-muted/50"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          onChange={() => toggleWorker(w.id)}
+                        />
+                        <span className="text-sm">
+                          {workerFullName(w)}{' '}
+                          <span className="font-mono text-xs text-muted-foreground">
+                            ({w.workerNumber})
+                          </span>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+              {selectedWorkerIds.length > 0 && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {selectedWorkerIds.length} ausgewählt
+                </p>
+              )}
             </Field>
             <Field label={t.fields.role}>
               <Input
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
                 className="min-h-[44px]"
+                placeholder="Optional für alle Ausgewählten"
               />
             </Field>
           </div>
@@ -358,8 +412,8 @@ export default function TeamDetailPage(): React.ReactNode {
               {t.actions.cancel}
             </Button>
             <Button
-              onClick={addMember}
-              disabled={addSaving || !newWorkerId}
+              onClick={addMembers}
+              disabled={addSaving || selectedWorkerIds.length === 0}
               className="min-h-[44px]"
             >
               {addSaving ? t.actions.saving : t.actions.addMember}

@@ -21,7 +21,7 @@ export class DashboardService {
         where: { status: 'ACTIVE', deletedAt: null },
       }),
       this.prisma.worker.count({
-        where: { active: true },
+        where: { active: true, deletedAt: null },
       }),
       this.prisma.project.findMany({
         where: { status: 'ACTIVE', deletedAt: null },
