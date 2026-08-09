@@ -104,7 +104,8 @@ prisma/migrations/
 ├── 20260807040100_seed_role_customer_pl
 ├── 20260808140000_add_work_card_template
 ├── 20260809100000_add_user_pin
-└── 20260809120000_add_customer_pl_notification_email
+├── 20260809120000_add_customer_pl_notification_email
+└── 20260809190000_add_time_entry_client_event_id
 ```
 
 ---
