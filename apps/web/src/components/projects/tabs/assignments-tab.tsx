@@ -66,10 +66,14 @@ export function AssignmentsTab({
   projectId,
   assignments,
   onChange,
+  plannedStartDate,
+  plannedEndDate,
 }: {
   projectId: string;
   assignments: ProjectAssignment[];
   onChange: () => void;
+  plannedStartDate?: string | null;
+  plannedEndDate?: string | null;
 }): ReactNode {
   const { toast } = useToast();
   const t = texts.projects;
@@ -81,20 +85,27 @@ export function AssignmentsTab({
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY);
 
-  // Freie Monteure im gewählten Zeitraum laden (availableOnly).
+  const dateOnly = (iso?: string | null): string =>
+    iso ? iso.slice(0, 10) : '';
+
+  const localToday = (): string => {
+    const now = new Date();
+    return [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+  };
+
+  // Alle Monteure laden inkl. Frei/Belegt-Metadaten (nie leere Liste bei Bestand).
   useEffect(() => {
     if (!dialogOpen) return;
-    const params: {
-      from?: string;
-      to?: string;
-      availableOnly?: boolean;
-    } = { availableOnly: true };
+    const params: { from?: string; to?: string } = {};
     if (form.startDate) params.from = form.startDate;
     if (form.endDate) params.to = form.endDate;
     projectsApi
       .listWorkers(params)
       .then((list) => {
-        // Beim Bearbeiten den aktuellen Worker behalten, auch wenn belegt.
         if (
           editing &&
           !list.some((w) => w.id === editing.workerId) &&
@@ -106,6 +117,7 @@ export function AssignmentsTab({
               workerNumber: editing.worker.workerNumber,
               firstName: editing.worker.firstName,
               lastName: editing.worker.lastName,
+              available: true,
             },
             ...list,
           ]);
@@ -121,14 +133,11 @@ export function AssignmentsTab({
 
   const openCreate = (): void => {
     setEditing(null);
-    // Lokales Kalenderdatum (nicht UTC), sonst Vortag in DE nach Mitternacht.
-    const now = new Date();
-    const today = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, '0'),
-      String(now.getDate()).padStart(2, '0'),
-    ].join('-');
-    setForm({ ...EMPTY, startDate: today });
+    setForm({
+      ...EMPTY,
+      startDate: dateOnly(plannedStartDate) || localToday(),
+      endDate: dateOnly(plannedEndDate),
+    });
     setDialogOpen(true);
   };
 
@@ -346,15 +355,35 @@ export function AssignmentsTab({
                   <SelectValue placeholder="–" />
                 </SelectTrigger>
                 <SelectContent>
-                  {workers.map((w) => (
-                    <SelectItem key={w.id} value={w.id}>
-                      {workerName(w)} ({w.workerNumber})
+                  {workers.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      {t.empties.noFreeWorkers}
                     </SelectItem>
-                  ))}
+                  ) : (
+                    workers.map((w) => {
+                      const free = w.available !== false;
+                      const label = free
+                        ? `${workerName(w)} (${w.workerNumber})`
+                        : `${workerName(w)} (${w.workerNumber}) – belegt${
+                            w.blockingProjectTitle
+                              ? `: ${w.blockingProjectTitle}`
+                              : ''
+                          }`;
+                      return (
+                        <SelectItem
+                          key={w.id}
+                          value={w.id}
+                          disabled={!free && !editing}
+                        >
+                          {label}
+                        </SelectItem>
+                      );
+                    })
+                  )}
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Nur Monteure ohne Überlappung im gewählten Zeitraum.
+                {t.hints.workerAvailability}
               </p>
             </Field>
             <Field label={f.roleName}>

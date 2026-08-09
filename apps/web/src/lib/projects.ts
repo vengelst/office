@@ -209,6 +209,9 @@ export interface ProjectWorkerOption {
   workerNumber: string;
   firstName: string;
   lastName: string;
+  availability?: string;
+  available?: boolean;
+  blockingProjectTitle?: string | null;
 }
 
 // ── Query-Parameter ────────────────────────────────────────────

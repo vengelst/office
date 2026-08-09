@@ -541,6 +541,11 @@ export const texts = {
       documents: 'Noch keine Dokumente.',
       statusHistory: 'Noch keine Statusänderungen.',
       addNow: 'Jetzt anlegen →',
+      noFreeWorkers: 'Keine Monteure vorhanden.',
+    },
+    hints: {
+      workerAvailability:
+        'Freie Monteure zuerst. Belegte Einträge sind gesperrt, bis die andere Zuweisung endet.',
     },
     statusHistory: 'Status-Verlauf',
     activeAssignments: 'Aktive Zuordnungen',

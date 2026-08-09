@@ -292,6 +292,8 @@ export default function ProjectDetailPage(): React.ReactNode {
           <AssignmentsTab
             projectId={id}
             assignments={project.assignments}
+            plannedStartDate={project.plannedStartDate}
+            plannedEndDate={project.plannedEndDate}
             onChange={load}
           />
         </TabsContent>

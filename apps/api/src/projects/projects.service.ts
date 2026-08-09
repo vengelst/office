@@ -766,49 +766,72 @@ export class ProjectsService {
 
   /**
    * Aktive Monteure für die Zuordnungs-Auswahl.
-   * Mit availableOnly + from/to: nur Monteure ohne überlappende aktive Assignment.
+   * Liefert immer Availability-Metadaten; availableOnly filtert auf freie.
    */
   async listWorkers(params?: {
     from?: string;
     to?: string;
     availableOnly?: boolean;
   }) {
-    const where: Prisma.WorkerWhereInput = {
-      active: true,
-      deletedAt: null,
-    };
+    const fromDate = params?.from
+      ? new Date(params.from.slice(0, 10) + 'T00:00:00.000Z')
+      : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+    const toDate = params?.to
+      ? new Date(params.to.slice(0, 10) + 'T23:59:59.999Z')
+      : new Date('9999-12-31T23:59:59.999Z');
 
-    if (params?.availableOnly) {
-      // Date-only Grenzen (UTC-Mitternacht), konsistent mit Assignment-Daten.
-      const fromDate = params.from
-        ? new Date(params.from.slice(0, 10) + 'T00:00:00.000Z')
-        : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
-      const toDate = params.to
-        ? new Date(params.to.slice(0, 10) + 'T23:59:59.999Z')
-        : new Date('9999-12-31T23:59:59.999Z');
-      where.availability = {
-        notIn: [
-          WorkerAvailability.SICK,
-          WorkerAvailability.VACATION,
-          WorkerAvailability.UNAVAILABLE,
-        ],
-      };
-      where.NOT = {
+    const workers = await this.prisma.worker.findMany({
+      where: { active: true, deletedAt: null },
+      select: {
+        id: true,
+        workerNumber: true,
+        firstName: true,
+        lastName: true,
+        availability: true,
         assignments: {
-          some: {
+          where: {
             active: true,
             startDate: { lte: toDate },
             OR: [{ endDate: null }, { endDate: { gte: fromDate } }],
           },
+          take: 1,
+          orderBy: { startDate: 'desc' },
+          select: {
+            project: { select: { title: true } },
+          },
         },
-      };
-    }
-
-    return this.prisma.worker.findMany({
-      where,
-      select: { id: true, workerNumber: true, firstName: true, lastName: true },
+      },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
+
+    const blockedStatuses: WorkerAvailability[] = [
+      WorkerAvailability.SICK,
+      WorkerAvailability.VACATION,
+      WorkerAvailability.UNAVAILABLE,
+    ];
+
+    const mapped = workers.map((w) => {
+      const blocking = w.assignments[0]?.project.title ?? null;
+      const statusBlocked = blockedStatuses.includes(w.availability);
+      const available = !statusBlocked && !blocking;
+      return {
+        id: w.id,
+        workerNumber: w.workerNumber,
+        firstName: w.firstName,
+        lastName: w.lastName,
+        availability: w.availability,
+        available,
+        blockingProjectTitle: blocking,
+      };
+    });
+
+    // Freie zuerst, dann alphabetisch (bereits sortiert).
+    mapped.sort((a, b) => Number(b.available) - Number(a.available));
+
+    if (params?.availableOnly) {
+      return mapped.filter((w) => w.available);
+    }
+    return mapped;
   }
 
   // ── Hilfsfunktionen ──────────────────────────────────────────
