@@ -175,7 +175,7 @@ export class VehiclesService {
         subcontractor: { select: { id: true, name: true, city: true } },
         assignments: {
           include: { worker: { select: WORKER_SELECT } },
-          orderBy: [{ assignedTo: 'asc' }, { assignedFrom: 'desc' }],
+          orderBy: [{ assignedFrom: 'desc' }],
         },
       },
     });

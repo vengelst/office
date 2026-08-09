@@ -2159,11 +2159,13 @@ export const texts = {
     },
     assignment: {
       assignTitle: 'Monteur zuweisen',
+      reassignTitle: 'Anderen Monteur zuweisen',
       assignAction: 'Monteur zuweisen',
+      reassignAction: 'Umbesetzen',
       unassignAction: 'Zuweisung beenden',
       unassignTitle: 'Zuweisung beenden?',
       unassignConfirm:
-        'Die aktuelle Zuweisung wird beendet. Fortfahren?',
+        'Die aktuelle Zuweisung wird beendet. Die Historie bleibt erhalten. Fortfahren?',
       since: 'seit',
       notAssigned: 'Aktuell keinem Monteur zugewiesen.',
       noHistory: 'Noch keine vergangenen Zuweisungen.',

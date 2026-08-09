@@ -238,7 +238,7 @@ export default function VehicleDetailPage(): React.ReactNode {
           <VehicleAssignmentsTab
             vehicle={vehicle}
             workers={workers}
-            onChange={load}
+            onVehicleChange={setVehicle}
           />
         </TabsContent>
 

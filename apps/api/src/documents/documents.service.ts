@@ -556,6 +556,11 @@ export class DocumentsService {
     if (!doc) {
       throw new NotFoundException('Dokument nicht gefunden');
     }
+    // Versionenkette: Nachfolger dürfen nicht mehr auf diese ID zeigen.
+    await this.prisma.document.updateMany({
+      where: { replacesId: id },
+      data: { replacesId: null },
+    });
     await this.storage.remove(doc.storageKey).catch(() => undefined);
     if (doc.thumbnailKey) {
       await this.storage.remove(doc.thumbnailKey).catch(() => undefined);

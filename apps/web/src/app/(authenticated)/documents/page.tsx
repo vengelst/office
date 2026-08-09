@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ExternalLink, Search } from 'lucide-react';
+import { ExternalLink, Search, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,8 @@ import {
   VersionBadge,
 } from '@/components/documents/document-visuals';
 import { DocumentLightbox } from '@/components/documents/document-lightbox';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { useToast } from '@/components/ui/use-toast';
 import {
   documentsApi,
   isImage,
@@ -30,6 +32,7 @@ import {
   type DocumentLink,
 } from '@/lib/documents';
 import { downloadDocument } from '@/lib/upload';
+import { ApiError } from '@/lib/api-client';
 import { formatDate, formatFileSize } from '@/lib/format';
 import { texts } from '@/lib/texts';
 
@@ -57,6 +60,7 @@ function entityHref(link: DocumentLink): string | null {
 
 export default function DocumentsPage(): ReactNode {
   const t = texts.documents;
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [docType, setDocType] = useState<string>(ALL);
@@ -65,6 +69,7 @@ export default function DocumentsPage(): ReactNode {
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
     const id = setTimeout(() => setDebounced(search), 300);
@@ -123,6 +128,23 @@ export default function DocumentsPage(): ReactNode {
     } else {
       downloadDocument(doc.id);
     }
+  };
+
+  const confirmDelete = (): void => {
+    if (!deleteId) return;
+    documentsApi
+      .remove(deleteId)
+      .then(() => {
+        toast({ description: t.toast.deleted });
+        setDeleteId(null);
+        load();
+      })
+      .catch((err) =>
+        toast({
+          variant: 'destructive',
+          description: err instanceof ApiError ? err.message : t.toast.error,
+        }),
+      );
   };
 
   const docTypeKeys = Object.keys(t.documentTypes);
@@ -251,6 +273,15 @@ export default function DocumentsPage(): ReactNode {
                     );
                   })}
                 </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 shrink-0 text-destructive"
+                  aria-label={t.delete}
+                  onClick={() => setDeleteId(doc.id)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
               </div>
             ))}
           </div>
@@ -265,6 +296,16 @@ export default function DocumentsPage(): ReactNode {
           onClose={() => setLightbox(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteId !== null}
+        onOpenChange={(o) => !o && setDeleteId(null)}
+        title={t.deleteTitle}
+        description={t.deleteConfirm}
+        confirmLabel={t.delete}
+        variant="destructive"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }

@@ -207,7 +207,12 @@ export function DocumentsTabV2({
         toast({ description: t.toast.deleted });
         load();
       })
-      .catch(() => toast({ variant: 'destructive', description: t.toast.error }))
+      .catch((err) =>
+        toast({
+          variant: 'destructive',
+          description: err instanceof ApiError ? err.message : t.toast.error,
+        }),
+      )
       .finally(() => setDeleteId(null));
   };
 
@@ -570,13 +575,27 @@ function GridCard({
           <p className="min-w-0 flex-1 truncate text-xs font-medium" title={doc.originalFilename}>
             {doc.title || doc.originalFilename}
           </p>
-          <ActionsMenu
-            onDownload={onDownload}
-            onReplace={onReplace}
-            onVersions={onVersions}
-            onDelete={onDelete}
-            showVersions={doc.version > 1}
-          />
+          <div className="flex shrink-0 items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 text-destructive"
+              aria-label={texts.documents.delete}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <ActionsMenu
+              onDownload={onDownload}
+              onReplace={onReplace}
+              onVersions={onVersions}
+              onDelete={onDelete}
+              showVersions={doc.version > 1}
+            />
+          </div>
         </div>
         <div className="flex flex-wrap gap-1">
           <Badge variant="outline" className="shrink-0 text-[10px]">
@@ -632,6 +651,18 @@ function ListRow({
       <div className="flex shrink-0 items-center gap-1">
         <VersionBadge version={doc.version} />
         <ExpiryBadge expiryDate={doc.expiryDate} />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-11 w-11 text-destructive"
+          aria-label={texts.documents.delete}
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
         <ActionsMenu
           onDownload={onDownload}
           onReplace={onReplace}

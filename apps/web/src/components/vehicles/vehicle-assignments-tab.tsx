@@ -46,11 +46,12 @@ import { texts } from '@/lib/texts';
 export function VehicleAssignmentsTab({
   vehicle,
   workers,
-  onChange,
+  onVehicleChange,
 }: {
   vehicle: VehicleDetail;
   workers: VehicleWorker[];
-  onChange: () => void;
+  /** Frisches VehicleDetail nach Assign/Unassign (kein zweiter GET nötig). */
+  onVehicleChange: (vehicle: VehicleDetail) => void;
 }): ReactNode {
   const { toast } = useToast();
   const t = texts.vehicles;
@@ -76,10 +77,10 @@ export function VehicleAssignmentsTab({
     setSaving(true);
     vehiclesApi
       .assign(vehicle.id, { workerId, notes: notes.trim() || undefined })
-      .then(() => {
+      .then((updated) => {
         toast({ description: t.toast.assigned });
         setDialogOpen(false);
-        onChange();
+        onVehicleChange(updated);
       })
       .catch((err) =>
         toast({
@@ -93,9 +94,9 @@ export function VehicleAssignmentsTab({
   const unassign = (): void => {
     vehiclesApi
       .unassign(vehicle.id)
-      .then(() => {
+      .then((updated) => {
         toast({ description: t.toast.unassigned });
-        onChange();
+        onVehicleChange(updated);
       })
       .catch((err) =>
         toast({
@@ -115,9 +116,21 @@ export function VehicleAssignmentsTab({
     <div className="space-y-8">
       {/* Aktuelle Zuweisung */}
       <section className="space-y-3">
-        <h3 className="text-sm font-semibold text-muted-foreground">
-          {t.sections.currentAssignment}
-        </h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            {t.sections.currentAssignment}
+          </h3>
+          {current && (
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={openAssign}
+            >
+              <Plus className="h-4 w-4" />
+              {a.reassignAction}
+            </Button>
+          )}
+        </div>
         {current ? (
           <Card>
             <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
@@ -238,7 +251,9 @@ export function VehicleAssignmentsTab({
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{a.assignTitle}</DialogTitle>
+            <DialogTitle>
+              {current ? a.reassignTitle : a.assignTitle}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <Field label={f.worker} required>
