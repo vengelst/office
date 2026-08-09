@@ -15,7 +15,7 @@ Umsetzung geplant (Reihenfolge flexibel):
 1. ~~APK persistent (Volume-Mount)~~ → erledigt
 2. ~~Kunden-PL Item-Board am `/kiosk/pl`~~ → erledigt (#11)
 3. ~~PDF-Import Feinschliff~~ → erledigt (#12)
-4. Offline-Stempeln → Spec #13 → **in Umsetzung**
+4. ~~Offline-Stempeln~~ → erledigt (#13)
 5. Danach: Mobile Push/Biometrie/Branding (#9) → Reporting (#10)
 
 ### [2026-08-08] – Abrechnung aus geprüften Arbeitsitems (UNIT_BASED)
