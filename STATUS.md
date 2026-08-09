@@ -217,6 +217,12 @@ office/
 1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
 2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
 
+### Kunden-PL am Kiosk (08.08./09.08.2026)
+- PIN setzen am Projekt (Arbeitsitems → Kunden-PL)
+- Kiosk-Setup Modus **Kunden-PL** → `/kiosk/pl`
+- Eingereichte Wochenzettel sehen, digital unterschreiben & abzeichnen
+- Kein Office-App-Zugang nötig
+
 ### 📱 Mobile App – Nächste Schritte
 - **Push-Notifications** – z.B. für Erinnerungen, Projektänderungen
 - **Biometrische Authentifizierung** (optional, Fingerprint)
