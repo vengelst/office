@@ -60,7 +60,8 @@
 4. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 5. ~~**Kunden-PL Kiosk Item-Board**~~ – erledigt (#11, live)
 6. ~~**PDF-Import Feinschliff**~~ – erledigt (#12, Chunked OCR + Zone-Editor + 50 MB)
-7. **Danach:** Offline-Stempeln · Mobile Push/Biometrie/Branding · Reporting/Charts
+7. **Offline-Stempeln** – Spec #13 → in Umsetzung (Cloud)
+8. **Danach:** Mobile Push/Biometrie/Branding · Reporting/Charts
 
 ### Mittlere Priorität
 
@@ -149,6 +150,7 @@ claude-arbeitsitems-09-kiosk-pl-timesheets.md – erledigt (Kiosk-PIN)
 claude-arbeitsitems-10-pl-timesheet-email.md – erledigt (Zustell-E-Mail + PDF-Mail)
 claude-arbeitsitems-11-kiosk-pl-item-board.md – erledigt (Item-Board am /kiosk/pl)
 claude-arbeitsitems-12-pdf-import-feinschliff.md – erledigt (Chunked OCR, Zones, 50 MB)
+claude-arbeitsitems-13-offline-stempeln.md – in Umsetzung (PWA/Kiosk Clock-Queue)
 ```
 
 ---
