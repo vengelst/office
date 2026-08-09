@@ -13,11 +13,9 @@ Sammlung von Ideen, die später umgesetzt oder geprüft werden sollen.
 Umsetzung geplant (Reihenfolge flexibel):
 
 1. ~~APK persistent (Volume-Mount)~~ → erledigt (Bind-Mount)
-2. Kunden-PL Item-Board am `/kiosk/pl` → Spec Auftrag #11
-3. PDF-Import Feinschliff (Zone-Editor, Progress)
-4. Offline-Stempeln (PWA/Kiosk)
-5. Mobile: Push, Biometrie, Branding
-6. Reporting / Charts
+2. Kunden-PL Item-Board am `/kiosk/pl` → Spec #11 → **in Umsetzung**
+3. PDF-Import Feinschliff → Spec #12
+4. Danach: Offline-Stempeln (#6) → Mobile Push/Biometrie/Branding (#9) → Reporting (#10)
 
 ### [2026-08-08] – Abrechnung aus geprüften Arbeitsitems (UNIT_BASED)
 

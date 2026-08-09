@@ -58,20 +58,22 @@
 2. ~~**APK persistent machen**~~ – Bind-Mount `/opt/office/data/kiosk.apk` → Web `public/kiosk.apk`
 3. **PDF-Import Feinschliff** – Minimal-Modus + Templates/OCR live; optional Zone-Editor, Progress bei sehr großen PDFs
 4. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
-5. **Kunden-PL Kiosk Item-Board** – Spec: `claude-auftraege/claude-arbeitsitems-11-kiosk-pl-item-board.md`
-6. **Offline-Stempeln** · **Mobile Push/Biometrie/Branding** · **Reporting/Charts** – geplant
+5. **Kunden-PL Kiosk Item-Board** – Spec #11 → in Umsetzung (Cloud)
+6. **PDF-Import Feinschliff** – Spec #12 (`claude-arbeitsitems-12-pdf-import-feinschliff.md`)
+7. **Danach:** Offline-Stempeln · Mobile Push/Biometrie/Branding · Reporting/Charts
 
 ### Mittlere Priorität
 
-7. **DATEV-Export** – geplant, noch nicht implementiert
-8. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
-9. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
+8. **DATEV-Export** – geplant, noch nicht implementiert
+9. **Rechnungsvorlage** – eigene PDF-Vorlage hochladen
+10. **Große Dateien aufteilen** – u. a. `invoices.service.ts`, `contacts-tab.tsx`, `timesheets/[id]/page.tsx`
 
 ### Niedrige Priorität / bewusst zurückgestellt
 
-10. **Mahnwesen** – bewusst kein Mahnwesen
-11. **Fahrtenbuch / Tankkosten / Schäden** – Fahrzeug-Erweiterungen später
-12. **Nacht-/Wochenend-Zuschläge** – bewusst keine Zuschläge
+11. **Mahnwesen** – bewusst kein Mahnwesen
+12. **Fahrtenbuch / Tankkosten / Schäden** – Fahrzeug-Erweiterungen später
+13. **Nacht-/Wochenend-Zuschläge** – bewusst keine Zuschläge
+14. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` noch nicht verdrahtet
 
 ---
 
@@ -145,7 +147,8 @@ claude-fundament.md … claude-documents.md, drive-ordnerstruktur.md
 claude-arbeitsitems-01 … 08 (PDF/Templates/OCR) – erledigt
 claude-arbeitsitems-09-kiosk-pl-timesheets.md – erledigt (Kiosk-PIN)
 claude-arbeitsitems-10-pl-timesheet-email.md – erledigt (Zustell-E-Mail + PDF-Mail)
-claude-arbeitsitems-11-kiosk-pl-item-board.md – offen (Item-Board am /kiosk/pl)
+claude-arbeitsitems-11-kiosk-pl-item-board.md – in Umsetzung (Item-Board am /kiosk/pl)
+claude-arbeitsitems-12-pdf-import-feinschliff.md – Spec bereit (danach)
 ```
 
 ---
