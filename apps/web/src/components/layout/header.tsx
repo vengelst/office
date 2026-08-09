@@ -50,12 +50,14 @@ export function Header(): React.ReactNode {
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" className="w-64 p-0">
-            <SheetHeader className="flex h-16 flex-row items-center gap-2 border-b px-6 text-left">
+          <SheetContent side="left" className="flex w-64 flex-col gap-0 overflow-hidden p-0">
+            <SheetHeader className="flex h-16 shrink-0 flex-row items-center gap-2 border-b px-6 text-left">
               <Building2 className="h-6 w-6 text-primary" />
               <SheetTitle>{texts.app.name}</SheetTitle>
             </SheetHeader>
-            <SidebarNav onNavigate={() => setMobileOpen(false)} />
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <SidebarNav onNavigate={() => setMobileOpen(false)} />
+            </div>
           </SheetContent>
         </Sheet>
       </div>
