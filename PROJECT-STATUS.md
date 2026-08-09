@@ -59,7 +59,7 @@
 3. **PDF-Import Feinschliff** – Minimal-Modus + Templates/OCR live; optional Zone-Editor, Progress bei sehr großen PDFs
 4. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 5. ~~**Kunden-PL Kiosk Item-Board**~~ – erledigt (#11, live)
-6. **PDF-Import Feinschliff** – Spec #12 → als Nächstes (Cloud)
+6. ~~**PDF-Import Feinschliff**~~ – erledigt (#12, Chunked OCR + Zone-Editor + 50 MB)
 7. **Danach:** Offline-Stempeln · Mobile Push/Biometrie/Branding · Reporting/Charts
 
 ### Mittlere Priorität
@@ -148,7 +148,7 @@ claude-arbeitsitems-01 … 08 (PDF/Templates/OCR) – erledigt
 claude-arbeitsitems-09-kiosk-pl-timesheets.md – erledigt (Kiosk-PIN)
 claude-arbeitsitems-10-pl-timesheet-email.md – erledigt (Zustell-E-Mail + PDF-Mail)
 claude-arbeitsitems-11-kiosk-pl-item-board.md – erledigt (Item-Board am /kiosk/pl)
-claude-arbeitsitems-12-pdf-import-feinschliff.md – Spec bereit (nächster Cloud-Auftrag)
+claude-arbeitsitems-12-pdf-import-feinschliff.md – erledigt (Chunked OCR, Zones, 50 MB)
 ```
 
 ---
