@@ -58,8 +58,8 @@
 2. ~~**APK persistent machen**~~ – Bind-Mount `/opt/office/data/kiosk.apk` → Web `public/kiosk.apk`
 3. **PDF-Import Feinschliff** – Minimal-Modus + Templates/OCR live; optional Zone-Editor, Progress bei sehr großen PDFs
 4. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
-5. **Kunden-PL Kiosk Item-Board** – Spec #11 → in Umsetzung (Cloud)
-6. **PDF-Import Feinschliff** – Spec #12 (`claude-arbeitsitems-12-pdf-import-feinschliff.md`)
+5. ~~**Kunden-PL Kiosk Item-Board**~~ – erledigt (#11, live)
+6. **PDF-Import Feinschliff** – Spec #12 → als Nächstes (Cloud)
 7. **Danach:** Offline-Stempeln · Mobile Push/Biometrie/Branding · Reporting/Charts
 
 ### Mittlere Priorität
@@ -147,8 +147,8 @@ claude-fundament.md … claude-documents.md, drive-ordnerstruktur.md
 claude-arbeitsitems-01 … 08 (PDF/Templates/OCR) – erledigt
 claude-arbeitsitems-09-kiosk-pl-timesheets.md – erledigt (Kiosk-PIN)
 claude-arbeitsitems-10-pl-timesheet-email.md – erledigt (Zustell-E-Mail + PDF-Mail)
-claude-arbeitsitems-11-kiosk-pl-item-board.md – in Umsetzung (Item-Board am /kiosk/pl)
-claude-arbeitsitems-12-pdf-import-feinschliff.md – Spec bereit (danach)
+claude-arbeitsitems-11-kiosk-pl-item-board.md – erledigt (Item-Board am /kiosk/pl)
+claude-arbeitsitems-12-pdf-import-feinschliff.md – Spec bereit (nächster Cloud-Auftrag)
 ```
 
 ---
