@@ -608,17 +608,15 @@ export class ProjectsService {
       },
     });
 
-    // Verfügbarkeit synchronisieren: Ende → AVAILABLE, Start → ON_PROJECT.
-    if (dto.active === false && current.active) {
-      await this.setWorkerAvailability(
-        current.workerId,
-        WorkerAvailability.AVAILABLE,
-      );
-    } else if (dto.active === true && !current.active) {
+    // Verfügbarkeit: Reaktivierung → ON_PROJECT; Deaktivierung nur AVAILABLE
+    // wenn keine andere aktive Zuweisung mehr existiert.
+    if (dto.active === true && !current.active) {
       await this.setWorkerAvailability(
         targetWorkerId,
         WorkerAvailability.ON_PROJECT,
       );
+    } else if (dto.active === false && current.active) {
+      await this.syncAvailabilityAfterActiveLoss(current.workerId, id);
     }
     return updated;
   }
@@ -633,12 +631,9 @@ export class ProjectsService {
       throw new NotFoundException('Zuordnung nicht gefunden');
     }
     await this.prisma.projectAssignment.delete({ where: { id } });
-    // War die Zuweisung aktiv, Monteur wieder verfügbar machen.
+    // Nur AVAILABLE, wenn keine weitere aktive Zuweisung bleibt.
     if (current.active) {
-      await this.setWorkerAvailability(
-        current.workerId,
-        WorkerAvailability.AVAILABLE,
-      );
+      await this.syncAvailabilityAfterActiveLoss(current.workerId);
     }
     return { id, deleted: true };
   }
@@ -680,6 +675,29 @@ export class ProjectsService {
     await this.prisma.worker
       .update({ where: { id: workerId }, data: { availability } })
       .catch(() => undefined);
+  }
+
+  /**
+   * Nach Ende/Löschen einer aktiven Zuweisung: AVAILABLE nur wenn
+   * keine andere aktive Assignment mehr existiert (sonst ON_PROJECT).
+   */
+  private async syncAvailabilityAfterActiveLoss(
+    workerId: string,
+    exceptAssignmentId?: string,
+  ): Promise<void> {
+    const remaining = await this.prisma.projectAssignment.count({
+      where: {
+        workerId,
+        active: true,
+        id: exceptAssignmentId ? { not: exceptAssignmentId } : undefined,
+      },
+    });
+    await this.setWorkerAvailability(
+      workerId,
+      remaining > 0
+        ? WorkerAvailability.ON_PROJECT
+        : WorkerAvailability.AVAILABLE,
+    );
   }
 
   // ── Kalender / Timeline ──────────────────────────────────────
@@ -761,10 +779,20 @@ export class ProjectsService {
     };
 
     if (params?.availableOnly) {
-      const fromDate = params.from ? new Date(params.from) : new Date();
+      // Date-only Grenzen (UTC-Mitternacht), konsistent mit Assignment-Daten.
+      const fromDate = params.from
+        ? new Date(params.from.slice(0, 10) + 'T00:00:00.000Z')
+        : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
       const toDate = params.to
-        ? new Date(params.to)
-        : new Date('9999-12-31');
+        ? new Date(params.to.slice(0, 10) + 'T23:59:59.999Z')
+        : new Date('9999-12-31T23:59:59.999Z');
+      where.availability = {
+        notIn: [
+          WorkerAvailability.SICK,
+          WorkerAvailability.VACATION,
+          WorkerAvailability.UNAVAILABLE,
+        ],
+      };
       where.NOT = {
         assignments: {
           some: {

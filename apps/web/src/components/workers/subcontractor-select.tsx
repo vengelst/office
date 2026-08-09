@@ -58,15 +58,21 @@ export function SubcontractorSelect({
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
 
-  const load = useCallback(() => {
-    subcontractorsApi
+  const load = useCallback((): Promise<SubcontractorListItem[]> => {
+    return subcontractorsApi
       .list({ active: true, limit: 100 })
-      .then((r) => setSubs(r.data))
-      .catch(() => setSubs([]));
+      .then((r) => {
+        setSubs(r.data);
+        return r.data;
+      })
+      .catch(() => {
+        setSubs([]);
+        return [] as SubcontractorListItem[];
+      });
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
 
   const openCreate = (): void => {
@@ -87,11 +93,31 @@ export function SubcontractorSelect({
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
       })
-      .then((created) => {
+      .then(async (created) => {
         toast({ description: t.toast.created });
         setDialogOpen(false);
-        load();
+        // Optimistic: Option sofort in Liste, dann Refresh – sonst leerer Select.
+        setSubs((prev) =>
+          prev.some((s) => s.id === created.id)
+            ? prev
+            : [
+                {
+                  id: created.id,
+                  name: created.name,
+                  subcontractorType: created.subcontractorType,
+                  contactPerson: created.contactPerson,
+                  email: created.email,
+                  phone: created.phone,
+                  city: created.city,
+                  country: created.country,
+                  active: created.active,
+                  _count: { workers: 0 },
+                },
+                ...prev,
+              ],
+        );
         onChange(created.id);
+        await load();
       })
       .catch((err) =>
         toast({
