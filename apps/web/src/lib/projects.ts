@@ -254,6 +254,8 @@ export const projectsApi = {
   update: (id: string, body: unknown) =>
     apiClient.patch<ProjectDetail>(`/projects/${id}`, body),
   remove: (id: string) => apiClient.delete<unknown>(`/projects/${id}`),
+  bulkRemove: (ids: string[]) =>
+    apiClient.post<{ deleted: number; failed: number }>('/projects/bulk-delete', { ids }),
 
   // Status-Workflow
   changeStatus: (id: string, body: { status: ProjectStatus; comment?: string }) =>

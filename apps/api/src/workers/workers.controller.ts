@@ -23,6 +23,7 @@ import {
 import { RoleCode } from '@prisma/client';
 import type { Response } from 'express';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { WorkersService, MAX_PHOTO_SIZE } from './workers.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
@@ -105,6 +106,13 @@ export class WorkersController {
   @ApiOperation({ summary: 'Monteur bearbeiten' })
   update(@Param('id') id: string, @Body() dto: UpdateWorkerDto) {
     return this.workers.update(id, dto);
+  }
+
+
+  @Post('bulk-delete')
+  @ApiOperation({ summary: 'Mehrfach löschen' })
+  bulkRemove(@Body() dto: BulkDeleteDto) {
+    return this.workers.bulkRemove(dto.ids);
   }
 
   @Delete(':id')

@@ -194,6 +194,8 @@ export const customersApi = {
    * @param id - Kunden-ID
    */
   remove: (id: string) => apiClient.delete<unknown>(`/customers/${id}`),
+  bulkRemove: (ids: string[]) =>
+    apiClient.post<{ deleted: number; failed: number }>('/customers/bulk-delete', { ids }),
 
   // Branches
   /**

@@ -14,6 +14,7 @@ import { RoleCode, TodoEntityType, TodoPriority, TodoStatus } from '@prisma/clie
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { TodosService } from './todos.service';
 import { CreateTodoDto } from './dto/create-todo.dto';
@@ -95,6 +96,13 @@ export class TodosController {
   @ApiOperation({ summary: 'Aufgaben-Status ändern (schnelles Abhaken)' })
   updateStatus(@Param('id') id: string, @Body() dto: UpdateTodoStatusDto) {
     return this.todos.updateStatus(id, dto.status);
+  }
+
+
+  @Post('bulk-delete')
+  @ApiOperation({ summary: 'Mehrfach löschen' })
+  bulkRemove(@Body() dto: BulkDeleteDto) {
+    return this.todos.bulkRemove(dto.ids);
   }
 
   @Delete(':id')

@@ -396,6 +396,8 @@ export const workersApi = {
    * @param id - Monteur-ID
    */
   remove: (id: string) => apiClient.delete<unknown>(`/workers/${id}`),
+  bulkRemove: (ids: string[]) =>
+    apiClient.post<{ deleted: number; failed: number }>('/workers/bulk-delete', { ids }),
 
   /**
    * GET /workers/expiring-documents – Monteure mit bald ablaufenden Dokumenten.
@@ -536,6 +538,8 @@ export const subcontractorsApi = {
    * @param id - Subunternehmer-ID
    */
   remove: (id: string) => apiClient.delete<unknown>(`/subcontractors/${id}`),
+  bulkRemove: (ids: string[]) =>
+    apiClient.post<{ deleted: number; failed: number }>('/subcontractors/bulk-delete', { ids }),
 
   listContacts: (id: string) =>
     apiClient.get<SubcontractorContact[]>(`/subcontractors/${id}/contacts`),

@@ -42,7 +42,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
 import { useToast } from '@/components/ui/use-toast';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
 import { UploadDialog } from '@/components/documents/upload-dialog';
 import { DocumentLightbox } from '@/components/documents/document-lightbox';
 import {
@@ -96,6 +98,7 @@ export function DocumentsTabV2({
   const [uploadFiles, setUploadFiles] = useState<File[] | undefined>(undefined);
   const [dragActive, setDragActive] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const [versionsDoc, setVersionsDoc] = useState<DocumentDetail | null>(null);
   const [newFolderOpen, setNewFolderOpen] = useState(false);
@@ -148,6 +151,23 @@ export function DocumentsTabV2({
   }, [entityType, entityId]);
 
   const imageDocs = useMemo(() => docs.filter((d) => isImage(d.mimeType)), [docs]);
+  const bulk = useBulkSelection(docs.map((d) => d.id));
+
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await documentsApi.bulkRemove(bulk.selectedIds);
+      toast({
+        description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.`,
+      });
+      bulk.clear();
+      load();
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : t.toast.error,
+      });
+    }
+  };
 
   const openUpload = (files?: File[]): void => {
     setUploadFiles(files);
@@ -354,6 +374,11 @@ export function DocumentsTabV2({
       </div>
 
       {/* Inhalt */}
+      <BulkActionBar
+        count={bulk.count}
+        onDelete={() => setBulkOpen(true)}
+        deleteLabel={t.delete}
+      />
       {loading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -365,31 +390,49 @@ export function DocumentsTabV2({
       ) : view === 'grid' ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {docs.map((doc) => (
-            <GridCard
-              key={doc.id}
-              doc={doc}
-              typeLabel={typeLabel(doc.documentType)}
-              onOpen={() => onItemClick(doc)}
-              onDownload={() => downloadDocument(doc.id)}
-              onReplace={() => triggerReplace(doc.id)}
-              onVersions={() => openVersions(doc.id)}
-              onDelete={() => setDeleteId(doc.id)}
-            />
+            <div key={doc.id} className="relative">
+              <label className="absolute left-2 top-2 z-10 rounded bg-background/80 p-1">
+                <input
+                  type="checkbox"
+                  checked={bulk.isSelected(doc.id)}
+                  onChange={() => bulk.toggle(doc.id)}
+                  className="h-4 w-4"
+                />
+              </label>
+              <GridCard
+                doc={doc}
+                typeLabel={typeLabel(doc.documentType)}
+                onOpen={() => onItemClick(doc)}
+                onDownload={() => downloadDocument(doc.id)}
+                onReplace={() => triggerReplace(doc.id)}
+                onVersions={() => openVersions(doc.id)}
+                onDelete={() => setDeleteId(doc.id)}
+              />
+            </div>
           ))}
         </div>
       ) : (
         <div className="divide-y rounded-lg border">
           {docs.map((doc) => (
-            <ListRow
-              key={doc.id}
-              doc={doc}
-              typeLabel={typeLabel(doc.documentType)}
-              onOpen={() => onItemClick(doc)}
-              onDownload={() => downloadDocument(doc.id)}
-              onReplace={() => triggerReplace(doc.id)}
-              onVersions={() => openVersions(doc.id)}
-              onDelete={() => setDeleteId(doc.id)}
-            />
+            <div key={doc.id} className="flex items-center gap-2 px-2">
+              <input
+                type="checkbox"
+                checked={bulk.isSelected(doc.id)}
+                onChange={() => bulk.toggle(doc.id)}
+                className="h-4 w-4 shrink-0"
+              />
+              <div className="min-w-0 flex-1">
+                <ListRow
+                  doc={doc}
+                  typeLabel={typeLabel(doc.documentType)}
+                  onOpen={() => onItemClick(doc)}
+                  onDownload={() => downloadDocument(doc.id)}
+                  onReplace={() => triggerReplace(doc.id)}
+                  onVersions={() => openVersions(doc.id)}
+                  onDelete={() => setDeleteId(doc.id)}
+                />
+              </div>
+            </div>
           ))}
         </div>
       )}
@@ -477,6 +520,14 @@ export function DocumentsTabV2({
       </Dialog>
 
       {/* Löschen bestätigen */}
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Dokumente löschen?`}
+        description={t.deleteConfirm}
+        confirmLabel={t.delete}
+        onConfirm={handleBulkDelete}
+      />
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={(o) => !o && setDeleteId(null)}

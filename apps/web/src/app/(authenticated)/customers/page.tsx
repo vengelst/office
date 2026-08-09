@@ -19,11 +19,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { RatingBadge } from '@/components/customers/rating-badge';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
+import { useToast } from '@/components/ui/use-toast';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
 import {
   customersApi,
   type CustomerListItem,
   type CustomerListResponse,
 } from '@/lib/customers';
+import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
 
 const LIMIT = 25;
@@ -31,6 +36,7 @@ type SortField = 'companyName' | 'customerNumber' | 'city' | 'rating';
 
 export default function CustomersPage(): React.ReactNode {
   const router = useRouter();
+  const { toast } = useToast();
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [page, setPage] = useState(1);
@@ -38,8 +44,8 @@ export default function CustomersPage(): React.ReactNode {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
   const [data, setData] = useState<CustomerListResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
-  // Suche entprellen
   useEffect(() => {
     const t = setTimeout(() => {
       setDebounced(search);
@@ -61,6 +67,9 @@ export default function CustomersPage(): React.ReactNode {
     load();
   }, [load]);
 
+  const items = data?.data ?? [];
+  const bulk = useBulkSelection(items.map((c) => c.id));
+
   const toggleSort = (field: SortField): void => {
     if (sortBy === field) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -70,8 +79,23 @@ export default function CustomersPage(): React.ReactNode {
     }
   };
 
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await customersApi.bulkRemove(bulk.selectedIds);
+      toast({
+        description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.`,
+      });
+      bulk.clear();
+      load();
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : texts.customers.toast.error,
+      });
+    }
+  };
+
   const t = texts.customers;
-  const items = data?.data ?? [];
   const isEmpty = !loading && items.length === 0;
   const noSearch = debounced.trim() === '';
 
@@ -97,6 +121,12 @@ export default function CustomersPage(): React.ReactNode {
         />
       </div>
 
+      <BulkActionBar
+        count={bulk.count}
+        onDelete={() => setBulkOpen(true)}
+        deleteLabel={t.actions.delete}
+      />
+
       {loading ? (
         <ListSkeleton />
       ) : isEmpty ? (
@@ -114,11 +144,23 @@ export default function CustomersPage(): React.ReactNode {
         </Card>
       ) : (
         <>
-          {/* Desktop / Tablet: Tabelle */}
           <Card className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <input
+                      type="checkbox"
+                      checked={bulk.allSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = bulk.someSelected && !bulk.allSelected;
+                      }}
+                      onChange={bulk.toggleAll}
+                      aria-label="Alle auswählen"
+                      className="h-4 w-4"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </TableHead>
                   <SortHead
                     label={t.columns.customerNumber}
                     active={sortBy === 'customerNumber'}
@@ -153,6 +195,15 @@ export default function CustomersPage(): React.ReactNode {
                     className="cursor-pointer"
                     onClick={() => router.push(`/customers/${c.id}`)}
                   >
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={bulk.isSelected(c.id)}
+                        onChange={() => bulk.toggle(c.id)}
+                        aria-label={`Auswählen ${c.companyName}`}
+                        className="h-4 w-4"
+                      />
+                    </TableCell>
                     <TableCell className="font-mono text-xs">
                       {c.customerNumber}
                     </TableCell>
@@ -177,10 +228,20 @@ export default function CustomersPage(): React.ReactNode {
             </Table>
           </Card>
 
-          {/* Mobile: Cards */}
           <div className="space-y-3 md:hidden">
             {items.map((c) => (
-              <MobileCard key={c.id} customer={c} />
+              <div key={c.id} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  checked={bulk.isSelected(c.id)}
+                  onChange={() => bulk.toggle(c.id)}
+                  className="mt-5 h-4 w-4"
+                  aria-label={`Auswählen ${c.companyName}`}
+                />
+                <div className="min-w-0 flex-1">
+                  <MobileCard customer={c} />
+                </div>
+              </div>
             ))}
           </div>
 
@@ -197,6 +258,14 @@ export default function CustomersPage(): React.ReactNode {
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Einträge löschen?`}
+        description={t.deleteConfirm}
+        onConfirm={handleBulkDelete}
+      />
     </div>
   );
 }

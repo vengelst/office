@@ -35,6 +35,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PageHeader } from '@/components/layout/page-header';
+import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { BulkActionBar } from '@/components/ui/bulk-action-bar';
+import { useBulkSelection } from '@/hooks/use-bulk-selection';
+import { ApiError } from '@/lib/api-client';
 import { useToast } from '@/components/ui/use-toast';
 import { texts } from '@/lib/texts';
 import {
@@ -82,6 +86,7 @@ function formatDate(iso: string | null): string {
 export default function TodosPage(): React.ReactNode {
   const { toast } = useToast();
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<TodoUser[]>([]);
@@ -160,6 +165,23 @@ export default function TodosPage(): React.ReactNode {
     return u?.displayName ?? '–';
   };
 
+  const bulk = useBulkSelection(todos.map((todo) => todo.id));
+  const handleBulkDelete = async (): Promise<void> => {
+    try {
+      const res = await todosApi.bulkRemove(bulk.selectedIds);
+      toast({
+        description: `${res.deleted} gelöscht${res.failed ? `, ${res.failed} fehlgeschlagen` : ''}.`,
+      });
+      bulk.clear();
+      loadTodos();
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : 'Fehler',
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader title={t.title}>
@@ -197,6 +219,8 @@ export default function TodosPage(): React.ReactNode {
         </Select>
       </div>
 
+      <BulkActionBar count={bulk.count} onDelete={() => setBulkOpen(true)} deleteLabel="Löschen" />
+
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -210,6 +234,18 @@ export default function TodosPage(): React.ReactNode {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b text-left text-muted-foreground">
+                    <th className="w-10 p-3">
+                      <input
+                        type="checkbox"
+                        checked={bulk.allSelected}
+                        ref={(el) => {
+                          if (el) el.indeterminate = bulk.someSelected && !bulk.allSelected;
+                        }}
+                        onChange={bulk.toggleAll}
+                        className="h-4 w-4"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    </th>
                     <th className="w-10 p-3" />
                     <th className="p-3">{t.fields.title}</th>
                     <th className="p-3">{t.fields.priority}</th>
@@ -231,6 +267,17 @@ export default function TodosPage(): React.ReactNode {
                         }`}
                         onClick={() => openEdit(todo)}
                       >
+                        <td
+                          className="p-3"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={bulk.isSelected(todo.id)}
+                            onChange={() => bulk.toggle(todo.id)}
+                            className="h-4 w-4"
+                          />
+                        </td>
                         <td
                           className="p-3"
                           onClick={(e) => {
@@ -315,6 +362,14 @@ export default function TodosPage(): React.ReactNode {
         todo={editingTodo}
         users={users}
         onSaved={handleSaved}
+      />
+
+      <ConfirmDialog
+        open={bulkOpen}
+        onOpenChange={setBulkOpen}
+        title={`${bulk.count} Einträge löschen?`}
+        description={t.deleteConfirm}
+        onConfirm={handleBulkDelete}
       />
     </div>
   );

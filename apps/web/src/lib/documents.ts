@@ -275,6 +275,8 @@ export const documentsApi = {
   /** Dokument löschen (Storage + DB). */
   remove: (id: string): Promise<unknown> =>
     apiClient.delete<unknown>(`/documents/${id}`),
+  bulkRemove: (ids: string[]) =>
+    apiClient.post<{ deleted: number; failed: number }>('/documents/bulk-delete', { ids }),
 
   /** Roh-URL zum Thumbnail (für Referenz – Laden via thumbnailObjectUrl). */
   thumbnailUrl: (id: string): string =>

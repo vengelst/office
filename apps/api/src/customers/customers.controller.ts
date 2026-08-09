@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
@@ -117,6 +118,13 @@ export class CustomersController {
    * @param id - UUID des Kunden
    * @returns Bestätigung der Löschung
    */
+
+  @Post('bulk-delete')
+  @ApiOperation({ summary: 'Mehrfach löschen' })
+  bulkRemove(@Body() dto: BulkDeleteDto) {
+    return this.customers.bulkRemove(dto.ids);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Kunde löschen (Soft-Delete)' })
   remove(@Param('id') id: string) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Power, PowerOff, Printer, Trash2 } from 'lucide-react';
@@ -10,6 +10,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Select,
   SelectContent,
@@ -25,6 +31,7 @@ import { WorkerQualificationsTab } from '@/components/workers/worker-qualificati
 import { WorkerContractTab } from '@/components/workers/worker-contract-tab';
 import { WorkerEquipmentTab } from '@/components/workers/worker-equipment-tab';
 import { WorkerProjectsTab } from '@/components/workers/worker-projects-tab';
+import { WorkerPrintAll } from '@/components/workers/worker-print-all';
 import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { useToast } from '@/components/ui/use-toast';
@@ -66,6 +73,8 @@ export default function WorkerDetailPage(): React.ReactNode {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('master');
+  const [printAll, setPrintAll] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
 
   /** Lädt die vollständigen Mitarbeiterdaten inkl. aller Relationen vom API. */
   const load = useCallback(() => {
@@ -177,7 +186,7 @@ export default function WorkerDetailPage(): React.ReactNode {
   const name = workerFullName(worker);
 
   return (
-    <div className="space-y-6">
+    <div className={`space-y-6 ${printAll ? 'print-all-mode' : ''}`}>
       {/* Breadcrumbs */}
       <nav className="flex items-center gap-1 text-sm text-muted-foreground">
         <Link href="/workers" className="hover:text-foreground">
@@ -237,14 +246,32 @@ export default function WorkerDetailPage(): React.ReactNode {
           </div>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            className="no-print min-h-[44px]"
-            onClick={() => window.print()}
-          >
-            <Printer className="h-4 w-4" />
-            {t.actions.print}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="no-print min-h-[44px]">
+                <Printer className="h-4 w-4" />
+                {t.actions.print}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printTab}
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setPrintAll(true);
+                  requestAnimationFrame(() => {
+                    window.print();
+                    setPrintAll(false);
+                  });
+                }}
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                {t.tabs.printAll}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {worker.active ? (
             <Button
               variant="outline"
@@ -275,7 +302,7 @@ export default function WorkerDetailPage(): React.ReactNode {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} data-tabs-root>
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
           <TabsTrigger value="master" className="min-h-[44px]">
             {t.tabs.master}
@@ -362,6 +389,8 @@ export default function WorkerDetailPage(): React.ReactNode {
         variant="destructive"
         onConfirm={handleDelete}
       />
+
+      <WorkerPrintAll ref={printRef} worker={worker} />
     </div>
   );
 }

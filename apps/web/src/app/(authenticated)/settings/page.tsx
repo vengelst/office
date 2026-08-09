@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Mail, HardDrive, Coffee, Monitor, Building2, Server } from 'lucide-react';
+import { Mail, HardDrive, Coffee, Monitor, Building2, Server, DatabaseBackup } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
 import { texts } from '@/lib/texts';
@@ -22,6 +22,12 @@ const settingsLinks = [
     label: texts.settings.nav.storage,
     description: texts.settings.storage.subtitle,
     icon: HardDrive,
+  },
+  {
+    href: '/settings/backup',
+    label: texts.settings.nav.backup,
+    description: texts.settings.backup.subtitle,
+    icon: DatabaseBackup,
   },
   {
     href: '/settings/break-rules',

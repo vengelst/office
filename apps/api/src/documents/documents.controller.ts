@@ -25,6 +25,7 @@ import type { Response } from 'express';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { DocumentsService, MAX_FILE_SIZE } from './documents.service';
 import {
@@ -263,6 +264,13 @@ export class DocumentsController {
    * @param id - UUID des Dokuments
    * @returns Bestätigung der Löschung
    */
+
+  @Post('bulk-delete')
+  @ApiOperation({ summary: 'Mehrfach löschen' })
+  bulkRemove(@Body() dto: BulkDeleteDto) {
+    return this.documents.bulkRemove(dto.ids);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Dokument löschen (Storage + DB)' })
   remove(@Param('id') id: string) {

@@ -102,6 +102,9 @@ export const todosApi = {
   remove(id: string): Promise<void> {
     return apiClient.delete<void>(`/todos/${id}`);
   },
+  bulkRemove(ids: string[]): Promise<{ deleted: number; failed: number }> {
+    return apiClient.post<{ deleted: number; failed: number }>('/todos/bulk-delete', { ids });
+  },
 
   getUsers(): Promise<TodoUser[]> {
     return apiClient.get<TodoUser[]>('/todos/users');
