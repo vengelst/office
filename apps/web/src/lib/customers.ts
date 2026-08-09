@@ -320,15 +320,17 @@ export const geocodeApi = {
 /** API-Client für kundenbezogene Dokumentenabfragen (vereinfachte Variante). */
 export const documentsApi = {
   /**
-   * GET /documents – Listet Dokumente einer bestimmten Entität.
+   * GET /documents – Listet Dokumente einer bestimmten Entität (paginiert, max. 100).
    * @param entityType - Entitätstyp (z. B. "CUSTOMER", "PROJECT")
    * @param entityId - ID der Entität
    * @returns Liste der verknüpften Dokumente
    */
-  listByEntity: (entityType: string, entityId: string) =>
-    apiClient.get<DocumentItem[]>(
-      `/documents?entityType=${entityType}&entityId=${entityId}`,
-    ),
+  listByEntity: async (entityType: string, entityId: string) => {
+    const res = await apiClient.get<{ data: DocumentItem[] }>(
+      `/documents?entityType=${entityType}&entityId=${entityId}&limit=100`,
+    );
+    return res.data;
+  },
   /**
    * DELETE /documents/:id – Löscht ein Dokument.
    * @param id - Dokument-ID

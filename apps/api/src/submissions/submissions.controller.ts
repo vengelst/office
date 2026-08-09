@@ -30,16 +30,23 @@ export class SubmissionsController {
   constructor(private readonly submissions: SubmissionsService) {}
 
   /**
-   * Listet alle Ausschreibungen, optional gefiltert nach Kunde und Status.
+   * Listet Ausschreibungen, optional gefiltert nach Kunde und Status.
    * GET /api/submissions
    */
   @Get()
-  @ApiOperation({ summary: 'Ausschreibungen auflisten' })
+  @ApiOperation({ summary: 'Ausschreibungen auflisten (Paginierung)' })
   findAll(
     @Query('customerId') customerId?: string,
     @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
-    return this.submissions.findAll({ customerId, status });
+    return this.submissions.findAll({
+      customerId,
+      status,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   /**

@@ -65,17 +65,30 @@ export type UpdateSubmissionData = Omit<Partial<CreateSubmissionData>, 'customer
 export interface ListSubmissionsParams {
   customerId?: string;
   status?: string;
+  page?: number;
+  limit?: number;
+}
+
+/** Paginierte Antwort der Ausschreibungsliste. */
+export interface SubmissionListResponse {
+  data: Submission[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 /** API-Client für Ausschreibungen (CRUD). */
 export const submissionsApi = {
-  /** GET /submissions – Listet Ausschreibungen, optional gefiltert. */
-  list(params?: ListSubmissionsParams): Promise<Submission[]> {
+  /** GET /submissions – Listet Ausschreibungen, optional gefiltert (paginiert). */
+  list(params?: ListSubmissionsParams): Promise<SubmissionListResponse> {
     const q = new URLSearchParams();
     if (params?.customerId) q.set('customerId', params.customerId);
     if (params?.status) q.set('status', params.status);
+    if (params?.page != null) q.set('page', String(params.page));
+    if (params?.limit != null) q.set('limit', String(params.limit));
     const qs = q.toString();
-    return apiClient.get<Submission[]>(`/submissions${qs ? `?${qs}` : ''}`);
+    return apiClient.get<SubmissionListResponse>(`/submissions${qs ? `?${qs}` : ''}`);
   },
   /** GET /submissions/:id – Lädt eine einzelne Ausschreibung. */
   get: (id: string) => apiClient.get<Submission>(`/submissions/${id}`),

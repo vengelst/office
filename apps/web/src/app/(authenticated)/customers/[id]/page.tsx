@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Printer, Trash2 } from 'lucide-react';
@@ -17,24 +18,73 @@ import {
 import { CustomerForm } from '@/components/customers/customer-form';
 import { RatingBadge } from '@/components/customers/rating-badge';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
-import { EmailsTab } from '@/components/customers/tabs/emails-tab';
-import { BankAccountsTab } from '@/components/customers/tabs/bank-accounts-tab';
-import { BranchesTab } from '@/components/customers/tabs/branches-tab';
-import {
-  ContactsTab,
-  type ContactsExternalAction,
-} from '@/components/customers/tabs/contacts-tab';
-import { BusinessCardsTab } from '@/components/customers/tabs/business-cards-tab';
+import type { ContactsExternalAction } from '@/components/customers/tabs/contacts-tab';
 import { CustomerPrintAll } from '@/components/customers/customer-print-all';
 import { PrintLetterhead } from '@/components/layout/app-brand';
-import { SubmissionsTab } from '@/components/customers/tabs/submissions-tab';
-import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
-import { CommunicationTab } from '@/components/communication/communication-tab';
 import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
 import { customersApi, type CustomerDetail } from '@/lib/customers';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
+
+const tabFallback = (
+  <Skeleton className="h-64 w-full" aria-label={texts.common.loading} />
+);
+
+const EmailsTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/emails-tab').then((m) => m.EmailsTab),
+  { loading: () => tabFallback },
+);
+const BankAccountsTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/bank-accounts-tab').then(
+      (m) => m.BankAccountsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const BranchesTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/branches-tab').then(
+      (m) => m.BranchesTab,
+    ),
+  { loading: () => tabFallback },
+);
+const ContactsTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/contacts-tab').then(
+      (m) => m.ContactsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const BusinessCardsTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/business-cards-tab').then(
+      (m) => m.BusinessCardsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const SubmissionsTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/submissions-tab').then(
+      (m) => m.SubmissionsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const DocumentsTabV2 = dynamic(
+  () =>
+    import('@/components/documents/documents-tab-v2').then(
+      (m) => m.DocumentsTabV2,
+    ),
+  { loading: () => tabFallback },
+);
+const CommunicationTab = dynamic(
+  () =>
+    import('@/components/communication/communication-tab').then(
+      (m) => m.CommunicationTab,
+    ),
+  { loading: () => tabFallback },
+);
 
 /**
  * Detail-Seite eines einzelnen Kunden.

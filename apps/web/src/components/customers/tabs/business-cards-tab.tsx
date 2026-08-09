@@ -55,19 +55,21 @@ export function BusinessCardsTab({
         entityType,
         entityId,
         documentType: 'BUSINESS_CARD',
+        limit: 100,
       }),
       ...contacts.map((c) =>
         documentsApi.list({
           entityType: 'CONTACT',
           entityId: c.id,
           documentType: 'BUSINESS_CARD',
+          limit: 100,
         }),
       ),
     ];
 
     Promise.all(promises)
       .then((results) => {
-        const all = results.flat();
+        const all = results.flatMap((r) => r.data);
         const unique = Array.from(
           new Map(all.map((d) => [d.id, d])).values(),
         );

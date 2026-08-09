@@ -1,0 +1,48 @@
+/** UI-Texte: `teams`. */
+export const teams = {
+    title: 'Teams',
+    subtitle: 'Monteur-Teams verwalten',
+    newTeam: 'Neues Team',
+    empty: 'Noch keine Teams vorhanden.',
+    emptyAction: 'Erstes Team anlegen →',
+    noResults: 'Team nicht gefunden.',
+    backToList: 'Zurück zur Liste',
+    createTitle: 'Neues Team',
+    deleteTitle: 'Team löschen?',
+    deleteConfirm: 'Das Team wird unwiderruflich gelöscht. Fortfahren?',
+    leader: 'Teamleiter',
+    noLeader: 'Kein Teamleiter',
+    members: 'Mitglieder',
+    memberCount: 'Mitglieder',
+    joinedAt: 'Beigetreten am',
+    sections: {
+      info: 'Team-Info',
+      members: 'Mitglieder',
+    },
+    fields: {
+      name: 'Name',
+      description: 'Beschreibung',
+      leader: 'Teamleiter',
+      worker: 'Monteur',
+      role: 'Rolle',
+    },
+    actions: {
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      cancel: 'Abbrechen',
+      delete: 'Löschen',
+      addMember: 'Mitglied hinzufügen',
+      removeMember: 'Entfernen',
+    },
+    empties: {
+      members: 'Noch keine Mitglieder.',
+    },
+    toast: {
+      created: 'Team angelegt.',
+      updated: 'Gespeichert.',
+      deleted: 'Team gelöscht.',
+      memberAdded: 'Mitglied hinzugefügt.',
+      memberRemoved: 'Mitglied entfernt.',
+      error: 'Aktion fehlgeschlagen.',
+    },
+  } as const;

@@ -87,9 +87,10 @@ export default function DocumentsPage(): ReactNode {
           search: debounced || undefined,
           documentType: docType !== ALL ? docType : undefined,
           entityType: entityType !== ALL ? entityType : undefined,
+          limit: 100,
         });
     req
-      .then(setDocs)
+      .then((result) => setDocs(Array.isArray(result) ? result : result.data))
       .catch(() => setDocs([]))
       .finally(() => setLoading(false));
   }, [onlyExpiring, debounced, docType, entityType]);

@@ -122,12 +122,14 @@ export function DocumentsTabV2({
         entityId,
         folderId: folder !== ALL ? folder : undefined,
         search: debounced || undefined,
+        limit: 100,
       })
       .then((result) => {
+        const data = result.data;
         if (excludeTypes?.length) {
-          setDocs(result.filter((d) => !excludeTypes.includes(d.documentType)));
+          setDocs(data.filter((d) => !excludeTypes.includes(d.documentType)));
         } else {
-          setDocs(result);
+          setDocs(data);
         }
       })
       .catch(() => setDocs([]))

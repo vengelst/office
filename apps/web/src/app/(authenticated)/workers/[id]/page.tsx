@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Power, PowerOff, Printer, Trash2 } from 'lucide-react';
@@ -26,14 +27,8 @@ import {
 import { WorkerAvatar } from '@/components/workers/worker-avatar';
 import { WorkerTypeBadge } from '@/components/workers/worker-badges';
 import { WorkerMasterForm } from '@/components/workers/worker-master-form';
-import { WorkerDocumentsTab } from '@/components/workers/worker-documents-tab';
-import { WorkerQualificationsTab } from '@/components/workers/worker-qualifications-tab';
-import { WorkerContractTab } from '@/components/workers/worker-contract-tab';
-import { WorkerEquipmentTab } from '@/components/workers/worker-equipment-tab';
-import { WorkerProjectsTab } from '@/components/workers/worker-projects-tab';
 import { WorkerPrintAll } from '@/components/workers/worker-print-all';
 import { PrintLetterhead } from '@/components/layout/app-brand';
-import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { useToast } from '@/components/ui/use-toast';
 import {
@@ -44,6 +39,53 @@ import {
 } from '@/lib/workers';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
+
+const tabFallback = (
+  <Skeleton className="h-64 w-full" aria-label={texts.common.loading} />
+);
+
+const WorkerDocumentsTab = dynamic(
+  () =>
+    import('@/components/workers/worker-documents-tab').then(
+      (m) => m.WorkerDocumentsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const WorkerQualificationsTab = dynamic(
+  () =>
+    import('@/components/workers/worker-qualifications-tab').then(
+      (m) => m.WorkerQualificationsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const WorkerContractTab = dynamic(
+  () =>
+    import('@/components/workers/worker-contract-tab').then(
+      (m) => m.WorkerContractTab,
+    ),
+  { loading: () => tabFallback },
+);
+const WorkerEquipmentTab = dynamic(
+  () =>
+    import('@/components/workers/worker-equipment-tab').then(
+      (m) => m.WorkerEquipmentTab,
+    ),
+  { loading: () => tabFallback },
+);
+const WorkerProjectsTab = dynamic(
+  () =>
+    import('@/components/workers/worker-projects-tab').then(
+      (m) => m.WorkerProjectsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const CommunicationTab = dynamic(
+  () =>
+    import('@/components/communication/communication-tab').then(
+      (m) => m.CommunicationTab,
+    ),
+  { loading: () => tabFallback },
+);
 
 const AVAILABILITIES: WorkerAvailability[] = [
   'AVAILABLE',

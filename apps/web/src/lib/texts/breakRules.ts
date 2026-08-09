@@ -1,0 +1,46 @@
+/** UI-Texte: `breakRules`. */
+export const breakRules = {
+    title: 'Pausenregeln',
+    subtitle: 'Automatischer Pausenabzug nach Arbeitszeit',
+    newRule: 'Neue Regel',
+    empty: 'Noch keine Pausenregeln vorhanden.',
+    deleteTitle: 'Pausenregel löschen?',
+    deleteConfirm: 'Die Regel wird unwiderruflich gelöscht. Fortfahren?',
+    columns: {
+      name: 'Name',
+      scope: 'Geltungsbereich',
+      project: 'Projekt',
+      threshold1: 'Ab Schwelle 1',
+      threshold2: 'Ab Schwelle 2',
+      active: 'Aktiv',
+    },
+    scope: {
+      GLOBAL: 'Global',
+      PROJECT: 'Projektspezifisch',
+    },
+    rule: (threshold: number, brk: number): string =>
+      `ab ${Math.round(threshold / 60)}h → ${brk} min Pause`,
+    dialog: {
+      createTitle: 'Pausenregel erstellen',
+      editTitle: 'Pausenregel bearbeiten',
+      name: 'Name',
+      scope: 'Geltungsbereich',
+      project: 'Projekt',
+      selectProject: 'Projekt wählen',
+      autoDeduct: 'Automatischer Abzug aktiv',
+      threshold1: 'Schwellenwert 1 (Minuten)',
+      break1: 'Pausenabzug 1 (Minuten)',
+      threshold2: 'Schwellenwert 2 (Minuten, optional)',
+      break2: 'Pausenabzug 2 (Minuten, optional)',
+      active: 'Regel aktiv',
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      cancel: 'Abbrechen',
+    },
+    toast: {
+      created: 'Pausenregel erstellt.',
+      updated: 'Gespeichert.',
+      deleted: 'Pausenregel gelöscht.',
+      error: 'Aktion fehlgeschlagen.',
+    },
+  } as const;

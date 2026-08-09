@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Printer, Trash2 } from 'lucide-react';
@@ -17,7 +18,6 @@ import {
 import { WorkerAvatar } from '@/components/workers/worker-avatar';
 import { AvailabilityBadge } from '@/components/workers/worker-badges';
 import { SubcontractorForm } from '@/components/workers/subcontractor-form';
-import { SubcontractorContactsTab } from '@/components/subcontractors/subcontractor-contacts-tab';
 import { SubcontractorPrintAll } from '@/components/subcontractors/subcontractor-print-all';
 import { PrintLetterhead } from '@/components/layout/app-brand';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
@@ -29,9 +29,27 @@ import {
   workerFullName,
   type SubcontractorDetail,
 } from '@/lib/workers';
-import { CommunicationTab } from '@/components/communication/communication-tab';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
+
+const tabFallback = (
+  <Skeleton className="h-64 w-full" aria-label={texts.common.loading} />
+);
+
+const SubcontractorContactsTab = dynamic(
+  () =>
+    import('@/components/subcontractors/subcontractor-contacts-tab').then(
+      (m) => m.SubcontractorContactsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const CommunicationTab = dynamic(
+  () =>
+    import('@/components/communication/communication-tab').then(
+      (m) => m.CommunicationTab,
+    ),
+  { loading: () => tabFallback },
+);
 
 export default function SubcontractorDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();

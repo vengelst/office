@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { ChevronRight, Printer, RefreshCw, Trash2 } from 'lucide-react';
@@ -31,18 +32,11 @@ import {
 } from '@/components/ui/select';
 import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
-import { DocumentsTabV2 } from '@/components/documents/documents-tab-v2';
 import { ProjectForm } from '@/components/projects/project-form';
 import { ProjectPrintAll } from '@/components/projects/project-print-all';
 import { PrintLetterhead } from '@/components/layout/app-brand';
 import { ProjectStatusBadge } from '@/components/projects/status-badge';
 import { PriorityBadge } from '@/components/projects/priority-badge';
-import { SitesTab } from '@/components/projects/tabs/sites-tab';
-import { AssignmentsTab } from '@/components/projects/tabs/assignments-tab';
-import { EquipmentTab } from '@/components/projects/tabs/equipment-tab';
-import { EmailRecipientsTab } from '@/components/projects/tabs/email-recipients-tab';
-import { NotesHistoryTab } from '@/components/projects/tabs/notes-history-tab';
-import { WorkItemsTab } from '@/components/projects/tabs/work-items-tab';
 import { Badge } from '@/components/ui/badge';
 import { LocationMap } from '@/components/ui/location-map';
 import { useToast } from '@/components/ui/use-toast';
@@ -53,6 +47,58 @@ import {
 } from '@/lib/projects';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
+
+const tabFallback = (
+  <Skeleton className="h-64 w-full" aria-label={texts.common.loading} />
+);
+
+const SitesTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/sites-tab').then((m) => m.SitesTab),
+  { loading: () => tabFallback },
+);
+const AssignmentsTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/assignments-tab').then(
+      (m) => m.AssignmentsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const EquipmentTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/equipment-tab').then(
+      (m) => m.EquipmentTab,
+    ),
+  { loading: () => tabFallback },
+);
+const EmailRecipientsTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/email-recipients-tab').then(
+      (m) => m.EmailRecipientsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const NotesHistoryTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/notes-history-tab').then(
+      (m) => m.NotesHistoryTab,
+    ),
+  { loading: () => tabFallback },
+);
+const WorkItemsTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/work-items-tab').then(
+      (m) => m.WorkItemsTab,
+    ),
+  { loading: () => tabFallback },
+);
+const DocumentsTabV2 = dynamic(
+  () =>
+    import('@/components/documents/documents-tab-v2').then(
+      (m) => m.DocumentsTabV2,
+    ),
+  { loading: () => tabFallback },
+);
 
 const STATUSES: ProjectStatus[] = [
   'DRAFT',

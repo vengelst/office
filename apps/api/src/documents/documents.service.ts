@@ -384,18 +384,24 @@ export class DocumentsService {
   /**
    * Listet Dokumente mit optionalen Filtern (Entität, Ordner, Typ, Volltextsuche).
    * Zeigt nur die jeweils aktuelle Version (isLatest=true).
-   * Ohne Filter werden alle aktuellen Dokumente zurückgegeben (globale Suche).
+   * Paginierung analog CustomersService (page/limit, max 100).
    *
-   * @param filters - Optionale Filter (entityType, entityId, folderId, documentType, search)
-   * @returns Liste der passenden Dokumente, neueste zuerst
+   * @param filters - Optionale Filter inkl. Pagination
+   * @returns Paginiertes Ergebnis mit Dokumenten und Meta-Informationen
    */
-  findAll(filters: {
+  async findAll(filters: {
     entityType?: string;
     entityId?: string;
     folderId?: string;
     documentType?: DocumentType;
     search?: string;
+    page?: number;
+    limit?: number;
   }) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 25));
+    const skip = (page - 1) * limit;
+
     const where: Prisma.DocumentWhereInput = { isLatest: true };
 
     if (filters.entityType || filters.entityId || filters.folderId) {
@@ -421,22 +427,37 @@ export class DocumentsService {
       ];
     }
 
-    return this.prisma.document.findMany({
-      where,
-      select: documentSelect,
-      orderBy: { createdAt: 'desc' },
-    });
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.document.findMany({
+        where,
+        select: documentSelect,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.document.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   /**
-   * Listet alle Dokumente einer bestimmten Entität (Kunde, Projekt, Monteur, etc.).
+   * Listet Dokumente einer bestimmten Entität (Kunde, Projekt, Monteur, etc.).
+   * Nutzt findAll mit Maximal-Limit und liefert nur das Daten-Array.
    *
    * @param entityType - Typ der Entität (CUSTOMER, PROJECT, WORKER, etc.)
    * @param entityId - UUID der Entität
-   * @returns Liste der verknüpften Dokumente
+   * @returns Liste der verknüpften Dokumente (max. 100)
    */
-  findByEntity(entityType: DocumentEntityType, entityId: string) {
-    return this.findAll({ entityType, entityId });
+  async findByEntity(entityType: DocumentEntityType, entityId: string) {
+    const result = await this.findAll({ entityType, entityId, limit: 100 });
+    return result.data;
   }
 
   /**
@@ -480,6 +501,7 @@ export class DocumentsService {
       },
       select: documentSelect,
       orderBy: { expiryDate: 'asc' },
+      take: 100,
     });
   }
 

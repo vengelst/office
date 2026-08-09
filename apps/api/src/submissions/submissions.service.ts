@@ -7,6 +7,8 @@ import { UpdateSubmissionDto } from './dto/update-submission.dto';
 export interface ListSubmissionsParams {
   customerId?: string;
   status?: string;
+  page?: number;
+  limit?: number;
 }
 
 /**
@@ -18,19 +20,37 @@ export class SubmissionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Liefert alle Ausschreibungen, optional gefiltert nach Kunde und Status.
+   * Liefert Ausschreibungen, optional gefiltert nach Kunde und Status.
    * Soft-gelöschte Einträge werden ausgeblendet.
+   * Paginierung analog CustomersService (page/limit, max 100).
    */
   async findAll(params: ListSubmissionsParams) {
+    const page = Math.max(1, Number(params.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(params.limit) || 25));
+    const skip = (page - 1) * limit;
+
     const where: Prisma.SubmissionWhereInput = { deletedAt: null };
     if (params.customerId) where.customerId = params.customerId;
     if (params.status) where.status = params.status as Prisma.EnumSubmissionStatusFilter;
 
-    return this.prisma.submission.findMany({
-      where,
-      include: { customer: { select: { id: true, companyName: true } } },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [data, total] = await this.prisma.$transaction([
+      this.prisma.submission.findMany({
+        where,
+        include: { customer: { select: { id: true, companyName: true } } },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.submission.count({ where }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   /**

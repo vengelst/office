@@ -66,6 +66,17 @@ export interface DocumentListParams {
   folderId?: string;
   documentType?: string;
   search?: string;
+  page?: number;
+  limit?: number;
+}
+
+/** Paginierte Antwort der Dokumentenliste. */
+export interface DocumentListResponse {
+  data: Document[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }
 
 /** Metadaten pro Datei beim Upload. */
@@ -194,21 +205,24 @@ function sendForm<T>(
 
 /** API-Client für das Dokumenten-System (Upload, Suche, Versionen, Vorschau, Download). */
 export const documentsApi = {
-  /** GET /documents – Dokumente auflisten/suchen (globale Suche oder gefiltert). */
-  list(params: DocumentListParams = {}): Promise<Document[]> {
+  /** GET /documents – Dokumente auflisten/suchen (paginiert). */
+  list(params: DocumentListParams = {}): Promise<DocumentListResponse> {
     const q = new URLSearchParams();
     if (params.entityType) q.set('entityType', params.entityType);
     if (params.entityId) q.set('entityId', params.entityId);
     if (params.folderId) q.set('folderId', params.folderId);
     if (params.documentType) q.set('documentType', params.documentType);
     if (params.search) q.set('search', params.search);
+    if (params.page != null) q.set('page', String(params.page));
+    if (params.limit != null) q.set('limit', String(params.limit));
     const qs = q.toString();
-    return apiClient.get<Document[]>(`/documents${qs ? `?${qs}` : ''}`);
+    return apiClient.get<DocumentListResponse>(`/documents${qs ? `?${qs}` : ''}`);
   },
 
-  /** Dokumente einer einzelnen Entität. */
-  listByEntity(entityType: string, entityId: string): Promise<Document[]> {
-    return documentsApi.list({ entityType, entityId });
+  /** Dokumente einer einzelnen Entität (max. 100). */
+  async listByEntity(entityType: string, entityId: string): Promise<Document[]> {
+    const res = await documentsApi.list({ entityType, entityId, limit: 100 });
+    return res.data;
   },
 
   /** Detail inkl. Versions-Historie. */

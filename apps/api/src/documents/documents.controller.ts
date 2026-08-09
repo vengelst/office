@@ -180,16 +180,20 @@ export class DocumentsController {
    * @param folderId - Optional: Ordner-Filter
    * @param documentType - Optional: Dokumenttyp-Filter
    * @param search - Optional: Freitextsuche
-   * @returns Array gefilterter Dokumente
+   * @param page - Seite (ab 1)
+   * @param limit - Seitengröße (max 100)
+   * @returns Paginierte Dokumentliste mit Metadaten
    */
   @Get()
-  @ApiOperation({ summary: 'Dokumente auflisten/suchen (Filter)' })
+  @ApiOperation({ summary: 'Dokumente auflisten/suchen (Filter, Paginierung)' })
   findAll(
     @Query('entityType') entityType?: string,
     @Query('entityId') entityId?: string,
     @Query('folderId') folderId?: string,
     @Query('documentType') documentType?: DocumentType,
     @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
     return this.documents.findAll({
       entityType,
@@ -197,6 +201,8 @@ export class DocumentsController {
       folderId,
       documentType,
       search,
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
     });
   }
 

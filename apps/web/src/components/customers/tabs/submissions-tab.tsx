@@ -134,8 +134,8 @@ export function SubmissionsTab({
   const load = useCallback(() => {
     setLoading(true);
     submissionsApi
-      .list({ customerId })
-      .then(setItems)
+      .list({ customerId, limit: 100 })
+      .then((res) => setItems(res.data))
       .catch(() => toast({ variant: 'destructive', description: t.toast.error }))
       .finally(() => setLoading(false));
   }, [customerId, toast, t.toast.error]);
