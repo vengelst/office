@@ -270,8 +270,20 @@ export const projectsApi = {
 
   // Meta (Dropdown-Daten)
   listUsers: () => apiClient.get<ProjectUserOption[]>('/projects/meta/users'),
-  listWorkers: () =>
-    apiClient.get<ProjectWorkerOption[]>('/projects/meta/workers'),
+  listWorkers: (params?: {
+    from?: string;
+    to?: string;
+    availableOnly?: boolean;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.availableOnly) q.set('availableOnly', 'true');
+    const qs = q.toString();
+    return apiClient.get<ProjectWorkerOption[]>(
+      `/projects/meta/workers${qs ? `?${qs}` : ''}`,
+    );
+  },
 
   // Sites
   listSites: (pid: string) =>

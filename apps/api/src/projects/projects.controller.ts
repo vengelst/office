@@ -67,9 +67,21 @@ export class ProjectsController {
   }
 
   @Get('meta/workers')
-  @ApiOperation({ summary: 'Aktive Monteure (für Zuordnungs-Auswahl)' })
-  listWorkers() {
-    return this.projects.listWorkers();
+  @ApiOperation({
+    summary:
+      'Aktive Monteure (für Zuordnungs-Auswahl); optional nur freie im Zeitraum',
+  })
+  listWorkers(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('availableOnly') availableOnly?: string,
+  ) {
+    return this.projects.listWorkers({
+      from,
+      to,
+      availableOnly:
+        availableOnly === 'true' || availableOnly === '1',
+    });
   }
 
   // ── Projekt CRUD ─────────────────────────────────────────────

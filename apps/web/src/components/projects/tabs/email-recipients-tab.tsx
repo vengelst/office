@@ -24,6 +24,7 @@ import { Field } from '@/components/customers/customer-form';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { MailLink } from '@/components/customers/contact-links';
 import { EmptyState } from '@/components/customers/empty-state';
+import { ContactSuggestionCombobox } from '@/components/contacts/contact-suggestion-combobox';
 import { useToast } from '@/components/ui/use-toast';
 import {
   projectsApi,
@@ -174,6 +175,20 @@ export function EmailRecipientsTab({
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            <Field label="Kontakt vorschlagen">
+              <ContactSuggestionCombobox
+                placeholder="Name oder E-Mail suchen …"
+                onSelect={(s) => {
+                  setForm((p) => ({
+                    ...p,
+                    email: s.email ?? p.email,
+                    name:
+                      [s.firstName, s.lastName].filter(Boolean).join(' ') ||
+                      p.name,
+                  }));
+                }}
+              />
+            </Field>
             <Field label={f.recipientEmail} required>
               <Input
                 type="email"

@@ -17,6 +17,7 @@ import {
 import { Field } from '@/components/customers/customer-form';
 import { ProjectStatusBadge } from '@/components/projects/status-badge';
 import { PriorityBadge } from '@/components/projects/priority-badge';
+import { ContactSuggestionCombobox } from '@/components/contacts/contact-suggestion-combobox';
 import {
   customersApi,
   type CustomerBranch,
@@ -211,6 +212,13 @@ export function ProjectForm({
       ? contacts.filter((c) => c.branchId === branchId || c.branchId == null)
       : contacts;
 
+  const selectedContact = contacts.find((c) => c.id === contactId);
+  const contactLabel = selectedContact
+    ? [selectedContact.firstName, selectedContact.lastName]
+        .filter(Boolean)
+        .join(' ')
+    : '';
+
   return (
     <form
       onSubmit={handleSubmit((v) => onSubmit(toPayload(v)))}
@@ -288,24 +296,22 @@ export function ProjectForm({
             </Select>
           </Field>
           <Field label={f.contact}>
-            <Select
-              value={contactId || NONE}
-              onValueChange={(val) =>
-                setValue('primaryCustomerContactId', val)
-              }
-            >
-              <SelectTrigger className="min-h-[44px]">
-                <SelectValue placeholder="–" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>–</SelectItem>
-                {filteredContacts.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {[c.firstName, c.lastName].filter(Boolean).join(' ')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <ContactSuggestionCombobox
+              customerId={customerId || undefined}
+              valueLabel={contactLabel}
+              placeholder="Ansprechpartner suchen …"
+              onSelect={(s) => {
+                if (s.source === 'CUSTOMER') {
+                  setValue('primaryCustomerContactId', s.id);
+                }
+              }}
+              onClear={() => setValue('primaryCustomerContactId', NONE)}
+            />
+            {filteredContacts.length > 0 && !contactId && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {filteredContacts.length} Kontakte beim Kunden verfügbar
+              </p>
+            )}
           </Field>
           <Field label={f.serviceType}>
             <Select

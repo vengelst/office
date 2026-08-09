@@ -685,7 +685,7 @@ model Worker {
   qualifications   String? // @deprecated → WorkerCertification
 
   // --- Stammdaten ---
-  workerType   WorkerType         @default(SUBCONTRACTED)
+  workerType   WorkerType         @default(EMPLOYED)
   availability WorkerAvailability @default(AVAILABLE)
   dateOfBirth  DateTime?
   placeOfBirth String?
@@ -773,8 +773,29 @@ model Subcontractor {
   deletedAt         DateTime?
 
   workers  Worker[]
+  contacts SubcontractorContact[]
   invoices Invoice[]
   vehicles Vehicle[]
+}
+
+model SubcontractorContact {
+  id              String   @id @default(cuid())
+  subcontractorId String
+  title           String?
+  firstName       String
+  lastName        String
+  role            String?
+  email           String?
+  phoneMobile     String?
+  phoneLandline   String?
+  notes           String?
+  isPrimary       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  subcontractor Subcontractor @relation(fields: [subcontractorId], references: [id], onDelete: Cascade)
+
+  @@index([subcontractorId])
 }
 
 model WorkerLanguage {

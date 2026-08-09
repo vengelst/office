@@ -230,6 +230,23 @@ export interface SubcontractorWorker {
 }
 
 /** Vollständiger Subunternehmer-Datensatz mit Adresse, Bankdaten und zugehörigen Monteuren. */
+export interface SubcontractorContact {
+  id: string;
+  subcontractorId: string;
+  title: string | null;
+  firstName: string;
+  lastName: string;
+  role: string | null;
+  email: string | null;
+  phoneMobile: string | null;
+  phoneLandline: string | null;
+  notes: string | null;
+  isPrimary: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Vollständiger Subunternehmer-Datensatz mit Adresse, Bankdaten und zugehörigen Monteuren. */
 export interface SubcontractorDetail {
   id: string;
   name: string;
@@ -255,6 +272,7 @@ export interface SubcontractorDetail {
   createdAt: string;
   updatedAt: string;
   workers: SubcontractorWorker[];
+  contacts?: SubcontractorContact[];
 }
 
 // ── Team ───────────────────────────────────────────────────────
@@ -518,6 +536,21 @@ export const subcontractorsApi = {
    * @param id - Subunternehmer-ID
    */
   remove: (id: string) => apiClient.delete<unknown>(`/subcontractors/${id}`),
+
+  listContacts: (id: string) =>
+    apiClient.get<SubcontractorContact[]>(`/subcontractors/${id}/contacts`),
+  createContact: (id: string, body: unknown) =>
+    apiClient.post<SubcontractorContact>(
+      `/subcontractors/${id}/contacts`,
+      body,
+    ),
+  updateContact: (id: string, contactId: string, body: unknown) =>
+    apiClient.patch<SubcontractorContact>(
+      `/subcontractors/${id}/contacts/${contactId}`,
+      body,
+    ),
+  removeContact: (id: string, contactId: string) =>
+    apiClient.delete<unknown>(`/subcontractors/${id}/contacts/${contactId}`),
 };
 
 /** API-Client für Teamverwaltung (CRUD, Mitglieder). */

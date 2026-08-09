@@ -10,6 +10,7 @@ import { CustomersModule } from './customers/customers.module';
 import { ProjectsModule } from './projects/projects.module';
 import { WorkersModule } from './workers/workers.module';
 import { SubcontractorsModule } from './subcontractors/subcontractors.module';
+import { ContactsModule } from './contacts/contacts.module';
 import { TeamsModule } from './teams/teams.module';
 import { DocumentsModule } from './documents/documents.module';
 import { DocumentFoldersModule } from './document-folders/document-folders.module';
@@ -47,6 +48,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     ProjectsModule,
     WorkersModule,
     SubcontractorsModule,
+    ContactsModule,
     TeamsModule,
     DocumentsModule,
     DocumentFoldersModule,

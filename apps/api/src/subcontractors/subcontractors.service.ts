@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSubcontractorDto } from './dto/create-subcontractor.dto';
 import { UpdateSubcontractorDto } from './dto/update-subcontractor.dto';
+import { CreateSubcontractorContactDto } from './dto/create-subcontractor-contact.dto';
+import { UpdateSubcontractorContactDto } from './dto/update-subcontractor-contact.dto';
 
 /** Sortierbare Spalten der Subunternehmen-Liste. */
 const SORTABLE_FIELDS = ['name', 'city', 'createdAt'] as const;
@@ -20,7 +22,7 @@ export interface ListSubcontractorsParams {
 /**
  * Service für die Subunternehmen-Verwaltung.
  * Behandelt CRUD mit Soft-Delete und liefert zugehörige
- * Monteure in der Detailansicht.
+ * Monteure sowie Ansprechpartner in der Detailansicht.
  */
 @Injectable()
 export class SubcontractorsService {
@@ -76,10 +78,10 @@ export class SubcontractorsService {
   }
 
   /**
-   * Liefert ein einzelnes Subunternehmen mit zugehörigen Monteuren.
+   * Liefert ein einzelnes Subunternehmen mit Monteuren und Kontakten.
    *
    * @param id - UUID des Subunternehmens
-   * @returns Sub-Details mit Monteur-Liste
+   * @returns Sub-Details mit Monteur- und Kontakt-Liste
    * @throws NotFoundException wenn das Sub nicht existiert
    */
   async findOne(id: string) {
@@ -97,6 +99,13 @@ export class SubcontractorsService {
             photoPath: true,
           },
           orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+        },
+        contacts: {
+          orderBy: [
+            { isPrimary: 'desc' },
+            { lastName: 'asc' },
+            { firstName: 'asc' },
+          ],
         },
       },
     });
@@ -130,12 +139,86 @@ export class SubcontractorsService {
     return { id, deleted: true };
   }
 
+  // ── Kontakte ─────────────────────────────────────────────────
+
+  async listContacts(subcontractorId: string) {
+    await this.ensureExists(subcontractorId);
+    return this.prisma.subcontractorContact.findMany({
+      where: { subcontractorId },
+      orderBy: [
+        { isPrimary: 'desc' },
+        { lastName: 'asc' },
+        { firstName: 'asc' },
+      ],
+    });
+  }
+
+  async createContact(
+    subcontractorId: string,
+    dto: CreateSubcontractorContactDto,
+  ) {
+    await this.ensureExists(subcontractorId);
+    if (dto.isPrimary) {
+      await this.clearPrimary(subcontractorId);
+    }
+    return this.prisma.subcontractorContact.create({
+      data: { ...dto, subcontractorId },
+    });
+  }
+
+  async updateContact(
+    subcontractorId: string,
+    contactId: string,
+    dto: UpdateSubcontractorContactDto,
+  ) {
+    await this.ensureContact(subcontractorId, contactId);
+    if (dto.isPrimary) {
+      await this.clearPrimary(subcontractorId, contactId);
+    }
+    return this.prisma.subcontractorContact.update({
+      where: { id: contactId },
+      data: { ...dto },
+    });
+  }
+
+  async removeContact(subcontractorId: string, contactId: string) {
+    await this.ensureContact(subcontractorId, contactId);
+    await this.prisma.subcontractorContact.delete({ where: { id: contactId } });
+    return { id: contactId, deleted: true };
+  }
+
+  private async clearPrimary(
+    subcontractorId: string,
+    exceptId?: string,
+  ): Promise<void> {
+    await this.prisma.subcontractorContact.updateMany({
+      where: {
+        subcontractorId,
+        isPrimary: true,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
+      },
+      data: { isPrimary: false },
+    });
+  }
+
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.subcontractor.count({
       where: { id, deletedAt: null },
     });
     if (count === 0) {
       throw new NotFoundException('Subunternehmen nicht gefunden');
+    }
+  }
+
+  private async ensureContact(
+    subcontractorId: string,
+    contactId: string,
+  ): Promise<void> {
+    const count = await this.prisma.subcontractorContact.count({
+      where: { id: contactId, subcontractorId },
+    });
+    if (count === 0) {
+      throw new NotFoundException('Kontakt nicht gefunden');
     }
   }
 }

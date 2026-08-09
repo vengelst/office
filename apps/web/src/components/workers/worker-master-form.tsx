@@ -17,8 +17,13 @@ import {
 } from '@/components/ui/select';
 import { Field } from '@/components/customers/customer-form';
 import { RouteButton } from '@/components/customers/contact-links';
-import type { WorkerAvailability, WorkerDetail } from '@/lib/workers';
+import type {
+  WorkerAvailability,
+  WorkerDetail,
+  WorkerType,
+} from '@/lib/workers';
 import { texts } from '@/lib/texts';
+import { SubcontractorSelect } from '@/components/workers/subcontractor-select';
 
 const AVAILABILITIES: WorkerAvailability[] = [
   'AVAILABLE',
@@ -28,44 +33,59 @@ const AVAILABILITIES: WorkerAvailability[] = [
   'UNAVAILABLE',
 ];
 
-const schema = z.object({
-  firstName: z.string().min(1, 'Pflichtfeld'),
-  lastName: z.string().min(1, 'Pflichtfeld'),
-  availability: z.enum([
-    'AVAILABLE',
-    'ON_PROJECT',
-    'SICK',
-    'VACATION',
-    'UNAVAILABLE',
-  ]),
-  dateOfBirth: z.string().optional(),
-  placeOfBirth: z.string().optional(),
-  nationality: z.string().optional(),
-  email: z.string().optional(),
-  phone: z.string().optional(),
-  phoneSecondary: z.string().optional(),
-  addressLine1: z.string().optional(),
-  addressLine2: z.string().optional(),
-  postalCode: z.string().optional(),
-  city: z.string().optional(),
-  country: z.string().optional(),
-  emergencyContactName: z.string().optional(),
-  emergencyContactPhone: z.string().optional(),
-  emergencyContactRelation: z.string().optional(),
-  shoeSize: z.string().optional(),
-  clothingSize: z.string().optional(),
-  hasDriversLicense: z.boolean().optional(),
-  notes: z.string().optional(),
-});
+const schema = z
+  .object({
+    firstName: z.string().min(1, 'Pflichtfeld'),
+    lastName: z.string().min(1, 'Pflichtfeld'),
+    workerType: z.enum(['EMPLOYED', 'SUBCONTRACTED']),
+    subcontractorId: z.string().optional(),
+    availability: z.enum([
+      'AVAILABLE',
+      'ON_PROJECT',
+      'SICK',
+      'VACATION',
+      'UNAVAILABLE',
+    ]),
+    dateOfBirth: z.string().optional(),
+    placeOfBirth: z.string().optional(),
+    nationality: z.string().optional(),
+    email: z.string().optional(),
+    phone: z.string().optional(),
+    phoneSecondary: z.string().optional(),
+    addressLine1: z.string().optional(),
+    addressLine2: z.string().optional(),
+    postalCode: z.string().optional(),
+    city: z.string().optional(),
+    country: z.string().optional(),
+    emergencyContactName: z.string().optional(),
+    emergencyContactPhone: z.string().optional(),
+    emergencyContactRelation: z.string().optional(),
+    shoeSize: z.string().optional(),
+    clothingSize: z.string().optional(),
+    hasDriversLicense: z.boolean().optional(),
+    notes: z.string().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.workerType === 'SUBCONTRACTED' && !v.subcontractorId?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['subcontractorId'],
+        message: texts.workers.validation.subcontractorRequired,
+      });
+    }
+  });
 
 export type WorkerMasterFormValues = z.infer<typeof schema>;
 
 function toPayload(v: WorkerMasterFormValues): Record<string, unknown> {
   const s = (x?: string): string | undefined =>
     x && x.trim() !== '' ? x : undefined;
+  const isSub = v.workerType === 'SUBCONTRACTED';
   return {
     firstName: v.firstName,
     lastName: v.lastName,
+    workerType: v.workerType,
+    subcontractorId: isSub ? s(v.subcontractorId) ?? null : null,
     availability: v.availability,
     dateOfBirth: s(v.dateOfBirth),
     placeOfBirth: s(v.placeOfBirth),
@@ -116,6 +136,8 @@ export function WorkerMasterForm({
     defaultValues: {
       firstName: worker?.firstName ?? '',
       lastName: worker?.lastName ?? '',
+      workerType: worker?.workerType ?? 'EMPLOYED',
+      subcontractorId: worker?.subcontractorId ?? '',
       availability: worker?.availability ?? 'AVAILABLE',
       dateOfBirth: worker?.dateOfBirth ? worker.dateOfBirth.slice(0, 10) : '',
       placeOfBirth: worker?.placeOfBirth ?? '',
@@ -147,11 +169,14 @@ export function WorkerMasterForm({
   }, []);
 
   const availability = watch('availability');
+  const workerType = watch('workerType');
+  const subcontractorId = watch('subcontractorId');
   const hasDriversLicense = watch('hasDriversLicense');
   const addressLine1 = watch('addressLine1');
   const postalCode = watch('postalCode');
   const city = watch('city');
   const country = watch('country');
+  const isSub = workerType === 'SUBCONTRACTED';
 
   const fullAddress = [
     addressLine1,
@@ -184,6 +209,46 @@ export function WorkerMasterForm({
                 value={worker.workerNumber}
                 readOnly
                 className="min-h-[44px] bg-muted font-mono"
+              />
+            </Field>
+          )}
+          <Field label={f.type}>
+            <Select
+              value={workerType}
+              onValueChange={(val) => {
+                setValue('workerType', val as WorkerType, {
+                  shouldValidate: true,
+                });
+                if (val !== 'SUBCONTRACTED') {
+                  setValue('subcontractorId', '', { shouldValidate: true });
+                }
+              }}
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="EMPLOYED">
+                  {texts.workers.type.EMPLOYED}
+                </SelectItem>
+                <SelectItem value="SUBCONTRACTED">
+                  {texts.workers.type.SUBCONTRACTED}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+          {isSub && (
+            <Field
+              label={f.subcontractor}
+              required
+              error={errors.subcontractorId?.message}
+            >
+              <SubcontractorSelect
+                value={subcontractorId ?? ''}
+                onChange={(id) =>
+                  setValue('subcontractorId', id, { shouldValidate: true })
+                }
+                required
               />
             </Field>
           )}

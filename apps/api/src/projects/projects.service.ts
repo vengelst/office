@@ -504,9 +504,15 @@ export class ProjectsService {
   async createAssignment(projectId: string, dto: CreateAssignmentDto) {
     await this.ensureProject(projectId);
     const active = dto.active ?? true;
-    // Einzel-Projekt-Constraint: nur EINE aktive Zuweisung pro Monteur.
+    const startDate = coerceDate(dto.startDate) ?? new Date();
+    const endDate = coerceDate(dto.endDate) ?? null;
+    // Datumsbasierter Konflikt: überlappende aktive Zuweisung.
     if (active) {
-      await this.assertNoActiveAssignment(dto.workerId);
+      await this.assertNoOverlappingAssignment(
+        dto.workerId,
+        startDate,
+        endDate,
+      );
     }
 
     const assignment = await this.prisma.projectAssignment.create({
@@ -514,8 +520,8 @@ export class ProjectsService {
         projectId,
         workerId: dto.workerId,
         roleName: dto.roleName,
-        startDate: coerceDate(dto.startDate) ?? new Date(),
-        endDate: coerceDate(dto.endDate) ?? undefined,
+        startDate,
+        endDate: endDate ?? undefined,
         active,
         isLead: dto.isLead ?? false,
         notes: dto.notes,
@@ -553,7 +559,13 @@ export class ProjectsService {
   ) {
     const current = await this.prisma.projectAssignment.findFirst({
       where: { id, projectId },
-      select: { id: true, workerId: true, active: true },
+      select: {
+        id: true,
+        workerId: true,
+        active: true,
+        startDate: true,
+        endDate: true,
+      },
     });
     if (!current) {
       throw new NotFoundException('Zuordnung nicht gefunden');
@@ -561,9 +573,19 @@ export class ProjectsService {
 
     const { workerId, ...rest } = dto;
     const targetWorkerId = workerId ?? current.workerId;
-    // Reaktivierung einer Zuweisung → Constraint erneut prüfen.
-    if (dto.active === true && !current.active) {
-      await this.assertNoActiveAssignment(targetWorkerId, id);
+    const nextStart = coerceDate(dto.startDate) ?? current.startDate;
+    const nextEnd: Date | null =
+      dto.endDate !== undefined
+        ? (coerceDate(dto.endDate) ?? null)
+        : current.endDate;
+    const willBeActive = dto.active ?? current.active;
+    if (willBeActive) {
+      await this.assertNoOverlappingAssignment(
+        targetWorkerId,
+        nextStart,
+        nextEnd,
+        id,
+      );
     }
 
     const updated = await this.prisma.projectAssignment.update({
@@ -586,17 +608,15 @@ export class ProjectsService {
       },
     });
 
-    // Verfügbarkeit synchronisieren: Ende → AVAILABLE, Start → ON_PROJECT.
-    if (dto.active === false && current.active) {
-      await this.setWorkerAvailability(
-        current.workerId,
-        WorkerAvailability.AVAILABLE,
-      );
-    } else if (dto.active === true && !current.active) {
+    // Verfügbarkeit: Reaktivierung → ON_PROJECT; Deaktivierung nur AVAILABLE
+    // wenn keine andere aktive Zuweisung mehr existiert.
+    if (dto.active === true && !current.active) {
       await this.setWorkerAvailability(
         targetWorkerId,
         WorkerAvailability.ON_PROJECT,
       );
+    } else if (dto.active === false && current.active) {
+      await this.syncAvailabilityAfterActiveLoss(current.workerId, id);
     }
     return updated;
   }
@@ -611,35 +631,38 @@ export class ProjectsService {
       throw new NotFoundException('Zuordnung nicht gefunden');
     }
     await this.prisma.projectAssignment.delete({ where: { id } });
-    // War die Zuweisung aktiv, Monteur wieder verfügbar machen.
+    // Nur AVAILABLE, wenn keine weitere aktive Zuweisung bleibt.
     if (current.active) {
-      await this.setWorkerAvailability(
-        current.workerId,
-        WorkerAvailability.AVAILABLE,
-      );
+      await this.syncAvailabilityAfterActiveLoss(current.workerId);
     }
     return { id, deleted: true };
   }
 
   /**
-   * Stellt sicher, dass der Monteur keine andere aktive Zuweisung hat.
+   * Stellt sicher, dass der Monteur keine überlappende aktive Zuweisung hat.
+   * Überlappung: startDate <= to AND (endDate IS NULL OR endDate >= from).
    * Wirft 409 mit Hinweis auf das belegende Projekt.
    */
-  private async assertNoActiveAssignment(
+  private async assertNoOverlappingAssignment(
     workerId: string,
+    from: Date,
+    to: Date | null,
     exceptAssignmentId?: string,
   ): Promise<void> {
+    const effectiveTo = to ?? new Date('9999-12-31');
     const existing = await this.prisma.projectAssignment.findFirst({
       where: {
         workerId,
         active: true,
         id: exceptAssignmentId ? { not: exceptAssignmentId } : undefined,
+        startDate: { lte: effectiveTo },
+        OR: [{ endDate: null }, { endDate: { gte: from } }],
       },
       include: { project: { select: { title: true } } },
     });
     if (existing) {
       throw new ConflictException(
-        `Worker ist bereits dem Projekt '${existing.project.title}' zugewiesen. Bitte zuerst die bestehende Zuweisung beenden.`,
+        `Worker ist im gewählten Zeitraum bereits dem Projekt '${existing.project.title}' zugewiesen. Bitte zuerst die bestehende Zuweisung beenden oder den Zeitraum anpassen.`,
       );
     }
   }
@@ -652,6 +675,29 @@ export class ProjectsService {
     await this.prisma.worker
       .update({ where: { id: workerId }, data: { availability } })
       .catch(() => undefined);
+  }
+
+  /**
+   * Nach Ende/Löschen einer aktiven Zuweisung: AVAILABLE nur wenn
+   * keine andere aktive Assignment mehr existiert (sonst ON_PROJECT).
+   */
+  private async syncAvailabilityAfterActiveLoss(
+    workerId: string,
+    exceptAssignmentId?: string,
+  ): Promise<void> {
+    const remaining = await this.prisma.projectAssignment.count({
+      where: {
+        workerId,
+        active: true,
+        id: exceptAssignmentId ? { not: exceptAssignmentId } : undefined,
+      },
+    });
+    await this.setWorkerAvailability(
+      workerId,
+      remaining > 0
+        ? WorkerAvailability.ON_PROJECT
+        : WorkerAvailability.AVAILABLE,
+    );
   }
 
   // ── Kalender / Timeline ──────────────────────────────────────
@@ -718,10 +764,48 @@ export class ProjectsService {
     });
   }
 
-  /** Aktive Monteure für die Zuordnungs-Auswahl. */
-  async listWorkers() {
+  /**
+   * Aktive Monteure für die Zuordnungs-Auswahl.
+   * Mit availableOnly + from/to: nur Monteure ohne überlappende aktive Assignment.
+   */
+  async listWorkers(params?: {
+    from?: string;
+    to?: string;
+    availableOnly?: boolean;
+  }) {
+    const where: Prisma.WorkerWhereInput = {
+      active: true,
+      deletedAt: null,
+    };
+
+    if (params?.availableOnly) {
+      // Date-only Grenzen (UTC-Mitternacht), konsistent mit Assignment-Daten.
+      const fromDate = params.from
+        ? new Date(params.from.slice(0, 10) + 'T00:00:00.000Z')
+        : new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00.000Z');
+      const toDate = params.to
+        ? new Date(params.to.slice(0, 10) + 'T23:59:59.999Z')
+        : new Date('9999-12-31T23:59:59.999Z');
+      where.availability = {
+        notIn: [
+          WorkerAvailability.SICK,
+          WorkerAvailability.VACATION,
+          WorkerAvailability.UNAVAILABLE,
+        ],
+      };
+      where.NOT = {
+        assignments: {
+          some: {
+            active: true,
+            startDate: { lte: toDate },
+            OR: [{ endDate: null }, { endDate: { gte: fromDate } }],
+          },
+        },
+      };
+    }
+
     return this.prisma.worker.findMany({
-      where: { active: true },
+      where,
       select: { id: true, workerNumber: true, firstName: true, lastName: true },
       orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
     });
