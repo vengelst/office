@@ -116,7 +116,7 @@ export class InvoicePdfService {
     let titleY = 50;
     if (logo) {
       try {
-        doc.image(logo, 50, 40, { fit: [120, 48], align: 'left' });
+        doc.image(logo, 50, 40, { fit: [120, 48] });
         titleY = 100;
       } catch {
         /* ungültiges Logo ignorieren */
