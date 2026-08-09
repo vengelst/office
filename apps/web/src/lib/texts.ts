@@ -2348,6 +2348,17 @@ export const texts = {
       autoLogout: (seconds: number): string =>
         `Automatisch zurück in ${seconds} Sek.`,
       alreadySigned: 'Bereits abgezeichnet',
+      tabs: {
+        items: 'Arbeitsitems',
+        timesheets: 'Stundenzettel',
+      },
+      items: {
+        searchAction: 'Suchen',
+        loadError:
+          'Arbeitsitems konnten nicht geladen werden. Keine Projektzuordnung oder Netzwerkfehler.',
+        detailError: 'Item konnte nicht geladen werden.',
+        closeDetail: 'Zurück zum Board',
+      },
     },
   },
   map: {

@@ -23,27 +23,17 @@ import { PlItemDetailSheet } from '@/components/pl/pl-item-detail-sheet';
 import { formatDateTime } from '@/lib/format';
 import { texts } from '@/lib/texts';
 import {
+  workItemLocationLabel,
+  workItemWorkerLabel,
+} from '@/lib/work-item-display';
+import {
   customerPlApi,
   WORK_ITEM_REPORT_LABELS,
   WORK_ITEM_STATUSES,
   WORK_ITEM_STATUS_LABELS,
   type CustomerPlBoardResponse,
-  type WorkItemListEntry,
   type WorkItemStatus,
 } from '@/lib/work-items';
-
-/** "5 · A · Lift Lobby" aus Geschoss/Bereich/Raum. */
-function locationLabel(item: WorkItemListEntry): string {
-  return [item.floor, item.area, item.room].filter(Boolean).join(' · ') || '–';
-}
-
-/** Namen der aktiven Monteure eines Items. */
-function workerLabel(item: WorkItemListEntry): string {
-  if (item.assignments.length === 0) return '–';
-  return item.assignments
-    .map((a) => `${a.worker.lastName}, ${a.worker.firstName}`)
-    .join('; ');
-}
 
 /**
  * Item-Board des Kunden-PLs: Status-Zähler als Schnellfilter, Suche und
@@ -196,7 +186,7 @@ export default function CustomerPlBoardPage(): React.ReactNode {
                     </TableCell>
                     <TableCell className="text-sm">{item.title ?? '–'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {locationLabel(item)}
+                      {workItemLocationLabel(item)}
                     </TableCell>
                     <TableCell className="font-mono text-xs">
                       {item.block?.blockKey ?? '–'}
@@ -205,7 +195,7 @@ export default function CustomerPlBoardPage(): React.ReactNode {
                       <WorkItemStatusBadge status={item.status} />
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {workerLabel(item)}
+                      {workItemWorkerLabel(item)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {item.reports[0]
@@ -237,11 +227,11 @@ export default function CustomerPlBoardPage(): React.ReactNode {
                     <WorkItemStatusBadge status={item.status} />
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {locationLabel(item)}
+                    {workItemLocationLabel(item)}
                     {item.block && <> · {item.block.blockKey}</>}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {t.columns.workers}: {workerLabel(item)}
+                    {t.columns.workers}: {workItemWorkerLabel(item)}
                   </p>
                 </CardContent>
               </Card>

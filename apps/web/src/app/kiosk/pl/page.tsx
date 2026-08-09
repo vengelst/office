@@ -14,17 +14,21 @@ import {
   type TimesheetDetail,
   type TimesheetListItem,
 } from '@/lib/timesheets';
+import {
+  KIOSK_PL_TOKEN_KEY,
+  KIOSK_PL_USER_KEY,
+  kioskPlApi,
+  kioskPlFetch,
+} from '@/lib/kiosk-pl-api';
+import { KioskPlItemBoard } from '@/components/kiosk/pl-item-board';
 import type { KioskConfig } from '../setup/page';
 import type { AuthUser, LoginResponse } from '@office/types';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
-const PL_TOKEN_KEY = 'office_kiosk_pl_token';
-const PL_USER_KEY = 'office_kiosk_pl_user';
-
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
 const PL_IDLE_SECONDS = 120;
+/** Idle für Item-Board/Fotos etwas länger (analog Terminal max 180). */
+const PL_ITEMS_IDLE_SECONDS = 180;
 
 const DAY_KEYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'] as const;
 
@@ -32,30 +36,8 @@ function weekdayLabel(iso: string): string {
   return texts.timesheets.days[DAY_KEYS[new Date(iso).getDay()]];
 }
 
-type PlState = 'idle' | 'list' | 'detail' | 'confirmation';
-
-async function plFetch<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem(PL_TOKEN_KEY) : null;
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: opts.method ?? 'GET',
-    headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
-  });
-
-  const isJson = res.headers.get('content-type')?.includes('application/json');
-  const data: unknown = isJson ? await res.json() : null;
-
-  if (!res.ok) {
-    const msg = data && typeof data === 'object' && 'message' in data
-      ? String((data as { message: string }).message)
-      : `Request failed (${res.status})`;
-    throw new Error(msg);
-  }
-  return data as T;
-}
+type PlState = 'idle' | 'home' | 'timesheet_detail' | 'confirmation';
+type MainTab = 'items' | 'timesheets';
 
 export default function KioskPlPage() {
   const router = useRouter();
@@ -64,6 +46,8 @@ export default function KioskPlPage() {
 
   const [config, setConfig] = useState<KioskConfig | null>(null);
   const [state, setState] = useState<PlState>('idle');
+  const [mainTab, setMainTab] = useState<MainTab>('timesheets');
+  const [itemBased, setItemBased] = useState(false);
   const [clock, setClock] = useState(new Date());
 
   // PIN
@@ -134,7 +118,9 @@ export default function KioskPlPage() {
   // Auto-logout
   useEffect(() => {
     if (state === 'idle' || state === 'confirmation' || !config) return;
-    const limit = Math.max(config.autoLogoutSeconds, PL_IDLE_SECONDS);
+    const base = Math.max(config.autoLogoutSeconds, PL_IDLE_SECONDS);
+    const limit =
+      mainTab === 'items' ? Math.max(base, PL_ITEMS_IDLE_SECONDS) : base;
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - lastInteraction.current) / 1000);
       const remaining = Math.max(0, limit - elapsed);
@@ -143,7 +129,7 @@ export default function KioskPlPage() {
     }, 1000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, config]);
+  }, [state, config, mainTab]);
 
   const resetActivity = () => {
     lastInteraction.current = Date.now();
@@ -158,9 +144,11 @@ export default function KioskPlPage() {
     setDetail(null);
     setSignerName('');
     setSignError('');
+    setItemBased(false);
+    setMainTab('timesheets');
     if (typeof window !== 'undefined') {
-      localStorage.removeItem(PL_TOKEN_KEY);
-      localStorage.removeItem(PL_USER_KEY);
+      localStorage.removeItem(KIOSK_PL_TOKEN_KEY);
+      localStorage.removeItem(KIOSK_PL_USER_KEY);
     }
   }, []);
 
@@ -182,16 +170,28 @@ export default function KioskPlPage() {
     setPinLoading(true);
     setPinError('');
     try {
-      const loginRes = await plFetch<LoginResponse>('/auth/user-pin-login', {
+      const loginRes = await kioskPlFetch<LoginResponse>('/auth/user-pin-login', {
         method: 'POST',
         body: { pin: pinValue },
       });
-      localStorage.setItem(PL_TOKEN_KEY, loginRes.accessToken);
-      localStorage.setItem(PL_USER_KEY, JSON.stringify(loginRes.user));
+      localStorage.setItem(KIOSK_PL_TOKEN_KEY, loginRes.accessToken);
+      localStorage.setItem(KIOSK_PL_USER_KEY, JSON.stringify(loginRes.user));
       setUser(loginRes.user);
       setSignerName(loginRes.user.displayName ?? '');
       lastInteraction.current = Date.now();
-      setState('list');
+
+      // itemBased aus /pl/projects ableiten (kein neuer Endpoint)
+      let based = false;
+      try {
+        const projects = await kioskPlApi.projects();
+        const match = projects.find((p) => p.id === config?.projectId);
+        based = Boolean(match?.itemBased);
+      } catch {
+        based = false;
+      }
+      setItemBased(based);
+      setMainTab(based ? 'items' : 'timesheets');
+      setState('home');
       loadSheets();
     } catch {
       setPinError(t.pinError);
@@ -205,7 +205,7 @@ export default function KioskPlPage() {
   const loadSheets = useCallback(() => {
     if (!config) return;
     setSheetsLoading(true);
-    plFetch<{ data: TimesheetListItem[] }>(
+    kioskPlFetch<{ data: TimesheetListItem[] }>(
       `/timesheets?projectId=${config.projectId}&status=SUBMITTED&limit=100&sortBy=weekNumber&sortDir=desc`,
     )
       .then((res) => setSheets(res.data ?? []))
@@ -220,9 +220,9 @@ export default function KioskPlPage() {
     setDetailLoading(true);
     setSignError('');
     try {
-      const sheet = await plFetch<TimesheetDetail>(`/timesheets/${id}`);
+      const sheet = await kioskPlFetch<TimesheetDetail>(`/timesheets/${id}`);
       setDetail(sheet);
-      setState('detail');
+      setState('timesheet_detail');
     } catch {
       // ignore
     } finally {
@@ -244,7 +244,7 @@ export default function KioskPlPage() {
     setSigning(true);
     setSignError('');
     try {
-      await plFetch(`/timesheets/${detail.id}/sign`, {
+      await kioskPlFetch(`/timesheets/${detail.id}/sign`, {
         method: 'POST',
         body: {
           signerType: 'CUSTOMER',
@@ -253,7 +253,7 @@ export default function KioskPlPage() {
           signatureBase64: dataUrl,
         },
       });
-      await plFetch(`/timesheets/${detail.id}/approve`, { method: 'POST' });
+      await kioskPlFetch(`/timesheets/${detail.id}/approve`, { method: 'POST' });
       setConfirmMessage(t.successMessage);
       setState('confirmation');
       setTimeout(resetToIdle, 4000);
@@ -291,8 +291,8 @@ export default function KioskPlPage() {
     );
   }
 
-  // ── DETAIL ──
-  if (state === 'detail' && detail) {
+  // ── TIMESHEET DETAIL ──
+  if (state === 'timesheet_detail' && detail) {
     const canApprove = detail.status === 'SUBMITTED';
     const hasCustomerSig = detail.signatures.some((s) => s.signerType === 'CUSTOMER');
 
@@ -308,7 +308,8 @@ export default function KioskPlPage() {
             onClick={() => {
               resetActivity();
               setDetail(null);
-              setState('list');
+              setState('home');
+              setMainTab('timesheets');
             }}
             className="rounded-lg bg-gray-800 px-4 py-2 text-lg text-gray-300 transition hover:bg-gray-700"
             style={{ minHeight: '44px' }}
@@ -429,8 +430,8 @@ export default function KioskPlPage() {
     );
   }
 
-  // ── LIST ──
-  if (state === 'list' && user) {
+  // ── HOME (Tabs: Items | Stundenzettel) ──
+  if (state === 'home' && user) {
     return (
       <div
         className="flex min-h-screen flex-col p-4"
@@ -451,61 +452,112 @@ export default function KioskPlPage() {
 
         {/* Title */}
         <div className="mt-4 text-center">
-          <h2 className="text-2xl font-bold">{t.listTitle}</h2>
-          <p className="text-gray-400">{config.projectTitle}</p>
+          <h2 className="text-2xl font-bold">{config.projectTitle}</h2>
           <p className="text-sm text-gray-500">{user.displayName}</p>
         </div>
 
-        {/* List */}
-        <div className="mt-6 flex-1">
-          {sheetsLoading ? (
-            <p className="text-center text-gray-400">{texts.common.loading}</p>
-          ) : sheets.length === 0 ? (
-            <p className="text-center text-gray-500">{t.listEmpty}</p>
-          ) : (
-            <div className="space-y-3">
-              {sheets.map((sheet) => (
-                <button
-                  key={sheet.id}
-                  onClick={() => loadDetail(sheet.id)}
-                  className="w-full rounded-xl bg-gray-900/80 p-4 text-left transition hover:bg-gray-800 active:scale-[0.98]"
-                  style={{ minHeight: '64px' }}
-                  disabled={detailLoading}
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-lg font-semibold">
-                        {sheet.worker.firstName} {sheet.worker.lastName}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        {t.week} {sheet.weekNumber}/{sheet.weekYear}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-mono text-lg font-medium text-blue-400">
-                        {formatMinutes(sheet.totalMinutesNet)}
-                      </p>
-                      <span className="inline-block rounded-full bg-yellow-600/30 px-2 py-0.5 text-xs font-medium text-yellow-300">
-                        {tTimesheets.status[sheet.status] ?? sheet.status}
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+        {/* Tabs */}
+        {itemBased ? (
+          <div className="mx-auto mt-4 flex w-full max-w-lg gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                resetActivity();
+                setMainTab('items');
+              }}
+              className={`flex-1 rounded-xl px-4 py-3 text-lg font-semibold transition active:scale-95 ${
+                mainTab === 'items'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+              style={{ minHeight: '48px' }}
+            >
+              {t.tabs.items}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                resetActivity();
+                setMainTab('timesheets');
+                loadSheets();
+              }}
+              className={`flex-1 rounded-xl px-4 py-3 text-lg font-semibold transition active:scale-95 ${
+                mainTab === 'timesheets'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+              }`}
+              style={{ minHeight: '48px' }}
+            >
+              {t.tabs.timesheets}
+            </button>
+          </div>
+        ) : (
+          <div className="mt-4 text-center">
+            <h3 className="text-xl font-bold">{t.listTitle}</h3>
+          </div>
+        )}
 
-          {/* Refresh button */}
-          <button
-            onClick={() => {
-              resetActivity();
-              loadSheets();
-            }}
-            className="mx-auto mt-6 block rounded-lg bg-gray-800 px-6 py-3 text-gray-300 transition hover:bg-gray-700"
-            style={{ minHeight: '44px' }}
-          >
-            {texts.customerPl.timesheets.reload}
-          </button>
+        {/* Tab content */}
+        <div className="mt-6 flex flex-1 flex-col">
+          {mainTab === 'items' && itemBased ? (
+            <KioskPlItemBoard
+              projectId={config.projectId}
+              onActivity={resetActivity}
+            />
+          ) : (
+            <>
+              {itemBased && (
+                <h3 className="mb-4 text-center text-xl font-bold">{t.listTitle}</h3>
+              )}
+              {sheetsLoading ? (
+                <p className="text-center text-gray-400">{texts.common.loading}</p>
+              ) : sheets.length === 0 ? (
+                <p className="text-center text-gray-500">{t.listEmpty}</p>
+              ) : (
+                <div className="space-y-3">
+                  {sheets.map((sheet) => (
+                    <button
+                      key={sheet.id}
+                      onClick={() => loadDetail(sheet.id)}
+                      className="w-full rounded-xl bg-gray-900/80 p-4 text-left transition hover:bg-gray-800 active:scale-[0.98]"
+                      style={{ minHeight: '64px' }}
+                      disabled={detailLoading}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-lg font-semibold">
+                            {sheet.worker.firstName} {sheet.worker.lastName}
+                          </p>
+                          <p className="text-sm text-gray-400">
+                            {t.week} {sheet.weekNumber}/{sheet.weekYear}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-mono text-lg font-medium text-blue-400">
+                            {formatMinutes(sheet.totalMinutesNet)}
+                          </p>
+                          <span className="inline-block rounded-full bg-yellow-600/30 px-2 py-0.5 text-xs font-medium text-yellow-300">
+                            {tTimesheets.status[sheet.status] ?? sheet.status}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  resetActivity();
+                  loadSheets();
+                }}
+                className="mx-auto mt-6 block rounded-lg bg-gray-800 px-6 py-3 text-gray-300 transition hover:bg-gray-700"
+                style={{ minHeight: '44px' }}
+              >
+                {texts.customerPl.timesheets.reload}
+              </button>
+            </>
+          )}
         </div>
 
         {/* Auto-logout */}
