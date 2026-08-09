@@ -1,3 +1,8 @@
+/**
+ * Service für Google Drive.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { google, drive_v3 } from 'googleapis';
 import type { Readable } from 'node:stream';
@@ -177,8 +182,15 @@ export class GoogleDriveService {
   }
 
   /**
-   * Hochladen mit automatischer Ordnerstruktur.
-   * Erstellt Kategorie → Entity → Unterordner und lädt die Datei dort hoch.
+   * Hochladen mit automatischer Ordnerstruktur. Erstellt Kategorie → Entity → Unterordner und lädt die Datei dort hoch.
+   *
+   * @param fileBuffer - Parameter `fileBuffer` (Buffer)
+   * @param mimeType - MIME-Type (string)
+   * @param categoryName - Parameter `categoryName` (string)
+   * @param entityFolderName - Parameter `entityFolderName` (string)
+   * @param subFolderName - Parameter `subFolderName` (string)
+   * @param readableFilename - Parameter `readableFilename` (string)
+   * @returns DriveUploadResult | null
    */
   async uploadWithStructure(
     fileBuffer: Buffer,
@@ -252,8 +264,11 @@ export class GoogleDriveService {
   }
 
   /**
-   * Erstellt einen Drive-Shortcut (Verknüpfung) auf eine Datei in einem Zielordner.
-   * Wird für Monteur-Foto-Verknüpfungen verwendet.
+   * Erstellt einen Drive-Shortcut (Verknüpfung) auf eine Datei in einem Zielordner. Wird für Monteur-Foto-Verknüpfungen verwendet.
+   *
+   * @param fileId - ID (fileId) (string)
+   * @param targetFolderId - ID (targetFolderId) (string)
+   * @returns string | null
    */
   async createShortcut(fileId: string, targetFolderId: string): Promise<string | null> {
     try {
@@ -367,6 +382,11 @@ export class GoogleDriveService {
 
   /**
    * Stellt eine vollständige Unterordner-Hierarchie sicher und gibt die Unterordner-ID zurück.
+   *
+   * @param categoryName - Parameter `categoryName` (string)
+   * @param entityFolderName - Parameter `entityFolderName` (string)
+   * @param subFolderName - Parameter `subFolderName` (string)
+   * @returns string | null
    */
   async ensureSubfolderStructure(
     categoryName: string,

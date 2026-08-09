@@ -1,4 +1,7 @@
-/** Multipart-Upload für Dokumente (apiClient kann nur JSON). */
+/**
+ * Upload-Helfer (FormData, Fortschritt) für Dateien.
+ */
+
 import { ApiError, TOKEN_STORAGE_KEY } from './api-client';
 import type { ApiErrorResponse } from '@office/types';
 import type { DocumentItem } from './customers';

@@ -1,4 +1,8 @@
-/** UI-Texte: `nav`. */
+/**
+ * UI-Texte für Domäne `nav` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const nav = {
     dashboard: 'Dashboard',
     customers: 'Kunden',

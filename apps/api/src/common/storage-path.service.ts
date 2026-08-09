@@ -1,3 +1,8 @@
+/**
+ * Service für Storage Path.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { slugify, fileSlug, compactNumber, dateSlug, timeSlug } from './slug.util';

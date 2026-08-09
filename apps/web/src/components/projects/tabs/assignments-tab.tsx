@@ -1,3 +1,8 @@
+/**
+ * Komponente: projects / tabs / assignments-tab (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
@@ -62,6 +67,9 @@ const EMPTY: FormState = {
 const workerName = (w: { firstName: string; lastName: string }): string =>
   [w.firstName, w.lastName].filter(Boolean).join(' ');
 
+/**
+ * UI-Komponente `AssignmentsTab`.
+ */
 export function AssignmentsTab({
   projectId,
   assignments,

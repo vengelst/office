@@ -1,18 +1,7 @@
 /**
- * Arbeitsitems für den **Monteur im Browser** (SPEZ-arbeitsitems.md 4.1, 5, 6, 8.2, 13).
- *
- * Gegenstück zu `apps/mobile/lib/work-items.ts`: gleiche Endpunkte, gleiche
- * Typen, gleiche Guards – nur mit Browser-Mitteln. Bewusst getrennt von
- * `src/lib/work-items.ts` (Büro-/Kunden-PL-Client mit `office_token`): Dieser
- * Client spricht ausschließlich die Monteur-Endpunkte mit dem Worker-JWT
- * (`office_worker_token`) an, das `/worker-app` und `/kiosk` bereits nutzen.
- *
- * Unterschiede zur App (technisch, nicht funktional):
- *  - Fotos sind `File`-Objekte aus `<input type="file">` statt Kamera-URIs.
- *  - Das Block-PDF wird als Blob geladen (`loadWorkItemPdf`) und im Overlay
- *    angezeigt; ein Direktlink scheidet aus, weil der Endpunkt das Bearer-Token
- *    verlangt, das ein `<a href>` nicht mitschickt.
+ * API-Helfer für Monteur-Work-Items (Claim/Session/Report).
  */
+
 import { ApiError } from './api-client';
 import { getWorkerToken, workerFetch, workerUpload } from './timesheets';
 
@@ -21,6 +10,9 @@ const API_BASE_URL =
 
 // ── Basis-Typen (Spiegel der API-Responses) ────────────────────
 
+/**
+ * Typ/Interface `WorkItemStatus` für die Web-App.
+ */
 export type WorkItemStatus =
   | 'OPEN'
   | 'IN_PROGRESS'
@@ -28,7 +20,13 @@ export type WorkItemStatus =
   | 'REWORK'
   | 'APPROVED';
 
+/**
+ * Typ/Interface `WorkItemReportType` für die Web-App.
+ */
 export type WorkItemReportType = 'COMPLETED' | 'REWORK';
+/**
+ * Typ/Interface `WorkItemReviewAction` für die Web-App.
+ */
 export type WorkItemReviewAction = 'APPROVE' | 'FORCE_COMPLETE';
 
 /** Block (PDF-Gruppe), wie er am Item hängt. */
@@ -205,7 +203,9 @@ function appendPhotos(form: FormData, photos: File[]): void {
   });
 }
 
-/** Ort eines Items als eine Zeile: "EG · Flur · Raum 1.02". */
+/**
+ * Ort eines Items als eine Zeile: "EG · Flur · Raum 1.02".
+ */
 export function formatLocation(item: {
   floor: string | null;
   area: string | null;
@@ -214,7 +214,12 @@ export function formatLocation(item: {
   return [item.floor, item.area, item.room].filter(Boolean).join(' · ');
 }
 
-/** Menge + Einheit einer Materialzeile ("3 Stk"); trimmt "3.00" auf "3". */
+/**
+ * Menge + Einheit einer Materialzeile ("3 Stk"); trimmt "3.00" auf "3".
+ *
+ * @param line - Parameter `line` (WorkItemMaterial)
+ * @returns string
+ */
 export function formatQty(line: WorkItemMaterial): string {
   let qty = '';
   if (line.qty) {
@@ -224,7 +229,12 @@ export function formatQty(line: WorkItemMaterial): string {
   return [qty, line.qtyUnit].filter(Boolean).join(' ');
 }
 
-/** Datum + Uhrzeit einer Rückmeldung/Kontrolle ("07.08.2026, 14:32"). */
+/**
+ * Datum + Uhrzeit einer Rückmeldung/Kontrolle ("07.08.2026, 14:32").
+ *
+ * @param iso - Parameter `iso` (string | null | undefined)
+ * @returns string
+ */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '–';
   const d = new Date(iso);
@@ -384,7 +394,13 @@ export const workerWorkItemsApi = {
   openPdf: loadWorkItemPdf,
 };
 
-/** Fehlermeldung eines fehlgeschlagenen Aufrufs, sonst der Fallback-Text. */
+/**
+ * Fehlermeldung eines fehlgeschlagenen Aufrufs, sonst der Fallback-Text.
+ *
+ * @param err - Parameter `err`
+ * @param fallback - Parameter `fallback` (string)
+ * @returns string
+ */
 export function apiMessage(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
 }

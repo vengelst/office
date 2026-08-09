@@ -1,3 +1,8 @@
+/**
+ * HTTP-Endpunkte für Login, PIN-Login, Logout und Token-Refresh.
+ * Öffentliche Routen sind rate-limitiert; geschützte Routen nutzen JWT.
+ */
+
 import {
   Body,
   Controller,
@@ -22,6 +27,14 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  /**
+   * Authentifiziert und stellt ein JWT aus.
+   *
+   * @param dto - Request-Body / Eingabedaten (LoginDto)
+   * @returns LoginResponse mit Token und Benutzer (LoginResponse)
+   * @throws {UnauthorizedException} Bei ungültigen Anmeldedaten
+   */
+
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   @Post('login')
@@ -30,6 +43,14 @@ export class AuthController {
   login(@Body() dto: LoginDto): Promise<LoginResponse> {
     return this.authService.login(dto.email, dto.password);
   }
+
+  /**
+   * Authentifiziert per PIN und stellt ein JWT aus.
+   *
+   * @param dto - Request-Body / Eingabedaten (PinLoginDto)
+   * @returns LoginResponse (LoginResponse)
+   * @throws {UnauthorizedException} Bei ungültigen Anmeldedaten
+   */
 
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
@@ -40,6 +61,14 @@ export class AuthController {
     return this.authService.pinLogin(dto.pin);
   }
 
+  /**
+   * Authentifiziert einen Benutzer (Kunden-PL) per PIN.
+   *
+   * @param dto - Request-Body / Eingabedaten (PinLoginDto)
+   * @returns LoginResponse (LoginResponse)
+   * @throws {UnauthorizedException} Bei ungültigen Anmeldedaten
+   */
+
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('user-pin-login')
@@ -48,6 +77,13 @@ export class AuthController {
   userPinLogin(@Body() dto: PinLoginDto): Promise<LoginResponse> {
     return this.authService.userPinLogin(dto.pin);
   }
+
+  /**
+   * Invalidiert die aktuelle Session bzw. das Token.
+   *
+   * @param authHeader - Authorization-Header (Bearer …) (string)
+   * @returns Erfolgsbestätigung
+   */
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -60,6 +96,13 @@ export class AuthController {
     const token = authHeader?.replace(/^Bearer\s+/i, '') ?? '';
     return this.authService.logout(token);
   }
+
+  /**
+   * Erneuert das JWT für den aktuellen Akteur.
+   *
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns LoginResponse mit neuem Token (LoginResponse)
+   */
 
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()

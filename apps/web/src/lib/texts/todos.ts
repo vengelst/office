@@ -1,4 +1,8 @@
-/** UI-Texte: `todos`. */
+/**
+ * UI-Texte für Domäne `todos` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const todos = {
     title: 'Aufgaben',
     titleSingle: 'Aufgabe',

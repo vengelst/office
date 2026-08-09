@@ -1,3 +1,8 @@
+/**
+ * Seite: todos (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -83,6 +88,9 @@ function formatDate(iso: string | null): string {
   });
 }
 
+/**
+ * UI-Komponente `TodosPage`.
+ */
 export default function TodosPage(): React.ReactNode {
   const { toast } = useToast();
   const [todos, setTodos] = useState<Todo[]>([]);

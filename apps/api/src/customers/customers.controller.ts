@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Customers.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -124,6 +129,13 @@ export class CustomersController {
   bulkRemove(@Body() dto: BulkDeleteDto) {
     return this.customers.bulkRemove(dto.ids);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Kunde löschen (Soft-Delete)' })

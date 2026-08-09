@@ -1,12 +1,17 @@
+/**
+ * Theme-Context-Provider (Hell/Dunkel).
+ * Teil des App-Chrome unter components/layout.
+ */
+
 'use client';
 
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import type { ReactNode } from 'react';
 
 /**
- * Thin wrapper around next-themes. Props are declared explicitly because
- * `ComponentProps<typeof NextThemesProvider>` breaks under current
- * @types/react + next-themes typings (empty IntrinsicAttributes).
+ * Thin wrapper um next-themes für Hell-/Dunkelmodus.
+ *
+ * @param props - children sowie next-themes Attribute (attribute, defaultTheme, …)
  */
 export function ThemeProvider({
   children,

@@ -1,4 +1,8 @@
-/** UI-Texte: `timeClock`. */
+/**
+ * UI-Texte für Domäne `timeClock` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const timeClock = {
     title: 'Stempeluhr',
     subtitle: 'Wer ist gerade eingestempelt?',

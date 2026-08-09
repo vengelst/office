@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Research.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,

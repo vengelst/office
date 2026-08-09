@@ -1,3 +1,7 @@
+/**
+ * Guard für Monteur-Routen: erlaubt nur JWTs mit Actor-Typ worker.
+ */
+
 import {
   ExecutionContext,
   Injectable,

@@ -1,3 +1,8 @@
+/**
+ * Komponente: projects / tabs / sites-tab (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useState, type ReactNode } from 'react';

@@ -1,3 +1,8 @@
+/**
+ * Service für Submissions.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,9 +25,11 @@ export class SubmissionsService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Liefert Ausschreibungen, optional gefiltert nach Kunde und Status.
-   * Soft-gelöschte Einträge werden ausgeblendet.
-   * Paginierung analog CustomersService (page/limit, max 100).
+   * Liefert Ausschreibungen, optional gefiltert nach Kunde und Status. Soft-gelöschte Einträge werden ausgeblendet. Paginierung analog CustomersService (page/limit, max 100).
+   *
+   * @param params - Filter-, Sortier- und/oder Pagination-Parameter (ListSubmissionsParams)
+   * @returns Listenergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
    */
   async findAll(params: ListSubmissionsParams) {
     const page = Math.max(1, Number(params.page) || 1);
@@ -107,7 +114,13 @@ export class SubmissionsService {
     });
   }
 
-  /** Soft-Delete: setzt deletedAt. */
+  /**
+   * Soft-Delete: setzt deletedAt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async remove(id: string) {
     await this.ensureExists(id);
     await this.prisma.submission.update({
@@ -117,6 +130,13 @@ export class SubmissionsService {
     return { id, deleted: true };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureExists` (ensure Exists).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.submission.count({
       where: { id, deletedAt: null },

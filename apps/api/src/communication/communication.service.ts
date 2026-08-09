@@ -1,3 +1,8 @@
+/**
+ * Service für Communication.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import {
   CommunicationEntityType,
@@ -21,6 +26,13 @@ export interface ListCommunicationParams {
 export class CommunicationService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Listet Einträge der Domäne.
+   *
+   * @param params - Filter-, Sortier- und/oder Pagination-Parameter (ListCommunicationParams)
+   * @returns Liste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async list(params: ListCommunicationParams) {
     const page = Math.max(1, Number(params.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(params.limit) || 20));
@@ -54,6 +66,13 @@ export class CommunicationService {
     return { data, total, page, limit };
   }
 
+  /**
+   * Liest einen Konfigurations- oder Datensatzwert.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Gelesener Wert
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async get(id: string) {
     const entry = await this.prisma.communicationEntry.findUnique({
       where: { id },
@@ -64,6 +83,12 @@ export class CommunicationService {
     return entry;
   }
 
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateCommunicationDto)
+   * @returns Neu angelegter Datensatz
+   */
   async create(dto: CreateCommunicationDto) {
     return this.prisma.communicationEntry.create({
       data: {
@@ -80,6 +105,13 @@ export class CommunicationService {
     });
   }
 
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateCommunicationDto)
+   * @returns Aktualisierter Datensatz
+   */
   async update(id: string, dto: UpdateCommunicationDto) {
     await this.get(id);
     return this.prisma.communicationEntry.update({
@@ -91,6 +123,12 @@ export class CommunicationService {
     });
   }
 
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
   async remove(id: string) {
     await this.get(id);
     await this.prisma.communicationEntry.delete({ where: { id } });

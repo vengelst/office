@@ -1,9 +1,19 @@
+/**
+ * Bootstrap der NestJS-Office-API.
+ * Setzt Global-Prefix, CORS, Validation, Exception-Filter, optional Swagger und startet den HTTP-Server.
+ */
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
+/**
+ * Startet die API-Anwendung und konfiguriert Querschnittsbelange.
+ *
+ * @returns Promise, das resolved, sobald der Server lauscht
+ */
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 

@@ -1,7 +1,8 @@
 /**
- * Zentrale UI-Texte (Vorbereitung i18n).
- * Keine hartcodierten Strings in Komponenten – alles hier referenzieren.
+ * Aggregator aller UI-Text-Module (`texts`-Objekt).
+ * Bestehende Imports `import { texts } from '@/lib/texts'` bleiben kompatibel.
  */
+
 import { app } from './app';
 import { nav } from './nav';
 import { login } from './login';

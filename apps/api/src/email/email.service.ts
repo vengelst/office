@@ -1,3 +1,8 @@
+/**
+ * Service für Email.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
@@ -36,6 +41,11 @@ export class EmailService {
 
   constructor(private readonly settings: AppSettingsService) {}
 
+  /**
+   * Liest die aktuelle Konfiguration.
+   *
+   * @returns Konfigurationsobjekt (SmtpConfig | null)
+   */
   async getConfig(): Promise<SmtpConfig | null> {
     const vals = await this.settings.getMany([...SMTP_KEYS]);
     if (!vals.smtp_host) return null;
@@ -50,6 +60,12 @@ export class EmailService {
     };
   }
 
+  /**
+   * Speichert die Konfiguration.
+   *
+   * @param config - Konfigurationsobjekt (SmtpConfig)
+   * @returns Gespeicherte Konfiguration (void)
+   */
   async saveConfig(config: SmtpConfig): Promise<void> {
     await this.settings.setMany({
       smtp_host: config.host,
@@ -62,6 +78,11 @@ export class EmailService {
     });
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `createTransporter` (create Transporter).
+   *
+   * @returns Transporter
+   */
   private async createTransporter(): Promise<Transporter> {
     const config = await this.getConfig();
     if (!config) {
@@ -78,6 +99,15 @@ export class EmailService {
     });
   }
 
+  /**
+   * Versendet die Ressource (z. B. E-Mail/Rechnung).
+   *
+   * @param to - Zeitraum-Ende (string)
+   * @param subject - Parameter `subject` (string)
+   * @param html - Parameter `html` (string)
+   * @param attachments - Parameter `attachments` (EmailAttachment[])
+   * @returns Versandergebnis
+   */
   async send(
     to: string,
     subject: string,
@@ -114,6 +144,12 @@ export class EmailService {
     }
   }
 
+  /**
+   * Sendet eine Test-E-Mail zur SMTP-Prüfung.
+   *
+   * @param to - Zeitraum-Ende (string)
+   * @returns Sendestatus
+   */
   async sendTest(to: string): Promise<{ success: boolean; error?: string }> {
     return this.send(
       to,

@@ -1,4 +1,8 @@
-/** UI-Texte: `breakRules`. */
+/**
+ * UI-Texte für Domäne `breakRules` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const breakRules = {
     title: 'Pausenregeln',
     subtitle: 'Automatischer Pausenabzug nach Arbeitszeit',

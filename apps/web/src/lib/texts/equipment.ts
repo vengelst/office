@@ -1,4 +1,8 @@
-/** UI-Texte: `equipment`. */
+/**
+ * UI-Texte für Domäne `equipment` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const equipment = {
     title: 'Geräte & Werkzeuge',
     titleSingle: 'Gerät',

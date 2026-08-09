@@ -1,3 +1,8 @@
+/**
+ * Service für Time Entries.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   ConflictException,
@@ -213,7 +218,12 @@ export class TimeEntriesService {
 
   // ── Abfragen ─────────────────────────────────────────────────
 
-  /** Stempel-Status aller Monteure eines Projekts (für Kiosk-Übersicht). */
+  /**
+   * Stempel-Status aller Monteure eines Projekts (für Kiosk-Übersicht).
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Status
+   */
   async projectStatus(projectId: string) {
     await this.assertProject(projectId);
 
@@ -247,13 +257,25 @@ export class TimeEntriesService {
     return results;
   }
 
-  /** Aktueller Stempel-Status eines Monteurs. */
+  /**
+   * Aktueller Stempel-Status eines Monteurs.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param actor - Ausführender Akteur (Audit) (AuthUser)
+   * @returns Status (ClockStatus)
+   */
   async status(workerId: string, actor: AuthUser): Promise<ClockStatus> {
     this.assertOwnWorker(workerId, actor);
     return this.getStatus(workerId);
   }
 
-  /** Heutige Stempel-Einträge eines Monteurs. */
+  /**
+   * Heutige Stempel-Einträge eines Monteurs.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param actor - Ausführender Akteur (Audit) (AuthUser)
+   * @returns Liste der heutigen Einträge
+   */
   async today(workerId: string, actor: AuthUser) {
     this.assertOwnWorker(workerId, actor);
     const start = startOfToday();
@@ -277,7 +299,11 @@ export class TimeEntriesService {
     });
   }
 
-  /** Alle aktuell eingestempelten Monteure (Live-Übersicht). */
+  /**
+   * Alle aktuell eingestempelten Monteure (Live-Übersicht).
+   *
+   * @returns Live-Liste
+   */
   async live() {
     const since = hoursAgo(48);
     const entries = await this.prisma.timeEntry.findMany({
@@ -465,7 +491,11 @@ export class TimeEntriesService {
 
   // ── intern ───────────────────────────────────────────────────
 
-  /** TimeEntry anhand clientEventId (Offline-Idempotenz). */
+  /**
+   * TimeEntry anhand clientEventId (Offline-Idempotenz).
+   *
+   * @param clientEventId - ID (clientEventId) (string)
+   */
   private async findByClientEventId(clientEventId: string) {
     return this.prisma.timeEntry.findUnique({
       where: { clientEventId },
@@ -473,7 +503,11 @@ export class TimeEntriesService {
     });
   }
 
-  /** Letzter Stempel-Event eines Monteurs (CLOCK_IN/CLOCK_OUT). */
+  /**
+   * Letzter Stempel-Event eines Monteurs (CLOCK_IN/CLOCK_OUT).
+   *
+   * @param workerId - ID des Monteurs (string)
+   */
   private async getLatestClockEntry(workerId: string) {
     return this.prisma.timeEntry.findFirst({
       where: { workerId, entryType: { in: CLOCK_TYPES } },
@@ -490,7 +524,13 @@ export class TimeEntriesService {
     });
   }
 
-  /** Offener Einstempel-Eintrag (falls aktuell eingestempelt), sonst null. */
+  /**
+   * Offener Einstempel-Eintrag (falls aktuell eingestempelt), sonst null.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   private async getOpenClockIn(workerId: string) {
     const latest = await this.getLatestClockEntry(workerId);
     if (latest && latest.entryType === TimeEntryType.CLOCK_IN) {
@@ -499,6 +539,14 @@ export class TimeEntriesService {
     return null;
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getStatus` (get Status).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns ClockStatus
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   private async getStatus(workerId: string): Promise<ClockStatus> {
     const latest = await this.getLatestClockEntry(workerId);
     if (!latest || latest.entryType !== TimeEntryType.CLOCK_IN) {
@@ -519,6 +567,16 @@ export class TimeEntriesService {
     };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `maybeRecordGps` (maybe Record Gps).
+   *
+   * @param timeEntryId - ID (timeEntryId) (string)
+   * @param dto - Request-Body / Eingabedaten (ClockInDto | ClockOutDto)
+   * @param eventType - Parameter `eventType` (GpsEventType)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   private async maybeRecordGps(
     timeEntryId: string,
     dto: ClockInDto | ClockOutDto,
@@ -538,12 +596,28 @@ export class TimeEntriesService {
     });
   }
 
+  /**
+   * Interner Helfer: stellt sicher, dass der Aufrufer der betroffene Monteur ist.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param actor - Ausführender Akteur (Audit) (AuthUser)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   private assertOwnWorker(workerId: string, actor: AuthUser): void {
     if (actor.type === 'worker' && actor.id !== workerId) {
       throw new ForbiddenException('Nur eigene Stempelungen erlaubt');
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `assertWorker` (assert Worker).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async assertWorker(workerId: string): Promise<void> {
     const worker = await this.prisma.worker.findFirst({
       where: { id: workerId, active: true, deletedAt: null },
@@ -554,6 +628,13 @@ export class TimeEntriesService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `assertProject` (assert Project).
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async assertProject(projectId: string): Promise<void> {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, deletedAt: null },
@@ -587,6 +668,12 @@ function hoursAgo(hours: number): Date {
   return new Date(Date.now() - hours * 60 * 60 * 1000);
 }
 
+/**
+ * Ermittelt eine sichere Dateiendung aus Originalname oder MIME-Type.
+ *
+ * @param file - Multer-Upload
+ * @returns Kleinbuchstabige Dateiendung (Fallback: `jpg`)
+ */
 function extensionFor(file: Express.Multer.File): string {
   const fromName = file.originalname?.split('.').pop();
   if (fromName && /^[a-zA-Z0-9]{1,5}$/.test(fromName)) {
@@ -596,7 +683,12 @@ function extensionFor(file: Express.Multer.File): string {
   return (fromMime && /^[a-zA-Z0-9]{1,5}$/.test(fromMime) ? fromMime : 'jpg').toLowerCase();
 }
 
-/** Prisma P2002 auf clientEventId (paralleler Offline-Retry). */
+/**
+ * Prüft auf Prisma-Unique-Konflikt an `clientEventId` (paralleler Offline-Retry).
+ *
+ * @param err - Unbekannter Fehlerwert
+ * @returns true, wenn P2002 auf clientEventId vorliegt
+ */
 function isUniqueClientEventConflict(err: unknown): boolean {
   return (
     err instanceof Prisma.PrismaClientKnownRequestError &&

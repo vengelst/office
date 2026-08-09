@@ -1,3 +1,8 @@
+/**
+ * Service für Work Item Workflow.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   ConflictException,
@@ -185,7 +190,12 @@ export class WorkItemWorkflowService {
     return this.closeOpenSessions(this.prisma, { workerId }, at ?? new Date());
   }
 
-  /** Item-Zeit je Monteur (Summe der abgeschlossenen Intervalle). */
+  /**
+   * Item-Zeit je Monteur (Summe der abgeschlossenen Intervalle).
+   *
+   * @param itemId - ID des Work-Items (string)
+   * @returns Zeitaggregation
+   */
   async itemTime(itemId: string) {
     await this.workItems.ensureItem(itemId);
     const sessions = await this.prisma.workItemSession.findMany({
@@ -377,8 +387,14 @@ export class WorkItemWorkflowService {
   }
 
   /**
-   * Kunden-PL setzt das Item selbst fertig – der/die Monteur(e) verlieren
-   * die Zuordnung sofort. Aus jedem Status außer APPROVED möglich.
+   * Kunden-PL setzt das Item selbst fertig – der/die Monteur(e) verlieren die Zuordnung sofort. Aus jedem Status außer APPROVED möglich.
+   *
+   * @param itemId - ID des Work-Items (string)
+   * @param dto - Request-Body / Eingabedaten (ReviewDto)
+   * @param actor - Ausführender Akteur (Audit) (AuthUser)
+   * @returns Aktualisiertes Item
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
    */
   async forceComplete(itemId: string, dto: ReviewDto, actor: AuthUser) {
     const item = await this.loadItem(itemId);
@@ -396,6 +412,16 @@ export class WorkItemWorkflowService {
     );
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `finishAsApproved` (finish As Approved).
+   *
+   * @param itemId - ID des Work-Items (string)
+   * @param action - Parameter `action` (WorkItemReviewAction)
+   * @param dto - Request-Body / Eingabedaten (ReviewDto)
+   * @param actor - Ausführender Akteur (Audit) (AuthUser)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   private async finishAsApproved(
     itemId: string,
     action: WorkItemReviewAction,
@@ -426,7 +452,13 @@ export class WorkItemWorkflowService {
 
   // ── Helfer ───────────────────────────────────────────────────
 
-  /** Lädt das Item inkl. Projektbezug. */
+  /**
+   * Lädt das Item inkl. Projektbezug.
+   *
+   * @param itemId - ID des Work-Items (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   private async loadItem(itemId: string) {
     const item = await this.prisma.workItem.findUnique({
       where: { id: itemId },
@@ -468,7 +500,14 @@ export class WorkItemWorkflowService {
     return worker.id;
   }
 
-  /** Monteur muss dem Projekt zugeordnet sein, um Items zu nehmen. */
+  /**
+   * Monteur muss dem Projekt zugeordnet sein, um Items zu nehmen.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param workerId - ID des Monteurs (string)
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async assertProjectMember(projectId: string, workerId: string) {
     const assignment = await this.prisma.projectAssignment.findFirst({
       where: { projectId, workerId, active: true },
@@ -479,7 +518,14 @@ export class WorkItemWorkflowService {
     }
   }
 
-  /** Item muss dem Monteur aktiv zugeordnet sein. */
+  /**
+   * Item muss dem Monteur aktiv zugeordnet sein.
+   *
+   * @param itemId - ID des Work-Items (string)
+   * @param workerId - ID des Monteurs (string)
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async assertActiveAssignment(itemId: string, workerId: string) {
     const assignment = await this.prisma.workItemAssignment.findFirst({
       where: { workItemId: itemId, workerId, active: true },
@@ -491,7 +537,15 @@ export class WorkItemWorkflowService {
     return assignment;
   }
 
-  /** Beendet alle aktiven Zuordnungen eines Items. */
+  /**
+   * Beendet alle aktiven Zuordnungen eines Items.
+   *
+   * @param tx - Parameter `tx` (Prisma.TransactionClient)
+   * @param itemId - ID des Work-Items (string)
+   * @param at - Parameter `at` (Date)
+   * @returns number
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async endActiveAssignments(
     tx: Prisma.TransactionClient,
     itemId: string,
@@ -504,7 +558,11 @@ export class WorkItemWorkflowService {
     return result.count;
   }
 
-  /** Schließt offene Sessions (je Monteur oder je Item). */
+  /**
+   * Schließt offene Sessions (je Monteur oder je Item).
+   *
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async closeOpenSessions(
     tx: Prisma.TransactionClient | PrismaService,
     scope: { workerId?: string; workItemId?: string },
@@ -517,7 +575,13 @@ export class WorkItemWorkflowService {
     return result.count;
   }
 
-  /** Prüft, dass übergebene Dokument-IDs existieren. */
+  /**
+   * Prüft, dass übergebene Dokument-IDs existieren.
+   *
+   * @param ids - Liste von IDs (string[])
+   * @returns string[]
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async validateDocumentIds(ids?: string[]): Promise<string[]> {
     if (!ids || ids.length === 0) return [];
     const unique = [...new Set(ids)];
@@ -535,8 +599,9 @@ export class WorkItemWorkflowService {
   }
 
   /**
-   * Legt hochgeladene Fotos als Dokumente ab (Projekt-Kontext + Item-Verknüpfung).
-   * Pfad: projekte/<projekt>/arbeitsitems/<itemKey>/<datei>
+   * Legt hochgeladene Fotos als Dokumente ab (Projekt-Kontext + Item-Verknüpfung). Pfad: projekte/<projekt>/arbeitsitems/<itemKey>/<datei>.
+   *
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   private async storePhotos(
     item: { id: string; itemKey: string; projectId: string },
@@ -574,7 +639,14 @@ export class WorkItemWorkflowService {
     return ids;
   }
 
-  /** Verknüpft Fotos mit der Rückmeldung (entityType WORK_ITEM_REPORT). */
+  /**
+   * Verknüpft Fotos mit der Rückmeldung (entityType WORK_ITEM_REPORT).
+   *
+   * @param tx - Parameter `tx` (Prisma.TransactionClient)
+   * @param reportId - ID (reportId) (string)
+   * @param documentIds - Parameter `documentIds` (string[])
+   * @returns void
+   */
   private async linkPhotos(
     tx: Prisma.TransactionClient,
     reportId: string,

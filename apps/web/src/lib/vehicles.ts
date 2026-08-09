@@ -1,11 +1,20 @@
 /**
- * Typen und API-Funktionen für die Fahrzeugverwaltung.
- * Spiegelt die Antworten der NestJS-Vehicles-Endpoints wider.
+ * API-Helfer für Fahrzeugverwaltung.
  */
+
 import { apiClient } from './api-client';
 
+/**
+ * Typ/Interface `VehicleOwnerType` für die Web-App.
+ */
 export type VehicleOwnerType = 'OWN' | 'SUBCONTRACTOR';
+/**
+ * Typ/Interface `VehicleCategory` für die Web-App.
+ */
 export type VehicleCategory = 'PKW' | 'Transporter' | 'LKW' | 'Anhänger';
+/**
+ * Typ/Interface `VehicleFuelType` für die Web-App.
+ */
 export type VehicleFuelType = 'Diesel' | 'Benzin' | 'Elektro' | 'Hybrid';
 
 export const VEHICLE_CATEGORIES: VehicleCategory[] = [
@@ -24,6 +33,9 @@ export const VEHICLE_OWNER_TYPES: VehicleOwnerType[] = ['OWN', 'SUBCONTRACTOR'];
 
 // ── Sub-Entities ───────────────────────────────────────────────
 
+/**
+ * Typ/Interface `VehicleWorker` für die Web-App.
+ */
 export interface VehicleWorker {
   id: string;
   workerNumber: string;
@@ -32,6 +44,9 @@ export interface VehicleWorker {
   photoPath: string | null;
 }
 
+/**
+ * Typ/Interface `VehicleAssignment` für die Web-App.
+ */
 export interface VehicleAssignment {
   id: string;
   workerId: string;
@@ -44,6 +59,9 @@ export interface VehicleAssignment {
 
 // ── Vehicle ────────────────────────────────────────────────────
 
+/**
+ * Typ/Interface `VehicleBase` für die Web-App.
+ */
 export interface VehicleBase {
   id: string;
   licensePlate: string;
@@ -64,11 +82,17 @@ export interface VehicleBase {
   notes: string | null;
 }
 
+/**
+ * Typ/Interface `VehicleListItem` für die Web-App.
+ */
 export interface VehicleListItem extends VehicleBase {
   subcontractor: { id: string; name: string } | null;
   currentAssignment: VehicleAssignment | null;
 }
 
+/**
+ * Typ/Interface `VehicleListResponse` für die Web-App.
+ */
 export interface VehicleListResponse {
   data: VehicleListItem[];
   total: number;
@@ -77,6 +101,9 @@ export interface VehicleListResponse {
   totalPages: number;
 }
 
+/**
+ * Typ/Interface `VehicleDetail` für die Web-App.
+ */
 export interface VehicleDetail extends VehicleBase {
   subcontractor: { id: string; name: string; city: string | null } | null;
   assignments: VehicleAssignment[];
@@ -84,6 +111,9 @@ export interface VehicleDetail extends VehicleBase {
   history: VehicleAssignment[];
 }
 
+/**
+ * Typ/Interface `ExpiringVehicle` für die Web-App.
+ */
 export interface ExpiringVehicle {
   id: string;
   licensePlate: string;
@@ -96,6 +126,9 @@ export interface ExpiringVehicle {
 
 // ── Query-Parameter ────────────────────────────────────────────
 
+/**
+ * Typ/Interface `VehicleListParams` für die Web-App.
+ */
 export interface VehicleListParams {
   page?: number;
   limit?: number;
@@ -147,6 +180,9 @@ export const vehiclesApi = {
 
 // ── Helfer ─────────────────────────────────────────────────────
 
+/**
+ * API-/UI-Helfer `vehicleTitle` (vehicle Title).
+ */
 export const vehicleTitle = (v: {
   make: string | null;
   model: string | null;

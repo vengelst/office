@@ -1,3 +1,8 @@
+/**
+ * Seite: workers (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -64,6 +69,9 @@ const AVAILABILITIES: WorkerAvailability[] = [
 const rate = (v: number | null): string =>
   v != null ? `${v.toLocaleString('de-DE')} €/h` : '–';
 
+/**
+ * UI-Komponente `WorkersPage`.
+ */
 export default function WorkersPage(): React.ReactNode {
   const router = useRouter();
   const { toast } = useToast();

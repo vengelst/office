@@ -1,8 +1,7 @@
 /**
- * Kunden-PL API für den Kiosk (`/kiosk/pl`).
- * Nutzt ausschließlich `office_kiosk_pl_token` – nie den Office-`apiClient`
- * mit `office_token`. Endpunkte identisch zu `customerPlApi`.
+ * API-Client für den Kunden-PL-Kiosk (PIN-Flow).
  */
+
 import type {
   CustomerPlBoardResponse,
   CustomerPlProject,

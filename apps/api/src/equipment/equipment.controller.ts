@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Equipment.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -49,17 +54,36 @@ export class EquipmentController {
 
   // ── Statische Routen ──────────────────────────────────────────
 
+  /**
+   * Listet Monteure für Auswahlfelder.
+   *
+   * @returns Monteur-Liste
+   */
+
   @Get('meta/workers')
   @ApiOperation({ summary: 'Aktive Monteure (für Zuweisungs-Auswahl)' })
   listWorkers() {
     return this.equipment.listWorkers();
   }
 
+  /**
+   * Listet Kategorien.
+   *
+   * @returns Kategorie-Liste
+   */
+
   @Get('meta/categories')
   @ApiOperation({ summary: 'Vorhandene Kategorien' })
   listCategories() {
     return this.equipment.listCategories();
   }
+
+  /**
+   * Listet dem Monteur zugewiesenes Equipment.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns Equipment-Liste
+   */
 
   @Get('worker/:workerId')
   @ApiOperation({ summary: 'Aktuelle Geräte eines Monteurs' })
@@ -68,6 +92,17 @@ export class EquipmentController {
   }
 
   // ── CRUD ──────────────────────────────────────────────────────
+
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @param search - Freitextsuche (string)
+   * @param status - Zielstatus (string)
+   * @param category - Parameter `category` (string)
+   * @returns Listenergebnis
+   */
 
   @Get()
   @ApiOperation({ summary: 'Geräte auflisten (Filter, Suche, Pagination)' })
@@ -87,17 +122,39 @@ export class EquipmentController {
     });
   }
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
+
   @Get(':id')
   @ApiOperation({ summary: 'Geräte-Detail mit Zuweisungen' })
   findOne(@Param('id') id: string) {
     return this.equipment.findOne(id);
   }
 
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateEquipmentDto)
+   * @returns Neu angelegter Datensatz
+   */
+
   @Post()
   @ApiOperation({ summary: 'Gerät anlegen' })
   create(@Body() dto: CreateEquipmentDto) {
     return this.equipment.create(dto);
   }
+
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateEquipmentDto)
+   * @returns Aktualisierter Datensatz
+   */
 
   @Patch(':id')
   @ApiOperation({ summary: 'Gerät bearbeiten' })
@@ -106,11 +163,25 @@ export class EquipmentController {
   }
 
 
+  /**
+   * Löscht bzw. deaktiviert mehrere Datensätze in einem Schritt.
+   *
+   * @param dto - Request-Body / Eingabedaten (BulkDeleteDto)
+   * @returns Ergebnis der Massenlöschung
+   */
+
   @Post('bulk-delete')
   @ApiOperation({ summary: 'Mehrfach löschen' })
   bulkRemove(@Body() dto: BulkDeleteDto) {
     return this.equipment.bulkRemove(dto.ids);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Gerät löschen (Soft-Delete)' })
@@ -126,12 +197,25 @@ export class EquipmentController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_IMAGE_SIZE } }),
   )
+  /**
+   * Lädt ein Bild hoch.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File)
+   * @returns Bild-Metadaten
+   */
   uploadImage(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File,
   ) {
     return this.equipment.uploadImage(id, file);
   }
+
+  /**
+   * Liefert Bilddaten bzw. Stream.
+   *
+   * @returns Bild
+   */
 
   @Get(':id/image')
   @ApiOperation({ summary: 'Gerätebild abrufen (Stream)' })
@@ -146,6 +230,15 @@ export class EquipmentController {
 
   // ── Zuweisungen ───────────────────────────────────────────────
 
+  /**
+   * Erstellt eine Zuordnung.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (AssignEquipmentDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Zuordnung
+   */
+
   @Post(':id/assign')
   @ApiOperation({ summary: 'Gerät an Monteur ausgeben' })
   assign(
@@ -155,6 +248,13 @@ export class EquipmentController {
   ) {
     return this.equipment.assign(id, dto, user?.id);
   }
+
+  /**
+   * Nimmt ausgeliehenes Equipment zurück (Rückgabe-Buchung).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (ReturnEquipmentDto)
+   */
 
   @Post(':id/return')
   @ApiOperation({ summary: 'Rückgabe registrieren' })

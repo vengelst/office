@@ -1,8 +1,14 @@
+/**
+ * Hilfsfunktionen für Stundenzettel (Wochengrenzen, Aggregationen, Formatierung).
+ */
+
 import { BreakRule } from '@prisma/client';
 
 /**
- * Liefert Montag 00:00 und Sonntag 23:59:59.999 (UTC) einer ISO-Kalenderwoche.
- * ISO-8601: Woche 1 ist die Woche mit dem ersten Donnerstag des Jahres.
+ * Liefert Montag 00:00 und Sonntag 23:59:59.999 (UTC) einer ISO-Kalenderwoche. ISO-8601: Woche 1 ist die Woche mit dem ersten Donnerstag des Jahres.
+ *
+ * @param weekYear - Parameter `weekYear` (number)
+ * @param weekNumber - Parameter `weekNumber` (number)
  */
 export function isoWeekRange(
   weekYear: number,
@@ -25,7 +31,11 @@ export function isoWeekRange(
   return { start, end };
 }
 
-/** ISO-Kalenderwoche + zugehöriges Jahr eines Datums. */
+/**
+ * ISO-Kalenderwoche + zugehöriges Jahr eines Datums.
+ *
+ * @param date - Parameter `date` (Date)
+ */
 export function isoWeekOf(date: Date): { weekYear: number; weekNumber: number } {
   const d = new Date(
     Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
@@ -40,8 +50,11 @@ export function isoWeekOf(date: Date): { weekYear: number; weekNumber: number } 
 }
 
 /**
- * Wählt aus mehreren Regeln die anzuwendende: projektspezifische haben Vorrang
- * vor globalen. Nur aktive Regeln werden berücksichtigt.
+ * Wählt aus mehreren Regeln die anzuwendende: projektspezifische haben Vorrang vor globalen. Nur aktive Regeln werden berücksichtigt.
+ *
+ * @param rules - Parameter `rules` (BreakRule[])
+ * @param projectId - ID des Projekts (string)
+ * @returns BreakRule | null
  */
 export function selectBreakRule(
   rules: BreakRule[],
@@ -56,8 +69,11 @@ export function selectBreakRule(
 }
 
 /**
- * Berechnet den automatischen Pausenabzug für eine Brutto-Arbeitszeit anhand
- * der gestaffelten Schwellenwerte einer Regel.
+ * Berechnet den automatischen Pausenabzug für eine Brutto-Arbeitszeit anhand der gestaffelten Schwellenwerte einer Regel.
+ *
+ * @param grossMinutes - Parameter `grossMinutes` (number)
+ * @param rule - Parameter `rule` (BreakRule | null)
+ * @returns number
  */
 export function computeBreakMinutes(
   grossMinutes: number,
@@ -77,12 +93,23 @@ export function computeBreakMinutes(
   return 0;
 }
 
-/** Differenz in ganzen Minuten (>= 0). */
+/**
+ * Differenz in ganzen Minuten (>= 0).
+ *
+ * @param from - Zeitraum-Beginn (Date)
+ * @param to - Zeitraum-Ende (Date)
+ * @returns number
+ */
 export function diffMinutes(from: Date, to: Date): number {
   return Math.max(0, Math.round((to.getTime() - from.getTime()) / 60000));
 }
 
-/** Startdatum eines Tages (lokal) für die Tagesgruppierung. */
+/**
+ * Startdatum eines Tages (lokal) für die Tagesgruppierung.
+ *
+ * @param date - Parameter `date` (Date)
+ * @returns string
+ */
 export function dayKey(date: Date): string {
   const y = date.getFullYear();
   const m = `${date.getMonth() + 1}`.padStart(2, '0');

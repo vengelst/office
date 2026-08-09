@@ -1,7 +1,14 @@
+/**
+ * Sidebar-Layout-Container.
+ * Teil des App-Chrome unter components/layout.
+ */
+
 import { SidebarNav } from './sidebar-nav';
 import { AppBrand } from './app-brand';
 
-/** Feste Desktop-Sidebar (ab md sichtbar). */
+/**
+ * Feste Desktop-Sidebar (ab md sichtbar).
+ */
 export function Sidebar(): React.ReactNode {
   return (
     <aside className="hidden w-64 shrink-0 flex-col border-r bg-card md:flex">

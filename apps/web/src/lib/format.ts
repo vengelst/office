@@ -1,6 +1,16 @@
-/** Formatierungs- und Link-Helfer (zentral, keine Inline-Strings in Komponenten). */
+/**
+ * Formatierungs-Helfer (Datum, Zahl, Adresse, IBAN, Maps-Links) für die UI.
+ */
 
-/** Google-Maps-Routing-Link aus Koordinaten oder vorhandener URL. */
+/**
+ * Google-Maps-Routing-Link aus Koordinaten oder vorhandener URL.
+ *
+ * @param latitude - Geografische Breite
+ * @param longitude - Geografische Länge
+ * @param fallbackUrl - Vorhandene Maps-URL als Fallback
+ * @param address - Freitext-Adresse als Fallback-Ziel
+ * @returns Maps-Routen-URL oder null
+ */
 export function buildMapsUrl(
   latitude?: number | null,
   longitude?: number | null,
@@ -21,7 +31,12 @@ export function buildMapsUrl(
   return null;
 }
 
-/** IBAN teilmaskiert für Übersichten: DE89 •••• •••• 3000. */
+/**
+ * IBAN teilmaskiert für Übersichten: DE89 •••• •••• 3000.
+ *
+ * @param iban - Parameter `iban` (string)
+ * @returns string
+ */
 export function maskIban(iban: string): string {
   const clean = iban.replace(/\s+/g, '');
   if (clean.length <= 8) {
@@ -32,7 +47,12 @@ export function maskIban(iban: string): string {
   return `${start} •••• •••• ${end}`;
 }
 
-/** IBAN in 4er-Gruppen für die vollständige Anzeige. */
+/**
+ * IBAN in 4er-Gruppen für die vollständige Anzeige.
+ *
+ * @param iban - Parameter `iban` (string)
+ * @returns string
+ */
 export function formatIban(iban: string): string {
   return iban
     .replace(/\s+/g, '')
@@ -40,14 +60,24 @@ export function formatIban(iban: string): string {
     .trim();
 }
 
-/** Dateigröße menschenlesbar. */
+/**
+ * Dateigröße menschenlesbar.
+ *
+ * @param bytes - Parameter `bytes` (number)
+ * @returns string
+ */
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Datum (YYYY-MM-DD oder ISO) → deutsche Kurzform. */
+/**
+ * Datum (YYYY-MM-DD oder ISO) → deutsche Kurzform.
+ *
+ * @param value - Parameter `value` (string | null)
+ * @returns Formatierter String
+ */
 export function formatDate(value?: string | null): string {
   if (!value) return '';
   const d = new Date(value);
@@ -59,7 +89,12 @@ export function formatDate(value?: string | null): string {
   });
 }
 
-/** ISO-Zeitstempel → deutsche Kurzform mit Uhrzeit ("07.08.2026, 14:32"). */
+/**
+ * ISO-Zeitstempel → deutsche Kurzform mit Uhrzeit ("07.08.2026, 14:32").
+ *
+ * @param value - Parameter `value` (string | null)
+ * @returns string
+ */
 export function formatDateTime(value?: string | null): string {
   if (!value) return '';
   const d = new Date(value);
@@ -73,7 +108,9 @@ export function formatDateTime(value?: string | null): string {
   });
 }
 
-/** Setzt eine vollständige Adresszeile zusammen. */
+/**
+ * Setzt eine vollständige Adresszeile zusammen.
+ */
 export function joinAddress(parts: {
   addressLine1?: string | null;
   postalCode?: string | null;

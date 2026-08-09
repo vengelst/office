@@ -1,3 +1,7 @@
+/**
+ * Firmenstammdaten und Layout-Konstanten für Rechnungs-PDFs.
+ */
+
 import { Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -25,6 +29,9 @@ const DEV_DEFAULTS: CompanyInfo = {
 
 /**
  * Lädt Firmendaten: zuerst aus der DB (AppSettings), dann aus ENV, zuletzt Dev-Defaults.
+ *
+ * @param prisma - Parameter `prisma` (PrismaService)
+ * @returns CompanyInfo
  */
 export async function loadCompanyInfoFromDb(
   prisma: PrismaService,
@@ -77,6 +84,8 @@ export async function loadCompanyInfoFromDb(
 
 /**
  * Fallback: Lädt Firmendaten nur aus Umgebungsvariablen.
+ *
+ * @returns CompanyInfo
  */
 export function loadCompanyInfo(): CompanyInfo {
   const logger = new Logger('CompanyConfig');

@@ -1,3 +1,8 @@
+/**
+ * Service für System Info.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
@@ -18,6 +23,13 @@ export class SystemInfoService {
   private readonly sshUser: string;
   private readonly sshKeyPath: string;
 
+  /**
+   * Interner Helfer: führt einen Remote-Befehl per SSH aus.
+   *
+   * @param cmd - Parameter `cmd` (string)
+   * @param timeout - Parameter `timeout`
+   * @returns Kommandoausgabe (string)
+   */
   private sshExec(cmd: string, timeout = 10000): string {
     try {
       return execSync(
@@ -71,6 +83,11 @@ export class SystemInfoService {
     }
   }
 
+  /**
+   * Sammelt System-/Host-Informationen.
+   *
+   * @returns SystemInfo
+   */
   async getSystemInfo() {
     const [
       system,
@@ -94,6 +111,9 @@ export class SystemInfoService {
     return { system, database, storage, services, osUpdates, appStats, dockerMemory, memoryProcesses };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getSystemMetrics` (get System Metrics).
+   */
   private async getSystemMetrics() {
     const cpus = os.cpus();
     const loadAvg = os.loadavg();
@@ -313,6 +333,9 @@ export class SystemInfoService {
     };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getDatabaseMetrics` (get Database Metrics).
+   */
   private async getDatabaseMetrics() {
     try {
       const [
@@ -388,6 +411,9 @@ export class SystemInfoService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getStorageMetrics` (get Storage Metrics).
+   */
   private async getStorageMetrics() {
     try {
       const buckets = await this.minioClient.listBuckets();
@@ -447,6 +473,9 @@ export class SystemInfoService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getServiceHealth` (get Service Health).
+   */
   private async getServiceHealth() {
     const checkService = async (
       name: string,
@@ -532,6 +561,9 @@ export class SystemInfoService {
     };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getOsUpdates` (get Os Updates).
+   */
   private async getOsUpdates() {
     let containerUpdates: { count: number; packages: string[] } = {
       count: 0,
@@ -577,6 +609,9 @@ export class SystemInfoService {
     return { container: containerUpdates, host: hostUpdates };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `getAppStats` (get App Stats).
+   */
   private async getAppStats() {
     try {
       const sevenDaysAgo = new Date();
@@ -636,6 +671,11 @@ export class SystemInfoService {
     }
   }
 
+  /**
+   * Aktualisiert Systempakete (Wartung).
+   *
+   * @returns Update-Ergebnis
+   */
   async updatePackages(): Promise<{ success: boolean; output: string }> {
     try {
       const output = execSync('apk upgrade --no-cache 2>&1', {
@@ -651,6 +691,11 @@ export class SystemInfoService {
     }
   }
 
+  /**
+   * Interner Helfer: liest Docker-Speicherverbrauch.
+   *
+   * @returns Memory-Info
+   */
   private getDockerMemory(): { available: boolean; containers: { name: string; memUsage: string; memLimit: string; memPercent: string }[] } {
     if (!this.sshAvailable) {
       return { available: false, containers: [] };
@@ -676,6 +721,11 @@ export class SystemInfoService {
     return { available: true, containers };
   }
 
+  /**
+   * Interner Helfer: listet speicherintensive Prozesse.
+   *
+   * @returns Prozessliste
+   */
   private getTopMemoryProcesses(): { pid: string; user: string; mem: string; rss: string; command: string }[] {
     if (!this.sshAvailable) return [];
     const output = this.sshExec('ps aux --sort=-%mem --cols 300 | head -11');
@@ -696,6 +746,12 @@ export class SystemInfoService {
       });
   }
 
+  /**
+   * Interner Helfer: formatiert Byte-Angaben lesbar.
+   *
+   * @param bytes - Byte-Anzahl (number)
+   * @returns Formatierter String (string)
+   */
   private formatBytes(bytes: number): string {
     if (bytes === 0) return '0 B';
     const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];

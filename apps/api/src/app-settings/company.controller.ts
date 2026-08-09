@@ -1,3 +1,8 @@
+/**
+ * Modul: Company Info Dto.
+ * Teil der Office-API unter apps/api.
+ */
+
 import {
   Body,
   Controller,
@@ -58,6 +63,13 @@ export class CompanyController {
     private readonly storage: StorageService,
   ) {}
 
+  /**
+   * Liest einen Konfigurations- oder Datensatzwert.
+   *
+   * @returns Gelesener Wert (Record<string, string>)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
+
   @Get()
   @ApiOperation({ summary: 'Firmeninformationen abrufen' })
   async get(): Promise<Record<string, string>> {
@@ -71,6 +83,14 @@ export class CompanyController {
       return {};
     }
   }
+
+  /**
+   * Speichert Konfiguration oder Daten.
+   *
+   * @param dto - Request-Body / Eingabedaten (CompanyInfoDto)
+   * @returns Gespeicherter Wert
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
 
   @Post()
   @ApiOperation({ summary: 'Firmeninformationen speichern' })
@@ -88,6 +108,14 @@ export class CompanyController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
   )
+  /**
+   * Lädt das Firmenlogo hoch.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @returns Speicherpfad bzw. Key des Logos
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async uploadLogo(
     @UploadedFile() file: Express.Multer.File | undefined,
   ): Promise<{ success: true; logoKey: string }> {
@@ -121,6 +149,13 @@ export class CompanyController {
     return { success: true, logoKey };
   }
 
+  /**
+   * Liefert den Storage-Key des Firmenlogos.
+   *
+   * @returns Key oder null
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
+
   @Get('logo')
   @ApiOperation({ summary: 'Firmenlogo-Key abrufen' })
   async getLogoKey(): Promise<{ logoKey: string | null }> {
@@ -131,9 +166,11 @@ export class CompanyController {
   }
 
   /**
-   * Öffentlicher Stream des Firmenlogos (Login, Sidebar, Druck).
-   * Keine Rollenpflicht – Logo ist kein Geheimnis.
+   * Öffentlicher Stream des Firmenlogos (Login, Sidebar, Druck). Keine Rollenpflicht – Logo ist kein Geheimnis.
+   *
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
    */
+
   @Public()
   @Roles()
   @Get('logo/file')

@@ -1,3 +1,8 @@
+/**
+ * Service für Work Card Calibrate.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { OcrService } from '../ocr/ocr.service';
 import { PdfPageRasterService } from './pdf-page-raster.service';
@@ -41,6 +46,13 @@ export class WorkCardCalibrateService {
     private readonly raster: PdfPageRasterService,
   ) {}
 
+  /**
+   * Kalibriert OCR-/Template-Regionen anhand einer PDF-Seite.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File)
+   * @returns Kalibrierungsergebnis (CalibrateResponse)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async calibrate(file: Express.Multer.File): Promise<CalibrateResponse> {
     if (!file) {
       throw new BadRequestException('Keine Datei hochgeladen (Feld "file")');

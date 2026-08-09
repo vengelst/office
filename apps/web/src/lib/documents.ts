@@ -1,10 +1,7 @@
 /**
- * API-Client + Typen für das Dokumenten-System (Upload, Versionen, Ordner,
- * Thumbnails, Vorschau, globale Suche).
- *
- * Multipart-Uploads und Binär-Downloads laufen NICHT über `apiClient`
- * (der kann nur JSON), sondern über `fetch` mit manuellem Bearer-Token.
+ * API-Helfer für Dokumente und Uploads.
  */
+
 import { apiClient, ApiError, TOKEN_STORAGE_KEY } from './api-client';
 import type { ApiErrorResponse } from '@office/types';
 
@@ -94,12 +91,22 @@ export interface UploadMeta {
 
 // ── Hilfsfunktionen ────────────────────────────────────────────
 
-/** True, wenn der MIME-Type ein im Browser darstellbares Bild ist. */
+/**
+ * True, wenn der MIME-Type ein im Browser darstellbares Bild ist.
+ *
+ * @param mimeType - Parameter `mimeType` (string)
+ * @returns boolean
+ */
 export function isImage(mimeType: string): boolean {
   return mimeType.startsWith('image/');
 }
 
-/** True, wenn das Dokument ein PDF ist. */
+/**
+ * True, wenn das Dokument ein PDF ist.
+ *
+ * @param mimeType - Parameter `mimeType` (string)
+ * @returns boolean
+ */
 export function isPdf(mimeType: string): boolean {
   return mimeType === 'application/pdf';
 }

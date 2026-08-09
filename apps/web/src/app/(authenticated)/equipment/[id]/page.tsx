@@ -1,3 +1,8 @@
+/**
+ * Seite: equipment / detail (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -72,6 +77,9 @@ function fmtDate(iso: string | null): string {
   return new Date(iso).toLocaleDateString('de-DE');
 }
 
+/**
+ * UI-Komponente `EquipmentDetailPage`.
+ */
 export default function EquipmentDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;

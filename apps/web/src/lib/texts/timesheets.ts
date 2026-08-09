@@ -1,4 +1,8 @@
-/** UI-Texte: `timesheets`. */
+/**
+ * UI-Texte für Domäne `timesheets` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const timesheets = {
     title: 'Stundenzettel',
     subtitle: 'Wochenstundenzettel prüfen, freigeben und exportieren',

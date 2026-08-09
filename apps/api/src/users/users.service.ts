@@ -1,3 +1,8 @@
+/**
+ * Service für Users.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   ConflictException,
@@ -139,7 +144,15 @@ export class UsersService {
     });
   }
 
-  /** Deaktiviert den Benutzer (Soft-Disable statt Löschen). */
+  /**
+   * Deaktiviert den Benutzer (Soft-Disable statt Löschen).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Deaktivierter Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   async deactivate(id: string) {
     await this.findOne(id);
     return this.prisma.user.update({
@@ -150,8 +163,14 @@ export class UsersService {
   }
 
   /**
-   * Setzt eine 6-stellige PIN für einen CUSTOMER_PL-Benutzer.
-   * PINs müssen global eindeutig sein (über WorkerPin und UserPin).
+   * Setzt eine 6-stellige PIN für einen CUSTOMER_PL-Benutzer. PINs müssen global eindeutig sein (über WorkerPin und UserPin).
+   *
+   * @param userId - ID (userId) (string)
+   * @param pin - PIN-Code (Klartext, Abgleich gegen Hash) (string)
+   * @returns Ergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
    */
   async setPin(userId: string, pin: string): Promise<{ success: true }> {
     if (!/^\d{6}$/.test(pin)) {
@@ -214,7 +233,13 @@ export class UsersService {
     return { success: true };
   }
 
-  /** Löst Rollen-Codes in Datenbank-IDs auf. Wirft Fehler bei unbekannten Codes. */
+  /**
+   * Löst Rollen-Codes in Datenbank-IDs auf. Wirft Fehler bei unbekannten Codes.
+   *
+   * @param codes - Parameter `codes` (RoleCode[])
+   * @returns string[]
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async resolveRoleIds(codes: RoleCode[]): Promise<string[]> {
     const roles = await this.prisma.role.findMany({
       where: { code: { in: codes } },

@@ -1,3 +1,8 @@
+/**
+ * Service für Work Item Pdf Import.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { DocumentType } from '@prisma/client';
 import { PDFDocument } from 'pdf-lib';
@@ -98,9 +103,13 @@ export class WorkItemPdfImportService {
   }
 
   /**
-   * Vorschau: Erzeugt die geplanten Items ohne zu schreiben.
-   * Bei extract=true: OCR je Seite; Einzelseiten-Fehler brechen den Rest nicht ab.
-   * Für sichtbaren Fortschritt: startPage/endPage chunkweise vom Client setzen.
+   * Vorschau: Erzeugt die geplanten Items ohne zu schreiben. Bei extract=true: OCR je Seite; Einzelseiten-Fehler brechen den Rest nicht ab. Für sichtbaren Fortschritt: startPage/endPage chunkweise vom Client setzen.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (PdfImportPreviewDto)
+   * @returns PdfPreviewResponse
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async preview(
     projectId: string,
@@ -261,6 +270,13 @@ export class WorkItemPdfImportService {
 
   /**
    * Commit: Schreibt die Items in die DB, speichert das PDF als Document.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (PdfImportCommitDto)
+   * @param userId - ID (userId) (string | null)
+   * @returns PdfCommitResponse
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async commit(
     projectId: string,
@@ -391,7 +407,14 @@ export class WorkItemPdfImportService {
 
   // ── Helfer ───────────────────────────────────────────────────
 
-  /** Rasterisiert eine PDF-Seite und extrahiert Felder via OCR + Template-Mapping. */
+  /**
+   * Rasterisiert eine PDF-Seite und extrahiert Felder via OCR + Template-Mapping.
+   *
+   * @param session - Parameter `session` (PdfRasterSession)
+   * @param pageNumber - 1-basierte PDF-Seitennummer (number)
+   * @param mappings - Parameter `mappings` (WorkCardFieldMapping[])
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async extractFieldsForPage(
     session: PdfRasterSession,
     pageNumber: number,
@@ -403,7 +426,13 @@ export class WorkItemPdfImportService {
     return extractWorkCardFields(ocrResult, mappings, imageSize);
   }
 
-  /** Validiert Multipart-PDF-Datei und gibt den Buffer zurück. */
+  /**
+   * Validiert Multipart-PDF-Datei und gibt den Buffer zurück.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @returns void (Buffer)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private validatePdfFile(file: Express.Multer.File | undefined): Buffer {
     if (!file) {
       throw new BadRequestException(
@@ -426,7 +455,13 @@ export class WorkItemPdfImportService {
     return file.buffer;
   }
 
-  /** Validiert die Item-Liste des Commits. */
+  /**
+   * Validiert die Item-Liste des Commits.
+   *
+   * @param items - Parameter `items` (PdfImportItemDto[])
+   * @returns void
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private validateCommitItems(items: PdfImportItemDto[]): void {
     if (items.length === 0) {
       throw new BadRequestException('Mindestens ein Item erforderlich');

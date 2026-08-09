@@ -1,3 +1,8 @@
+/**
+ * Service für Workers.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   ConflictException,
@@ -122,6 +127,11 @@ export class WorkersService {
 
   // ── Nationalitäten ───────────────────────────────────────────
 
+  /**
+   * Liefert Nationalitäten-Stammdaten.
+   *
+   * @returns Liste (string[])
+   */
   async getNationalities(): Promise<string[]> {
     const results = await this.prisma.worker.findMany({
       where: {
@@ -324,7 +334,13 @@ export class WorkersService {
     return this.findOne(id);
   }
 
-  /** Soft-Delete: setzt deletedAt. Nur wenn keine aktiven Zuweisungen. */
+  /**
+   * Soft-Delete: setzt deletedAt. Nur wenn keine aktiven Zuweisungen.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async remove(id: string) {
     await this.ensureWorker(id);
     const activeAssignments = await this.prisma.projectAssignment.count({
@@ -342,7 +358,12 @@ export class WorkersService {
     return { id, deleted: true };
   }
 
-  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  /**
+   * Mehrfach-Löschen: ruft remove() je ID auf.
+   *
+   * @param ids - Liste von IDs (string[])
+   * @returns Ergebnis der Massenlöschung
+   */
   async bulkRemove(ids: string[]) {
     const results = [];
     const errors = [];
@@ -361,7 +382,12 @@ export class WorkersService {
 
   // ── Ablaufwarnungen ──────────────────────────────────────────
 
-  /** Monteure mit Reisepass/Aufenthalt/Arbeitserlaubnis-Ablauf in <30 Tagen. */
+  /**
+   * Monteure mit Reisepass/Aufenthalt/Arbeitserlaubnis-Ablauf in <30 Tagen.
+   *
+   * @returns Liste
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async expiringDocuments() {
     const threshold = new Date();
     threshold.setDate(threshold.getDate() + EXPIRY_WINDOW_DAYS);
@@ -474,7 +500,13 @@ export class WorkersService {
 
   // ── Sprachkenntnisse ─────────────────────────────────────────
 
-  /** Liefert alle Sprachkenntnisse eines Monteurs. */
+  /**
+   * Liefert alle Sprachkenntnisse eines Monteurs.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns Sprachliste
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async findLanguages(workerId: string) {
     await this.ensureWorker(workerId);
     return this.prisma.workerLanguage.findMany({
@@ -483,7 +515,14 @@ export class WorkersService {
     });
   }
 
-  /** Erfasst eine Sprachkenntnis (Duplikat-Prüfung per Sprache). */
+  /**
+   * Erfasst eine Sprachkenntnis (Duplikat-Prüfung per Sprache).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param dto - Request-Body / Eingabedaten (CreateLanguageDto)
+   * @returns Neue Sprache
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async createLanguage(workerId: string, dto: CreateLanguageDto) {
     await this.ensureWorker(workerId);
     const existing = await this.prisma.workerLanguage.findFirst({
@@ -497,7 +536,14 @@ export class WorkersService {
     });
   }
 
-  /** Aktualisiert eine Sprachkenntnis (z.B. Niveau-Änderung). */
+  /**
+   * Aktualisiert eine Sprachkenntnis (z.B. Niveau-Änderung).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param langId - ID (langId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateLanguageDto)
+   * @returns Aktualisierte Sprache
+   */
   async updateLanguage(
     workerId: string,
     langId: string,
@@ -510,7 +556,13 @@ export class WorkersService {
     });
   }
 
-  /** Löscht eine Sprachkenntnis. */
+  /**
+   * Löscht eine Sprachkenntnis.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param langId - ID (langId) (string)
+   * @returns Ergebnis
+   */
   async removeLanguage(workerId: string, langId: string) {
     await this.ensureLanguage(workerId, langId);
     await this.prisma.workerLanguage.delete({ where: { id: langId } });
@@ -519,7 +571,12 @@ export class WorkersService {
 
   // ── Zertifikate ──────────────────────────────────────────────
 
-  /** Liefert alle Zertifikate eines Monteurs. */
+  /**
+   * Liefert alle Zertifikate eines Monteurs.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns Zertifikatsliste
+   */
   async findCertifications(workerId: string) {
     await this.ensureWorker(workerId);
     return this.prisma.workerCertification.findMany({
@@ -528,7 +585,12 @@ export class WorkersService {
     });
   }
 
-  /** Erfasst ein neues Zertifikat (z.B. SCC, Staplerschein). */
+  /**
+   * Erfasst ein neues Zertifikat (z.B. SCC, Staplerschein).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param dto - Request-Body / Eingabedaten (CreateCertificationDto)
+   */
   async createCertification(workerId: string, dto: CreateCertificationDto) {
     await this.ensureWorker(workerId);
     return this.prisma.workerCertification.create({
@@ -543,7 +605,14 @@ export class WorkersService {
     });
   }
 
-  /** Aktualisiert ein bestehendes Zertifikat. */
+  /**
+   * Aktualisiert ein bestehendes Zertifikat.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param certId - ID (certId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateCertificationDto)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async updateCertification(
     workerId: string,
     certId: string,
@@ -560,7 +629,14 @@ export class WorkersService {
     });
   }
 
-  /** Löscht ein Zertifikat. */
+  /**
+   * Löscht ein Zertifikat.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param certId - ID (certId) (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async removeCertification(workerId: string, certId: string) {
     await this.ensureCertification(workerId, certId);
     await this.prisma.workerCertification.delete({ where: { id: certId } });
@@ -569,7 +645,13 @@ export class WorkersService {
 
   // ── Hilfsfunktionen ──────────────────────────────────────────
 
-  /** Erzeugt die nächste Monteur-Nummer im Format W-YYYY-NNNN. */
+  /**
+   * Erzeugt die nächste Monteur-Nummer im Format W-YYYY-NNNN.
+   *
+   * @returns string
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async generateWorkerNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `W-${year}-`;
@@ -585,6 +667,15 @@ export class WorkersService {
     return `${prefix}${next}`;
   }
 
+  /**
+   * Interner Helfer: prüft Regeln für Nachunternehmer-Zuordnung.
+   *
+   * @param workerType - Parameter `workerType` (WorkerType)
+   * @param subcontractorId - ID (subcontractorId) (string | null)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private assertSubcontractorRule(
     workerType: WorkerType,
     subcontractorId: string | null,
@@ -596,14 +687,37 @@ export class WorkersService {
     }
   }
 
+  /**
+   * Interner Helfer: typwächter für WorkerType.
+   *
+   * @param value - Zu setzender Wert (string)
+   * @returns boolean (value is WorkerType)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private isWorkerType(value: string): value is WorkerType {
     return (Object.values(WorkerType) as string[]).includes(value);
   }
 
+  /**
+   * Interner Helfer: typwächter für Availability.
+   *
+   * @param value - Zu setzender Wert (string)
+   * @returns boolean (value is WorkerAvailability)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private isAvailability(value: string): value is WorkerAvailability {
     return (Object.values(WorkerAvailability) as string[]).includes(value);
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureWorker` (ensure Worker).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async ensureWorker(id: string): Promise<void> {
     const count = await this.prisma.worker.count({
       where: { id, deletedAt: null },
@@ -613,6 +727,14 @@ export class WorkersService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureSubcontractor` (ensure Subcontractor).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async ensureSubcontractor(id: string): Promise<void> {
     const count = await this.prisma.subcontractor.count({
       where: { id, deletedAt: null },
@@ -622,6 +744,15 @@ export class WorkersService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureLanguage` (ensure Language).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async ensureLanguage(workerId: string, id: string): Promise<void> {
     const count = await this.prisma.workerLanguage.count({
       where: { id, workerId },
@@ -631,6 +762,16 @@ export class WorkersService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureCertification` (ensure Certification).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async ensureCertification(
     workerId: string,
     id: string,

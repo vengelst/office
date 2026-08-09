@@ -1,11 +1,7 @@
 /**
- * Typen und API-Funktionen für die Zeiterfassung:
- * - Monteur-App (PIN-Login + Stempeln) mit eigenem Worker-Token
- * - Live-Übersicht, Wochenstundenzettel und Pausenregeln (Office-Token)
- *
- * Die Monteur-App nutzt einen separaten Token-Speicher, damit sie eine
- * Office-Session nicht überschreibt und 401 zur PIN-Seite (statt /login) führt.
+ * API-Helfer für Stundenzettel und Freigabe-Flow.
  */
+
 import { ApiError, apiClient } from './api-client';
 import type { ApiErrorResponse, LoginResponse } from '@office/types';
 
@@ -319,7 +315,11 @@ export const WORKER_TOKEN_KEY = 'office_worker_token';
 /** LocalStorage-Schlüssel für die serialisierten Worker-Profildaten. */
 export const WORKER_USER_KEY = 'office_worker';
 
-/** Liest das Worker-JWT aus dem LocalStorage (null wenn nicht vorhanden oder SSR). */
+/**
+ * Liest das Worker-JWT aus dem LocalStorage (null wenn nicht vorhanden oder SSR).
+ *
+ * @returns string | null
+ */
 export function getWorkerToken(): string | null {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem(WORKER_TOKEN_KEY);
@@ -336,7 +336,11 @@ export function setWorkerSession(token: string, worker: WorkerMe): void {
   window.localStorage.setItem(WORKER_USER_KEY, JSON.stringify(worker));
 }
 
-/** Liest das gespeicherte Worker-Profil aus dem LocalStorage (null wenn nicht vorhanden). */
+/**
+ * Liest das gespeicherte Worker-Profil aus dem LocalStorage (null wenn nicht vorhanden).
+ *
+ * @returns WorkerMe | null
+ */
 export function getStoredWorker(): WorkerMe | null {
   if (typeof window === 'undefined') return null;
   const raw = window.localStorage.getItem(WORKER_USER_KEY);
@@ -348,7 +352,9 @@ export function getStoredWorker(): WorkerMe | null {
   }
 }
 
-/** Entfernt Worker-Token und Profil aus dem LocalStorage (Abmeldung). */
+/**
+ * Entfernt Worker-Token und Profil aus dem LocalStorage (Abmeldung).
+ */
 export function clearWorkerSession(): void {
   if (typeof window === 'undefined') return;
   window.localStorage.removeItem(WORKER_TOKEN_KEY);
@@ -670,7 +676,13 @@ export const kioskApi = {
 
 // ── Helfer ─────────────────────────────────────────────────────
 
-/** Lädt das Stundenzettel-PDF mit Office-Token und stößt den Download an. */
+/**
+ * Lädt das Stundenzettel-PDF mit Office-Token und stößt den Download an.
+ *
+ * @param id - Primärschlüssel (string)
+ * @param filename - Parameter `filename` (string)
+ * @returns void
+ */
 export async function downloadTimesheetPdf(
   id: string,
   filename: string,
@@ -696,7 +708,12 @@ export async function downloadTimesheetPdf(
   URL.revokeObjectURL(url);
 }
 
-/** Minuten → "Hh Mm" (z. B. 510 → "8h 30m"). */
+/**
+ * Minuten → "Hh Mm" (z. B. 510 → "8h 30m").
+ *
+ * @param min - Parameter `min` (number | null | undefined)
+ * @returns string
+ */
 export function formatMinutes(min: number | null | undefined): string {
   if (min == null) return '–';
   const h = Math.floor(min / 60);
@@ -704,7 +721,12 @@ export function formatMinutes(min: number | null | undefined): string {
   return `${h}h ${`${m}`.padStart(2, '0')}m`;
 }
 
-/** Minuten → Dezimalstunden (z. B. 510 → "8,5 h"). */
+/**
+ * Minuten → Dezimalstunden (z. B. 510 → "8,5 h").
+ *
+ * @param min - Parameter `min` (number | null | undefined)
+ * @returns string
+ */
 export function formatHours(min: number | null | undefined): string {
   if (min == null) return '–';
   return `${(min / 60).toLocaleString('de-DE', {
@@ -713,7 +735,12 @@ export function formatHours(min: number | null | undefined): string {
   })} h`;
 }
 
-/** Uhrzeit HH:MM aus ISO-String (lokal). */
+/**
+ * Uhrzeit HH:MM aus ISO-String (lokal).
+ *
+ * @param iso - Parameter `iso` (string | null | undefined)
+ * @returns string
+ */
 export function formatTime(iso: string | null | undefined): string {
   if (!iso) return '–';
   const d = new Date(iso);
@@ -724,7 +751,12 @@ export function formatTime(iso: string | null | undefined): string {
   });
 }
 
-/** Datum TT.MM.JJJJ aus ISO-String (lokal). */
+/**
+ * Datum TT.MM.JJJJ aus ISO-String (lokal).
+ *
+ * @param iso - Parameter `iso` (string | null | undefined)
+ * @returns Formatierter String
+ */
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return '–';
   const d = new Date(iso);
@@ -732,7 +764,12 @@ export function formatDate(iso: string | null | undefined): string {
   return d.toLocaleDateString('de-DE');
 }
 
-/** Sekunden → "H:MM:SS" für die Live-Timer-Anzeige. */
+/**
+ * Sekunden → "H:MM:SS" für die Live-Timer-Anzeige.
+ *
+ * @param seconds - Parameter `seconds` (number)
+ * @returns string
+ */
 export function formatDuration(seconds: number): string {
   const s = Math.max(0, Math.floor(seconds));
   const h = Math.floor(s / 3600);

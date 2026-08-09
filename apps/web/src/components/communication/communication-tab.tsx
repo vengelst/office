@@ -1,3 +1,8 @@
+/**
+ * Komponente: communication / communication-tab (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -117,6 +122,9 @@ const emptyForm: FormData = {
   duration: '',
 };
 
+/**
+ * UI-Komponente `CommunicationTab`.
+ */
 export function CommunicationTab({
   entityType,
   entityId,

@@ -1,3 +1,8 @@
+/**
+ * Service für Geocode.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 export interface GeocodeResult {
@@ -28,6 +33,13 @@ export class GeocodeService {
   /** Serialisiert konkurrierende Requests, damit der Abstand eingehalten wird. */
   private queue: Promise<unknown> = Promise.resolve();
 
+  /**
+   * Geocodiert eine Adresse bzw. sucht Koordinaten.
+   *
+   * @param address - Adresszeile für Geocoding (string)
+   * @returns Geocode-Ergebnis (GeocodeResult)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async lookup(address: string): Promise<GeocodeResult> {
     const query = address?.trim();
     if (!query) {
@@ -51,6 +63,13 @@ export class GeocodeService {
     return run;
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `fetchFromNominatim` (fetch From Nominatim).
+   *
+   * @param query - Query-Parameter der Anfrage (string)
+   * @returns GeocodeResult
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async fetchFromNominatim(query: string): Promise<GeocodeResult> {
     const url = `${NOMINATIM_URL}?format=json&q=${encodeURIComponent(
       query,

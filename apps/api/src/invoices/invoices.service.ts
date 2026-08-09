@@ -1,3 +1,8 @@
+/**
+ * Service für Invoices.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   ConflictException,
@@ -329,6 +334,9 @@ export class InvoicesService {
     return this.generateOutgoing(dto, project, from, to, userId);
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `generateOutgoing` (generate Outgoing).
+   */
   private async generateOutgoing(
     dto: GenerateFromTimesheetsDto,
     project: {
@@ -410,6 +418,17 @@ export class InvoicesService {
     });
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `generateIncoming` (generate Incoming).
+   *
+   * @param dto - Request-Body / Eingabedaten (GenerateFromTimesheetsDto)
+   * @param projectId - ID des Projekts (string)
+   * @param from - Zeitraum-Beginn (Date)
+   * @param to - Zeitraum-Ende (Date)
+   * @param userId - ID (userId) (string | null)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async generateIncoming(
     dto: GenerateFromTimesheetsDto,
     projectId: string,
@@ -465,7 +484,9 @@ export class InvoicesService {
     });
   }
 
-  /** Lädt genehmigte Stundenzettel eines Projekts, deren KW in [from,to] liegt. */
+  /**
+   * Lädt genehmigte Stundenzettel eines Projekts, deren KW in [from,to] liegt.
+   */
   private async loadApprovedTimesheets(
     projectId: string,
     from: Date,
@@ -503,7 +524,11 @@ export class InvoicesService {
     });
   }
 
-  /** Gemeinsame Erstellung generierter Rechnungen (Status DRAFT). */
+  /**
+   * Gemeinsame Erstellung generierter Rechnungen (Status DRAFT).
+   *
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async createGenerated(input: {
     invoiceType: InvoiceType;
     projectId: string;
@@ -646,9 +671,7 @@ export class InvoicesService {
   }
 
   /**
-   * Generiert PDF, speichert in MinIO und erstellt Document-Einträge.
-   * Ausgangsrechnung → Projekt-Ordner + Kunden-Ordner.
-   * Eingangsrechnung → Subunternehmen-Ordner.
+   * Generiert PDF, speichert in MinIO und erstellt Document-Einträge. Ausgangsrechnung → Projekt-Ordner + Kunden-Ordner. Eingangsrechnung → Subunternehmen-Ordner.
    */
   private async exportInvoicePdf(invoice: {
     id: string;
@@ -1093,8 +1116,10 @@ export class InvoicesService {
   // ── Hilfsfunktionen ──────────────────────────────────────────
 
   /**
-   * Erzeugt die nächste Rechnungsnummer:
-   * RE-YYYY-NNNN (Ausgang) bzw. ER-YYYY-NNNN (Eingang).
+   * Erzeugt die nächste Rechnungsnummer: RE-YYYY-NNNN (Ausgang) bzw. ER-YYYY-NNNN (Eingang).
+   *
+   * @param type - Parameter `type` (InvoiceType)
+   * @returns string
    */
   private async generateInvoiceNumber(type: InvoiceType): Promise<string> {
     const year = new Date().getFullYear();
@@ -1111,7 +1136,12 @@ export class InvoicesService {
     return `${prefix}${next}`;
   }
 
-  /** Wandelt Line-DTOs in Prisma-Create-Inputs (mit Position + Summe) um. */
+  /**
+   * Wandelt Line-DTOs in Prisma-Create-Inputs (mit Position + Summe) um.
+   *
+   * @param lines - Parameter `lines` (CreateInvoiceLineDto[])
+   * @returns Positionszeilen (Prisma.InvoiceLineCreateWithoutInvoiceInput[])
+   */
   private buildLineData(
     lines: CreateInvoiceLineDto[],
   ): Prisma.InvoiceLineCreateWithoutInvoiceInput[] {
@@ -1133,7 +1163,11 @@ export class InvoicesService {
     });
   }
 
-  /** Summen aus Positionsdaten berechnen. */
+  /**
+   * Summen aus Positionsdaten berechnen.
+   *
+   * @returns Summenobjekt
+   */
   private computeTotals(
     lines: Array<{ total?: number }>,
     taxRate: number,
@@ -1144,7 +1178,13 @@ export class InvoicesService {
     return { subtotal, taxAmount, total };
   }
 
-  /** Summen anhand der gespeicherten Positionen neu berechnen. */
+  /**
+   * Summen anhand der gespeicherten Positionen neu berechnen.
+   *
+   * @param invoiceId - ID (invoiceId) (string)
+   * @param taxRateOverride - Parameter `taxRateOverride` (number)
+   * @returns void
+   */
   private async recomputeTotals(
     invoiceId: string,
     taxRateOverride?: number,
@@ -1169,8 +1209,10 @@ export class InvoicesService {
   }
 
   /**
-   * Aktualisiert paidAmount und Status anhand der erfassten Zahlungen:
-   * paidAmount >= total → PAID, 0 < paidAmount < total → PARTIALLY_PAID.
+   * Aktualisiert paidAmount und Status anhand der erfassten Zahlungen: paidAmount >= total → PAID, 0 < paidAmount < total → PARTIALLY_PAID.
+   *
+   * @param invoiceId - ID (invoiceId) (string)
+   * @returns void
    */
   private async recomputePaymentStatus(invoiceId: string): Promise<void> {
     const invoice = await this.prisma.invoice.findUnique({
@@ -1212,6 +1254,14 @@ export class InvoicesService {
     await this.prisma.invoice.update({ where: { id: invoiceId }, data });
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `nextLinePosition` (next Line Position).
+   *
+   * @param invoiceId - ID (invoiceId) (string)
+   * @returns number
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async nextLinePosition(invoiceId: string): Promise<number> {
     const last = await this.prisma.invoiceLine.findFirst({
       where: { invoiceId },
@@ -1221,6 +1271,15 @@ export class InvoicesService {
     return last ? last.position + 1 : 0;
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `customerPaymentTerm` (customer Payment Term).
+   *
+   * @param customerId - ID des Kunden (string | null)
+   * @returns number | null
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async customerPaymentTerm(
     customerId: string | null,
   ): Promise<number | null> {
@@ -1232,7 +1291,18 @@ export class InvoicesService {
     return customer?.paymentTermDays ?? null;
   }
 
-  /** Prüft Bezugsdaten passend zum Rechnungstyp. */
+  /**
+   * Prüft Bezugsdaten passend zum Rechnungstyp.
+   *
+   * @param type - Parameter `type` (InvoiceType)
+   * @param projectId - ID des Projekts (string)
+   * @param customerId - ID des Kunden (string)
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async validateRelations(
     type: InvoiceType,
     projectId?: string,
@@ -1267,6 +1337,13 @@ export class InvoicesService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureInvoice` (ensure Invoice).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async ensureInvoice(id: string) {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
@@ -1278,7 +1355,13 @@ export class InvoicesService {
     return invoice;
   }
 
-  /** Stellt sicher, dass die Rechnung existiert und im Status DRAFT ist. */
+  /**
+   * Stellt sicher, dass die Rechnung existiert und im Status DRAFT ist.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async ensureDraft(id: string) {
     const invoice = await this.ensureInvoice(id);
     if (invoice.status !== InvoiceStatus.DRAFT) {
@@ -1289,6 +1372,13 @@ export class InvoicesService {
     return invoice;
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureLine` (ensure Line).
+   *
+   * @param invoiceId - ID (invoiceId) (string)
+   * @param lineId - ID (lineId) (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureLine(invoiceId: string, lineId: string) {
     const line = await this.prisma.invoiceLine.findFirst({
       where: { id: lineId, invoiceId },

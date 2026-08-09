@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Worker Work Items.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -76,6 +81,13 @@ export class WorkerWorkItemsController {
   @ApiOperation({
     summary: 'Items des angemeldeten Monteurs (eigene + offener Pool)',
   })
+  /**
+   * Listet dem Monteur zugängliche/zugewiesene Items.
+   *
+   * @param query - Query-Parameter der Anfrage (MyWorkItemsQueryDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Item-Liste
+   */
   async findMine(
     @Query() query: MyWorkItemsQueryDto,
     @CurrentUser() user: AuthUser,
@@ -83,6 +95,14 @@ export class WorkerWorkItemsController {
     const workerId = await this.workflow.resolveWorkerId(user);
     return this.workItems.findForWorker(workerId, query.projectId);
   }
+
+  /**
+   * Lädt ein dem Monteur zugängliches Item.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Item
+   */
 
   @Get('workers/me/work-items/:id')
   @ApiOperation({ summary: 'Item-Detail für den Monteur' })
@@ -113,6 +133,11 @@ export class WorkerWorkItemsController {
     required: false,
     description: '`1` liefert `Content-Disposition: inline` für den Mobile-Viewer.',
   })
+  /**
+   * Liefert die PDF-Unterlage für ein Monteur-Item.
+   *
+   * @returns PDF/Stream
+   */
   async findMinePdf(
     @Param('id') id: string,
     @Query('inline') inline: string | undefined,
@@ -141,6 +166,14 @@ export class WorkerWorkItemsController {
 
   // ── Nehmen ───────────────────────────────────────────────────
 
+  /**
+   * Nimmt ein Item für den Monteur in Anspruch.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Aktualisiertes Item
+   */
+
   @Post('work-items/:id/claim')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Item nehmen (OPEN → IN_PROGRESS)' })
@@ -156,6 +189,14 @@ export class WorkerWorkItemsController {
     summary: 'Aktuelles Item setzen: neue Zeitsession starten',
     description: 'Beendet zuvor alle offenen Sessions des Monteurs.',
   })
+  /**
+   * Startet die Arbeitssession an einem Item.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (StartSessionDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Session
+   */
   startSession(
     @Param('id') id: string,
     @Body() dto: StartSessionDto,
@@ -163,6 +204,15 @@ export class WorkerWorkItemsController {
   ) {
     return this.workflow.startSession(id, dto, user);
   }
+
+  /**
+   * Beendet die Arbeitssession an einem Item.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (StopSessionDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Session
+   */
 
   @Post('work-items/:id/sessions/stop')
   @HttpCode(HttpStatus.OK)
@@ -189,6 +239,15 @@ export class WorkerWorkItemsController {
   @UseInterceptors(
     FilesInterceptor('photos', MAX_PHOTOS, { limits: { fileSize: MAX_PHOTO_SIZE } }),
   )
+  /**
+   * Meldet ein Item als fertig (inkl. Fotos).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param photos - Parameter `photos` (Express.Multer.File[] | undefined)
+   * @param dto - Request-Body / Eingabedaten (CompleteReportDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Aktualisiertes Item
+   */
   reportComplete(
     @Param('id') id: string,
     @UploadedFiles() photos: Express.Multer.File[] | undefined,
@@ -207,6 +266,15 @@ export class WorkerWorkItemsController {
   @UseInterceptors(
     FilesInterceptor('photos', MAX_PHOTOS, { limits: { fileSize: MAX_PHOTO_SIZE } }),
   )
+  /**
+   * Meldet Nacharbeit an einem Item.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param photos - Parameter `photos` (Express.Multer.File[] | undefined)
+   * @param dto - Request-Body / Eingabedaten (ReworkReportDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Aktualisiertes Item
+   */
   reportRework(
     @Param('id') id: string,
     @UploadedFiles() photos: Express.Multer.File[] | undefined,

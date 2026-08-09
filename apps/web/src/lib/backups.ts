@@ -1,6 +1,7 @@
 /**
- * API-Client für Backup / Restore (Settings).
+ * API-Helfer für Backup-Konfiguration, Jobs und Restores.
  */
+
 import { apiClient } from './api-client';
 
 export const BACKUP_MODULE_LABELS: Record<string, string> = {
@@ -17,6 +18,9 @@ export const BACKUP_MODULE_LABELS: Record<string, string> = {
   invoices: 'Rechnungen',
 };
 
+/**
+ * Typ/Interface `BackupConfig` für die Web-App.
+ */
 export interface BackupConfig {
   id: string;
   enabled: boolean;
@@ -27,6 +31,9 @@ export interface BackupConfig {
   updatedAt: string;
 }
 
+/**
+ * Typ/Interface `BackupJob` für die Web-App.
+ */
 export interface BackupJob {
   id: string;
   status: 'PENDING' | 'RUNNING' | 'SUCCESS' | 'FAILED';
@@ -40,6 +47,9 @@ export interface BackupJob {
   createdAt: string;
 }
 
+/**
+ * Typ/Interface `RestoreLog` für die Web-App.
+ */
 export interface RestoreLog {
   id: string;
   backupJobId: string | null;

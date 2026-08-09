@@ -1,3 +1,8 @@
+/**
+ * Service für Work Item Import.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -203,6 +208,12 @@ export class WorkItemImportService {
 
   /**
    * Vorschau ohne Schreibzugriff – identisch zu `import` mit `dryRun: true`.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param files - Hochgeladene Dateien (Multer) (Express.Multer.File[] | undefined)
+   * @param dto - Request-Body / Eingabedaten (ImportWorkItemsDto)
+   * @returns ImportSummary
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   preview(
     projectId: string,
@@ -214,7 +225,13 @@ export class WorkItemImportService {
 
   // ── Helfer ───────────────────────────────────────────────────
 
-  /** Prüft die Uploads und wandelt sie in Parser-Eingaben. */
+  /**
+   * Prüft die Uploads und wandelt sie in Parser-Eingaben.
+   *
+   * @param files - Hochgeladene Dateien (Multer) (Express.Multer.File[] | undefined)
+   * @returns Parse-Inputs (ParseInput[])
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private toParseInputs(files: Express.Multer.File[] | undefined): ParseInput[] {
     if (!files || files.length === 0) {
       throw new BadRequestException(
@@ -232,8 +249,12 @@ export class WorkItemImportService {
   }
 
   /**
-   * Gruppiert Materialzeilen je itemKey und meldet Zeilen, deren Item weder im
-   * Import noch im Projekt existiert (typischer Tippfehler in der Vorlage).
+   * Gruppiert Materialzeilen je itemKey und meldet Zeilen, deren Item weder im Import noch im Projekt existiert (typischer Tippfehler in der Vorlage).
+   *
+   * @param rows - Parameter `rows` (ParsedMaterialRow[])
+   * @param importedKeys - Parameter `importedKeys` (Set<string>)
+   * @param existingByKey - Parameter `existingByKey` (Map<string, string>)
+   * @param warnings - Parameter `warnings` (string[])
    */
   private groupMaterials(
     rows: ParsedMaterialRow[],
@@ -265,9 +286,11 @@ export class WorkItemImportService {
   }
 
   /**
-   * Übersetzt eine geparste Zeile in Prisma-Daten und löst den blockKey auf.
-   * Leere Spalten werden ausgelassen, damit ein Teil-Import keine bereits
-   * gepflegten Felder überschreibt.
+   * Übersetzt eine geparste Zeile in Prisma-Daten und löst den blockKey auf. Leere Spalten werden ausgelassen, damit ein Teil-Import keine bereits gepflegten Felder überschreibt.
+   *
+   * @param row - Parameter `row` (ParsedItemRow)
+   * @param blockIdByKey - Parameter `blockIdByKey` (Map<string, string>)
+   * @returns Prisma.WorkItemUncheckedUpdateInput & Prisma.WorkItemUncheckedCreateInput
    */
   private toItemData(
     row: ParsedItemRow,

@@ -1,9 +1,12 @@
 /**
- * Typen und API-Funktionen für das Projektverwaltungs-Modul.
- * Spiegelt die Antworten der NestJS-Projects-Endpoints wider.
+ * API-Helfer für Projekte, Standorte und Zuordnungen.
  */
+
 import { apiClient } from './api-client';
 
+/**
+ * Typ/Interface `ProjectStatus` für die Web-App.
+ */
 export type ProjectStatus =
   | 'DRAFT'
   | 'PLANNED'
@@ -11,12 +14,24 @@ export type ProjectStatus =
   | 'PAUSED'
   | 'COMPLETED'
   | 'CANCELED';
+/**
+ * Typ/Interface `ServiceType` für die Web-App.
+ */
 export type ServiceType = 'VIDEO' | 'ELECTRICAL' | 'SERVICE' | 'OTHER';
+/**
+ * Typ/Interface `Priority` für die Web-App.
+ */
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+/**
+ * Typ/Interface `BillingMode` für die Web-App.
+ */
 export type BillingMode = 'HOURLY_PACKAGE' | 'UNIT_BASED' | 'MIXED';
 
 // ── Sub-Entities ───────────────────────────────────────────────
 
+/**
+ * Typ/Interface `ProjectSite` für die Web-App.
+ */
 export interface ProjectSite {
   id: string;
   projectId: string;
@@ -35,6 +50,9 @@ export interface ProjectSite {
   createdAt: string;
 }
 
+/**
+ * Typ/Interface `ProjectEquipment` für die Web-App.
+ */
 export interface ProjectEquipment {
   id: string;
   projectId: string;
@@ -50,6 +68,9 @@ export interface ProjectEquipment {
   notes: string | null;
 }
 
+/**
+ * Typ/Interface `ProjectStatusHistory` für die Web-App.
+ */
 export interface ProjectStatusHistory {
   id: string;
   projectId: string;
@@ -61,6 +82,9 @@ export interface ProjectStatusHistory {
   changedBy: { id: string; displayName: string } | null;
 }
 
+/**
+ * Typ/Interface `ProjectAssignment` für die Web-App.
+ */
 export interface ProjectAssignment {
   id: string;
   projectId: string;
@@ -79,6 +103,9 @@ export interface ProjectAssignment {
   };
 }
 
+/**
+ * Typ/Interface `ProjectEmailRecipient` für die Web-App.
+ */
 export interface ProjectEmailRecipient {
   id: string;
   projectId: string;
@@ -87,6 +114,9 @@ export interface ProjectEmailRecipient {
   name: string | null;
 }
 
+/**
+ * Typ/Interface `ProjectNote` für die Web-App.
+ */
 export interface ProjectNote {
   id: string;
   projectId: string;
@@ -98,6 +128,9 @@ export interface ProjectNote {
 
 // ── Project ────────────────────────────────────────────────────
 
+/**
+ * Typ/Interface `ProjectListItem` für die Web-App.
+ */
 export interface ProjectListItem {
   id: string;
   projectNumber: string;
@@ -113,6 +146,9 @@ export interface ProjectListItem {
   _count: { assignments: number };
 }
 
+/**
+ * Typ/Interface `ProjectListResponse` für die Web-App.
+ */
 export interface ProjectListResponse {
   data: ProjectListItem[];
   total: number;
@@ -121,6 +157,9 @@ export interface ProjectListResponse {
   totalPages: number;
 }
 
+/**
+ * Typ/Interface `ProjectDetail` für die Web-App.
+ */
 export interface ProjectDetail {
   id: string;
   projectNumber: string;
@@ -198,12 +237,18 @@ export interface ProjectTimelineItem {
 
 // ── Meta (Dropdown-Daten) ──────────────────────────────────────
 
+/**
+ * Typ/Interface `ProjectUserOption` für die Web-App.
+ */
 export interface ProjectUserOption {
   id: string;
   displayName: string;
   email: string;
 }
 
+/**
+ * Typ/Interface `ProjectWorkerOption` für die Web-App.
+ */
 export interface ProjectWorkerOption {
   id: string;
   workerNumber: string;
@@ -216,6 +261,9 @@ export interface ProjectWorkerOption {
 
 // ── Query-Parameter ────────────────────────────────────────────
 
+/**
+ * Typ/Interface `ProjectListParams` für die Web-App.
+ */
 export interface ProjectListParams {
   page?: number;
   limit?: number;
@@ -227,6 +275,9 @@ export interface ProjectListParams {
   sortDir?: 'asc' | 'desc';
 }
 
+/**
+ * Typ/Interface `TimelineParams` für die Web-App.
+ */
 export interface TimelineParams {
   from?: string;
   to?: string;

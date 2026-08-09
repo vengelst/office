@@ -1,7 +1,8 @@
 /**
- * Kunden-PL (Rolle CUSTOMER_PL, SPEZ-arbeitsitems.md 4.2/7).
- * Eigener, stark reduzierter Bereich unter /pl – kein internes Office.
+ * UI-Texte für Domäne `customerPl` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
  */
+
 export const customerPl = {
     nav: {
       projects: 'Meine Projekte',

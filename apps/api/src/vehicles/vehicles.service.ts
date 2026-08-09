@@ -1,3 +1,8 @@
+/**
+ * Service für Vehicles.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -124,8 +129,10 @@ export class VehiclesService {
   }
 
   /**
-   * Fahrzeuge mit TÜV/Versicherung, die innerhalb von `windowDays` Tagen
-   * ablaufen (oder bereits abgelaufen sind). Nur aktive Fahrzeuge.
+   * Fahrzeuge mit TÜV/Versicherung, die innerhalb von `windowDays` Tagen ablaufen (oder bereits abgelaufen sind). Nur aktive Fahrzeuge.
+   *
+   * @param windowDays - Parameter `windowDays`
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
    */
   async findExpiring(windowDays = 30) {
     const threshold = new Date();
@@ -152,7 +159,12 @@ export class VehiclesService {
     });
   }
 
-  /** Aktive Monteure für Zuweisungs-Auswahl. */
+  /**
+   * Aktive Monteure für Zuweisungs-Auswahl.
+   *
+   * @returns Monteur-Liste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   listWorkers() {
     return this.prisma.worker.findMany({
       where: { active: true, deletedAt: null },
@@ -189,21 +201,39 @@ export class VehiclesService {
     return { ...rest, assignments, currentAssignment, history };
   }
 
-  /** Erstellt ein neues Fahrzeug in der Datenbank. */
+  /**
+   * Erstellt ein neues Fahrzeug in der Datenbank.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateVehicleDto)
+   * @returns Neu angelegter Datensatz
+   */
   async create(dto: CreateVehicleDto) {
     const data = this.toData(dto) as Prisma.VehicleUncheckedCreateInput;
     data.licensePlate = dto.licensePlate;
     return this.prisma.vehicle.create({ data });
   }
 
-  /** Aktualisiert ein bestehendes Fahrzeug. */
+  /**
+   * Aktualisiert ein bestehendes Fahrzeug.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateVehicleDto)
+   * @returns Aktualisierter Datensatz
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async update(id: string, dto: UpdateVehicleDto) {
     await this.ensureExists(id);
     const data = this.toData(dto);
     return this.prisma.vehicle.update({ where: { id }, data });
   }
 
-  /** Deaktivieren: setzt active=false. */
+  /**
+   * Deaktivieren: setzt active=false.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Deaktivierter Datensatz
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async deactivate(id: string) {
     await this.ensureExists(id);
     await this.prisma.vehicle.update({
@@ -213,7 +243,13 @@ export class VehiclesService {
     return { id, deactivated: true };
   }
 
-  /** Reaktivieren: setzt active=true. */
+  /**
+   * Reaktivieren: setzt active=true.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Reaktivierter Datensatz
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async reactivate(id: string) {
     await this.ensureExists(id);
     await this.prisma.vehicle.update({
@@ -224,8 +260,11 @@ export class VehiclesService {
   }
 
   /**
-   * Löschen: Hard-Delete wenn keine Zuweisungshistorie,
-   * sonst Deaktivierung als Fallback.
+   * Löschen: Hard-Delete wenn keine Zuweisungshistorie, sonst Deaktivierung als Fallback.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async remove(id: string) {
     await this.ensureExists(id);
@@ -244,8 +283,12 @@ export class VehiclesService {
   }
 
   /**
-   * Weist das Fahrzeug einem Monteur zu. Eine bestehende offene Zuweisung
-   * wird automatisch beendet (assignedTo = now), bevor die neue erstellt wird.
+   * Weist das Fahrzeug einem Monteur zu. Eine bestehende offene Zuweisung wird automatisch beendet (assignedTo = now), bevor die neue erstellt wird.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (AssignVehicleDto)
+   * @returns Zuordnung
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async assign(id: string, dto: AssignVehicleDto) {
     await this.ensureExists(id);
@@ -275,7 +318,13 @@ export class VehiclesService {
     return this.findOne(id);
   }
 
-  /** Beendet die aktuell offene Zuweisung (assignedTo = now). */
+  /**
+   * Beendet die aktuell offene Zuweisung (assignedTo = now).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Aktualisierter Datensatz
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async unassign(id: string) {
     await this.ensureExists(id);
     const open = await this.prisma.workerVehicleAssignment.findFirst({
@@ -294,9 +343,11 @@ export class VehiclesService {
   // ── Helfer ─────────────────────────────────────────────────────
 
   /**
-   * Übersetzt das DTO in Prisma-Daten: setzt nur definierte Felder,
-   * konvertiert Datumsstrings und räumt die Sub-Referenz bei eigenen
-   * Fahrzeugen auf.
+   * Übersetzt das DTO in Prisma-Daten: setzt nur definierte Felder, konvertiert Datumsstrings und räumt die Sub-Referenz bei eigenen Fahrzeugen auf.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateVehicleDto | UpdateVehicleDto)
+   * @returns Prisma.VehicleUncheckedUpdateInput
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
    */
   private toData(
     dto: CreateVehicleDto | UpdateVehicleDto,
@@ -340,6 +391,13 @@ export class VehiclesService {
     return data;
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureExists` (ensure Exists).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.vehicle.count({ where: { id } });
     if (count === 0) throw new NotFoundException('Fahrzeug nicht gefunden');

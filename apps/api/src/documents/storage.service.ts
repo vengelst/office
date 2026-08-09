@@ -1,3 +1,8 @@
+/**
+ * Service für Storage.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client as MinioClient } from 'minio';
@@ -37,7 +42,11 @@ export class StorageService implements OnModuleInit {
     });
   }
 
-  /** Bucket beim Start anlegen, falls nicht vorhanden. */
+  /**
+   * Bucket beim Start anlegen, falls nicht vorhanden.
+   *
+   * @returns void (void)
+   */
   async onModuleInit(): Promise<void> {
     try {
       const exists = await this.client.bucketExists(this.bucket);
@@ -55,7 +64,14 @@ export class StorageService implements OnModuleInit {
     }
   }
 
-  /** Lädt einen Buffer unter dem angegebenen Key hoch. */
+  /**
+   * Lädt einen Buffer unter dem angegebenen Key hoch.
+   *
+   * @param storageKey - Parameter `storageKey` (string)
+   * @param buffer - Binärdaten (Buffer)
+   * @param mimeType - MIME-Type (string)
+   * @returns Dokument- bzw. Upload-Metadaten (void)
+   */
   async upload(
     storageKey: string,
     buffer: Buffer,
@@ -66,12 +82,22 @@ export class StorageService implements OnModuleInit {
     });
   }
 
-  /** Liefert einen lesbaren Stream des Objekts (für Download). */
+  /**
+   * Liefert einen lesbaren Stream des Objekts (für Download).
+   *
+   * @param storageKey - Parameter `storageKey` (string)
+   * @returns Readable
+   */
   getStream(storageKey: string): Promise<Readable> {
     return this.client.getObject(this.bucket, storageKey);
   }
 
-  /** Entfernt ein Objekt aus dem Storage. */
+  /**
+   * Entfernt ein Objekt aus dem Storage.
+   *
+   * @param storageKey - Parameter `storageKey` (string)
+   * @returns Ergebnis der Löschung (void)
+   */
   async remove(storageKey: string): Promise<void> {
     await this.client.removeObject(this.bucket, storageKey);
   }

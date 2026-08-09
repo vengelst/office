@@ -1,4 +1,8 @@
-/** UI-Texte: `subcontractors`. */
+/**
+ * UI-Texte für Domäne `subcontractors` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const subcontractors = {
     title: 'Subunternehmen',
     subtitle: 'Subunternehmen verwalten',

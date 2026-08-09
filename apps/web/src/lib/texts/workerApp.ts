@@ -1,4 +1,8 @@
-/** UI-Texte: `workerApp`. */
+/**
+ * UI-Texte für Domäne `workerApp` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const workerApp = {
     title: 'Zeiterfassung',
     pin: {

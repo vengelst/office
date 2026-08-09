@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Submissions.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -30,9 +35,15 @@ export class SubmissionsController {
   constructor(private readonly submissions: SubmissionsService) {}
 
   /**
-   * Listet Ausschreibungen, optional gefiltert nach Kunde und Status.
-   * GET /api/submissions
+   * Listet Ausschreibungen, optional gefiltert nach Kunde und Status. GET /api/submissions.
+   *
+   * @param customerId - ID des Kunden (string)
+   * @param status - Zielstatus (string)
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @returns Listenergebnis
    */
+
   @Get()
   @ApiOperation({ summary: 'Ausschreibungen auflisten (Paginierung)' })
   findAll(
@@ -50,9 +61,12 @@ export class SubmissionsController {
   }
 
   /**
-   * Liefert eine einzelne Ausschreibung.
-   * GET /api/submissions/:id
+   * Liefert eine einzelne Ausschreibung. GET /api/submissions/:id.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
    */
+
   @Get(':id')
   @ApiOperation({ summary: 'Ausschreibung Detail' })
   findOne(@Param('id') id: string) {
@@ -60,9 +74,12 @@ export class SubmissionsController {
   }
 
   /**
-   * Erstellt eine neue Ausschreibung.
-   * POST /api/submissions
+   * Erstellt eine neue Ausschreibung. POST /api/submissions.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateSubmissionDto)
+   * @returns Neu angelegter Datensatz
    */
+
   @Post()
   @ApiOperation({ summary: 'Ausschreibung anlegen' })
   create(@Body() dto: CreateSubmissionDto) {
@@ -70,9 +87,13 @@ export class SubmissionsController {
   }
 
   /**
-   * Aktualisiert eine bestehende Ausschreibung.
-   * PATCH /api/submissions/:id
+   * Aktualisiert eine bestehende Ausschreibung. PATCH /api/submissions/:id.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateSubmissionDto)
+   * @returns Aktualisierter Datensatz
    */
+
   @Patch(':id')
   @ApiOperation({ summary: 'Ausschreibung bearbeiten' })
   update(@Param('id') id: string, @Body() dto: UpdateSubmissionDto) {
@@ -80,9 +101,12 @@ export class SubmissionsController {
   }
 
   /**
-   * Soft-Delete einer Ausschreibung.
-   * DELETE /api/submissions/:id
+   * Soft-Delete einer Ausschreibung. DELETE /api/submissions/:id.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
    */
+
   @Delete(':id')
   @ApiOperation({ summary: 'Ausschreibung löschen (Soft-Delete)' })
   remove(@Param('id') id: string) {

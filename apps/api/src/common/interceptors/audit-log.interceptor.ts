@@ -1,3 +1,7 @@
+/**
+ * Audit-Interceptor: protokolliert mutierende HTTP-Requests in der AuditLog-Tabelle.
+ */
+
 import {
   CallHandler,
   ExecutionContext,
@@ -21,6 +25,13 @@ const MUTATING_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 export class AuditLogInterceptor implements NestInterceptor {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Schreibt nach erfolgreichen Mutationen einen AuditLog-Eintrag und reicht die Response durch.
+   *
+   * @param context - Nest ExecutionContext (ExecutionContext)
+   * @param next - Interceptor-Call-Handler (CallHandler)
+   * @returns Observable<unknown>
+   */
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context
       .switchToHttp()
@@ -55,12 +66,24 @@ export class AuditLogInterceptor implements NestInterceptor {
     );
   }
 
+  /**
+   * Interner Helfer: Leitet den Entity-Typ aus dem API-Pfad ab (z. B. /api/customers → customers).
+   *
+   * @param path - Dateipfad (string)
+   * @returns string
+   */
   private deriveEntityType(path: string): string {
     const segments = path.split('/').filter(Boolean);
     // Format: /api/<entity>/...
     return segments[1] ?? segments[0] ?? 'unknown';
   }
 
+  /**
+   * Interner Helfer: parst JSON robust (Fallback bei Fehlern).
+   *
+   * @param value - Zu setzender Wert
+   * @returns Geparstes Objekt oder Fallback (object | undefined)
+   */
   private safeJson(value: unknown): object | undefined {
     if (value === null || value === undefined) {
       return undefined;

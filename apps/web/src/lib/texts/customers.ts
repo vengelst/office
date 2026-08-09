@@ -1,4 +1,8 @@
-/** UI-Texte: `customers`. */
+/**
+ * UI-Texte für Domäne `customers` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const customers = {
     title: 'Kunden',
     subtitle: 'Kundenstamm verwalten',

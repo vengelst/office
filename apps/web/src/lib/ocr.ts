@@ -1,3 +1,7 @@
+/**
+ * API-Helfer für OCR- und Visitenkarten-Erkennung.
+ */
+
 import { TOKEN_STORAGE_KEY } from './api-client';
 import type { ApiErrorResponse } from '@office/types';
 import { ApiError } from './api-client';
@@ -5,11 +9,17 @@ import { ApiError } from './api-client';
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
+/**
+ * Typ/Interface `BusinessCardField` für die Web-App.
+ */
 export interface BusinessCardField {
   value: string | null;
   confidence: number;
 }
 
+/**
+ * Typ/Interface `BusinessCardData` für die Web-App.
+ */
 export interface BusinessCardData {
   firstName: BusinessCardField;
   lastName: BusinessCardField;
@@ -56,12 +66,24 @@ async function ocrFetch<T>(path: string, body: FormData): Promise<T> {
   return data as T;
 }
 
+/**
+ * API-/UI-Helfer `scanBusinessCard` (scan Business Card).
+ *
+ * @param file - Datei/Upload (File)
+ * @returns BusinessCardData
+ */
 export async function scanBusinessCard(file: File): Promise<BusinessCardData> {
   const form = new FormData();
   form.append('file', file);
   return ocrFetch<BusinessCardData>('/ocr/business-card', form);
 }
 
+/**
+ * API-/UI-Helfer `scanBusinessCardFromDocument` (scan Business Card From Document).
+ *
+ * @param documentId - Parameter `documentId` (string)
+ * @returns BusinessCardData
+ */
 export async function scanBusinessCardFromDocument(
   documentId: string,
 ): Promise<BusinessCardData> {

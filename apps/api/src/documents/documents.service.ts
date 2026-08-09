@@ -1,3 +1,8 @@
+/**
+ * Service für Documents.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -591,7 +596,12 @@ export class DocumentsService {
     return { id, deleted: true };
   }
 
-  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  /**
+   * Mehrfach-Löschen: ruft remove() je ID auf.
+   *
+   * @param ids - Liste von IDs (string[])
+   * @returns Ergebnis der Massenlöschung
+   */
   async bulkRemove(ids: string[]) {
     const results = [];
     const errors = [];
@@ -609,9 +619,12 @@ export class DocumentsService {
   }
 
   /**
-   * Erzeugt – falls möglich – ein 300x300-Thumbnail (Cover-Fit) für Bilder.
-   * Nutzt `sharp` falls verfügbar; bei fehlender Bibliothek oder Fehler
-   * wird ohne Thumbnail fortgefahren (Fallback: null).
+   * Erzeugt – falls möglich – ein 300x300-Thumbnail (Cover-Fit) für Bilder. Nutzt `sharp` falls verfügbar; bei fehlender Bibliothek oder Fehler wird ohne Thumbnail fortgefahren (Fallback: null).
+   *
+   * @param storageKey - Parameter `storageKey` (string)
+   * @param buffer - Binärdaten (Buffer)
+   * @param mimeType - MIME-Type (string)
+   * @returns string | null
    */
   private async maybeCreateThumbnail(
     storageKey: string,

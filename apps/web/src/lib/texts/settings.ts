@@ -1,4 +1,8 @@
-/** UI-Texte: `settings`. */
+/**
+ * UI-Texte für Domäne `settings` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const settings = {
     title: 'Einstellungen',
     placeholder: 'Einstellungen folgen in einem späteren Auftrag.',

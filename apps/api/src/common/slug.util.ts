@@ -1,3 +1,8 @@
+/**
+ * Hilfsfunktionen für URL-/Datei-Slugs und Datumsstempel.
+ * Genutzt für MinIO-/Drive-Pfade und lesbare Dateinamen.
+ */
+
 const CHAR_MAP: Record<string, string> = {
   ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss',
   Ä: 'Ae', Ö: 'Oe', Ü: 'Ue',
@@ -22,8 +27,10 @@ function transliterate(input: string): string {
 }
 
 /**
- * Erzeugt einen URL-/Pfad-sicheren Slug (lowercase, Bindestriche).
- * Ideal für Ordnernamen in MinIO und Google Drive.
+ * Erzeugt einen URL-/Pfad-sicheren Slug (lowercase, Bindestriche). Ideal für Ordnernamen in MinIO und Google Drive.
+ *
+ * @param input - Parameter `input` (string)
+ * @returns string
  */
 export function slugify(input: string): string {
   return transliterate(input)
@@ -33,8 +40,10 @@ export function slugify(input: string): string {
 }
 
 /**
- * Erzeugt einen lesbaren Dateinamen-Slug (Groß-/Kleinschreibung bleibt erhalten).
- * Sonderzeichen werden durch Bindestriche ersetzt.
+ * Erzeugt einen lesbaren Dateinamen-Slug (Groß-/Kleinschreibung bleibt erhalten). Sonderzeichen werden durch Bindestriche ersetzt.
+ *
+ * @param input - Parameter `input` (string)
+ * @returns string
  */
 export function fileSlug(input: string): string {
   return transliterate(input)
@@ -44,12 +53,20 @@ export function fileSlug(input: string): string {
 
 /**
  * Entfernt die Trennzeichen aus einer Nummer (z.B. "K-0001" → "K0001").
+ *
+ * @param input - Parameter `input` (string)
+ * @returns string
  */
 export function compactNumber(input: string): string {
   return input.replace(/-/g, '');
 }
 
-/** Erzeugt aus Date ein Datumsstring im Format YYYY-MM-DD. */
+/**
+ * Erzeugt aus Date ein Datumsstring im Format YYYY-MM-DD.
+ *
+ * @param date - Parameter `date` (Date)
+ * @returns string
+ */
 export function dateSlug(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -57,7 +74,12 @@ export function dateSlug(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-/** Erzeugt einen Zeitstempel-String im Format HHmm. */
+/**
+ * Erzeugt einen Zeitstempel-String im Format HHmm.
+ *
+ * @param date - Parameter `date` (Date)
+ * @returns string
+ */
 export function timeSlug(date: Date): string {
   const h = String(date.getHours()).padStart(2, '0');
   const m = String(date.getMinutes()).padStart(2, '0');

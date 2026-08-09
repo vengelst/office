@@ -1,4 +1,8 @@
-/** UI-Texte: `communication`. */
+/**
+ * UI-Texte für Domäne `communication` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const communication = {
     title: 'Kommunikation',
     newEntry: 'Neuer Eintrag',

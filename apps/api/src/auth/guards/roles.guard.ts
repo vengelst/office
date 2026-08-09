@@ -1,3 +1,7 @@
+/**
+ * Rollen-Guard: prüft, ob der Authentifizierte eine der geforderten Rollen besitzt.
+ */
+
 import {
   CanActivate,
   ExecutionContext,
@@ -16,6 +20,13 @@ import { ROLES_KEY } from '../decorators/roles.decorator';
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
+  /**
+   * Entscheidet, ob die aktuelle Route freigegeben wird.
+   *
+   * @param context - Nest ExecutionContext (ExecutionContext)
+   * @returns boolean
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   canActivate(context: ExecutionContext): boolean {
     const requiredRoles = this.reflector.getAllAndOverride<RoleCode[]>(
       ROLES_KEY,

@@ -1,3 +1,8 @@
+/**
+ * Service für Work Items.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   ConflictException,
   ForbiddenException,
@@ -204,7 +209,13 @@ export class WorkItemsService {
     };
   }
 
-  /** Materialzeilen eines Work Items. */
+  /**
+   * Materialzeilen eines Work Items.
+   *
+   * @param workItemId - ID (workItemId) (string)
+   * @returns Material-Liste
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   async findMaterials(workItemId: string) {
     await this.ensureItem(workItemId);
     return this.prisma.workItemMaterial.findMany({
@@ -296,7 +307,12 @@ export class WorkItemsService {
     return this.findMaterials(id);
   }
 
-  /** Löscht ein Work Item samt Material, Zuordnungen, Sessions und Meldungen. */
+  /**
+   * Löscht ein Work Item samt Material, Zuordnungen, Sessions und Meldungen.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
   async remove(id: string) {
     await this.ensureItem(id);
     await this.prisma.workItem.delete({ where: { id } });
@@ -553,7 +569,13 @@ export class WorkItemsService {
 
   // ── Helfer ───────────────────────────────────────────────────
 
-  /** Prüft die Existenz eines nicht gelöschten Projekts. */
+  /**
+   * Prüft die Existenz eines nicht gelöschten Projekts.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Projekt
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async ensureProject(projectId: string) {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, deletedAt: null },
@@ -565,7 +587,13 @@ export class WorkItemsService {
     return project;
   }
 
-  /** Prüft die Existenz eines Work Items. */
+  /**
+   * Prüft die Existenz eines Work Items.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Work-Item
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async ensureItem(id: string) {
     const item = await this.prisma.workItem.findUnique({
       where: { id },
@@ -577,7 +605,13 @@ export class WorkItemsService {
     return item;
   }
 
-  /** Legt einen Block bei Bedarf an (Import und manuelle Pflege). */
+  /**
+   * Legt einen Block bei Bedarf an (Import und manuelle Pflege).
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param blockKey - Parameter `blockKey` (string)
+   * @returns Block
+   */
   async ensureBlock(projectId: string, blockKey: string) {
     return this.prisma.projectBlock.upsert({
       where: { projectId_blockKey: { projectId, blockKey } },
@@ -587,7 +621,11 @@ export class WorkItemsService {
     });
   }
 
-  /** Ermittelt die Foto-Dokument-IDs je Rückmeldung (DocumentLink). */
+  /**
+   * Ermittelt die Foto-Dokument-IDs je Rückmeldung (DocumentLink).
+   *
+   * @param reportIds - Parameter `reportIds` (string[])
+   */
   private async photosByReport(reportIds: string[]) {
     const map = new Map<string, string[]>();
     if (reportIds.length === 0) return map;

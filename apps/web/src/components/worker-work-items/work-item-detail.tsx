@@ -1,3 +1,8 @@
+/**
+ * Komponente: worker-work-items / work-item-detail (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 /**
@@ -54,6 +59,9 @@ export interface WorkItemDetailProps {
   onActivity?: () => void;
 }
 
+/**
+ * UI-Komponente `WorkItemDetail`.
+ */
 export function WorkItemDetail({
   itemId,
   workerId,

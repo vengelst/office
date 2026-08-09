@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Invoices.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -53,11 +58,25 @@ export class InvoicesController {
 
   // ── Statische Routen zuerst (vor :id) ────────────────────────
 
+  /**
+   * Liefert aggregierte Statistiken.
+   *
+   * @returns Statistik
+   */
+
   @Get('stats')
   @ApiOperation({ summary: 'Kennzahlen: offene/überfällige Beträge, Umsatz' })
   stats() {
     return this.invoices.stats();
   }
+
+  /**
+   * Erzeugt Rechnungen aus Stundenzetteln.
+   *
+   * @param dto - Request-Body / Eingabedaten (GenerateFromTimesheetsDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Erzeugte Rechnungen
+   */
 
   @Post('generate-from-timesheets')
   @ApiOperation({ summary: 'Rechnung aus genehmigten Stundenzetteln generieren' })
@@ -69,6 +88,24 @@ export class InvoicesController {
   }
 
   // ── Rechnung CRUD ────────────────────────────────────────────
+
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @param search - Freitextsuche (string)
+   * @param type - Parameter `type` (string)
+   * @param status - Zielstatus (string)
+   * @param projectId - ID des Projekts (string)
+   * @param customerId - ID des Kunden (string)
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param periodFrom - Parameter `periodFrom` (string)
+   * @param periodTo - Eingabe-DTO (string)
+   * @param sortBy - Parameter `sortBy` (string)
+   * @param sortDir - Parameter `sortDir` ('asc' | 'desc')
+   * @returns Listenergebnis
+   */
 
   @Get()
   @ApiOperation({ summary: 'Rechnungen auflisten (Filter, Pagination, Sort)' })
@@ -102,11 +139,26 @@ export class InvoicesController {
     });
   }
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
+
   @Get(':id')
   @ApiOperation({ summary: 'Rechnungsdetail (Positionen + Zahlungen)' })
   findOne(@Param('id') id: string) {
     return this.invoices.findOne(id);
   }
+
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateInvoiceDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Neu angelegter Datensatz
+   */
 
   @Post()
   @ApiOperation({ summary: 'Neue Rechnung anlegen (manuell)' })
@@ -114,17 +166,39 @@ export class InvoicesController {
     return this.invoices.create(dto, userIdOf(user));
   }
 
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateInvoiceDto)
+   * @returns Aktualisierter Datensatz
+   */
+
   @Patch(':id')
   @ApiOperation({ summary: 'Rechnung bearbeiten (nur DRAFT)' })
   update(@Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
     return this.invoices.update(id, dto);
   }
 
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
+
   @Delete(':id')
   @ApiOperation({ summary: 'Rechnung löschen (nur DRAFT)' })
   remove(@Param('id') id: string) {
     return this.invoices.remove(id);
   }
+
+  /**
+   * Versendet die Ressource (z. B. E-Mail/Rechnung).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Versandergebnis
+   */
 
   @Post(':id/send')
   @HttpCode(HttpStatus.OK)
@@ -133,6 +207,12 @@ export class InvoicesController {
     return this.invoices.send(id);
   }
 
+  /**
+   * Storniert die Rechnung.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   */
+
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rechnung stornieren (Status CANCELLED, Beträge 0)' })
@@ -140,11 +220,22 @@ export class InvoicesController {
     return this.invoices.cancel(id);
   }
 
+  /**
+   * Dupliziert die Rechnung inkl. Positionen.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   */
+
   @Post(':id/duplicate')
   @ApiOperation({ summary: 'Rechnung als neuen Entwurf duplizieren' })
   duplicate(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.invoices.duplicate(id, userIdOf(user));
   }
+
+  /**
+   * Erzeugt bzw. liefert das PDF-Dokument.
+   */
 
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Rechnung als PDF erzeugen/herunterladen' })
@@ -164,11 +255,24 @@ export class InvoicesController {
 
   // ── Positionen ───────────────────────────────────────────────
 
+  /**
+   * Listet Rechnungspositionen.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   */
+
   @Get(':id/lines')
   @ApiOperation({ summary: 'Positionen einer Rechnung' })
   findLines(@Param('id') id: string) {
     return this.invoices.findLines(id);
   }
+
+  /**
+   * Fügt eine Rechnungsposition hinzu.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (CreateInvoiceLineDto)
+   */
 
   @Post(':id/lines')
   @ApiOperation({ summary: 'Position hinzufügen (nur DRAFT)' })
@@ -176,12 +280,27 @@ export class InvoicesController {
     return this.invoices.addLine(id, dto);
   }
 
+  /**
+   * Ändert die Reihenfolge der Positionen.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (ReorderLinesDto)
+   */
+
   @Post(':id/lines/reorder')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Positionen neu sortieren (nur DRAFT)' })
   reorderLines(@Param('id') id: string, @Body() dto: ReorderLinesDto) {
     return this.invoices.reorderLines(id, dto.lineIds);
   }
+
+  /**
+   * Aktualisiert eine Rechnungsposition.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param lineId - ID (lineId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateInvoiceLineDto)
+   */
 
   @Patch(':id/lines/:lineId')
   @ApiOperation({ summary: 'Position bearbeiten (nur DRAFT)' })
@@ -193,6 +312,13 @@ export class InvoicesController {
     return this.invoices.updateLine(id, lineId, dto);
   }
 
+  /**
+   * Entfernt eine Rechnungsposition.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param lineId - ID (lineId) (string)
+   */
+
   @Delete(':id/lines/:lineId')
   @ApiOperation({ summary: 'Position entfernen (nur DRAFT)' })
   removeLine(@Param('id') id: string, @Param('lineId') lineId: string) {
@@ -201,17 +327,37 @@ export class InvoicesController {
 
   // ── Zahlungen ────────────────────────────────────────────────
 
+  /**
+   * Listet Zahlungseingänge der Rechnung.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   */
+
   @Get(':id/payments')
   @ApiOperation({ summary: 'Zahlungseingänge einer Rechnung' })
   findPayments(@Param('id') id: string) {
     return this.invoices.findPayments(id);
   }
 
+  /**
+   * Erfasst einen Zahlungseingang.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (CreatePaymentDto)
+   */
+
   @Post(':id/payments')
   @ApiOperation({ summary: 'Zahlung erfassen (Status-Auto-Update)' })
   addPayment(@Param('id') id: string, @Body() dto: CreatePaymentDto) {
     return this.invoices.addPayment(id, dto);
   }
+
+  /**
+   * Entfernt einen Zahlungseingang.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param paymentId - ID (paymentId) (string)
+   */
 
   @Delete(':id/payments/:paymentId')
   @ApiOperation({ summary: 'Zahlung löschen (Status-Auto-Update)' })

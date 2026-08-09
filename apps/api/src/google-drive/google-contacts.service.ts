@@ -1,3 +1,8 @@
+/**
+ * Service für Google Contacts.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { google, people_v1 } from 'googleapis';
 import { AppSettingsService } from '../app-settings/app-settings.service';

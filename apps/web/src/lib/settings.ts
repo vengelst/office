@@ -1,7 +1,7 @@
 /**
- * Typen und API-Funktionen für die Einstellungsverwaltung.
- * Umfasst SMTP/E-Mail-Konfiguration und Google-Drive-Speicheranbindung.
+ * API-Helfer für App-/Firmen-/E-Mail-/Storage-Einstellungen.
  */
+
 import { apiClient, apiFetch, apiUpload } from './api-client';
 
 const API_BASE_URL =
@@ -27,7 +27,12 @@ export interface StorageConfig {
   impersonateEmail: string;
 }
 
-/** Öffentliche URL zum Firmenlogo-Stream (auch ohne Login). */
+/**
+ * Öffentliche URL zum Firmenlogo-Stream (auch ohne Login).
+ *
+ * @param cacheBust - Parameter `cacheBust` (string | number)
+ * @returns string
+ */
 export function companyLogoUrl(cacheBust?: string | number): string {
   const base = `${API_BASE_URL}/company/logo/file`;
   return cacheBust != null ? `${base}?t=${cacheBust}` : base;

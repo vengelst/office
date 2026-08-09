@@ -1,3 +1,8 @@
+/**
+ * Komponente: projects / tabs / work-items / customer-pls-section (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';

@@ -1,3 +1,8 @@
+/**
+ * Service für Pdf Page Raster.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { execFile } from 'child_process';
 import { readFile, unlink, writeFile, mkdtemp, rmdir } from 'fs/promises';
@@ -11,7 +16,18 @@ const execFileAsync = promisify(execFile);
  * Temporäre Raster-Session: PDF einmal schreiben, Seiten sequentiell rendern.
  */
 export interface PdfRasterSession {
+  /**
+   * Rendert eine PDF-Seite als Rasterbild.
+   *
+   * @param pageNumber - 1-basierte PDF-Seitennummer (number)
+   * @returns Bildpuffer (Buffer)
+   */
   rasterizePage(pageNumber: number): Promise<Buffer>;
+  /**
+   * Gibt native Ressourcen frei.
+   *
+   * @returns void (void)
+   */
   dispose(): Promise<void>;
 }
 
@@ -29,8 +45,11 @@ export class PdfPageRasterService {
   private readonly DPI = 200;
 
   /**
-   * Rendert eine bestimmte Seite eines PDFs als PNG-Buffer.
-   * Für Einzelaufrufe (Kalibrierung). Bei vielen Seiten `createSession` nutzen.
+   * Rendert eine bestimmte Seite eines PDFs als PNG-Buffer. Für Einzelaufrufe (Kalibrierung). Bei vielen Seiten `createSession` nutzen.
+   *
+   * @param pdfBuffer - PDF als Buffer (Buffer)
+   * @param pageNumber - 1-basierte PDF-Seitennummer (number)
+   * @returns Bildpuffer (Buffer)
    */
   async rasterizePage(pdfBuffer: Buffer, pageNumber: number): Promise<Buffer> {
     const session = await this.createSession(pdfBuffer);
@@ -42,8 +61,10 @@ export class PdfPageRasterService {
   }
 
   /**
-   * Schreibt das PDF einmal in ein Temp-Verzeichnis und erlaubt mehrere
-   * Seiten-Rasterisierungen ohne den Buffer erneut zu schreiben.
+   * Schreibt das PDF einmal in ein Temp-Verzeichnis und erlaubt mehrere Seiten-Rasterisierungen ohne den Buffer erneut zu schreiben.
+   *
+   * @param pdfBuffer - PDF als Buffer (Buffer)
+   * @returns PdfRasterSession
    */
   async createSession(pdfBuffer: Buffer): Promise<PdfRasterSession> {
     const tempDir = await mkdtemp(join(tmpdir(), 'pdfraster-'));

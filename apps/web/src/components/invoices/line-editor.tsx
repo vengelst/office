@@ -1,3 +1,8 @@
+/**
+ * Komponente: invoices / line-editor (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -48,6 +53,9 @@ const LINE_TYPES: InvoiceLineType[] = [
   'CUSTOM',
 ];
 
+/**
+ * UI-Komponente `LineEditor`.
+ */
 export function LineEditor({
   invoice,
   editable,

@@ -1,3 +1,8 @@
+/**
+ * Seite: worker-app / dashboard (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -80,6 +85,9 @@ function getGeo(): Promise<Geo | null> {
   });
 }
 
+/**
+ * UI-Komponente `WorkerDashboardPage`.
+ */
 export default function WorkerDashboardPage(): React.ReactNode {
   const router = useRouter();
   const { toast } = useToast();

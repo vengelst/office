@@ -1,3 +1,8 @@
+/**
+ * Service für Invoice Pdf.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InvoiceType } from '@prisma/client';
 import PDFDocument from 'pdfkit';
@@ -20,7 +25,13 @@ export class InvoicePdfService {
     private readonly storage: StorageService,
   ) {}
 
-  /** Erzeugt die Rechnung als PDF-Buffer (Standard-Layout). */
+  /**
+   * Erzeugt die Rechnung als PDF-Buffer (Standard-Layout).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Generiertes Ergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async generate(id: string): Promise<{ buffer: Buffer; filename: string }> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
@@ -78,7 +89,11 @@ export class InvoicePdfService {
     return { buffer, filename };
   }
 
-  /** Lädt das Firmenlogo aus dem Storage (falls hinterlegt). */
+  /**
+   * Lädt das Firmenlogo aus dem Storage (falls hinterlegt).
+   *
+   * @returns Buffer | null
+   */
   private async loadCompanyLogo(): Promise<Buffer | null> {
     const setting = await this.prisma.appSetting.findUnique({
       where: { key: COMPANY_LOGO_SETTING },
@@ -94,7 +109,11 @@ export class InvoicePdfService {
 
   // ── Layout-Bausteine ─────────────────────────────────────────
 
-  /** Zeichnet den Rechnungskopf mit Firmenlogo, Titel und Metadaten. */
+  /**
+   * Zeichnet den Rechnungskopf mit Firmenlogo, Titel und Metadaten.
+   *
+   * @returns void
+   */
   private drawHeader(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
@@ -131,7 +150,11 @@ export class InvoicePdfService {
     doc.fillColor('#000');
   }
 
-  /** Zeichnet den Empfänger-Adressblock (Kunde bei Ausgang, Sub bei Eingang). */
+  /**
+   * Zeichnet den Empfänger-Adressblock (Kunde bei Ausgang, Sub bei Eingang).
+   *
+   * @returns void
+   */
   private drawRecipient(
     doc: PDFKit.PDFDocument,
     invoice: {
@@ -188,7 +211,11 @@ export class InvoicePdfService {
     }
   }
 
-  /** Zeichnet Projekt-Referenz, Leistungszeitraum und Abschlagsinformationen. */
+  /**
+   * Zeichnet Projekt-Referenz, Leistungszeitraum und Abschlagsinformationen.
+   *
+   * @returns void
+   */
   private drawMeta(
     doc: PDFKit.PDFDocument,
     invoice: {
@@ -233,7 +260,11 @@ export class InvoicePdfService {
     doc.y = y + 6;
   }
 
-  /** Zeichnet die Positionstabelle mit automatischem Seitenumbruch. */
+  /**
+   * Zeichnet die Positionstabelle mit automatischem Seitenumbruch.
+   *
+   * @returns void
+   */
   private drawLineTable(
     doc: PDFKit.PDFDocument,
     lines: Array<{
@@ -303,7 +334,11 @@ export class InvoicePdfService {
     doc.y = y + 6;
   }
 
-  /** Zeichnet die Summenzeilen (Netto, MwSt, Brutto). */
+  /**
+   * Zeichnet die Summenzeilen (Netto, MwSt, Brutto).
+   *
+   * @returns void
+   */
   private drawTotals(
     doc: PDFKit.PDFDocument,
     invoice: { subtotal: number; taxRate: number; taxAmount: number; total: number },
@@ -333,7 +368,11 @@ export class InvoicePdfService {
     doc.y = y + 10;
   }
 
-  /** Zeichnet Zahlungshinweis, Bankverbindung und optionale Notizen. */
+  /**
+   * Zeichnet Zahlungshinweis, Bankverbindung und optionale Notizen.
+   *
+   * @returns void
+   */
   private drawPaymentNote(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
@@ -374,7 +413,13 @@ export class InvoicePdfService {
     doc.y = y + 10;
   }
 
-  /** Zeichnet die Fußzeile mit Firmenname, Adresse und Steuernummer. */
+  /**
+   * Zeichnet die Fußzeile mit Firmenname, Adresse und Steuernummer.
+   *
+   * @param doc - Parameter `doc` (PDFKit.PDFDocument)
+   * @param company - Parameter `company` (CompanyInfo)
+   * @returns void
+   */
   private drawFooter(doc: PDFKit.PDFDocument, company: CompanyInfo): void {
     const y = 790;
     doc.fontSize(8).fillColor('#888');
@@ -387,7 +432,9 @@ export class InvoicePdfService {
     doc.fillColor('#000');
   }
 
-  /** Zeichnet eine einzelne Tabellenzeile mit konfigurierbaren Spaltenbreiten. */
+  /**
+   * Zeichnet eine einzelne Tabellenzeile mit konfigurierbaren Spaltenbreiten.
+   */
   private drawTableRow(
     doc: PDFKit.PDFDocument,
     x: number,

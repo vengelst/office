@@ -1,3 +1,8 @@
+/**
+ * Seite: kiosk / terminal (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -46,6 +51,9 @@ interface GpsData {
   accuracy: number;
 }
 
+/**
+ * UI-Komponente `KioskTerminalPage`.
+ */
 export default function KioskTerminalPage() {
   const router = useRouter();
   const t = texts.kiosk.terminal;

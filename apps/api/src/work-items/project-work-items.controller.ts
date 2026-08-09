@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Project Work Items.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -76,11 +81,26 @@ export class ProjectWorkItemsController {
 
   // ── Blöcke ───────────────────────────────────────────────────
 
+  /**
+   * Listet Work-Item-Blöcke eines Projekts.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Block-Liste
+   */
+
   @Get('blocks')
   @ApiOperation({ summary: 'Blöcke des Projekts (inkl. Item-Anzahl)' })
   findBlocks(@Param('projectId') projectId: string) {
     return this.blocks.findAll(projectId);
   }
+
+  /**
+   * Legt einen Work-Item-Block an.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateBlockDto)
+   * @returns Neuer Block
+   */
 
   @Post('blocks')
   @ApiOperation({ summary: 'Block anlegen' })
@@ -91,6 +111,15 @@ export class ProjectWorkItemsController {
     return this.blocks.create(projectId, dto);
   }
 
+  /**
+   * Aktualisiert einen Work-Item-Block.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param blockId - ID des Work-Item-Blocks (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateBlockDto)
+   * @returns Aktualisierter Block
+   */
+
   @Patch('blocks/:blockId')
   @ApiOperation({ summary: 'Block bearbeiten (Name, Block-PDF verknüpfen)' })
   updateBlock(
@@ -100,6 +129,14 @@ export class ProjectWorkItemsController {
   ) {
     return this.blocks.update(projectId, blockId, dto);
   }
+
+  /**
+   * Entfernt einen Work-Item-Block.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param blockId - ID des Work-Item-Blocks (string)
+   * @returns Ergebnis
+   */
 
   @Delete('blocks/:blockId')
   @ApiOperation({ summary: 'Block löschen (Items bleiben, ohne Block-Bezug)' })
@@ -123,6 +160,14 @@ export class ProjectWorkItemsController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_PDF_IMPORT_SIZE } }),
   )
+  /**
+   * Vorschau eines PDF-Imports ohne Commit.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (PdfImportPreviewDto)
+   * @returns Import-Vorschau
+   */
   previewPdfImport(
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -142,6 +187,15 @@ export class ProjectWorkItemsController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_PDF_IMPORT_SIZE } }),
   )
+  /**
+   * Übernimmt die PDF-Import-Vorschau in die DB.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (PdfImportCommitDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Import-Ergebnis
+   */
   commitPdfImport(
     @Param('projectId') projectId: string,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -164,6 +218,14 @@ export class ProjectWorkItemsController {
   @UseInterceptors(
     FilesInterceptor('files', 10, { limits: { fileSize: MAX_IMPORT_SIZE } }),
   )
+  /**
+   * Importiert Work-Items aus Quelldaten.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param files - Hochgeladene Dateien (Multer) (Express.Multer.File[] | undefined)
+   * @param dto - Request-Body / Eingabedaten (ImportWorkItemsDto)
+   * @returns Import-Ergebnis
+   */
   import(
     @Param('projectId') projectId: string,
     @UploadedFiles() files: Express.Multer.File[] | undefined,
@@ -178,6 +240,14 @@ export class ProjectWorkItemsController {
   @UseInterceptors(
     FilesInterceptor('files', 10, { limits: { fileSize: MAX_IMPORT_SIZE } }),
   )
+  /**
+   * Vorschau eines Imports ohne Persistenz.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param files - Hochgeladene Dateien (Multer) (Express.Multer.File[] | undefined)
+   * @param dto - Request-Body / Eingabedaten (ImportWorkItemsDto)
+   * @returns Import-Vorschau
+   */
   previewImport(
     @Param('projectId') projectId: string,
     @UploadedFiles() files: Express.Multer.File[] | undefined,
@@ -188,6 +258,13 @@ export class ProjectWorkItemsController {
 
   // ── Items ────────────────────────────────────────────────────
 
+  /**
+   * Listet Work-Items des Projekts.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param query - Query-Parameter der Anfrage (ListWorkItemsQueryDto)
+   */
+
   @Get('work-items')
   @ApiOperation({ summary: 'Items des Projekts (Filter: status, blockKey, q)' })
   findItems(
@@ -196,6 +273,13 @@ export class ProjectWorkItemsController {
   ) {
     return this.workItems.findByProject(projectId, query);
   }
+
+  /**
+   * Legt ein Work-Item an.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateWorkItemDto)
+   */
 
   @Post('work-items')
   @ApiOperation({ summary: 'Einzelnes Item anlegen (Regelfall ist der Import)' })
@@ -208,17 +292,34 @@ export class ProjectWorkItemsController {
 
   // ── Kunden-PL-Zuordnungen ────────────────────────────────────
 
+  /**
+   * Listet Kandidaten für die Kunden-PL-Rolle.
+   */
+
   @Get('customer-pls/candidates')
   @ApiOperation({ summary: 'Auswählbare Benutzer mit Rolle CUSTOMER_PL' })
   listCustomerPlCandidates() {
     return this.customerPls.listCandidates();
   }
 
+  /**
+   * Listet dem Projekt zugeordnete Kunden-PLs.
+   *
+   * @param projectId - ID des Projekts (string)
+   */
+
   @Get('customer-pls')
   @ApiOperation({ summary: 'Kunden-PLs des Projekts' })
   findCustomerPls(@Param('projectId') projectId: string) {
     return this.customerPls.findAll(projectId);
   }
+
+  /**
+   * Ordnet einen Kunden-PL dem Projekt zu.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateCustomerPlDto)
+   */
 
   @Post('customer-pls')
   @ApiOperation({ summary: 'Kunden-PL zuordnen (nur Rolle CUSTOMER_PL)' })
@@ -229,6 +330,14 @@ export class ProjectWorkItemsController {
     return this.customerPls.create(projectId, dto);
   }
 
+  /**
+   * Aktualisiert die Kunden-PL-Zuordnung.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param userId - ID (userId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateCustomerPlDto)
+   */
+
   @Patch('customer-pls/:userId')
   @ApiOperation({ summary: 'Kunden-PL-Zuordnung aktualisieren (Zustell-E-Mail)' })
   updateCustomerPl(
@@ -238,6 +347,13 @@ export class ProjectWorkItemsController {
   ) {
     return this.customerPls.update(projectId, userId, dto);
   }
+
+  /**
+   * Entfernt die Kunden-PL-Zuordnung.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param userId - ID (userId) (string)
+   */
 
   @Delete('customer-pls/:userId')
   @ApiOperation({ summary: 'Kunden-PL-Zuordnung aufheben (setzt inaktiv)' })

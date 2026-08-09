@@ -1,3 +1,8 @@
+/**
+ * Service für Timesheets.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   ConflictException,
@@ -178,7 +183,14 @@ export class TimesheetsService {
     }
   }
 
-  /** Detail inkl. Zugriffsprüfung (Kunden-PL nur eigene Projekte). */
+  /**
+   * Detail inkl. Zugriffsprüfung (Kunden-PL nur eigene Projekte).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Stundenzettel
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
+   */
   async findOneForUser(id: string, user?: AuthUser) {
     const sheet = await this.findOne(id);
     await this.assertProjectAccess(sheet.projectId, user);
@@ -186,8 +198,11 @@ export class TimesheetsService {
   }
 
   /**
-   * Genehmigt („abzeichnen“) inkl. Zugriffsprüfung – für den Kunden-PL
-   * der einzige schreibende Stundenzettel-Vorgang neben der Unterschrift.
+   * Genehmigt („abzeichnen“) inkl. Zugriffsprüfung – für den Kunden-PL der einzige schreibende Stundenzettel-Vorgang neben der Unterschrift.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
    */
   async approveForUser(id: string, user: AuthUser) {
     const sheet = await this.findOne(id);
@@ -196,8 +211,13 @@ export class TimesheetsService {
   }
 
   /**
-   * Digitale Unterschrift mit Projekt-Zugriffsprüfung.
-   * Reine Kunden-PLs dürfen nur als `CUSTOMER` unterschreiben.
+   * Digitale Unterschrift mit Projekt-Zugriffsprüfung. Reine Kunden-PLs dürfen nur als `CUSTOMER` unterschreiben.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (SignTimesheetDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @param meta - Parameter `meta` (SignatureMeta)
+   * @throws {ForbiddenException} Wenn die Berechtigung fehlt
    */
   async signForUser(
     id: string,
@@ -573,10 +593,7 @@ export class TimesheetsService {
   }
 
   /**
-   * Generiert PDF, speichert in MinIO und erstellt Document-Eintrag.
-   * Genehmigt ein Kunden-PL mit aktiver Projektzuordnung, wird das PDF
-   * zusätzlich an `notificationEmail ?? user.email` gesendet.
-   * E-Mail-Fehler werden nur geloggt und blockieren den Approve nicht.
+   * Generiert PDF, speichert in MinIO und erstellt Document-Eintrag. Genehmigt ein Kunden-PL mit aktiver Projektzuordnung, wird das PDF zusätzlich an `notificationEmail ?? user.email` gesendet. E-Mail-Fehler werden nur geloggt und blockieren den Approve nicht.
    */
   private async exportTimesheetPdf(
     timesheetId: string,
@@ -618,9 +635,7 @@ export class TimesheetsService {
   }
 
   /**
-   * Sendet das genehmigte Stundenzettel-PDF an den genehmigenden Kunden-PL,
-   * sofern eine aktive Zuordnung am Projekt existiert.
-   * Fehler werden geloggt, nicht geworfen.
+   * Sendet das genehmigte Stundenzettel-PDF an den genehmigenden Kunden-PL, sofern eine aktive Zuordnung am Projekt existiert. Fehler werden geloggt, nicht geworfen.
    */
   private async sendTimesheetPdfToCustomerPl(
     sheet: {
@@ -796,7 +811,11 @@ export class TimesheetsService {
 
   // ── intern ───────────────────────────────────────────────────
 
-  /** Aggregiert Stempel-Einträge tageweise zu Brutto-Zeiten. */
+  /**
+   * Aggregiert Stempel-Einträge tageweise zu Brutto-Zeiten.
+   *
+   * @returns Tagesaggregation
+   */
   private aggregateDays(
     entries: Array<{
       entryType: TimeEntryType;
@@ -859,6 +878,14 @@ export class TimesheetsService {
     );
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `recomputeTotals` (recompute Totals).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async recomputeTotals(id: string): Promise<void> {
     const days = await this.prisma.weeklyTimesheetDay.findMany({
       where: { weeklyTimesheetId: id },
@@ -875,6 +902,14 @@ export class TimesheetsService {
     });
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureEditable` (ensure Editable).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
+   */
   private async ensureEditable(id: string) {
     const sheet = await this.findOne(id);
     if (!EDITABLE_STATUSES.includes(sheet.status)) {
@@ -885,6 +920,14 @@ export class TimesheetsService {
     return sheet;
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `assertWorker` (assert Worker).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async assertWorker(workerId: string): Promise<void> {
     const worker = await this.prisma.worker.findFirst({
       where: { id: workerId, deletedAt: null },
@@ -895,6 +938,14 @@ export class TimesheetsService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `assertProject` (assert Project).
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async assertProject(projectId: string): Promise<void> {
     const project = await this.prisma.project.findFirst({
       where: { id: projectId, deletedAt: null },

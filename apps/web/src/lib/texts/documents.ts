@@ -1,4 +1,8 @@
-/** UI-Texte: `documents`. */
+/**
+ * UI-Texte für Domäne `documents` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const documents = {
     title: 'Dokumente',
     subtitle: 'Alle Dokumente durchsuchen und verwalten',

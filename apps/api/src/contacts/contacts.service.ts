@@ -1,3 +1,8 @@
+/**
+ * Service für Contacts.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +35,12 @@ export interface SuggestionsParams {
 export class ContactsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liefert Autocomplete-/Suchvorschläge.
+   *
+   * @param params - Filter-, Sortier- und/oder Pagination-Parameter (SuggestionsParams)
+   * @returns Vorschlagsliste (ContactSuggestion[])
+   */
   async suggestions(params: SuggestionsParams): Promise<ContactSuggestion[]> {
     const limit = Math.min(50, Math.max(1, Number(params.limit) || 20));
     const q = params.q?.trim() || '';

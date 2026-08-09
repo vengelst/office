@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Contacts.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
@@ -18,6 +23,14 @@ export class ContactsController {
     summary:
       'Kontakt-Vorschläge aus Kunden- und Subunternehmen-Ansprechpartnern',
   })
+  /**
+   * Liefert Autocomplete-/Suchvorschläge.
+   *
+   * @param q - Parameter `q` (string)
+   * @param customerId - ID des Kunden (string)
+   * @param limit - Seitengröße (string)
+   * @returns Vorschlagsliste
+   */
   suggestions(
     @Query('q') q?: string,
     @Query('customerId') customerId?: string,

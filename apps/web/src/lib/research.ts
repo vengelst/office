@@ -1,7 +1,7 @@
 /**
- * API-Client und Typen für die Firmenrecherche.
- * Kommuniziert mit dem NestJS-Backend, das als Proxy zum Research-Microservice dient.
+ * API-Helfer für Research-/Recherche-Funktionen.
  */
+
 import { apiClient } from './api-client';
 
 /** Extrahierte Firmendaten. */

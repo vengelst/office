@@ -1,7 +1,17 @@
+/**
+ * API-Helfer für Kontakt-Suggestions und Stammdaten.
+ */
+
 import { apiClient } from '@/lib/api-client';
 
+/**
+ * Typ/Interface `ContactSuggestionSource` für die Web-App.
+ */
 export type ContactSuggestionSource = 'CUSTOMER' | 'SUBCONTRACTOR';
 
+/**
+ * Typ/Interface `ContactSuggestion` für die Web-App.
+ */
 export interface ContactSuggestion {
   id: string;
   source: ContactSuggestionSource;
@@ -16,6 +26,9 @@ export interface ContactSuggestion {
   label: string;
 }
 
+/**
+ * Typ/Interface `ContactSuggestionsParams` für die Web-App.
+ */
 export interface ContactSuggestionsParams {
   q?: string;
   customerId?: string;

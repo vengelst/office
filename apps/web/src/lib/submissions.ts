@@ -1,9 +1,12 @@
 /**
- * Typen und API-Funktionen für das Ausschreibungsmodul.
- * Spiegelt die Antworten der NestJS-Submissions-Endpoints wider.
+ * API-Helfer für Eingaben/Submissions.
  */
+
 import { apiClient } from './api-client';
 
+/**
+ * Typ/Interface `SubmissionStatus` für die Web-App.
+ */
 export type SubmissionStatus =
   | 'OPEN'
   | 'IN_PROGRESS'
@@ -12,6 +15,9 @@ export type SubmissionStatus =
   | 'LOST'
   | 'CANCELLED';
 
+/**
+ * Typ/Interface `SubmissionPriority` für die Web-App.
+ */
 export type SubmissionPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 
 /** Ausschreibung mit Kundenbezug. */

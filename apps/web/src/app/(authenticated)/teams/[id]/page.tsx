@@ -1,3 +1,8 @@
+/**
+ * Seite: teams / detail (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -42,6 +47,9 @@ import { texts } from '@/lib/texts';
 
 const NO_LEADER = '__none__';
 
+/**
+ * UI-Komponente `TeamDetailPage`.
+ */
 export default function TeamDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;

@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Time Entries.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -42,6 +47,12 @@ const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 export class TimeEntriesController {
   constructor(private readonly timeEntries: TimeEntriesService) {}
 
+  /**
+   * Liefert live gestempelte Einträge.
+   *
+   * @returns Live-Liste
+   */
+
   @Get('live')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
@@ -50,12 +61,28 @@ export class TimeEntriesController {
     return this.timeEntries.live();
   }
 
+  /**
+   * Stempelt den Monteur ein (Arbeitsbeginn).
+   *
+   * @param dto - Request-Body / Eingabedaten (ClockInDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Time-Entry
+   */
+
   @Post('clock-in')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Einstempeln' })
   clockIn(@Body() dto: ClockInDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.clockIn(dto, user);
   }
+
+  /**
+   * Stempelt den Monteur aus (Arbeitsende).
+   *
+   * @param dto - Request-Body / Eingabedaten (ClockOutDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Time-Entry
+   */
 
   @Post('clock-out')
   @HttpCode(HttpStatus.OK)
@@ -70,6 +97,14 @@ export class TimeEntriesController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_PHOTO_SIZE } }),
   )
+  /**
+   * Lädt ein Stempel-/Nachweisfoto hoch.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (UploadPhotoDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Upload-Ergebnis
+   */
   uploadPhoto(
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() dto: UploadPhotoDto,
@@ -77,6 +112,13 @@ export class TimeEntriesController {
   ) {
     return this.timeEntries.uploadPhoto(file, dto, user);
   }
+
+  /**
+   * Liefert den Stempelstatus für ein Projekt.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Status
+   */
 
   @Public()
   @UseGuards(ApiKeyGuard)
@@ -86,6 +128,14 @@ export class TimeEntriesController {
     return this.timeEntries.projectStatus(projectId);
   }
 
+  /**
+   * Liefert den aktuellen Stempelstatus.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Status
+   */
+
   @Get('status/:workerId')
   @ApiOperation({ summary: 'Aktueller Stempel-Status eines Monteurs' })
   status(
@@ -94,6 +144,14 @@ export class TimeEntriesController {
   ) {
     return this.timeEntries.status(workerId, user);
   }
+
+  /**
+   * Liefert die heutigen Zeiteinträge.
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Liste der heutigen Einträge
+   */
 
   @Get('today/:workerId')
   @ApiOperation({ summary: 'Heutige Stempel-Einträge eines Monteurs' })

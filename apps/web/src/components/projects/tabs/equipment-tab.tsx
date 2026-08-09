@@ -1,3 +1,8 @@
+/**
+ * Komponente: projects / tabs / equipment-tab (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
@@ -65,6 +70,9 @@ function StatusBadge({ item }: { item: ProjectEquipment }): ReactNode {
   );
 }
 
+/**
+ * UI-Komponente `EquipmentTab`.
+ */
 export function EquipmentTab({
   projectId,
   equipment,

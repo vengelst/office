@@ -1,3 +1,8 @@
+/**
+ * Wiederverwendbarer Seitenkopf (Titel, Aktionen).
+ * Teil des App-Chrome unter components/layout.
+ */
+
 import type { ReactNode } from 'react';
 
 interface PageHeaderProps {
@@ -6,7 +11,11 @@ interface PageHeaderProps {
   children?: ReactNode;
 }
 
-/** Einheitlicher Seitenkopf mit Titel und optionaler Beschreibung/Aktionen. */
+/**
+ * Einheitlicher Seitenkopf mit Titel und optionaler Beschreibung/Aktionen.
+ *
+ * @param props - Komponenten-Props
+ */
 export function PageHeader({
   title,
   description,

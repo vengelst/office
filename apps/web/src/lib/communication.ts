@@ -1,5 +1,12 @@
+/**
+ * API-Helfer für Kommunikations-/Nachrichten-Einträge.
+ */
+
 import { apiClient } from './api-client';
 
+/**
+ * Typ/Interface `CommunicationEntry` für die Web-App.
+ */
 export interface CommunicationEntry {
   id: string;
   entityType: 'CUSTOMER' | 'SUBCONTRACTOR' | 'WORKER';
@@ -16,6 +23,9 @@ export interface CommunicationEntry {
   updatedAt: string;
 }
 
+/**
+ * Typ/Interface `CommunicationListParams` für die Web-App.
+ */
 export interface CommunicationListParams {
   entityType: string;
   entityId: string;
@@ -25,6 +35,9 @@ export interface CommunicationListParams {
   limit?: number;
 }
 
+/**
+ * Typ/Interface `CommunicationListResponse` für die Web-App.
+ */
 export interface CommunicationListResponse {
   data: CommunicationEntry[];
   total: number;

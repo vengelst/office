@@ -1,3 +1,8 @@
+/**
+ * Authentifizierung für Office-Benutzer und Monteure.
+ * Login (E-Mail/Passwort, PIN), JWT-Ausstellung und Session-Verwaltung.
+ */
+
 import { randomUUID } from 'node:crypto';
 import {
   Injectable,
@@ -27,7 +32,14 @@ export class AuthService {
     private readonly configService: ConfigService,
   ) {}
 
-  /** E-Mail + Passwort → JWT für einen Office-Benutzer. */
+  /**
+   * E-Mail + Passwort → JWT für einen Office-Benutzer.
+   *
+   * @param email - E-Mail-Adresse (string)
+   * @param password - Klartext-Passwort (wird gehasht geprüft) (string)
+   * @returns LoginResponse mit Token und Benutzer (LoginResponse)
+   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
+   */
   async login(email: string, password: string): Promise<LoginResponse> {
     const user = await this.prisma.user.findUnique({
       where: { email },
@@ -54,7 +66,13 @@ export class AuthService {
     return this.issueToken(authUser);
   }
 
-  /** Worker-PIN → JWT für einen Monteur (type: 'worker'). */
+  /**
+   * Worker-PIN → JWT für einen Monteur (type: 'worker').
+   *
+   * @param pin - PIN-Code (Klartext, Abgleich gegen Hash) (string)
+   * @returns LoginResponse (LoginResponse)
+   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
+   */
   async pinLogin(pin: string): Promise<LoginResponse> {
     const now = new Date();
     const activePins = await this.prisma.workerPin.findMany({
@@ -85,7 +103,13 @@ export class AuthService {
     throw new UnauthorizedException('Ungültige PIN');
   }
 
-  /** User-PIN → JWT für einen Benutzer (type: 'user', mind. CUSTOMER_PL). */
+  /**
+   * User-PIN → JWT für einen Benutzer (type: 'user', mind. CUSTOMER_PL).
+   *
+   * @param pin - PIN-Code (Klartext, Abgleich gegen Hash) (string)
+   * @returns LoginResponse (LoginResponse)
+   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
+   */
   async userPinLogin(pin: string): Promise<LoginResponse> {
     const now = new Date();
     const activePins = await this.prisma.userPin.findMany({
@@ -122,18 +146,33 @@ export class AuthService {
     throw new UnauthorizedException('Ungültige PIN');
   }
 
-  /** Invalidiert die Session anhand des übergebenen Tokens. */
+  /**
+   * Invalidiert die Session anhand des übergebenen Tokens.
+   *
+   * @param token - JWT bzw. Session-Token (string)
+   * @returns Erfolgsbestätigung
+   */
   async logout(token: string): Promise<{ success: true }> {
     await this.prisma.session.deleteMany({ where: { token } });
     return { success: true };
   }
 
-  /** Erneuert das Token eines bereits authentifizierten Akteurs. */
+  /**
+   * Erneuert das Token eines bereits authentifizierten Akteurs.
+   *
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns LoginResponse mit neuem Token (LoginResponse)
+   */
   async refresh(user: AuthUser): Promise<LoginResponse> {
     return this.issueToken(user);
   }
 
-  /** Erstellt ein JWT und persistiert eine Session (nur für Office-User). */
+  /**
+   * Erstellt ein JWT und persistiert eine Session (nur für Office-User).
+   *
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns LoginResponse (LoginResponse)
+   */
   private async issueToken(user: AuthUser): Promise<LoginResponse> {
     const payload: JwtPayload = {
       sub: user.id,
@@ -159,7 +198,11 @@ export class AuthService {
     return { accessToken, user };
   }
 
-  /** Berechnet das Ablaufdatum aus JWT_EXPIRES_IN (unterstützt z.B. "8h", "30m", "7d"). */
+  /**
+   * Berechnet das Ablaufdatum aus JWT_EXPIRES_IN (unterstützt z.B. "8h", "30m", "7d").
+   *
+   * @returns Date (Date)
+   */
   private computeExpiry(): Date {
     const raw = this.configService.get<string>('JWT_EXPIRES_IN') ?? '8h';
     const match = /^(\d+)([smhd])$/.exec(raw.trim());

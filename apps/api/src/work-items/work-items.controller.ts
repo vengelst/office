@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Work Items.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -36,11 +41,26 @@ export class WorkItemsController {
     private readonly workflow: WorkItemWorkflowService,
   ) {}
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
+
   @Get(':id')
   @ApiOperation({ summary: 'Item-Detail (Material, Zuordnungen, Meldungen, Prüfungen)' })
   findOne(@Param('id') id: string) {
     return this.workItems.findOne(id);
   }
+
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateWorkItemDto)
+   * @returns Aktualisierter Datensatz
+   */
 
   @Patch(':id')
   @ApiOperation({ summary: 'Item-Metadaten ändern (Status läuft über den Workflow)' })
@@ -48,11 +68,25 @@ export class WorkItemsController {
     return this.workItems.update(id, dto);
   }
 
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
+
   @Delete(':id')
   @ApiOperation({ summary: 'Item löschen' })
   remove(@Param('id') id: string) {
     return this.workItems.remove(id);
   }
+
+  /**
+   * Listet Materialien eines Work-Items.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Material-Liste
+   */
 
   @Get(':id/materials')
   @ApiOperation({ summary: 'Materialliste des Items' })
@@ -60,11 +94,26 @@ export class WorkItemsController {
     return this.workItems.findMaterials(id);
   }
 
+  /**
+   * Ersetzt die Materialliste eines Work-Items.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (ReplaceMaterialsDto)
+   * @returns Aktualisierte Materialien
+   */
+
   @Put(':id/materials')
   @ApiOperation({ summary: 'Materialliste vollständig ersetzen' })
   replaceMaterials(@Param('id') id: string, @Body() dto: ReplaceMaterialsDto) {
     return this.workItems.replaceMaterials(id, dto);
   }
+
+  /**
+   * Liefert die dem Item zugeordnete Stempelzeit.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Zeitaggregation
+   */
 
   @Get(':id/time')
   @ApiOperation({ summary: 'Item-Zeit: Summe je Monteur und alle Sessions' })

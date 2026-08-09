@@ -1,3 +1,8 @@
+/**
+ * Komponente: documents / documents-tab-v2 (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import {

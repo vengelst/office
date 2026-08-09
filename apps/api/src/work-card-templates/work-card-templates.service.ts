@@ -1,3 +1,8 @@
+/**
+ * Service für Work Card Templates.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -11,6 +16,13 @@ export class WorkCardTemplatesService {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param customerId - ID des Kunden (string)
+   * @returns Listenergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async findAll(customerId?: string) {
     const where = customerId ? { customerId } : {};
     return this.prisma.workCardTemplate.findMany({
@@ -20,6 +32,13 @@ export class WorkCardTemplatesService {
     });
   }
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async findOne(id: string) {
     const tpl = await this.prisma.workCardTemplate.findUnique({
       where: { id },
@@ -29,6 +48,12 @@ export class WorkCardTemplatesService {
     return tpl;
   }
 
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateWorkCardTemplateDto)
+   * @returns Neu angelegter Datensatz
+   */
   async create(dto: CreateWorkCardTemplateDto) {
     return this.prisma.workCardTemplate.create({
       data: {
@@ -41,6 +66,13 @@ export class WorkCardTemplatesService {
     });
   }
 
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateWorkCardTemplateDto)
+   * @returns Aktualisierter Datensatz
+   */
   async update(id: string, dto: UpdateWorkCardTemplateDto) {
     await this.findOne(id);
     return this.prisma.workCardTemplate.update({
@@ -55,6 +87,12 @@ export class WorkCardTemplatesService {
     });
   }
 
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
   async remove(id: string) {
     await this.findOne(id);
     await this.prisma.workCardTemplate.delete({ where: { id } });

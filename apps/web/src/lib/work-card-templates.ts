@@ -1,11 +1,14 @@
 /**
- * API-Client und Typen für Kartentyp-Templates (WorkCardTemplate).
- * Wird von der Template-Verwaltung und dem PDF-Import genutzt.
+ * API-Helfer für Arbeitskarten-Templates und Kalibrierung.
  */
+
 import { apiClient, apiUpload } from './api-client';
 
 // ── Typen ────────────────────────────────────────────────────
 
+/**
+ * Typ/Interface `WorkCardFieldTarget` für die Web-App.
+ */
 export type WorkCardFieldTarget =
   | 'itemKey'
   | 'workScopeDe'
@@ -40,6 +43,9 @@ export interface WorkCardFieldZone {
   h: number;
 }
 
+/**
+ * Typ/Interface `WorkCardFieldMapping` für die Web-App.
+ */
 export interface WorkCardFieldMapping {
   target: WorkCardFieldTarget;
   labelHints: string[];
@@ -49,6 +55,9 @@ export interface WorkCardFieldMapping {
   zone?: WorkCardFieldZone;
 }
 
+/**
+ * Typ/Interface `WorkCardTemplate` für die Web-App.
+ */
 export interface WorkCardTemplate {
   id: string;
   name: string;
@@ -60,6 +69,9 @@ export interface WorkCardTemplate {
   customer: { id: string; companyName: string } | null;
 }
 
+/**
+ * Typ/Interface `CalibrateResponse` für die Web-App.
+ */
 export interface CalibrateResponse {
   text: string;
   blocks: Array<{
@@ -79,6 +91,9 @@ export interface CalibrateResponse {
   imageHeight: number;
 }
 
+/**
+ * Typ/Interface `CreateWorkCardTemplatePayload` für die Web-App.
+ */
 export interface CreateWorkCardTemplatePayload {
   name: string;
   customerId?: string;
@@ -86,6 +101,9 @@ export interface CreateWorkCardTemplatePayload {
   notes?: string;
 }
 
+/**
+ * Typ/Interface `UpdateWorkCardTemplatePayload` für die Web-App.
+ */
 export interface UpdateWorkCardTemplatePayload {
   name?: string;
   customerId?: string;

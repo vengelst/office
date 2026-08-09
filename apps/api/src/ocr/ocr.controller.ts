@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Ocr.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Controller,
   Post,
@@ -57,6 +62,13 @@ export class OcrController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_OCR_FILE_SIZE } }),
   )
+  /**
+   * Extrahiert Text/Daten per OCR.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @returns OCR-Ergebnis (OcrResult)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async extract(
     @UploadedFile() file: Express.Multer.File | undefined,
   ): Promise<OcrResult> {
@@ -69,6 +81,13 @@ export class OcrController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_OCR_FILE_SIZE } }),
   )
+  /**
+   * Erkennt Visitenkartendaten per OCR.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @returns Visitenkarten-Felder (BusinessCardData)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async businessCard(
     @UploadedFile() file: Express.Multer.File | undefined,
   ): Promise<BusinessCardData> {
@@ -79,6 +98,14 @@ export class OcrController {
     }
     return parseBusinessCard(result.text);
   }
+
+  /**
+   * OCR einer gespeicherten Visitenkarte/Dokument.
+   *
+   * @param documentId - ID (documentId) (string)
+   * @returns Visitenkarten-Felder (BusinessCardData)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
 
   @Post('business-card/from-document/:documentId')
   @ApiOperation({ summary: 'Visitenkarte aus bestehendem Dokument scannen' })

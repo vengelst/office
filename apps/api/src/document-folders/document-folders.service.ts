@@ -1,3 +1,8 @@
+/**
+ * Service für Document Folders.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -11,7 +16,15 @@ import { UpdateDocumentFolderDto } from './dto/update-document-folder.dto';
 export class DocumentFoldersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Listet die Ordner einer Entität (sortiert). */
+  /**
+   * Listet die Ordner einer Entität (sortiert).
+   *
+   * @param entityType - Entitätstyp (Customer, Project, …) (string)
+   * @param entityId - ID der verknüpften Entität (string)
+   * @returns Ordnerliste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   findForEntity(entityType: string, entityId: string) {
     if (!entityType || !entityId) {
       throw new BadRequestException('entityType und entityId erforderlich');
@@ -22,7 +35,14 @@ export class DocumentFoldersService {
     });
   }
 
-  /** Erstellt einen neuen Ordner. */
+  /**
+   * Erstellt einen neuen Ordner.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateDocumentFolderDto)
+   * @returns Neu angelegter Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   create(dto: CreateDocumentFolderDto) {
     return this.prisma.documentFolder.create({
       data: {
@@ -35,7 +55,15 @@ export class DocumentFoldersService {
     });
   }
 
-  /** Benennt einen Ordner um / setzt Sortierung. */
+  /**
+   * Benennt einen Ordner um / setzt Sortierung.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateDocumentFolderDto)
+   * @returns Aktualisierter Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async update(id: string, dto: UpdateDocumentFolderDto) {
     await this.ensureExists(id);
     return this.prisma.documentFolder.update({
@@ -47,7 +75,14 @@ export class DocumentFoldersService {
     });
   }
 
-  /** Löscht einen Ordner – nur wenn er keine Dokumente und keine Unterordner enthält. */
+  /**
+   * Löscht einen Ordner – nur wenn er keine Dokumente und keine Unterordner enthält.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async remove(id: string) {
     const folder = await this.prisma.documentFolder.findUnique({
       where: { id },
@@ -67,6 +102,13 @@ export class DocumentFoldersService {
     return { id, deleted: true };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureExists` (ensure Exists).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.documentFolder.count({ where: { id } });
     if (count === 0) {

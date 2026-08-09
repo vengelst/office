@@ -1,7 +1,7 @@
 /**
- * Typen und API-Funktionen für das Abrechnungsmodul (Aus-/Eingangsrechnungen).
- * Spiegelt die Antworten der NestJS-Invoices-Endpoints wider.
+ * API-Helfer für Rechnungen, Positionen und Zahlungen.
  */
+
 import { ApiError, apiClient } from './api-client';
 
 const API_BASE_URL =
@@ -366,7 +366,12 @@ export const invoicesApi = {
 
 // ── Helfer ─────────────────────────────────────────────────────
 
-/** Beträge stets mit 2 Dezimalstellen + €-Zeichen (de-DE). */
+/**
+ * Beträge stets mit 2 Dezimalstellen + €-Zeichen (de-DE).
+ *
+ * @param value - Parameter `value` (number | null | undefined)
+ * @returns Formatierter String
+ */
 export function formatCurrency(value: number | null | undefined): string {
   const n = value ?? 0;
   return n.toLocaleString('de-DE', {
@@ -377,7 +382,9 @@ export function formatCurrency(value: number | null | undefined): string {
   });
 }
 
-/** Summe der erfassten Zahlungen (paidAmount oder Fallback über payments). */
+/**
+ * Summe der erfassten Zahlungen (paidAmount oder Fallback über payments).
+ */
 export function paidTotal(invoice: {
   paidAmount?: number | null;
   payments?: { amount: number }[];
@@ -386,7 +393,9 @@ export function paidTotal(invoice: {
   return (invoice.payments ?? []).reduce((sum, p) => sum + p.amount, 0);
 }
 
-/** Offener Restbetrag einer Rechnung. */
+/**
+ * Offener Restbetrag einer Rechnung.
+ */
 export function openAmount(invoice: {
   total: number;
   paidAmount?: number | null;
@@ -395,7 +404,9 @@ export function openAmount(invoice: {
   return Math.max(0, invoice.total - paidTotal(invoice));
 }
 
-/** true, wenn die Rechnung offen und über das Fälligkeitsdatum hinaus ist. */
+/**
+ * true, wenn die Rechnung offen und über das Fälligkeitsdatum hinaus ist.
+ */
 export function isOverdue(invoice: {
   status: InvoiceStatus;
   dueDate: string | null;
@@ -407,7 +418,9 @@ export function isOverdue(invoice: {
   return new Date(invoice.dueDate).getTime() < Date.now();
 }
 
-/** Empfänger/Steller je nach Rechnungstyp (Kunde bzw. Subunternehmen). */
+/**
+ * Empfänger/Steller je nach Rechnungstyp (Kunde bzw. Subunternehmen).
+ */
 export function invoicePartyName(invoice: {
   invoiceType: InvoiceType;
   customer: { companyName: string } | null;
@@ -419,7 +432,13 @@ export function invoicePartyName(invoice: {
   return invoice.subcontractor?.name ?? '–';
 }
 
-/** Lädt das Rechnungs-PDF mit Office-Token und stößt den Download an. */
+/**
+ * Lädt das Rechnungs-PDF mit Office-Token und stößt den Download an.
+ *
+ * @param id - Primärschlüssel (string)
+ * @param filename - Parameter `filename` (string)
+ * @returns void
+ */
 export async function downloadInvoicePdf(
   id: string,
   filename: string,

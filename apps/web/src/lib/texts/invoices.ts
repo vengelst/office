@@ -1,4 +1,8 @@
-/** UI-Texte: `invoices`. */
+/**
+ * UI-Texte für Domäne `invoices` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const invoices = {
     title: 'Rechnungen',
     subtitle: 'Aus- und Eingangsrechnungen verwalten',

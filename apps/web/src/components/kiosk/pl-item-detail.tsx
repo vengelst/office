@@ -1,3 +1,8 @@
+/**
+ * Komponente: kiosk / pl-item-detail (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';

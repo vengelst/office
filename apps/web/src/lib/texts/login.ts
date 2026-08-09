@@ -1,4 +1,8 @@
-/** UI-Texte: `login`. */
+/**
+ * UI-Texte für Domäne `login` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const login = {
     title: 'Anmelden',
     subtitle: 'Melde dich mit deinen Zugangsdaten an.',

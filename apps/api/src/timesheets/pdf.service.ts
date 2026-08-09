@@ -1,3 +1,8 @@
+/**
+ * Service für Timesheet Pdf.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import PDFDocument from 'pdfkit';
 import type { Readable } from 'node:stream';
@@ -20,7 +25,13 @@ export class TimesheetPdfService {
     private readonly storage: StorageService,
   ) {}
 
-  /** Erzeugt den Wochenstundenzettel als PDF-Buffer. */
+  /**
+   * Erzeugt den Wochenstundenzettel als PDF-Buffer.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Generiertes Ergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async generate(id: string): Promise<{ buffer: Buffer; filename: string }> {
     const sheet = await this.prisma.weeklyTimesheet.findUnique({
       where: { id },
@@ -178,7 +189,11 @@ export class TimesheetPdfService {
 
   // ── intern ───────────────────────────────────────────────────
 
-  /** Zeichnet eine Tabellenzeile mit konfigurierbaren Spalten und optionalem Fettdruck. */
+  /**
+   * Zeichnet eine Tabellenzeile mit konfigurierbaren Spalten und optionalem Fettdruck.
+   *
+   * @returns void
+   */
   private drawRow(
     doc: PDFKit.PDFDocument,
     x: number,
@@ -205,7 +220,11 @@ export class TimesheetPdfService {
     doc.font('Helvetica').fillColor('#000');
   }
 
-  /** Zeichnet ein Unterschrifts-Feld mit optionalem Signatur-Bild und Beschriftung. */
+  /**
+   * Zeichnet ein Unterschrifts-Feld mit optionalem Signatur-Bild und Beschriftung.
+   *
+   * @returns void
+   */
   private drawSignatureBox(
     doc: PDFKit.PDFDocument,
     x: number,
@@ -234,7 +253,9 @@ export class TimesheetPdfService {
     doc.text(caption, x + 4, y + height + 4, { width });
   }
 
-  /** Lädt Signatur-Bilder aus dem Storage und gibt sie als Buffer-Map zurück. */
+  /**
+   * Lädt Signatur-Bilder aus dem Storage und gibt sie als Buffer-Map zurück.
+   */
   private async loadSignatures(
     signatures: Array<{ signerType: string; signatureImagePath: string }>,
   ): Promise<Record<string, Buffer>> {
@@ -250,7 +271,11 @@ export class TimesheetPdfService {
     return result;
   }
 
-  /** Lädt das Firmenlogo aus dem Storage (falls hinterlegt). */
+  /**
+   * Lädt das Firmenlogo aus dem Storage (falls hinterlegt).
+   *
+   * @returns Buffer | null
+   */
   private async loadCompanyLogo(): Promise<Buffer | null> {
     const setting = await this.prisma.appSetting.findUnique({
       where: { key: COMPANY_LOGO_SETTING },

@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Timesheets.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -55,6 +60,21 @@ export class TimesheetsController {
     summary:
       'Stundenzettel auflisten (Filter, Pagination); Kunden-PL nur eigene Projekte',
   })
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @param workerId - ID des Monteurs (string)
+   * @param projectId - ID des Projekts (string)
+   * @param weekYear - Parameter `weekYear` (string)
+   * @param weekNumber - Parameter `weekNumber` (string)
+   * @param status - Zielstatus (string)
+   * @param sortBy - Parameter `sortBy` (string)
+   * @param sortDir - Parameter `sortDir` ('asc' | 'desc')
+   * @returns Listenergebnis
+   */
   findAll(
     @CurrentUser() user: AuthUser,
     @Query('page') page?: string,
@@ -83,11 +103,26 @@ export class TimesheetsController {
     );
   }
 
+  /**
+   * Generiert Dokumente/Einträge (PDF, Stundenzettel o. Ä.).
+   *
+   * @param dto - Request-Body / Eingabedaten (GenerateTimesheetDto)
+   * @returns Generiertes Ergebnis
+   */
+
   @Post('generate')
   @ApiOperation({ summary: 'Stundenzettel aus Stempel-Einträgen generieren' })
   generate(@Body() dto: GenerateTimesheetDto) {
     return this.timesheets.generate(dto);
   }
+
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Datensatz
+   */
 
   @Get(':id')
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
@@ -95,6 +130,15 @@ export class TimesheetsController {
   findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.timesheets.findOneForUser(id, user);
   }
+
+  /**
+   * Aktualisiert einen Tageseintrag im Stundenzettel.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dayId - ID (dayId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateDayDto)
+   * @returns Aktualisierter Tag
+   */
 
   @Patch(':id/days/:dayId')
   @ApiOperation({ summary: 'Tageseintrag korrigieren' })
@@ -105,6 +149,13 @@ export class TimesheetsController {
   ) {
     return this.timesheets.updateDay(id, dayId, dto);
   }
+
+  /**
+   * Reicht den Stundenzettel zur Freigabe ein.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Aktualisierter Stundenzettel
+   */
 
   @Post(':id/submit')
   @HttpCode(HttpStatus.OK)
@@ -119,9 +170,23 @@ export class TimesheetsController {
   @ApiOperation({
     summary: 'Stundenzettel genehmigen / abzeichnen (Kunden-PL: eigene Projekte)',
   })
+  /**
+   * Gibt den Stundenzettel bzw. das Item frei.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Freigegebenes Objekt
+   */
   approve(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.timesheets.approveForUser(id, user);
   }
+
+  /**
+   * Archiviert den Stundenzettel.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Archivierter Stundenzettel
+   */
 
   @Post(':id/archive')
   @HttpCode(HttpStatus.OK)
@@ -129,6 +194,15 @@ export class TimesheetsController {
   archive(@Param('id') id: string) {
     return this.timesheets.archive(id);
   }
+
+  /**
+   * Lehnt den Stundenzettel ab.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (RejectTimesheetDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Abgelehnter Stundenzettel
+   */
 
   @Post(':id/reject')
   @HttpCode(HttpStatus.OK)
@@ -152,6 +226,15 @@ export class TimesheetsController {
     summary:
       'Digitale Unterschrift (Base64-PNG); Kunden-PL nur Typ CUSTOMER auf eigenen Projekten',
   })
+  /**
+   * Erfasst die Unterschrift / Abzeichnung.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (SignTimesheetDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @param ip - Parameter `ip` (string)
+   * @param userAgent - Parameter `userAgent` (string)
+   */
   sign(
     @Param('id') id: string,
     @Body() dto: SignTimesheetDto,
@@ -164,6 +247,10 @@ export class TimesheetsController {
       deviceInfo: userAgent,
     });
   }
+
+  /**
+   * Erzeugt bzw. liefert das PDF-Dokument.
+   */
 
   @Get(':id/pdf')
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')

@@ -1,3 +1,7 @@
+/**
+ * API-Key-Guard für maschinelle Zugriffe (Header/Query), unabhängig vom JWT.
+ */
+
 import {
   CanActivate,
   ExecutionContext,
@@ -20,6 +24,13 @@ export class ApiKeyGuard implements CanActivate {
 
   constructor(private readonly config: ConfigService) {}
 
+  /**
+   * Entscheidet, ob die aktuelle Route freigegeben wird.
+   *
+   * @param context - Nest ExecutionContext (ExecutionContext)
+   * @returns boolean
+   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
+   */
   canActivate(context: ExecutionContext): boolean {
     const expectedKey = this.config.get<string>('KIOSK_API_KEY');
     const isProduction = this.config.get<string>('NODE_ENV') === 'production';

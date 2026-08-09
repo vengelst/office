@@ -1,3 +1,7 @@
+/**
+ * Frontend-Modul `nav-items.ts` der Office-Web-App.
+ */
+
 import {
   LayoutDashboard,
   Users,
@@ -20,12 +24,18 @@ import type { AuthUser } from '@office/types';
 import { isCustomerPlOnly } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 
+/**
+ * Typ/Interface `NavItem` für die Web-App.
+ */
 export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
 }
 
+/**
+ * Typ/Interface `NavGroup` für die Web-App.
+ */
 export interface NavGroup {
   /** Optionaler Abschnittstitel; ohne Titel wird keine Überschrift gerendert. */
   label?: string;
@@ -91,7 +101,12 @@ export const customerPlNavGroups: NavGroup[] = [
   },
 ];
 
-/** Navigationsgruppen passend zu den Rollen des angemeldeten Benutzers. */
+/**
+ * Navigationsgruppen passend zu den Rollen des angemeldeten Benutzers.
+ *
+ * @param user - Parameter `user` (AuthUser | null | undefined)
+ * @returns NavGroup[]
+ */
 export function navGroupsForUser(user: AuthUser | null | undefined): NavGroup[] {
   return isCustomerPlOnly(user) ? customerPlNavGroups : navGroups;
 }

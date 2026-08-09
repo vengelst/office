@@ -1,5 +1,12 @@
+/**
+ * API-Helfer für Systeminfo und Paket-Updates.
+ */
+
 import { apiClient } from './api-client';
 
+/**
+ * Typ/Interface `SystemCpu` für die Web-App.
+ */
 export interface SystemCpu {
   model: string;
   cores: number;
@@ -7,6 +14,9 @@ export interface SystemCpu {
   loadAvg: number[];
 }
 
+/**
+ * Typ/Interface `SystemMemory` für die Web-App.
+ */
 export interface SystemMemory {
   total: string;
   used: string;
@@ -14,12 +24,18 @@ export interface SystemMemory {
   usagePercent: number;
 }
 
+/**
+ * Typ/Interface `DiskBreakdownItem` für die Web-App.
+ */
 export interface DiskBreakdownItem {
   label: string;
   size: string;
   sizeBytes: number;
 }
 
+/**
+ * Typ/Interface `SystemDisk` für die Web-App.
+ */
 export interface SystemDisk {
   total: string;
   used: string;
@@ -28,12 +44,18 @@ export interface SystemDisk {
   breakdown: DiskBreakdownItem[];
 }
 
+/**
+ * Typ/Interface `NetworkInterface` für die Web-App.
+ */
 export interface NetworkInterface {
   name: string;
   rx: string;
   tx: string;
 }
 
+/**
+ * Typ/Interface `ProcessInfo` für die Web-App.
+ */
 export interface ProcessInfo {
   pid: string;
   user: string;
@@ -42,6 +64,9 @@ export interface ProcessInfo {
   command: string;
 }
 
+/**
+ * Typ/Interface `SystemMetrics` für die Web-App.
+ */
 export interface SystemMetrics {
   cpu: SystemCpu;
   memory: SystemMemory;
@@ -59,6 +84,9 @@ export interface SystemMetrics {
   osUsers: string[];
 }
 
+/**
+ * Typ/Interface `DatabaseTable` für die Web-App.
+ */
 export interface DatabaseTable {
   name: string;
   size: string;
@@ -66,6 +94,9 @@ export interface DatabaseTable {
   rows: number;
 }
 
+/**
+ * Typ/Interface `DatabaseMetrics` für die Web-App.
+ */
 export interface DatabaseMetrics {
   size: string;
   activeConnections: number;
@@ -76,6 +107,9 @@ export interface DatabaseMetrics {
   error?: string;
 }
 
+/**
+ * Typ/Interface `StorageBucket` für die Web-App.
+ */
 export interface StorageBucket {
   name: string;
   objects: number;
@@ -83,6 +117,9 @@ export interface StorageBucket {
   sizeBytes: number;
 }
 
+/**
+ * Typ/Interface `StorageMetrics` für die Web-App.
+ */
 export interface StorageMetrics {
   available: boolean;
   totalSize: string;
@@ -91,6 +128,9 @@ export interface StorageMetrics {
   error?: string;
 }
 
+/**
+ * Typ/Interface `ServiceHealth` für die Web-App.
+ */
 export interface ServiceHealth {
   name: string;
   status: 'online' | 'offline';
@@ -98,6 +138,9 @@ export interface ServiceHealth {
   error?: string;
 }
 
+/**
+ * Typ/Interface `ServiceHealthMap` für die Web-App.
+ */
 export interface ServiceHealthMap {
   api: ServiceHealth;
   postgresql: ServiceHealth;
@@ -106,11 +149,17 @@ export interface ServiceHealthMap {
   research: ServiceHealth;
 }
 
+/**
+ * Typ/Interface `OsUpdateInfo` für die Web-App.
+ */
 export interface OsUpdateInfo {
   count: number;
   packages: string[];
 }
 
+/**
+ * Typ/Interface `OsUpdates` für die Web-App.
+ */
 export interface OsUpdates {
   container: OsUpdateInfo;
   host: {
@@ -120,6 +169,9 @@ export interface OsUpdates {
   };
 }
 
+/**
+ * Typ/Interface `AppStats` für die Web-App.
+ */
 export interface AppStats {
   customers: number;
   projects: number;
@@ -134,6 +186,9 @@ export interface AppStats {
   error?: string;
 }
 
+/**
+ * Typ/Interface `DockerContainer` für die Web-App.
+ */
 export interface DockerContainer {
   name: string;
   memUsage: string;
@@ -141,11 +196,17 @@ export interface DockerContainer {
   memPercent: string;
 }
 
+/**
+ * Typ/Interface `DockerMemory` für die Web-App.
+ */
 export interface DockerMemory {
   available: boolean;
   containers: DockerContainer[];
 }
 
+/**
+ * Typ/Interface `MemoryProcess` für die Web-App.
+ */
 export interface MemoryProcess {
   pid: string;
   user: string;
@@ -154,6 +215,9 @@ export interface MemoryProcess {
   command: string;
 }
 
+/**
+ * Typ/Interface `SystemInfo` für die Web-App.
+ */
 export interface SystemInfo {
   system: SystemMetrics;
   database: DatabaseMetrics;
@@ -165,10 +229,20 @@ export interface SystemInfo {
   memoryProcesses: MemoryProcess[];
 }
 
+/**
+ * API-/UI-Helfer `fetchSystemInfo` (fetch System Info).
+ *
+ * @returns SystemInfo
+ */
 export async function fetchSystemInfo(): Promise<SystemInfo> {
   return apiClient.get<SystemInfo>('/system-info');
 }
 
+/**
+ * API-/UI-Helfer `triggerPackageUpdate` (trigger Package Update).
+ *
+ * @returns Promise<
+ */
 export async function triggerPackageUpdate(): Promise<{
   success: boolean;
   output: string;

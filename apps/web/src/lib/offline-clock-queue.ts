@@ -26,15 +26,27 @@ const REQUEST_TIMEOUT_MS = 20_000;
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
+/**
+ * Typ/Interface `OfflineClockType` für die Web-App.
+ */
 export type OfflineClockType = 'CLOCK_IN' | 'CLOCK_OUT';
+/**
+ * Typ/Interface `OfflineQueueItemStatus` für die Web-App.
+ */
 export type OfflineQueueItemStatus = 'pending' | 'syncing' | 'failed';
 
+/**
+ * Typ/Interface `OfflineClockGps` für die Web-App.
+ */
 export interface OfflineClockGps {
   latitude?: number;
   longitude?: number;
   accuracy?: number;
 }
 
+/**
+ * Typ/Interface `OfflineClockEntry` für die Web-App.
+ */
 export interface OfflineClockEntry {
   /** = clientEventId (UUID v4) */
   id: string;
@@ -52,6 +64,9 @@ export interface OfflineClockEntry {
   projectSnapshot?: ClockProject | null;
 }
 
+/**
+ * Typ/Interface `OfflineQueueSnapshot` für die Web-App.
+ */
 export interface OfflineQueueSnapshot {
   online: boolean;
   pendingCount: number;
@@ -61,6 +76,9 @@ export interface OfflineQueueSnapshot {
   needsReauth: boolean;
 }
 
+/**
+ * Typ/Interface `OfflineClockResult` für die Web-App.
+ */
 export type OfflineClockResult = ClockStatus & {
   /** true wenn lokal gequeued (noch nicht auf Server). */
   pendingSync?: boolean;
@@ -76,6 +94,11 @@ let listenersAttached = false;
 let needsReauth = false;
 const listeners = new Set<Listener>();
 
+/**
+ * API-/UI-Helfer `createClientEventId` (create Client Event Id).
+ *
+ * @returns string
+ */
 export function createClientEventId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -248,8 +271,11 @@ function optimisticFromEntry(entry: OfflineClockEntry): OfflineClockResult {
 }
 
 /**
- * Optimistischen Stempel-Status aus Queue + optionalem Server-Status ableiten.
- * FIFO-Replay der pending/syncing Einträge des Workers.
+ * Optimistischen Stempel-Status aus Queue + optionalem Server-Status ableiten. FIFO-Replay der pending/syncing Einträge des Workers.
+ *
+ * @param workerId - Parameter `workerId` (string)
+ * @param serverStatus - Parameter `serverStatus` (ClockStatus | null)
+ * @returns OfflineClockResult
  */
 export async function getOptimisticClockStatus(
   workerId: string,
@@ -286,6 +312,12 @@ export async function getOptimisticClockStatus(
   return status;
 }
 
+/**
+ * API-/UI-Helfer `getQueueSnapshot` (get Queue Snapshot).
+ *
+ * @param workerId - Parameter `workerId` (string)
+ * @returns OfflineQueueSnapshot
+ */
 export async function getQueueSnapshot(
   workerId?: string,
 ): Promise<OfflineQueueSnapshot> {
@@ -312,6 +344,11 @@ function notify(): void {
   });
 }
 
+/**
+ * API-/UI-Helfer `subscribeOfflineQueue` (subscribe Offline Queue).
+ *
+ * @param listener - Parameter `listener` (Listener): ()
+ */
 export function subscribeOfflineQueue(listener: Listener): () => void {
   listeners.add(listener);
   void getQueueSnapshot().then(listener);
@@ -356,11 +393,17 @@ async function enqueue(entry: OfflineClockEntry): Promise<void> {
   void syncOfflineClockQueue();
 }
 
+/**
+ * Typ/Interface `ClockInWithSnapshot` für die Web-App.
+ */
 export type ClockInWithSnapshot = ClockInBody & {
   clientEventId?: string;
   projectSnapshot?: ClockProject | null;
 };
 
+/**
+ * Typ/Interface `ClockOutWithProject` für die Web-App.
+ */
 export type ClockOutWithProject = ClockOutBody & {
   clientEventId?: string;
   /** Lokal bekanntes Projekt (für Queue; API braucht es nicht). */
@@ -368,8 +411,10 @@ export type ClockOutWithProject = ClockOutBody & {
 };
 
 /**
- * Clock-In mit Offline-Fallback. Generiert immer eine clientEventId.
- * Bei Erfolg: Server-Status. Bei Netzfehler: Queue + optimistischer Status.
+ * Clock-In mit Offline-Fallback. Generiert immer eine clientEventId. Bei Erfolg: Server-Status. Bei Netzfehler: Queue + optimistischer Status.
+ *
+ * @param body - Parameter `body` (ClockInWithSnapshot)
+ * @returns OfflineClockResult
  */
 export async function offlineAwareClockIn(
   body: ClockInWithSnapshot,
@@ -417,6 +462,9 @@ export async function offlineAwareClockIn(
 
 /**
  * Clock-Out mit Offline-Fallback.
+ *
+ * @param body - Parameter `body` (ClockOutWithProject)
+ * @returns OfflineClockResult
  */
 export async function offlineAwareClockOut(
   body: ClockOutWithProject,
@@ -471,8 +519,9 @@ async function inferProjectIdForOut(workerId: string): Promise<string | null> {
 }
 
 /**
- * FIFO-Sync: ein Request gleichzeitig. Erfolgreiche / idempotente Einträge
- * werden entfernt; 4xx → failed; 401 → needsReauth (Queue bleibt).
+ * FIFO-Sync: ein Request gleichzeitig. Erfolgreiche / idempotente Einträge werden entfernt; 4xx → failed; 401 → needsReauth (Queue bleibt).
+ *
+ * @returns void
  */
 export async function syncOfflineClockQueue(): Promise<void> {
   if (!isBrowser() || syncRunning) return;
@@ -549,7 +598,12 @@ export async function syncOfflineClockQueue(): Promise<void> {
   }
 }
 
-/** Markiert failed-Einträge wieder als pending und stößt Sync an. */
+/**
+ * Markiert failed-Einträge wieder als pending und stößt Sync an.
+ *
+ * @param workerId - Parameter `workerId` (string)
+ * @returns void
+ */
 export async function retryFailedClockEntries(
   workerId?: string,
 ): Promise<void> {
@@ -565,7 +619,9 @@ export async function retryFailedClockEntries(
   await syncOfflineClockQueue();
 }
 
-/** Listener + periodischen Sync aktivieren (nach Login / Dashboard-Mount). */
+/**
+ * Listener + periodischen Sync aktivieren (nach Login / Dashboard-Mount).
+ */
 export function startOfflineClockSync(): void {
   ensureListeners();
   void syncOfflineClockQueue();

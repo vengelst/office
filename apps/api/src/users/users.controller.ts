@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Users.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -25,11 +30,24 @@ import { UsersService } from './users.service';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @returns Listenergebnis
+   */
+
   @Get()
   @ApiOperation({ summary: 'Alle Benutzer auflisten (nur SUPERADMIN)' })
   findAll() {
     return this.usersService.findAll();
   }
+
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
 
   @Get(':id')
   @ApiOperation({ summary: 'Einzelnen Benutzer abrufen' })
@@ -37,11 +55,26 @@ export class UsersController {
     return this.usersService.findOne(id);
   }
 
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateUserDto)
+   * @returns Neu angelegter Datensatz
+   */
+
   @Post()
   @ApiOperation({ summary: 'Benutzer anlegen (nur SUPERADMIN)' })
   create(@Body() dto: CreateUserDto) {
     return this.usersService.create(dto);
   }
+
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateUserDto)
+   * @returns Aktualisierter Datensatz
+   */
 
   @Patch(':id')
   @ApiOperation({ summary: 'Benutzer bearbeiten' })
@@ -49,11 +82,26 @@ export class UsersController {
     return this.usersService.update(id, dto);
   }
 
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
+
   @Delete(':id')
   @ApiOperation({ summary: 'Benutzer deaktivieren' })
   remove(@Param('id') id: string) {
     return this.usersService.deactivate(id);
   }
+
+  /**
+   * Setzt oder aktualisiert die PIN eines Benutzers.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param body - Parameter `body` ({ pin: string })
+   * @returns Ergebnis
+   */
 
   @Put(':id/pin')
   @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)

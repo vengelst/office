@@ -1,3 +1,8 @@
+/**
+ * Service für Backups.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -33,12 +38,23 @@ export class BackupsService implements OnModuleInit {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Lifecycle-Hook: Initialisierung nach Modulstart.
+   *
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async onModuleInit() {
     await fs.mkdir(BACKUP_DIR, { recursive: true }).catch(() => undefined);
     await this.ensureConfig();
   }
 
-  /** Stellt sicher, dass genau eine BackupConfig-Zeile existiert. */
+  /**
+   * Stellt sicher, dass genau eine BackupConfig-Zeile existiert.
+   *
+   * @returns Konfiguration
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async ensureConfig() {
     const existing = await this.prisma.backupConfig.findFirst();
     if (existing) return existing;
@@ -52,10 +68,23 @@ export class BackupsService implements OnModuleInit {
     });
   }
 
+  /**
+   * Liest die aktuelle Konfiguration.
+   *
+   * @returns Konfigurationsobjekt
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async getConfig() {
     return this.ensureConfig();
   }
 
+  /**
+   * Aktualisiert die Konfiguration.
+   *
+   * @param dto - Request-Body / Eingabedaten (UpdateBackupConfigDto)
+   * @returns Aktualisierte Konfiguration
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async updateConfig(dto: UpdateBackupConfigDto) {
     const cfg = await this.ensureConfig();
     return this.prisma.backupConfig.update({
@@ -75,6 +104,14 @@ export class BackupsService implements OnModuleInit {
     });
   }
 
+  /**
+   * Listet Backup-Jobs.
+   *
+   * @param limit - Seitengröße
+   * @returns Jobliste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async listJobs(limit = 50) {
     return this.prisma.backupJob.findMany({
       orderBy: { createdAt: 'desc' },
@@ -82,12 +119,26 @@ export class BackupsService implements OnModuleInit {
     });
   }
 
+  /**
+   * Lädt einen Backup-Job anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async getJob(id: string) {
     const job = await this.prisma.backupJob.findUnique({ where: { id } });
     if (!job) throw new NotFoundException('Backup nicht gefunden');
     return job;
   }
 
+  /**
+   * Listet Restore-Vorgänge.
+   *
+   * @param limit - Seitengröße
+   * @returns Restore-Liste
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async listRestores(limit = 50) {
     return this.prisma.restoreLog.findMany({
       orderBy: { createdAt: 'desc' },
@@ -98,15 +149,23 @@ export class BackupsService implements OnModuleInit {
     });
   }
 
-  /** Manuelles Full-Backup anstoßen. */
+  /**
+   * Manuelles Full-Backup anstoßen.
+   *
+   * @param userId - ID (userId) (string)
+   * @returns Gestarteter Job
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async startManualBackup(userId?: string) {
     return this.runBackup('manual', userId);
   }
 
   /**
-   * Cron jede Minute: prüft, ob Schedule (Stunde/Minute) und enabled passen.
-   * Vermeidet doppelte Läufe über `running`-Flag und Status RUNNING.
+   * Cron jede Minute: prüft, ob Schedule (Stunde/Minute) und enabled passen. Vermeidet doppelte Läufe über `running`-Flag und Status RUNNING.
+   *
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
+
   @Cron('* * * * *')
   async cronTick() {
     const cfg = await this.ensureConfig();
@@ -130,6 +189,13 @@ export class BackupsService implements OnModuleInit {
     await this.runBackup('cron', null);
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `runBackup` (run Backup).
+   *
+   * @param trigger - Parameter `trigger` ('manual' | 'cron')
+   * @param userId - ID (userId) (string | null)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async runBackup(trigger: 'manual' | 'cron', userId?: string | null) {
     if (this.running) {
       throw new BadRequestException('Ein Backup läuft bereits');
@@ -222,7 +288,13 @@ export class BackupsService implements OnModuleInit {
     }
   }
 
-  /** Löscht Backup-Job und zugehörige Dateien. */
+  /**
+   * Löscht Backup-Job und zugehörige Dateien.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async deleteJob(id: string) {
     const job = await this.getJob(id);
     if (job.filePath) {
@@ -237,7 +309,15 @@ export class BackupsService implements OnModuleInit {
     return { id, deleted: true };
   }
 
-  /** Selektiver Restore der gewählten Module aus einem Backup. */
+  /**
+   * Selektiver Restore der gewählten Module aus einem Backup.
+   *
+   * @param jobId - ID (jobId) (string)
+   * @param dto - Request-Body / Eingabedaten (RestoreBackupDto)
+   * @param userId - ID (userId) (string)
+   * @returns Restore-Ergebnis
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async restore(jobId: string, dto: RestoreBackupDto, userId?: string) {
     const job = await this.getJob(jobId);
     if (job.status !== BackupJobStatus.SUCCESS || !job.filePath) {
@@ -314,12 +394,21 @@ export class BackupsService implements OnModuleInit {
     });
   }
 
+  /**
+   * Listet die für Backups verfügbaren Module.
+   */
   listModules() {
     return [...BACKUP_MODULES];
   }
 
   // ── Export / Import ──────────────────────────────────────────
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `exportModule` (export Module).
+   *
+   * @param mod - Parameter `mod` (BackupModule)
+   * @returns unknown
+   */
   private async exportModule(mod: BackupModule): Promise<unknown> {
     switch (mod) {
       case 'todos':
@@ -396,8 +485,11 @@ export class BackupsService implements OnModuleInit {
   }
 
   /**
-   * Importiert Moduldaten: vorhandene Zeilen mit gleicher ID werden per upsert ersetzt.
-   * Kein Hard-Delete der gesamten Tabelle (sicherer bei Teil-Restore).
+   * Importiert Moduldaten: vorhandene Zeilen mit gleicher ID werden per upsert ersetzt. Kein Hard-Delete der gesamten Tabelle (sicherer bei Teil-Restore).
+   *
+   * @param mod - Parameter `mod` (BackupModule)
+   * @param data - Nutzdaten
+   * @returns number
    */
   private async importModule(mod: BackupModule, data: unknown): Promise<number> {
     switch (mod) {
@@ -803,6 +895,9 @@ export class BackupsService implements OnModuleInit {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `applyRetention` (apply Retention).
+   */
   private async applyRetention() {
     const cfg = await this.ensureConfig();
     const cutoff = new Date();
@@ -828,9 +923,10 @@ export class BackupsService implements OnModuleInit {
   }
 
   /**
-   * Erzeugt ein einfaches gzip-Archiv der JSON-Dateien (kein echtes tar –
-   * speichert eine verkettete gzip-Datei mit Dateinamen-Headern als Fallback).
-   * Primärer Restore-Pfad bleibt das entpackte Verzeichnis.
+   * Erzeugt ein einfaches gzip-Archiv der JSON-Dateien (kein echtes tar – speichert eine verkettete gzip-Datei mit Dateinamen-Headern als Fallback). Primärer Restore-Pfad bleibt das entpackte Verzeichnis.
+   *
+   * @param dir - Parameter `dir` (string)
+   * @param archivePath - Parameter `archivePath` (string)
    */
   private async createTarGz(dir: string, archivePath: string) {
     const files = await fs.readdir(dir);
@@ -847,6 +943,11 @@ export class BackupsService implements OnModuleInit {
     await pipe;
   }
 
+  /**
+   * Serialisiert einen Backup-Job für die API.
+   *
+   * @returns DTO
+   */
   serializeJob(job: {
     id: string;
     status: BackupJobStatus;
@@ -865,7 +966,12 @@ export class BackupsService implements OnModuleInit {
     };
   }
 
-  /** JSON mit Date/Decimal-Unterstützung. */
+  /**
+   * JSON mit Date/Decimal-Unterstützung.
+   *
+   * @param data - Nutzdaten
+   * @returns Geparstes Objekt oder Fallback (string)
+   */
   private safeJson(data: unknown): string {
     return JSON.stringify(data, (_key, value) => {
       if (value instanceof Date) return value.toISOString();

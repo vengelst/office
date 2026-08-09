@@ -1,3 +1,8 @@
+/**
+ * Service für Dashboard.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -12,6 +17,11 @@ export interface DashboardStats {
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Aggregiert Kennzahlen für das Dashboard.
+   *
+   * @returns Statistikobjekt (DashboardStats)
+   */
   async getStats(): Promise<DashboardStats> {
     const [customers, projects, workers, activeProjects] = await Promise.all([
       this.prisma.customer.count({

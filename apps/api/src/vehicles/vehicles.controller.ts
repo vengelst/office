@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Vehicles.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -37,9 +42,20 @@ export class VehiclesController {
   @ApiOperation({
     summary: 'Fahrzeuge mit ablaufendem TÜV/Versicherung (< 30 Tage)',
   })
+  /**
+   * Listet bald ablaufende Einträge.
+   *
+   * @returns Liste
+   */
   expiring() {
     return this.vehicles.findExpiring();
   }
+
+  /**
+   * Listet Monteure für Auswahlfelder.
+   *
+   * @returns Monteur-Liste
+   */
 
   @Get('meta/workers')
   @ApiOperation({ summary: 'Aktive Monteure (für Zuweisungs-Auswahl)' })
@@ -48,6 +64,22 @@ export class VehiclesController {
   }
 
   // ── Fahrzeug CRUD ────────────────────────────────────────────
+
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @param search - Freitextsuche (string)
+   * @param ownerType - Parameter `ownerType` (string)
+   * @param category - Parameter `category` (string)
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param status - Zielstatus (string)
+   * @param active - Parameter `active` (string)
+   * @param sortBy - Parameter `sortBy` (string)
+   * @param sortDir - Parameter `sortDir` ('asc' | 'desc')
+   * @returns Listenergebnis
+   */
 
   @Get()
   @ApiOperation({ summary: 'Fahrzeuge auflisten (Filter, Suche, Pagination)' })
@@ -82,9 +114,22 @@ export class VehiclesController {
   @ApiOperation({
     summary: 'Fahrzeug-Detail mit aktueller Zuweisung + Historie',
   })
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
   findOne(@Param('id') id: string) {
     return this.vehicles.findOne(id);
   }
+
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateVehicleDto)
+   * @returns Neu angelegter Datensatz
+   */
 
   @Post()
   @ApiOperation({ summary: 'Fahrzeug anlegen' })
@@ -92,11 +137,26 @@ export class VehiclesController {
     return this.vehicles.create(dto);
   }
 
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateVehicleDto)
+   * @returns Aktualisierter Datensatz
+   */
+
   @Patch(':id')
   @ApiOperation({ summary: 'Fahrzeug bearbeiten' })
   update(@Param('id') id: string, @Body() dto: UpdateVehicleDto) {
     return this.vehicles.update(id, dto);
   }
+
+  /**
+   * Deaktiviert den Datensatz (Soft-Delete/Status).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Deaktivierter Datensatz
+   */
 
   @Post(':id/deactivate')
   @ApiOperation({ summary: 'Fahrzeug deaktivieren (active=false)' })
@@ -104,11 +164,25 @@ export class VehiclesController {
     return this.vehicles.deactivate(id);
   }
 
+  /**
+   * Reaktiviert einen zuvor deaktivierten Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Reaktivierter Datensatz
+   */
+
   @Post(':id/reactivate')
   @ApiOperation({ summary: 'Fahrzeug reaktivieren (active=true)' })
   reactivate(@Param('id') id: string) {
     return this.vehicles.reactivate(id);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Fahrzeug löschen (Hard-Delete oder Deaktivierung als Fallback)' })
@@ -118,11 +192,26 @@ export class VehiclesController {
 
   // ── Zuweisungen ──────────────────────────────────────────────
 
+  /**
+   * Erstellt eine Zuordnung.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (AssignVehicleDto)
+   * @returns Zuordnung
+   */
+
   @Post(':id/assign')
   @ApiOperation({ summary: 'Monteur zuweisen (alte Zuweisung wird beendet)' })
   assign(@Param('id') id: string, @Body() dto: AssignVehicleDto) {
     return this.vehicles.assign(id, dto);
   }
+
+  /**
+   * Hebt eine Zuordnung auf.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Aktualisierter Datensatz
+   */
 
   @Post(':id/unassign')
   @ApiOperation({ summary: 'Aktuelle Zuweisung beenden' })

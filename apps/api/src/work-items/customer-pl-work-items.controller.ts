@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Customer Pl Work Items.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -51,11 +56,27 @@ export class CustomerPlWorkItemsController {
 
   // ── Board ────────────────────────────────────────────────────
 
+  /**
+   * Listet dem Kunden-PL zugeordnete Projekte.
+   *
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Projekt-Liste
+   */
+
   @Get('pl/projects')
   @ApiOperation({ summary: 'Projekte, für die der Kunden-PL freigeschaltet ist' })
   findProjects(@CurrentUser() user: AuthUser) {
     return this.customerPls.findProjectsForUser(user);
   }
+
+  /**
+   * Listet Work-Items für den Kunden-PL.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param query - Query-Parameter der Anfrage (ListWorkItemsQueryDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Item-Liste
+   */
 
   @Get('pl/projects/:projectId/work-items')
   @ApiOperation({ summary: 'Board-Daten eines Projekts (inkl. Status-Zähler)' })
@@ -67,6 +88,14 @@ export class CustomerPlWorkItemsController {
     return this.workItems.findForCustomerPl(projectId, query, user);
   }
 
+  /**
+   * Lädt ein Work-Item für den Kunden-PL.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Item
+   */
+
   @Get('pl/work-items/:id')
   @ApiOperation({ summary: 'Item-Detail inkl. Fotos der Fertigmeldung' })
   findWorkItem(@Param('id') id: string, @CurrentUser() user: AuthUser) {
@@ -74,10 +103,9 @@ export class CustomerPlWorkItemsController {
   }
 
   /**
-   * Streamt ein Foto der Fertig-/Nacharbeitsmeldung.
-   * Bewusst eng geschnitten: nur Dokumente, die am Item oder an einer seiner
-   * Rückmeldungen hängen – `/documents/:id/download` bleibt für Kunden-PLs zu.
+   * Streamt ein Foto der Fertig-/Nacharbeitsmeldung. Bewusst eng geschnitten: nur Dokumente, die am Item oder an einer seiner Rückmeldungen hängen – `/documents/:id/download` bleibt für Kunden-PLs zu.
    */
+
   @Get('pl/work-items/:id/photos/:documentId')
   @ApiOperation({ summary: 'Foto einer Rückmeldung dieses Items (Stream)' })
   async findPhoto(
@@ -103,6 +131,14 @@ export class CustomerPlWorkItemsController {
   @ApiOperation({
     summary: 'Fertigmeldung bestätigen (nur aus Status REVIEW) → APPROVED',
   })
+  /**
+   * Gibt den Stundenzettel bzw. das Item frei.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (ReviewDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Freigegebenes Objekt
+   */
   approve(
     @Param('id') id: string,
     @Body() dto: ReviewDto,
@@ -116,6 +152,14 @@ export class CustomerPlWorkItemsController {
   @ApiOperation({
     summary: 'Item selbst fertig setzen (aus jedem Status außer APPROVED)',
   })
+  /**
+   * Setzt ein Item seitens Kunden-PL auf fertig.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (ReviewDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Aktualisiertes Item
+   */
   forceComplete(
     @Param('id') id: string,
     @Body() dto: ReviewDto,

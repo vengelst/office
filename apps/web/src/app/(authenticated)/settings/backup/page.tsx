@@ -1,3 +1,8 @@
+/**
+ * Seite: settings / backup (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -40,6 +45,9 @@ import { texts } from '@/lib/texts';
 
 const MODULES = Object.keys(BACKUP_MODULE_LABELS);
 
+/**
+ * UI-Komponente `BackupSettingsPage`.
+ */
 export default function BackupSettingsPage(): React.ReactNode {
   const t = texts.settings.backup;
   const { toast } = useToast();

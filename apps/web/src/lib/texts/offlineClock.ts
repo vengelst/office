@@ -1,4 +1,8 @@
-/** Offline-Stempeln Banner (Auftrag #13) – Worker-App + Kiosk */
+/**
+ * UI-Texte für Domäne `offlineClock` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const offlineClock = {
     offline: 'Offline',
     pending: (n: number): string =>

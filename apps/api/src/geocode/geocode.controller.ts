@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Geocode.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { GeocodeService, type GeocodeResult } from './geocode.service';
@@ -11,6 +16,14 @@ import { GeocodeService, type GeocodeResult } from './geocode.service';
 @Controller('geocode')
 export class GeocodeController {
   constructor(private readonly geocode: GeocodeService) {}
+
+  /**
+   * Geocodiert eine Adresse bzw. sucht Koordinaten.
+   *
+   * @param address - Adresszeile für Geocoding (string)
+   * @returns Geocode-Ergebnis (GeocodeResult)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
 
   @Get()
   @ApiOperation({ summary: 'Adresse zu Koordinaten auflösen (OSM Nominatim)' })

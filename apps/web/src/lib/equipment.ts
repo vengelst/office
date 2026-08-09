@@ -1,9 +1,16 @@
 /**
- * Typen und API-Funktionen für das Werkzeug- & Gerätemanagement.
+ * API-Helfer für Equipment-Verwaltung und Zuordnungen.
  */
+
 import { apiClient, apiUpload } from './api-client';
 
+/**
+ * Typ/Interface `EquipmentStatus` für die Web-App.
+ */
 export type EquipmentStatus = 'AVAILABLE' | 'ASSIGNED' | 'IN_REPAIR' | 'RETIRED';
+/**
+ * Typ/Interface `EquipmentCondition` für die Web-App.
+ */
 export type EquipmentCondition = 'NEW' | 'GOOD' | 'FAIR' | 'POOR' | 'DEFECTIVE';
 
 export const EQUIPMENT_STATUSES: EquipmentStatus[] = [
@@ -21,6 +28,9 @@ export const EQUIPMENT_CONDITIONS: EquipmentCondition[] = [
   'DEFECTIVE',
 ];
 
+/**
+ * Typ/Interface `EquipmentWorker` für die Web-App.
+ */
 export interface EquipmentWorker {
   id: string;
   workerNumber: string;
@@ -29,6 +39,9 @@ export interface EquipmentWorker {
   photoPath: string | null;
 }
 
+/**
+ * Typ/Interface `EquipmentAssignment` für die Web-App.
+ */
 export interface EquipmentAssignment {
   id: string;
   equipmentId: string;
@@ -43,6 +56,9 @@ export interface EquipmentAssignment {
   worker: EquipmentWorker;
 }
 
+/**
+ * Typ/Interface `EquipmentBase` für die Web-App.
+ */
 export interface EquipmentBase {
   id: string;
   name: string;
@@ -62,10 +78,16 @@ export interface EquipmentBase {
   updatedAt: string;
 }
 
+/**
+ * Typ/Interface `EquipmentListItem` für die Web-App.
+ */
 export interface EquipmentListItem extends EquipmentBase {
   currentAssignment: EquipmentAssignment | null;
 }
 
+/**
+ * Typ/Interface `EquipmentListResponse` für die Web-App.
+ */
 export interface EquipmentListResponse {
   data: EquipmentListItem[];
   total: number;
@@ -74,12 +96,18 @@ export interface EquipmentListResponse {
   totalPages: number;
 }
 
+/**
+ * Typ/Interface `EquipmentDetail` für die Web-App.
+ */
 export interface EquipmentDetail extends EquipmentBase {
   assignments: EquipmentAssignment[];
   currentAssignment: EquipmentAssignment | null;
   history: EquipmentAssignment[];
 }
 
+/**
+ * Typ/Interface `EquipmentListParams` für die Web-App.
+ */
 export interface EquipmentListParams {
   page?: number;
   limit?: number;

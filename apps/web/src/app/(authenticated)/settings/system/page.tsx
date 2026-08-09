@@ -1,3 +1,8 @@
+/**
+ * Seite: settings / system (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
@@ -78,6 +83,9 @@ function StatusDot({ online }: { online: boolean }) {
   );
 }
 
+/**
+ * UI-Komponente `SystemPage`.
+ */
 export default function SystemPage() {
   const [data, setData] = useState<SystemInfo | null>(null);
   const [loading, setLoading] = useState(true);

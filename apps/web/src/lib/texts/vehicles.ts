@@ -1,4 +1,8 @@
-/** UI-Texte: `vehicles`. */
+/**
+ * UI-Texte für Domäne `vehicles` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const vehicles = {
     title: 'Fahrzeuge',
     subtitle: 'Fuhrpark verwalten – eigene und Sub-Fahrzeuge',

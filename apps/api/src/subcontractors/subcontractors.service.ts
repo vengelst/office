@@ -1,3 +1,8 @@
+/**
+ * Service für Subcontractors.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -115,12 +120,23 @@ export class SubcontractorsService {
     return subcontractor;
   }
 
-  /** Erstellt ein neues Subunternehmen. */
+  /**
+   * Erstellt ein neues Subunternehmen.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateSubcontractorDto)
+   * @returns Neu angelegter Datensatz
+   */
   async create(dto: CreateSubcontractorDto) {
     return this.prisma.subcontractor.create({ data: { ...dto } });
   }
 
-  /** Aktualisiert ein bestehendes Subunternehmen. */
+  /**
+   * Aktualisiert ein bestehendes Subunternehmen.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateSubcontractorDto)
+   * @returns Aktualisierter Datensatz
+   */
   async update(id: string, dto: UpdateSubcontractorDto) {
     await this.ensureExists(id);
     return this.prisma.subcontractor.update({
@@ -129,7 +145,12 @@ export class SubcontractorsService {
     });
   }
 
-  /** Soft-Delete: setzt deletedAt. */
+  /**
+   * Soft-Delete: setzt deletedAt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
   async remove(id: string) {
     await this.ensureExists(id);
     await this.prisma.subcontractor.update({
@@ -139,7 +160,12 @@ export class SubcontractorsService {
     return { id, deleted: true };
   }
 
-  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  /**
+   * Mehrfach-Löschen: ruft remove() je ID auf.
+   *
+   * @param ids - Liste von IDs (string[])
+   * @returns Ergebnis der Massenlöschung
+   */
   async bulkRemove(ids: string[]) {
     const results = [];
     const errors = [];
@@ -158,6 +184,12 @@ export class SubcontractorsService {
 
   // ── Kontakte ─────────────────────────────────────────────────
 
+  /**
+   * Listet Kontakte der Entität.
+   *
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @returns Kontakt-Liste
+   */
   async listContacts(subcontractorId: string) {
     await this.ensureExists(subcontractorId);
     return this.prisma.subcontractorContact.findMany({
@@ -170,6 +202,14 @@ export class SubcontractorsService {
     });
   }
 
+  /**
+   * Legt einen Kontakt an.
+   *
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param dto - Request-Body / Eingabedaten (CreateSubcontractorContactDto)
+   * @returns Neuer Kontakt
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async createContact(
     subcontractorId: string,
     dto: CreateSubcontractorContactDto,
@@ -183,6 +223,15 @@ export class SubcontractorsService {
     });
   }
 
+  /**
+   * Aktualisiert einen Kontakt.
+   *
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param contactId - ID (contactId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateSubcontractorContactDto)
+   * @returns Aktualisierter Kontakt
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async updateContact(
     subcontractorId: string,
     contactId: string,
@@ -198,12 +247,28 @@ export class SubcontractorsService {
     });
   }
 
+  /**
+   * Entfernt einen Kontakt.
+   *
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param contactId - ID (contactId) (string)
+   * @returns Ergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async removeContact(subcontractorId: string, contactId: string) {
     await this.ensureContact(subcontractorId, contactId);
     await this.prisma.subcontractorContact.delete({ where: { id: contactId } });
     return { id: contactId, deleted: true };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `clearPrimary` (clear Primary).
+   *
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param exceptId - ID (exceptId) (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async clearPrimary(
     subcontractorId: string,
     exceptId?: string,
@@ -218,6 +283,13 @@ export class SubcontractorsService {
     });
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureExists` (ensure Exists).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.subcontractor.count({
       where: { id, deletedAt: null },
@@ -227,6 +299,14 @@ export class SubcontractorsService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureContact` (ensure Contact).
+   *
+   * @param subcontractorId - ID (subcontractorId) (string)
+   * @param contactId - ID (contactId) (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureContact(
     subcontractorId: string,
     contactId: string,

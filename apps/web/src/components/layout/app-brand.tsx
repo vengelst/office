@@ -1,3 +1,8 @@
+/**
+ * Marken-/Logo-Darstellung im App-Chrome.
+ * Teil des App-Chrome unter components/layout.
+ */
+
 'use client';
 
 import { useState, type ReactNode } from 'react';
@@ -7,8 +12,9 @@ import { texts } from '@/lib/texts';
 import { companyLogoUrl } from '@/lib/settings';
 
 /**
- * App-Brand: Firmenlogo auf heller Fläche (sichtbar im Dark Mode)
- * oder Fallback Building2 + „Office“.
+ * App-Brand: Firmenlogo auf heller Fläche (sichtbar im Dark Mode) oder Fallback Building2 + „Office“.
+ *
+ * @param props - Komponenten-Props
  */
 export function AppBrand({
   className,
@@ -74,7 +80,11 @@ export function AppBrand({
   );
 }
 
-/** Firmenlogo nur beim Drucken (Tab-Druck und Gesamtübersicht). */
+/**
+ * Firmenlogo nur beim Drucken (Tab-Druck und Gesamtübersicht).
+ *
+ * @param props - Komponenten-Props
+ */
 export function CompanyLogoPrint({
   className,
 }: {
@@ -100,8 +110,9 @@ export function CompanyLogoPrint({
 }
 
 /**
- * Briefkopf für Einzel-/Tab-Druck. Bei Gesamtübersicht ausgeblendet
- * (dort hat PrintAll bereits ein eigenes Logo).
+ * Briefkopf für Einzel-/Tab-Druck. Bei Gesamtübersicht ausgeblendet (dort hat PrintAll bereits ein eigenes Logo).
+ *
+ * @param props - Komponenten-Props
  */
 export function PrintLetterhead(): ReactNode {
   return (

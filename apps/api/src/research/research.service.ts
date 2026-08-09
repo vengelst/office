@@ -1,3 +1,8 @@
+/**
+ * Service für Research.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import type { ResearchResult, ResearchSubmissionsResult } from './research.types';
 

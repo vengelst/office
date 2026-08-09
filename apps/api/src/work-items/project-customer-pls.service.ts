@@ -1,3 +1,8 @@
+/**
+ * Service für Project Customer Pls.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -28,7 +33,13 @@ export class ProjectCustomerPlsService {
     private readonly workItems: WorkItemsService,
   ) {}
 
-  /** Alle (auch inaktiven) Kunden-PL-Zuordnungen eines Projekts. */
+  /**
+   * Alle (auch inaktiven) Kunden-PL-Zuordnungen eines Projekts.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Listenergebnis
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async findAll(projectId: string) {
     await this.workItems.ensureProject(projectId);
     return this.prisma.projectCustomerPlAssignment.findMany({
@@ -67,7 +78,13 @@ export class ProjectCustomerPlsService {
     });
   }
 
-  /** Auswahlliste: alle aktiven User mit Rolle CUSTOMER_PL. */
+  /**
+   * Auswahlliste: alle aktiven User mit Rolle CUSTOMER_PL.
+   *
+   * @returns Kandidatenliste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   listCandidates() {
     return this.prisma.user.findMany({
       where: {
@@ -98,8 +115,14 @@ export class ProjectCustomerPlsService {
   }
 
   /**
-   * Aktualisiert Felder der Kunden-PL-Zuordnung (derzeit Zustell-E-Mail).
-   * Leerer String wird als `null` gespeichert (= Fallback auf User-E-Mail).
+   * Aktualisiert Felder der Kunden-PL-Zuordnung (derzeit Zustell-E-Mail). Leerer String wird als `null` gespeichert (= Fallback auf User-E-Mail).
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param userId - ID (userId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateCustomerPlDto)
+   * @returns Aktualisierter Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async update(projectId: string, userId: string, dto: UpdateCustomerPlDto) {
     await this.workItems.ensureProject(projectId);
@@ -127,7 +150,15 @@ export class ProjectCustomerPlsService {
     });
   }
 
-  /** Setzt die Zuordnung inaktiv (Historie bleibt erhalten). */
+  /**
+   * Setzt die Zuordnung inaktiv (Historie bleibt erhalten).
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param userId - ID (userId) (string)
+   * @returns Ergebnis der Löschung
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async remove(projectId: string, userId: string) {
     const assignment = await this.prisma.projectCustomerPlAssignment.findUnique({
       where: { projectId_userId: { projectId, userId } },
@@ -143,6 +174,14 @@ export class ProjectCustomerPlsService {
     return { projectId, userId, active: false };
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `assertCustomerPlUser` (assert Customer Pl User).
+   *
+   * @param userId - ID (userId) (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private async assertCustomerPlUser(userId: string): Promise<void> {
     const user = await this.prisma.user.findFirst({
       where: { id: userId, isActive: true },

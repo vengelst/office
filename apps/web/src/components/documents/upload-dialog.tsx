@@ -1,3 +1,8 @@
+/**
+ * Komponente: documents / upload-dialog (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import {

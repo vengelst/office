@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Email Settings.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -34,6 +39,12 @@ class TestEmailDto {
 export class EmailSettingsController {
   constructor(private readonly email: EmailService) {}
 
+  /**
+   * Liest die aktuelle Konfiguration.
+   *
+   * @returns Konfigurationsobjekt
+   */
+
   @Get()
   @ApiOperation({ summary: 'SMTP-Konfiguration laden' })
   async getConfig(): Promise<SmtpConfig & { configured: boolean }> {
@@ -53,12 +64,26 @@ export class EmailSettingsController {
     return { ...config, configured: true };
   }
 
+  /**
+   * Speichert die Konfiguration.
+   *
+   * @param dto - Request-Body / Eingabedaten (SmtpConfigDto)
+   * @returns Gespeicherte Konfiguration
+   */
+
   @Put()
   @ApiOperation({ summary: 'SMTP-Konfiguration speichern' })
   async saveConfig(@Body() dto: SmtpConfigDto): Promise<{ saved: true }> {
     await this.email.saveConfig(dto);
     return { saved: true };
   }
+
+  /**
+   * Sendet eine Test-E-Mail zur SMTP-Prüfung.
+   *
+   * @param dto - Request-Body / Eingabedaten (TestEmailDto)
+   * @returns Sendestatus
+   */
 
   @Post('test')
   @ApiOperation({ summary: 'Test-E-Mail senden' })

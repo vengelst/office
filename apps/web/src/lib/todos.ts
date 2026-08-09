@@ -1,7 +1,20 @@
+/**
+ * API-Helfer für Todos und Dashboard-Widgets.
+ */
+
 import { apiClient } from './api-client';
 
+/**
+ * Typ/Interface `TodoStatus` für die Web-App.
+ */
 export type TodoStatus = 'OPEN' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+/**
+ * Typ/Interface `TodoPriority` für die Web-App.
+ */
 export type TodoPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+/**
+ * Typ/Interface `TodoEntityType` für die Web-App.
+ */
 export type TodoEntityType =
   | 'CUSTOMER'
   | 'PROJECT'
@@ -9,6 +22,9 @@ export type TodoEntityType =
   | 'SUBCONTRACTOR'
   | 'EQUIPMENT';
 
+/**
+ * Typ/Interface `Todo` für die Web-App.
+ */
 export interface Todo {
   id: string;
   title: string;
@@ -26,6 +42,9 @@ export interface Todo {
   updatedAt: string;
 }
 
+/**
+ * Typ/Interface `TodoListResponse` für die Web-App.
+ */
 export interface TodoListResponse {
   data: Todo[];
   total: number;
@@ -33,6 +52,9 @@ export interface TodoListResponse {
   limit: number;
 }
 
+/**
+ * Typ/Interface `TodoListParams` für die Web-App.
+ */
 export interface TodoListParams {
   status?: TodoStatus;
   priority?: TodoPriority;
@@ -44,6 +66,9 @@ export interface TodoListParams {
   limit?: number;
 }
 
+/**
+ * Typ/Interface `TodoDashboardData` für die Web-App.
+ */
 export interface TodoDashboardData {
   openCount: number;
   overdueCount: number;
@@ -57,6 +82,9 @@ export interface TodoDashboardData {
   }>;
 }
 
+/**
+ * Typ/Interface `TodoUser` für die Web-App.
+ */
 export interface TodoUser {
   id: string;
   displayName: string;

@@ -1,3 +1,8 @@
+/**
+ * Komponente: customers / tabs / contacts-tab (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';

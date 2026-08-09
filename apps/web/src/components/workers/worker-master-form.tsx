@@ -1,3 +1,8 @@
+/**
+ * Komponente: workers / worker-master-form (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -115,6 +120,9 @@ interface WorkerMasterFormProps {
   onCancel?: () => void;
 }
 
+/**
+ * UI-Komponente `WorkerMasterForm`.
+ */
 export function WorkerMasterForm({
   worker,
   submitting,

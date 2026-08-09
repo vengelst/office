@@ -1,3 +1,8 @@
+/**
+ * Komponente: projects / tabs / work-items / templates-section (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
@@ -64,6 +69,9 @@ function emptyFieldRow(): FieldRow {
   };
 }
 
+/**
+ * UI-Komponente `TemplatesSection`.
+ */
 export function TemplatesSection(): ReactNode {
   const { toast } = useToast();
   const [templates, setTemplates] = useState<WorkCardTemplate[]>([]);

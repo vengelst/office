@@ -1,3 +1,8 @@
+/**
+ * Service für Ocr.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import { Injectable, Logger } from '@nestjs/common';
 import { StorageService } from '../documents/storage.service';
 

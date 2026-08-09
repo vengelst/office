@@ -1,3 +1,8 @@
+/**
+ * Service für Break Rules.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -32,7 +37,13 @@ const ruleSelect = {
 export class BreakRulesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Alle Regeln (global + projektspezifisch), optional auf ein Projekt gefiltert. */
+  /**
+   * Alle Regeln (global + projektspezifisch), optional auf ein Projekt gefiltert.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Listenergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   findAll(projectId?: string) {
     const where: Prisma.BreakRuleWhereInput = {};
     if (projectId) {
@@ -93,7 +104,14 @@ export class BreakRulesService {
     });
   }
 
-  /** Aktualisiert eine bestehende Pausenregel. */
+  /**
+   * Aktualisiert eine bestehende Pausenregel.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateBreakRuleDto)
+   * @returns Aktualisierter Datensatz
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async update(id: string, dto: UpdateBreakRuleDto) {
     await this.findOne(id);
     if (dto.scopeType) {
@@ -122,14 +140,27 @@ export class BreakRulesService {
     });
   }
 
-  /** Löscht eine Pausenregel vollständig. */
+  /**
+   * Löscht eine Pausenregel vollständig.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async remove(id: string) {
     await this.findOne(id);
     await this.prisma.breakRule.delete({ where: { id } });
     return { id, deleted: true };
   }
 
-  /** Stellt sicher, dass bei PROJECT-Scope eine projectId übergeben wird. */
+  /**
+   * Stellt sicher, dass bei PROJECT-Scope eine projectId übergeben wird.
+   *
+   * @param scopeType - Parameter `scopeType` (BreakScopeType)
+   * @param projectId - ID des Projekts (string)
+   * @returns void
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private validateScope(scopeType: BreakScopeType, projectId?: string): void {
     if (scopeType === BreakScopeType.PROJECT && !projectId) {
       throw new BadRequestException(
@@ -138,7 +169,14 @@ export class BreakRulesService {
     }
   }
 
-  /** Prüft, dass Schwellenwert 2 größer als Schwellenwert 1 ist. */
+  /**
+   * Prüft, dass Schwellenwert 2 größer als Schwellenwert 1 ist.
+   *
+   * @param t1 - Parameter `t1` (number)
+   * @param t2 - Parameter `t2` (number)
+   * @returns void
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   private validateThresholds(t1: number, t2?: number): void {
     if (t2 !== undefined && t2 <= t1) {
       throw new BadRequestException(

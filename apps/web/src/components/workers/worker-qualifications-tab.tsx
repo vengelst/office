@@ -1,3 +1,8 @@
+/**
+ * Komponente: workers / worker-qualifications-tab (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useState, type ReactNode } from 'react';
@@ -75,6 +80,9 @@ const PROFICIENCIES: LanguageProficiency[] = [
   'NATIVE',
 ];
 
+/**
+ * UI-Komponente `WorkerQualificationsTab`.
+ */
 export function WorkerQualificationsTab({
   worker,
   onChange,

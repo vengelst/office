@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Documents.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -62,6 +67,14 @@ export class DocumentsController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }),
   )
+  /**
+   * Lädt eine Datei hoch und speichert Metadaten.
+   *
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (UploadDocumentDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Dokument- bzw. Upload-Metadaten
+   */
   upload(
     @UploadedFile() file: Express.Multer.File | undefined,
     @Body() dto: UploadDocumentDto,
@@ -89,6 +102,14 @@ export class DocumentsController {
   @UseInterceptors(
     FilesInterceptor('files', 10, { limits: { fileSize: MAX_FILE_SIZE } }),
   )
+  /**
+   * Lädt mehrere Dateien hoch.
+   *
+   * @param files - Hochgeladene Dateien (Multer) (Express.Multer.File[] | undefined)
+   * @param dto - Request-Body / Eingabedaten (UploadDocumentDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Liste der Upload-Metadaten
+   */
   uploadMultiple(
     @UploadedFiles() files: Express.Multer.File[] | undefined,
     @Body() dto: UploadDocumentDto,
@@ -118,6 +139,15 @@ export class DocumentsController {
   @UseInterceptors(
     FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }),
   )
+  /**
+   * Ersetzt eine vorhandene Datei.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File | undefined)
+   * @param dto - Request-Body / Eingabedaten (ReplaceDocumentDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Aktualisierte Metadaten
+   */
   replace(
     @Param('id') id: string,
     @UploadedFile() file: Express.Multer.File | undefined,
@@ -276,6 +306,13 @@ export class DocumentsController {
   bulkRemove(@Body() dto: BulkDeleteDto) {
     return this.documents.bulkRemove(dto.ids);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Dokument löschen (Storage + DB)' })

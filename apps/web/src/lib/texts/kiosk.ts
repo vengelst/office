@@ -1,4 +1,8 @@
-/** UI-Texte: `kiosk`. */
+/**
+ * UI-Texte für Domäne `kiosk` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const kiosk = {
     title: 'Kiosk-Terminal',
     setup: {

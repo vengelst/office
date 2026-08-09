@@ -1,3 +1,7 @@
+/**
+ * Parameter-Decorator `@CurrentUser()`: injiziert den AuthUser aus dem Request.
+ */
+
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { AuthUser } from '@office/types';
 

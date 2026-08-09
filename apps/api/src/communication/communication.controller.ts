@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Communication.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -29,6 +34,18 @@ import { UpdateCommunicationDto } from './dto/update-communication.dto';
 export class CommunicationController {
   constructor(private readonly communication: CommunicationService) {}
 
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param entityType - Entitätstyp (Customer, Project, …) (CommunicationEntityType)
+   * @param entityId - ID der verknüpften Entität (string)
+   * @param contactId - ID (contactId) (string)
+   * @param type - Parameter `type` (CommunicationType)
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @returns Listenergebnis
+   */
+
   @Get()
   @ApiOperation({ summary: 'Kommunikationseinträge auflisten (Paginierung, Filter)' })
   findAll(
@@ -49,11 +66,25 @@ export class CommunicationController {
     });
   }
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
+
   @Get(':id')
   @ApiOperation({ summary: 'Einzelnen Kommunikationseintrag laden' })
   findOne(@Param('id') id: string) {
     return this.communication.get(id);
   }
+
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateCommunicationDto)
+   * @returns Neu angelegter Datensatz
+   */
 
   @Post()
   @ApiOperation({ summary: 'Kommunikationseintrag erstellen' })
@@ -61,11 +92,26 @@ export class CommunicationController {
     return this.communication.create(dto);
   }
 
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateCommunicationDto)
+   * @returns Aktualisierter Datensatz
+   */
+
   @Patch(':id')
   @ApiOperation({ summary: 'Kommunikationseintrag aktualisieren' })
   update(@Param('id') id: string, @Body() dto: UpdateCommunicationDto) {
     return this.communication.update(id, dto);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Kommunikationseintrag löschen' })

@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Dashboard.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -11,6 +16,12 @@ import { DashboardService } from './dashboard.service';
 @Controller('dashboard')
 export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}
+
+  /**
+   * Aggregiert Kennzahlen für das Dashboard.
+   *
+   * @returns Statistikobjekt
+   */
 
   @Get('stats')
   @ApiOperation({ summary: 'Dashboard-Kennzahlen (Kunden, Projekte, Monteure, Stunden)' })

@@ -1,3 +1,8 @@
+/**
+ * Toggle-Button für das Farbschema.
+ * Teil des App-Chrome unter components/layout.
+ */
+
 'use client';
 
 import { useTheme } from 'next-themes';
@@ -5,7 +10,9 @@ import { Moon, Sun } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { texts } from '@/lib/texts';
 
-/** Wechselt zwischen Hell- und Dunkelmodus. */
+/**
+ * Wechselt zwischen Hell- und Dunkelmodus.
+ */
 export function ThemeToggle(): React.ReactNode {
   const { theme, setTheme } = useTheme();
 

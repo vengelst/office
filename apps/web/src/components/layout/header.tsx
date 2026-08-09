@@ -1,3 +1,8 @@
+/**
+ * Oberer App-Header mit Branding und Nutzeraktionen.
+ * Teil des App-Chrome unter components/layout.
+ */
+
 'use client';
 
 import { useState } from 'react';
@@ -25,7 +30,9 @@ import { SidebarNav } from './sidebar-nav';
 import { ThemeToggle } from './theme-toggle';
 import { AppBrand } from './app-brand';
 
-/** Top-Bar mit Hamburger (mobil), Theme-Toggle und Benutzermenü. */
+/**
+ * Top-Bar mit Hamburger (mobil), Theme-Toggle und Benutzermenü.
+ */
 export function Header(): React.ReactNode {
   const { user, logout } = useAuth();
   const router = useRouter();

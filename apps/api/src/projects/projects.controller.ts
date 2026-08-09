@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Projects.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -45,6 +50,16 @@ export class ProjectsController {
 
   // ── Statische Routen zuerst (vor :id) ────────────────────────
 
+  /**
+   * Liefert eine Zeitachse/Projekt-Timeline.
+   *
+   * @param from - Zeitraum-Beginn (string)
+   * @param to - Zeitraum-Ende (string)
+   * @param customerId - ID des Kunden (string)
+   * @param activeOnly - Parameter `activeOnly` (string)
+   * @returns Timeline-Daten
+   */
+
   @Get('timeline')
   @ApiOperation({ summary: 'Projekte im Zeitraum (Kalender/Timeline)' })
   timeline(
@@ -61,6 +76,12 @@ export class ProjectsController {
     );
   }
 
+  /**
+   * Listet Benutzer für Auswahlfelder.
+   *
+   * @returns Benutzer-Liste
+   */
+
   @Get('meta/users')
   @ApiOperation({ summary: 'Aktive Benutzer (für Projektleiter-Auswahl)' })
   listUsers() {
@@ -72,6 +93,14 @@ export class ProjectsController {
     summary:
       'Aktive Monteure (für Zuordnungs-Auswahl); optional nur freie im Zeitraum',
   })
+  /**
+   * Listet Monteure für Auswahlfelder.
+   *
+   * @param from - Zeitraum-Beginn (string)
+   * @param to - Zeitraum-Ende (string)
+   * @param availableOnly - Parameter `availableOnly` (string)
+   * @returns Monteur-Liste
+   */
   listWorkers(
     @Query('from') from?: string,
     @Query('to') to?: string,
@@ -86,6 +115,20 @@ export class ProjectsController {
   }
 
   // ── Projekt CRUD ─────────────────────────────────────────────
+
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @param search - Freitextsuche (string)
+   * @param status - Zielstatus (string)
+   * @param customerId - ID des Kunden (string)
+   * @param serviceType - Parameter `serviceType` (string)
+   * @param sortBy - Parameter `sortBy` (string)
+   * @param sortDir - Parameter `sortDir` ('asc' | 'desc')
+   * @returns Listenergebnis
+   */
 
   @Get()
   @ApiOperation({ summary: 'Projekte auflisten (Paginierung, Suche, Filter)' })
@@ -111,17 +154,39 @@ export class ProjectsController {
     });
   }
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
+
   @Get(':id')
   @ApiOperation({ summary: 'Einzelprojekt mit allen Relationen' })
   findOne(@Param('id') id: string) {
     return this.projects.findOne(id);
   }
 
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateProjectDto)
+   * @returns Neu angelegter Datensatz
+   */
+
   @Post()
   @ApiOperation({ summary: 'Projekt anlegen (Projektnummer automatisch)' })
   create(@Body() dto: CreateProjectDto) {
     return this.projects.create(dto);
   }
+
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateProjectDto)
+   * @returns Aktualisierter Datensatz
+   */
 
   @Patch(':id')
   @ApiOperation({ summary: 'Projekt bearbeiten' })
@@ -130,11 +195,25 @@ export class ProjectsController {
   }
 
 
+  /**
+   * Löscht bzw. deaktiviert mehrere Datensätze in einem Schritt.
+   *
+   * @param dto - Request-Body / Eingabedaten (BulkDeleteDto)
+   * @returns Ergebnis der Massenlöschung
+   */
+
   @Post('bulk-delete')
   @ApiOperation({ summary: 'Mehrfach löschen' })
   bulkRemove(@Body() dto: BulkDeleteDto) {
     return this.projects.bulkRemove(dto.ids);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Projekt löschen (Soft-Delete)' })
@@ -143,6 +222,14 @@ export class ProjectsController {
   }
 
   // ── Status-Workflow ──────────────────────────────────────────
+
+  /**
+   * Ändert den Projektstatus.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateStatusDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   */
 
   @Post(':id/status')
   @ApiOperation({ summary: 'Status ändern (protokolliert in StatusHistory)' })
@@ -160,10 +247,24 @@ export class ProjectsController {
 
   // ── Sites ────────────────────────────────────────────────────
 
+  /**
+   * Listet Projektstandorte.
+   *
+   * @param projectId - ID des Projekts (string)
+   */
+
   @Get(':projectId/sites')
   findSites(@Param('projectId') projectId: string) {
     return this.projects.findSites(projectId);
   }
+
+  /**
+   * Legt einen Projektstandort an.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateSiteDto)
+   * @returns Neuer Standort
+   */
 
   @Post(':projectId/sites')
   createSite(
@@ -172,6 +273,15 @@ export class ProjectsController {
   ) {
     return this.projects.createSite(projectId, dto);
   }
+
+  /**
+   * Aktualisiert einen Projektstandort.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateSiteDto)
+   * @returns Aktualisierter Standort
+   */
 
   @Patch(':projectId/sites/:id')
   updateSite(
@@ -182,6 +292,14 @@ export class ProjectsController {
     return this.projects.updateSite(projectId, id, dto);
   }
 
+  /**
+   * Entfernt einen Projektstandort.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis
+   */
+
   @Delete(':projectId/sites/:id')
   removeSite(@Param('projectId') projectId: string, @Param('id') id: string) {
     return this.projects.removeSite(projectId, id);
@@ -189,10 +307,25 @@ export class ProjectsController {
 
   // ── Equipment ────────────────────────────────────────────────
 
+  /**
+   * Listet Equipment der Entität.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @returns Equipment-Liste
+   */
+
   @Get(':projectId/equipment')
   findEquipment(@Param('projectId') projectId: string) {
     return this.projects.findEquipment(projectId);
   }
+
+  /**
+   * Legt Equipment an.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateEquipmentDto)
+   * @returns Neues Equipment
+   */
 
   @Post(':projectId/equipment')
   createEquipment(
@@ -202,6 +335,15 @@ export class ProjectsController {
     return this.projects.createEquipment(projectId, dto);
   }
 
+  /**
+   * Aktualisiert Equipment.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateEquipmentDto)
+   * @returns Aktualisiertes Equipment
+   */
+
   @Patch(':projectId/equipment/:id')
   updateEquipment(
     @Param('projectId') projectId: string,
@@ -210,6 +352,14 @@ export class ProjectsController {
   ) {
     return this.projects.updateEquipment(projectId, id, dto);
   }
+
+  /**
+   * Entfernt Equipment.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis
+   */
 
   @Delete(':projectId/equipment/:id')
   removeEquipment(
@@ -221,10 +371,23 @@ export class ProjectsController {
 
   // ── E-Mail-Verteiler ─────────────────────────────────────────
 
+  /**
+   * Listet E-Mail-Empfänger des Projekts.
+   *
+   * @param projectId - ID des Projekts (string)
+   */
+
   @Get(':projectId/email-recipients')
   findEmailRecipients(@Param('projectId') projectId: string) {
     return this.projects.findEmailRecipients(projectId);
   }
+
+  /**
+   * Legt einen E-Mail-Empfänger an.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateEmailRecipientDto)
+   */
 
   @Post(':projectId/email-recipients')
   createEmailRecipient(
@@ -234,6 +397,14 @@ export class ProjectsController {
     return this.projects.createEmailRecipient(projectId, dto);
   }
 
+  /**
+   * Aktualisiert einen E-Mail-Empfänger.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateEmailRecipientDto)
+   */
+
   @Patch(':projectId/email-recipients/:id')
   updateEmailRecipient(
     @Param('projectId') projectId: string,
@@ -242,6 +413,13 @@ export class ProjectsController {
   ) {
     return this.projects.updateEmailRecipient(projectId, id, dto);
   }
+
+  /**
+   * Entfernt einen E-Mail-Empfänger.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   */
 
   @Delete(':projectId/email-recipients/:id')
   removeEmailRecipient(
@@ -253,10 +431,24 @@ export class ProjectsController {
 
   // ── Notizen ──────────────────────────────────────────────────
 
+  /**
+   * Listet Projektnotizen.
+   *
+   * @param projectId - ID des Projekts (string)
+   */
+
   @Get(':projectId/notes')
   findNotes(@Param('projectId') projectId: string) {
     return this.projects.findNotes(projectId);
   }
+
+  /**
+   * Legt eine Projektnotiz an.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateNoteDto)
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   */
 
   @Post(':projectId/notes')
   createNote(
@@ -267,6 +459,13 @@ export class ProjectsController {
     return this.projects.createNote(projectId, dto, user.id);
   }
 
+  /**
+   * Entfernt eine Projektnotiz.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   */
+
   @Delete(':projectId/notes/:id')
   removeNote(@Param('projectId') projectId: string, @Param('id') id: string) {
     return this.projects.removeNote(projectId, id);
@@ -274,10 +473,23 @@ export class ProjectsController {
 
   // ── Monteur-Zuordnungen ──────────────────────────────────────
 
+  /**
+   * Listet Monteur-/Team-Zuordnungen am Projekt.
+   *
+   * @param projectId - ID des Projekts (string)
+   */
+
   @Get(':projectId/assignments')
   findAssignments(@Param('projectId') projectId: string) {
     return this.projects.findAssignments(projectId);
   }
+
+  /**
+   * Erstellt eine Projektzuordnung.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param dto - Request-Body / Eingabedaten (CreateAssignmentDto)
+   */
 
   @Post(':projectId/assignments')
   createAssignment(
@@ -287,6 +499,14 @@ export class ProjectsController {
     return this.projects.createAssignment(projectId, dto);
   }
 
+  /**
+   * Aktualisiert eine Projektzuordnung.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateAssignmentDto)
+   */
+
   @Patch(':projectId/assignments/:id')
   updateAssignment(
     @Param('projectId') projectId: string,
@@ -295,6 +515,13 @@ export class ProjectsController {
   ) {
     return this.projects.updateAssignment(projectId, id, dto);
   }
+
+  /**
+   * Entfernt eine Projektzuordnung.
+   *
+   * @param projectId - ID des Projekts (string)
+   * @param id - Primärschlüssel der Entität (string)
+   */
 
   @Delete(':projectId/assignments/:id')
   removeAssignment(

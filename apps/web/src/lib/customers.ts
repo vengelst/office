@@ -1,7 +1,7 @@
 /**
- * Typen und API-Funktionen für das Kundenmodul.
- * Spiegelt die Antworten der NestJS-Customers-/Documents-Endpoints wider.
+ * API-Helfer für Kunden-CRUD, Niederlassungen und Kontakte.
  */
+
 import { apiClient } from './api-client';
 
 /** Aktiv-/Inaktiv-Status eines Kunden. */

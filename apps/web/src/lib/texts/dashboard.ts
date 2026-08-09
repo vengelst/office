@@ -1,4 +1,8 @@
-/** UI-Texte: `dashboard`. */
+/**
+ * UI-Texte für Domäne `dashboard` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const dashboard = {
     title: 'Dashboard',
     welcome: 'Willkommen zurück',

@@ -1,7 +1,7 @@
 /**
- * Typen und API-Funktionen für das Monteur-/Personalmodul.
- * Spiegelt die Antworten der NestJS-Workers-/Subcontractors-/Teams-Endpoints wider.
+ * API-Helfer für Monteure, Sprachen und Zertifikate.
  */
+
 import { apiClient } from './api-client';
 
 /** Beschäftigungsart: eigener Mitarbeiter oder über Subunternehmer. */
@@ -197,6 +197,9 @@ export interface ExpiringDocumentWorker {
 /** Kompakte Darstellung eines Subunternehmers für Listenansichten. */
 export type SubcontractorType = 'SUBCONTRACTOR' | 'SUPPLIER';
 
+/**
+ * Typ/Interface `SubcontractorListItem` für die Web-App.
+ */
 export interface SubcontractorListItem {
   id: string;
   name: string;
@@ -604,7 +607,9 @@ export const teamsApi = {
 
 // ── Helfer ─────────────────────────────────────────────────────
 
-/** Erzeugt den vollen Namen eines Monteurs aus Vor- und Nachname. */
+/**
+ * Erzeugt den vollen Namen eines Monteurs aus Vor- und Nachname.
+ */
 export const workerFullName = (w: {
   firstName: string;
   lastName: string;

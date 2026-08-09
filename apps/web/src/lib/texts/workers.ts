@@ -1,4 +1,8 @@
-/** UI-Texte: `workers`. */
+/**
+ * UI-Texte für Domäne `workers` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const workers = {
     title: 'Monteure',
     subtitle: 'Monteure und Personal verwalten',

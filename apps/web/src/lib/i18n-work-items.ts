@@ -1,17 +1,7 @@
 /**
- * Zweisprachige Labels (DE + SK) der Arbeitsitems-Oberfläche im Web.
- *
- * ⚠️ Sync mit `apps/mobile/lib/i18n-work-items.ts` – Web und APK müssen
- * feature- und textgleich sein (SPEZ-arbeitsitems.md Abschnitt 13).
- * Wird ein Text hier geändert, **muss** die Mobile-Datei mitgeändert werden
- * (und umgekehrt). Der Block `T` unterhalb ist eine 1:1-Kopie; nur der
- * ausdrücklich markierte Abschnitt am Ende enthält Web-spezifische Zusätze
- * (Overlay/Blob-PDF gibt es auf dem Gerät nicht).
- *
- * SPEZ-arbeitsitems.md Abschnitt 4.1 / 13: „Sprache Monteur-UI: DE + SK“.
- * Bewusst eine flache Konstanten-Map statt eines i18n-Frameworks – es gibt
- * keine Sprachumschaltung, jedes Label zeigt **beide** Sprachen.
+ * DE/SK-Texte und Label-Helfer für Work-Items.
  */
+
 import type { WorkItemPdfFailure, WorkItemStatus } from './worker-work-items';
 
 /** Ein Begriff in beiden Sprachen. */
@@ -20,7 +10,12 @@ export interface Bilingual {
   sk: string;
 }
 
-/** „Deutsch / Slovensky“ als eine Zeile. */
+/**
+ * „Deutsch / Slovensky“ als eine Zeile.
+ *
+ * @param term - Parameter `term` (Bilingual)
+ * @returns string
+ */
 export function both(term: Bilingual): string {
   return `${term.de} / ${term.sk}`;
 }
@@ -36,7 +31,12 @@ export const STATUS_LABELS: Record<WorkItemStatus, Bilingual> = {
   APPROVED: { de: 'Geprüft', sk: 'Schválené' },
 };
 
-/** Kurzform für Badges (eine Zeile, beide Sprachen). */
+/**
+ * Kurzform für Badges (eine Zeile, beide Sprachen).
+ *
+ * @param status - Parameter `status` (WorkItemStatus)
+ * @returns string
+ */
 export function statusLabel(status: WorkItemStatus): string {
   return both(STATUS_LABELS[status]);
 }

@@ -1,3 +1,8 @@
+/**
+ * Service für Customers.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -169,7 +174,12 @@ export class CustomersService {
     });
   }
 
-  /** Soft-Delete: setzt deletedAt. */
+  /**
+   * Soft-Delete: setzt deletedAt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
   async remove(id: string) {
     await this.ensureCustomer(id);
     await this.prisma.customer.update({
@@ -179,7 +189,12 @@ export class CustomersService {
     return { id, deleted: true };
   }
 
-  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  /**
+   * Mehrfach-Löschen: ruft remove() je ID auf.
+   *
+   * @param ids - Liste von IDs (string[])
+   * @returns Ergebnis der Massenlöschung
+   */
   async bulkRemove(ids: string[]) {
     const results = [];
     const errors = [];
@@ -196,7 +211,11 @@ export class CustomersService {
     return { deleted: results.length, failed: errors.length, results, errors };
   }
 
-  /** Erzeugt die nächste Kundennummer im Format K-YYYY-NNNN. */
+  /**
+   * Erzeugt die nächste Kundennummer im Format K-YYYY-NNNN.
+   *
+   * @returns string
+   */
   private async generateCustomerNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `K-${year}-`;

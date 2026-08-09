@@ -1,4 +1,8 @@
-/** UI-Texte: `teams`. */
+/**
+ * UI-Texte für Domäne `teams` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const teams = {
     title: 'Teams',
     subtitle: 'Monteur-Teams verwalten',

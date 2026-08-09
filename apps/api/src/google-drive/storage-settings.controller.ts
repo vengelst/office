@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Storage Settings.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsString } from 'class-validator';
@@ -28,11 +33,24 @@ class StorageConfigDto {
 export class StorageSettingsController {
   constructor(private readonly drive: GoogleDriveService) {}
 
+  /**
+   * Liest die aktuelle Konfiguration.
+   *
+   * @returns Konfigurationsobjekt (DriveConfig)
+   */
+
   @Get()
   @ApiOperation({ summary: 'Google Drive Konfiguration laden' })
   async getConfig(): Promise<DriveConfig> {
     return this.drive.getConfig();
   }
+
+  /**
+   * Speichert die Konfiguration.
+   *
+   * @param dto - Request-Body / Eingabedaten (StorageConfigDto)
+   * @returns Gespeicherte Konfiguration
+   */
 
   @Put()
   @ApiOperation({ summary: 'Google Drive Konfiguration speichern' })
@@ -41,11 +59,23 @@ export class StorageSettingsController {
     return { saved: true };
   }
 
+  /**
+   * Prüft die Verbindung zum externen Dienst.
+   *
+   * @returns Testergebnis
+   */
+
   @Post('test')
   @ApiOperation({ summary: 'Google Drive Verbindung testen' })
   async testConnection(): Promise<{ success: boolean; error?: string }> {
     return this.drive.testConnection();
   }
+
+  /**
+   * Initialisiert die Ordnerstruktur im Storage.
+   *
+   * @returns Ergebnis der Initialisierung
+   */
 
   @Post('init-folders')
   @ApiOperation({ summary: 'Hauptordner-Struktur in Google Drive anlegen' })

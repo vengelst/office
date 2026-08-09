@@ -1,3 +1,8 @@
+/**
+ * Seite: kiosk / pl (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -39,6 +44,9 @@ function weekdayLabel(iso: string): string {
 type PlState = 'idle' | 'home' | 'timesheet_detail' | 'confirmation';
 type MainTab = 'items' | 'timesheets';
 
+/**
+ * UI-Komponente `KioskPlPage`.
+ */
 export default function KioskPlPage() {
   const router = useRouter();
   const t = texts.kiosk.pl;

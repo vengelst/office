@@ -1,12 +1,7 @@
 /**
- * Typen und API-Funktionen für die Arbeitsitems (SPEZ-arbeitsitems.md).
- * Spiegelt die Büro-/Admin-Endpoints aus `apps/api/src/work-items/` wider
- * sowie die Kunden-PL-Endpoints (`/pl/**`, siehe `customerPlApi` unten).
- *
- * Der Excel-/CSV-Import läuft als Multipart-Upload (Feld `files`) und daher
- * nicht über `apiClient` (JSON), sondern über `apiUpload` aus `api-client.ts`.
- * Fotos sind Binärdaten und laufen über `fetch` mit Bearer-Token.
+ * API-Helfer für Work-Items, Blöcke und Import (Büro).
  */
+
 import { ApiError, apiClient, apiUpload, TOKEN_STORAGE_KEY } from './api-client';
 
 const API_BASE_URL =
@@ -14,6 +9,9 @@ const API_BASE_URL =
 
 // ── Basis-Typen ────────────────────────────────────────────────
 
+/**
+ * Typ/Interface `WorkItemStatus` für die Web-App.
+ */
 export type WorkItemStatus =
   | 'OPEN'
   | 'IN_PROGRESS'
@@ -30,7 +28,13 @@ export const WORK_ITEM_STATUSES: WorkItemStatus[] = [
   'APPROVED',
 ];
 
+/**
+ * Typ/Interface `WorkItemReportType` für die Web-App.
+ */
 export type WorkItemReportType = 'COMPLETED' | 'REWORK';
+/**
+ * Typ/Interface `WorkItemReviewAction` für die Web-App.
+ */
 export type WorkItemReviewAction = 'APPROVE' | 'FORCE_COMPLETE';
 
 /** Block (PDF-Gruppe) eines Projekts inkl. Item-Anzahl. */
@@ -338,12 +342,18 @@ export interface WorkItemReviewResult {
 
 // ── Anlege-/Änderungs-Payloads ─────────────────────────────────
 
+/**
+ * Typ/Interface `CreateBlockPayload` für die Web-App.
+ */
 export interface CreateBlockPayload {
   blockKey: string;
   name?: string;
   pdfDocumentId?: string;
 }
 
+/**
+ * Typ/Interface `UpdateBlockPayload` für die Web-App.
+ */
 export interface UpdateBlockPayload {
   blockKey?: string;
   name?: string;
@@ -351,6 +361,9 @@ export interface UpdateBlockPayload {
   pdfDocumentId?: string | null;
 }
 
+/**
+ * Typ/Interface `WorkItemPayload` für die Web-App.
+ */
 export interface WorkItemPayload {
   itemKey?: string;
   blockKey?: string;
@@ -370,6 +383,9 @@ export interface WorkItemPayload {
   workScopeSk?: string;
 }
 
+/**
+ * Typ/Interface `MaterialLinePayload` für die Web-App.
+ */
 export interface MaterialLinePayload {
   sortOrder?: number;
   qty?: string;
@@ -404,7 +420,12 @@ export const WORK_ITEM_REVIEW_LABELS: Record<WorkItemReviewAction, string> = {
   FORCE_COMPLETE: 'Vom Kunden-PL fertiggesetzt',
 };
 
-/** Minuten als "3 h 05 min" (leer bei 0). */
+/**
+ * Minuten als "3 h 05 min" (leer bei 0).
+ *
+ * @param minutes - Parameter `minutes` (number | null | undefined)
+ * @returns string
+ */
 export function formatMinutes(minutes: number | null | undefined): string {
   if (minutes == null || minutes <= 0) return '0 min';
   const h = Math.floor(minutes / 60);

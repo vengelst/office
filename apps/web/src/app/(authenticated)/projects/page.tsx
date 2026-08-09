@@ -1,3 +1,8 @@
+/**
+ * Seite: projects (Office-Web).
+ * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ */
+
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -52,6 +57,9 @@ const STATUSES: ProjectStatus[] = [
 ];
 type SortField = 'projectNumber' | 'title' | 'plannedStartDate' | 'priority';
 
+/**
+ * UI-Komponente `ProjectsPage`.
+ */
 export default function ProjectsPage(): React.ReactNode {
   const router = useRouter();
   const { toast } = useToast();

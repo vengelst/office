@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Subcontractors.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -28,6 +33,18 @@ import { UpdateSubcontractorContactDto } from './dto/update-subcontractor-contac
 export class SubcontractorsController {
   constructor(private readonly subcontractors: SubcontractorsService) {}
 
+  /**
+   * Liefert eine (ggf. gefilterte/paginierte) Liste.
+   *
+   * @param page - Seitennummer (1-basiert) (string)
+   * @param limit - Seitengröße (string)
+   * @param search - Freitextsuche (string)
+   * @param active - Parameter `active` (string)
+   * @param sortBy - Parameter `sortBy` (string)
+   * @param sortDir - Parameter `sortDir` ('asc' | 'desc')
+   * @returns Listenergebnis
+   */
+
   @Get()
   @ApiOperation({ summary: 'Subunternehmen auflisten (Suche, Pagination)' })
   findAll(
@@ -49,17 +66,39 @@ export class SubcontractorsController {
     });
   }
 
+  /**
+   * Lädt einen einzelnen Datensatz anhand der ID.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   */
+
   @Get(':id')
   @ApiOperation({ summary: 'Subunternehmen-Detail mit Monteuren und Kontakten' })
   findOne(@Param('id') id: string) {
     return this.subcontractors.findOne(id);
   }
 
+  /**
+   * Legt einen neuen Datensatz an.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateSubcontractorDto)
+   * @returns Neu angelegter Datensatz
+   */
+
   @Post()
   @ApiOperation({ summary: 'Subunternehmen anlegen' })
   create(@Body() dto: CreateSubcontractorDto) {
     return this.subcontractors.create(dto);
   }
+
+  /**
+   * Aktualisiert einen bestehenden Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateSubcontractorDto)
+   * @returns Aktualisierter Datensatz
+   */
 
   @Patch(':id')
   @ApiOperation({ summary: 'Subunternehmen bearbeiten' })
@@ -68,11 +107,25 @@ export class SubcontractorsController {
   }
 
 
+  /**
+   * Löscht bzw. deaktiviert mehrere Datensätze in einem Schritt.
+   *
+   * @param dto - Request-Body / Eingabedaten (BulkDeleteDto)
+   * @returns Ergebnis der Massenlöschung
+   */
+
   @Post('bulk-delete')
   @ApiOperation({ summary: 'Mehrfach löschen' })
   bulkRemove(@Body() dto: BulkDeleteDto) {
     return this.subcontractors.bulkRemove(dto.ids);
   }
+
+  /**
+   * Löscht bzw. deaktiviert einen Datensatz.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Subunternehmen löschen (Soft-Delete)' })
@@ -82,11 +135,26 @@ export class SubcontractorsController {
 
   // ── Kontakte ─────────────────────────────────────────────────
 
+  /**
+   * Listet Kontakte der Entität.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Kontakt-Liste
+   */
+
   @Get(':id/contacts')
   @ApiOperation({ summary: 'Kontakte eines Subunternehmens auflisten' })
   listContacts(@Param('id') id: string) {
     return this.subcontractors.listContacts(id);
   }
+
+  /**
+   * Legt einen Kontakt an.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (CreateSubcontractorContactDto)
+   * @returns Neuer Kontakt
+   */
 
   @Post(':id/contacts')
   @ApiOperation({ summary: 'Kontakt anlegen' })
@@ -97,6 +165,15 @@ export class SubcontractorsController {
     return this.subcontractors.createContact(id, dto);
   }
 
+  /**
+   * Aktualisiert einen Kontakt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param contactId - ID (contactId) (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateSubcontractorContactDto)
+   * @returns Aktualisierter Kontakt
+   */
+
   @Patch(':id/contacts/:contactId')
   @ApiOperation({ summary: 'Kontakt bearbeiten' })
   updateContact(
@@ -106,6 +183,14 @@ export class SubcontractorsController {
   ) {
     return this.subcontractors.updateContact(id, contactId, dto);
   }
+
+  /**
+   * Entfernt einen Kontakt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param contactId - ID (contactId) (string)
+   * @returns Ergebnis
+   */
 
   @Delete(':id/contacts/:contactId')
   @ApiOperation({ summary: 'Kontakt löschen' })

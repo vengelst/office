@@ -1,3 +1,7 @@
+/**
+ * Globaler Exception-Filter: einheitliche JSON-Fehlerantworten (ApiErrorResponse).
+ */
+
 import {
   ArgumentsHost,
   Catch,
@@ -16,6 +20,13 @@ import { ApiErrorResponse } from '@office/types';
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
+  /**
+   * Formatiert Exceptions als einheitliche ApiErrorResponse-JSON-Antwort.
+   *
+   * @param exception - Geworfene Exception oder unbekannter Fehlerwert
+   * @param host - Nest ArgumentHost zur Ermittlung von Request/Response
+   * @returns void (schreibt direkt in die HTTP-Response)
+   */
   catch(exception: unknown, host: ArgumentsHost): void {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();

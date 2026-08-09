@@ -1,3 +1,8 @@
+/**
+ * Navigationsliste der Sidebar.
+ * Teil des App-Chrome unter components/layout.
+ */
+
 'use client';
 
 import Link from 'next/link';
@@ -12,8 +17,10 @@ interface SidebarNavProps {
 
 /**
  * Gemeinsame Navigationsliste für Desktop-Sidebar und mobiles Sheet.
- * Ein reiner Kunden-PL sieht nur seinen eigenen, reduzierten Bereich.
+ *
+ * @param props - Komponenten-Props
  */
+
 export function SidebarNav({ onNavigate }: SidebarNavProps): React.ReactNode {
   const pathname = usePathname();
   const { user } = useAuth();

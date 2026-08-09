@@ -1,4 +1,8 @@
-/** UI-Texte: `projects`. */
+/**
+ * UI-Texte für Domäne `projects` (DE-Labels der Office-Web-App).
+ * Nur String-Konstanten – absichtlich ohne Kommentar je Key.
+ */
+
 export const projects = {
     title: 'Projekte',
     subtitle: 'Projekte planen und steuern',

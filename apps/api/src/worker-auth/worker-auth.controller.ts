@@ -1,3 +1,8 @@
+/**
+ * HTTP-API für Worker Auth.
+ * Leitet Anfragen an den zugehörigen Service weiter und definiert Swagger-Metadaten.
+ */
+
 import {
   Body,
   Controller,
@@ -24,6 +29,14 @@ export class WorkerAuthController {
     private readonly workerAuth: WorkerAuthService,
   ) {}
 
+  /**
+   * Authentifiziert per PIN und stellt ein JWT aus.
+   *
+   * @param dto - Request-Body / Eingabedaten (PinLoginDto)
+   * @returns LoginResponse (LoginResponse)
+   * @throws {UnauthorizedException} Bei ungültigen Anmeldedaten
+   */
+
   @Public()
   @Post('pin-login')
   @HttpCode(HttpStatus.OK)
@@ -31,6 +44,13 @@ export class WorkerAuthController {
   pinLogin(@Body() dto: PinLoginDto): Promise<LoginResponse> {
     return this.auth.pinLogin(dto.pin);
   }
+
+  /**
+   * Liefert den aktuell authentifizierten Akteur.
+   *
+   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
+   * @returns Auth-Profil
+   */
 
   @Public()
   @UseGuards(WorkerAuthGuard)
@@ -40,6 +60,12 @@ export class WorkerAuthController {
   me(@CurrentUser() user: AuthUser) {
     return this.workerAuth.me(user.id);
   }
+
+  /**
+   * Invalidiert die aktuelle Session bzw. das Token.
+   *
+   * @returns Erfolgsbestätigung
+   */
 
   @Public()
   @UseGuards(WorkerAuthGuard)

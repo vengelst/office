@@ -1,3 +1,8 @@
+/**
+ * Globaler JWT-Auth-Guard für die Office-API.
+ * Routen mit @Public() werden ohne Token-Prüfung durchgelassen.
+ */
+
 import {
   ExecutionContext,
   Injectable,
@@ -15,6 +20,11 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     super();
   }
 
+  /**
+   * Entscheidet, ob die aktuelle Route freigegeben wird.
+   *
+   * @param context - Nest ExecutionContext (ExecutionContext)
+   */
   canActivate(context: ExecutionContext) {
     const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
       context.getHandler(),

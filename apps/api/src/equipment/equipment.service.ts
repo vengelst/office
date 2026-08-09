@@ -1,3 +1,8 @@
+/**
+ * Service für Equipment.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -40,8 +45,11 @@ export class EquipmentService {
   ) {}
 
   /**
-   * Paginierte, filterbare Geräteliste.
-   * Inkludiert die aktuelle Zuweisung (Worker-Name).
+   * Paginierte, filterbare Geräteliste. Inkludiert die aktuelle Zuweisung (Worker-Name).
+   *
+   * @param params - Filter-, Sortier- und/oder Pagination-Parameter (ListEquipmentParams)
+   * @returns Listenergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
    */
   async findAll(params: ListEquipmentParams) {
     const page = Math.max(1, Number(params.page) || 1);
@@ -91,7 +99,13 @@ export class EquipmentService {
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) || 1 };
   }
 
-  /** Einzelnes Gerät mit vollständiger Zuweisungshistorie. */
+  /**
+   * Einzelnes Gerät mit vollständiger Zuweisungshistorie.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async findOne(id: string) {
     const equipment = await this.prisma.equipment.findFirst({
       where: { id, deletedAt: null },
@@ -111,7 +125,12 @@ export class EquipmentService {
     return { ...rest, assignments, currentAssignment, history };
   }
 
-  /** Neues Gerät anlegen. */
+  /**
+   * Neues Gerät anlegen.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateEquipmentDto)
+   * @returns Neu angelegter Datensatz
+   */
   async create(dto: CreateEquipmentDto) {
     return this.prisma.equipment.create({
       data: {
@@ -131,7 +150,14 @@ export class EquipmentService {
     });
   }
 
-  /** Gerät aktualisieren. */
+  /**
+   * Gerät aktualisieren.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateEquipmentDto)
+   * @returns Aktualisierter Datensatz
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async update(id: string, dto: UpdateEquipmentDto) {
     await this.ensureExists(id);
     const data: Prisma.EquipmentUncheckedUpdateInput = {};
@@ -152,7 +178,14 @@ export class EquipmentService {
     return this.prisma.equipment.update({ where: { id }, data });
   }
 
-  /** Soft-Delete: setzt deletedAt. */
+  /**
+   * Soft-Delete: setzt deletedAt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async remove(id: string) {
     await this.ensureExists(id);
     await this.prisma.equipment.update({
@@ -162,7 +195,14 @@ export class EquipmentService {
     return { id, deleted: true };
   }
 
-  /** Mehrfach-Löschen: ruft remove() je ID auf. */
+  /**
+   * Mehrfach-Löschen: ruft remove() je ID auf.
+   *
+   * @param ids - Liste von IDs (string[])
+   * @returns Ergebnis der Massenlöschung
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async bulkRemove(ids: string[]) {
     const results = [];
     const errors = [];
@@ -179,7 +219,15 @@ export class EquipmentService {
     return { deleted: results.length, failed: errors.length, results, errors };
   }
 
-  /** Bild hochladen und in MinIO speichern. */
+  /**
+   * Bild hochladen und in MinIO speichern.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param file - Hochgeladene Datei (Multer) (Express.Multer.File)
+   * @returns Bild-Metadaten
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async uploadImage(id: string, file: Express.Multer.File) {
     await this.ensureExists(id);
 
@@ -204,7 +252,14 @@ export class EquipmentService {
     return { id, imageKey: storageKey };
   }
 
-  /** Liefert das Gerätebild als Stream. */
+  /**
+   * Liefert das Gerätebild als Stream.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Bild
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async getImage(id: string): Promise<{ stream: Readable; mimeType: string }> {
     const equipment = await this.prisma.equipment.findFirst({
       where: { id, deletedAt: null },
@@ -221,8 +276,13 @@ export class EquipmentService {
   }
 
   /**
-   * Gerät an einen Monteur ausgeben.
-   * Setzt den Status auf ASSIGNED.
+   * Gerät an einen Monteur ausgeben. Setzt den Status auf ASSIGNED.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (AssignEquipmentDto)
+   * @param assignedBy - Parameter `assignedBy` (string)
+   * @returns Zuordnung
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async assign(id: string, dto: AssignEquipmentDto, assignedBy?: string) {
     await this.ensureExists(id);
@@ -264,8 +324,11 @@ export class EquipmentService {
   }
 
   /**
-   * Rückgabe registrieren.
-   * Setzt returnedAt und den Equipment-Status auf AVAILABLE.
+   * Rückgabe registrieren. Setzt returnedAt und den Equipment-Status auf AVAILABLE.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (ReturnEquipmentDto)
+   * @throws {BadRequestException} Bei ungültigen Eingaben
    */
   async returnEquipment(id: string, dto: ReturnEquipmentDto) {
     await this.ensureExists(id);
@@ -297,7 +360,13 @@ export class EquipmentService {
     return this.findOne(id);
   }
 
-  /** Alle Zuweisungen eines Geräts. */
+  /**
+   * Alle Zuweisungen eines Geräts.
+   *
+   * @param equipmentId - ID (equipmentId) (string)
+   * @returns Historie
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async getAssignmentHistory(equipmentId: string) {
     return this.prisma.equipmentAssignment.findMany({
       where: { equipmentId },
@@ -306,7 +375,13 @@ export class EquipmentService {
     });
   }
 
-  /** Aktuelle Geräte eines Monteurs (nicht zurückgegeben). */
+  /**
+   * Aktuelle Geräte eines Monteurs (nicht zurückgegeben).
+   *
+   * @param workerId - ID des Monteurs (string)
+   * @returns Equipment-Liste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async getWorkerEquipment(workerId: string) {
     return this.prisma.equipmentAssignment.findMany({
       where: { workerId, returnedAt: null },
@@ -325,7 +400,12 @@ export class EquipmentService {
     });
   }
 
-  /** Aktive Monteure für Auswahl-Dropdown. */
+  /**
+   * Aktive Monteure für Auswahl-Dropdown.
+   *
+   * @returns Monteur-Liste
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   listWorkers() {
     return this.prisma.worker.findMany({
       where: { active: true, deletedAt: null },
@@ -334,7 +414,12 @@ export class EquipmentService {
     });
   }
 
-  /** Alle vorhandenen Kategorien (Distinct). */
+  /**
+   * Alle vorhandenen Kategorien (Distinct).
+   *
+   * @returns Kategorie-Liste (string[])
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async listCategories(): Promise<string[]> {
     const result = await this.prisma.equipment.findMany({
       where: { deletedAt: null, category: { not: null } },
@@ -345,6 +430,13 @@ export class EquipmentService {
     return result.map((r) => r.category!).filter(Boolean);
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureExists` (ensure Exists).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureExists(id: string): Promise<void> {
     const count = await this.prisma.equipment.count({
       where: { id, deletedAt: null },

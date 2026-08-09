@@ -1,3 +1,8 @@
+/**
+ * Service für Teams.
+ * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
+ */
+
 import {
   BadRequestException,
   Injectable,
@@ -78,20 +83,42 @@ export class TeamsService {
     };
   }
 
-  /** Erstellt ein neues Team mit optionalem Teamleiter. */
+  /**
+   * Erstellt ein neues Team mit optionalem Teamleiter.
+   *
+   * @param dto - Request-Body / Eingabedaten (CreateTeamDto)
+   * @returns Neu angelegter Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async create(dto: CreateTeamDto) {
     if (dto.leaderId) await this.ensureWorker(dto.leaderId);
     return this.prisma.workerTeam.create({ data: { ...dto } });
   }
 
-  /** Aktualisiert ein bestehendes Team (Name, Beschreibung, Teamleiter). */
+  /**
+   * Aktualisiert ein bestehendes Team (Name, Beschreibung, Teamleiter).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @param dto - Request-Body / Eingabedaten (UpdateTeamDto)
+   * @returns Aktualisierter Datensatz
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async update(id: string, dto: UpdateTeamDto) {
     await this.ensureTeam(id);
     if (dto.leaderId) await this.ensureWorker(dto.leaderId);
     return this.prisma.workerTeam.update({ where: { id }, data: { ...dto } });
   }
 
-  /** Hartes Löschen – Mitgliedschaften werden via Cascade entfernt. */
+  /**
+   * Hartes Löschen – Mitgliedschaften werden via Cascade entfernt.
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns Ergebnis der Löschung
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @throws {BadRequestException} Bei ungültigen Eingaben
+   */
   async remove(id: string) {
     await this.ensureTeam(id);
     await this.prisma.workerTeam.delete({ where: { id } });
@@ -132,7 +159,14 @@ export class TeamsService {
     });
   }
 
-  /** Mitglied entfernen: setzt leftAt (historisiert die Mitgliedschaft). */
+  /**
+   * Mitglied entfernen: setzt leftAt (historisiert die Mitgliedschaft).
+   *
+   * @param teamId - ID (teamId) (string)
+   * @param memberId - ID (memberId) (string)
+   * @returns Ergebnis
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   async removeMember(teamId: string, memberId: string) {
     const member = await this.prisma.workerTeamMember.findFirst({
       where: { id: memberId, teamId },
@@ -151,6 +185,12 @@ export class TeamsService {
 
   // ── Hilfsfunktionen ──────────────────────────────────────────
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `resolveLeaders` (resolve Leaders).
+   *
+   * @param leaderIds - Parameter `leaderIds` ((string | null)[])
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async resolveLeaders(leaderIds: (string | null)[]) {
     const ids = leaderIds.filter((id): id is string => !!id);
     if (ids.length === 0) return new Map<string, unknown>();
@@ -161,6 +201,13 @@ export class TeamsService {
     return new Map(workers.map((w) => [w.id, w]));
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureTeam` (ensure Team).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureTeam(id: string): Promise<void> {
     const count = await this.prisma.workerTeam.count({ where: { id } });
     if (count === 0) {
@@ -168,6 +215,13 @@ export class TeamsService {
     }
   }
 
+  /**
+   * Interner Helfer: Interner Helfer: Implementiert `ensureWorker` (ensure Worker).
+   *
+   * @param id - Primärschlüssel der Entität (string)
+   * @returns void
+   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   */
   private async ensureWorker(id: string): Promise<void> {
     const count = await this.prisma.worker.count({
       where: { id, deletedAt: null },
