@@ -4,6 +4,9 @@
  */
 import { apiClient, apiFetch, apiUpload } from './api-client';
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
+
 /** SMTP-Konfiguration für den E-Mail-Versand (Server, Zugangsdaten, Absender). */
 export interface SmtpConfig {
   host: string;
@@ -24,30 +27,22 @@ export interface StorageConfig {
   impersonateEmail: string;
 }
 
+/** Öffentliche URL zum Firmenlogo-Stream (auch ohne Login). */
+export function companyLogoUrl(cacheBust?: string | number): string {
+  const base = `${API_BASE_URL}/company/logo/file`;
+  return cacheBust != null ? `${base}?t=${cacheBust}` : base;
+}
+
 /** API-Client für System-Einstellungen (E-Mail/SMTP, Speicher/Google Drive). */
 export const settingsApi = {
   // E-Mail / SMTP
-  /**
-   * GET /settings/email – Liest die aktuelle SMTP-Konfiguration.
-   * @returns SMTP-Einstellungen inkl. Flag, ob bereits konfiguriert
-   */
   getEmailConfig: () =>
     apiClient.get<SmtpConfig & { configured: boolean }>('/settings/email'),
-  /**
-   * PUT /settings/email – Speichert die SMTP-Konfiguration.
-   * @param config - Vollständige SMTP-Einstellungen
-   * @returns Bestätigung der Speicherung
-   */
   saveEmailConfig: (config: SmtpConfig) =>
     apiFetch<{ saved: boolean }>('/settings/email', {
       method: 'PUT',
       body: config,
     }),
-  /**
-   * POST /settings/email/test – Sendet eine Test-E-Mail an die angegebene Adresse.
-   * @param to - Empfänger-E-Mail-Adresse
-   * @returns Erfolg/Fehler-Status des Versands
-   */
   sendTestEmail: (to: string) =>
     apiClient.post<{ success: boolean; error?: string }>(
       '/settings/email/test',
@@ -55,26 +50,13 @@ export const settingsApi = {
     ),
 
   // Storage / Google Drive
-  /**
-   * GET /settings/storage – Liest die aktuelle Speicher-Konfiguration.
-   * @returns Google-Drive-Einstellungen
-   */
   getStorageConfig: () =>
     apiClient.get<StorageConfig>('/settings/storage'),
-  /**
-   * PUT /settings/storage – Speichert die Speicher-Konfiguration.
-   * @param config - Vollständige Google-Drive-Einstellungen
-   * @returns Bestätigung der Speicherung
-   */
   saveStorageConfig: (config: StorageConfig) =>
     apiFetch<{ saved: boolean }>('/settings/storage', {
       method: 'PUT',
       body: config,
     }),
-  /**
-   * POST /settings/storage/test – Testet die Google-Drive-Verbindung.
-   * @returns Erfolg/Fehler-Status der Verbindung
-   */
   testStorageConnection: () =>
     apiClient.post<{ success: boolean; error?: string }>(
       '/settings/storage/test',
@@ -87,7 +69,10 @@ export const settingsApi = {
   uploadCompanyLogo: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiUpload<{ success: true; logoKey: string }>('/company/logo', formData);
+    return apiUpload<{ success: true; logoKey: string }>(
+      '/company/logo',
+      formData,
+    );
   },
   getCompanyLogoKey: () =>
     apiClient.get<{ logoKey: string | null }>('/company/logo'),

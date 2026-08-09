@@ -2,8 +2,11 @@ import {
   Body,
   Controller,
   Get,
+  NotFoundException,
   Post,
   BadRequestException,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -11,8 +14,10 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
+import type { Response } from 'express';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 
@@ -40,6 +45,7 @@ export class CompanyInfoDto {
 
 const COMPANY_SETTINGS_KEY = 'company_info';
 const COMPANY_LOGO_KEY = 'company-logo';
+const COMPANY_LOGO_SETTING = 'company_logo_key';
 
 @ApiTags('company')
 @ApiBearerAuth()
@@ -88,13 +94,29 @@ export class CompanyController {
     if (!file) {
       throw new BadRequestException('Keine Datei');
     }
-    const ext = file.originalname.split('.').pop() ?? 'png';
+    const allowed = [
+      'image/png',
+      'image/jpeg',
+      'image/jpg',
+      'image/webp',
+      'image/svg+xml',
+    ];
+    if (file.mimetype && !allowed.includes(file.mimetype)) {
+      throw new BadRequestException('Nur Bilddateien (PNG, JPEG, WebP, SVG)');
+    }
+    const ext = (file.originalname.split('.').pop() ?? 'png').toLowerCase();
     const logoKey = `${COMPANY_LOGO_KEY}.${ext}`;
+    const prev = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_SETTING },
+    });
+    if (prev?.value && prev.value !== logoKey) {
+      await this.storage.remove(prev.value).catch(() => undefined);
+    }
     await this.storage.upload(logoKey, file.buffer, file.mimetype);
     await this.prisma.appSetting.upsert({
-      where: { key: 'company_logo_key' },
+      where: { key: COMPANY_LOGO_SETTING },
       update: { value: logoKey },
-      create: { key: 'company_logo_key', value: logoKey },
+      create: { key: COMPANY_LOGO_SETTING, value: logoKey },
     });
     return { success: true, logoKey };
   }
@@ -103,8 +125,41 @@ export class CompanyController {
   @ApiOperation({ summary: 'Firmenlogo-Key abrufen' })
   async getLogoKey(): Promise<{ logoKey: string | null }> {
     const setting = await this.prisma.appSetting.findUnique({
-      where: { key: 'company_logo_key' },
+      where: { key: COMPANY_LOGO_SETTING },
     });
     return { logoKey: setting?.value ?? null };
+  }
+
+  /**
+   * Öffentlicher Stream des Firmenlogos (Login, Sidebar, Druck).
+   * Keine Rollenpflicht – Logo ist kein Geheimnis.
+   */
+  @Public()
+  @Roles()
+  @Get('logo/file')
+  @ApiOperation({ summary: 'Firmenlogo als Datei-Stream' })
+  async getLogoFile(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_SETTING },
+    });
+    if (!setting?.value) {
+      throw new NotFoundException('Kein Firmenlogo hinterlegt');
+    }
+    const key = setting.value;
+    const stream = await this.storage.getStream(key);
+    const mime = key.endsWith('.png')
+      ? 'image/png'
+      : key.endsWith('.webp')
+        ? 'image/webp'
+        : key.endsWith('.svg')
+          ? 'image/svg+xml'
+          : 'image/jpeg';
+    res.set({
+      'Content-Type': mime,
+      'Cache-Control': 'public, max-age=300',
+    });
+    return new StreamableFile(stream);
   }
 }

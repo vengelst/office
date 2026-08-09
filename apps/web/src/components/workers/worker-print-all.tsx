@@ -11,6 +11,7 @@ import type {
 import { workerFullName } from '@/lib/workers';
 import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
+import { CompanyLogoPrint } from '@/components/layout/app-brand';
 
 const t = texts.workers;
 
@@ -67,6 +68,7 @@ export const WorkerPrintAll = forwardRef<HTMLDivElement, { worker: WorkerDetail 
     return (
       <div ref={ref} className="print-all-content hidden print:space-y-4 print:p-6 text-sm">
         <div className="mb-4 border-b-2 pb-2">
+          <CompanyLogoPrint className="mb-3" />
           <h1 className="text-xl font-bold">{name}</h1>
           <p className="font-mono text-xs text-muted-foreground">{worker.workerNumber}</p>
         </div>

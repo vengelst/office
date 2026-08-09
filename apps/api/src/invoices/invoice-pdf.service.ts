@@ -1,8 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InvoiceType } from '@prisma/client';
 import PDFDocument from 'pdfkit';
+import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../documents/storage.service';
 import { CompanyInfo, loadCompanyInfoFromDb } from './company.config';
+
+const COMPANY_LOGO_SETTING = 'company_logo_key';
 
 /**
  * Service zur PDF-Generierung von Rechnungen.
@@ -11,7 +15,10 @@ import { CompanyInfo, loadCompanyInfoFromDb } from './company.config';
  */
 @Injectable()
 export class InvoicePdfService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   /** Erzeugt die Rechnung als PDF-Buffer (Standard-Layout). */
   async generate(id: string): Promise<{ buffer: Buffer; filename: string }> {
@@ -47,6 +54,7 @@ export class InvoicePdfService {
     }
 
     const company = await loadCompanyInfoFromDb(this.prisma);
+    const logo = await this.loadCompanyLogo();
 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];
@@ -56,7 +64,7 @@ export class InvoicePdfService {
       doc.on('error', reject);
     });
 
-    this.drawHeader(doc, company, invoice);
+    this.drawHeader(doc, company, invoice, logo);
     this.drawRecipient(doc, invoice);
     this.drawMeta(doc, invoice);
     this.drawLineTable(doc, invoice.lines);
@@ -70,6 +78,20 @@ export class InvoicePdfService {
     return { buffer, filename };
   }
 
+  /** Lädt das Firmenlogo aus dem Storage (falls hinterlegt). */
+  private async loadCompanyLogo(): Promise<Buffer | null> {
+    const setting = await this.prisma.appSetting.findUnique({
+      where: { key: COMPANY_LOGO_SETTING },
+    });
+    if (!setting?.value) return null;
+    try {
+      const stream = await this.storage.getStream(setting.value);
+      return await streamToBuffer(stream);
+    } catch {
+      return null;
+    }
+  }
+
   // ── Layout-Bausteine ─────────────────────────────────────────
 
   /** Zeichnet den Rechnungskopf mit Firmenlogo, Titel und Metadaten. */
@@ -77,6 +99,7 @@ export class InvoicePdfService {
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
     invoice: { invoiceType: InvoiceType; invoiceNumber: string; issueDate: Date },
+    logo: Buffer | null,
   ): void {
     const title =
       invoice.invoiceType === InvoiceType.OUTGOING
@@ -90,11 +113,21 @@ export class InvoicePdfService {
     doc.text(`Tel: ${company.phone}`, { width: 245, align: 'right' });
     doc.text(company.email, { width: 245, align: 'right' });
 
+    let titleY = 50;
+    if (logo) {
+      try {
+        doc.image(logo, 50, 40, { fit: [120, 48], align: 'left' });
+        titleY = 100;
+      } catch {
+        /* ungültiges Logo ignorieren */
+      }
+    }
+
     doc.fillColor('#000').fontSize(20);
-    doc.text(title, 50, 50);
+    doc.text(title, 50, titleY);
     doc.fontSize(10).fillColor('#444');
-    doc.text(`Rechnungs-Nr.: ${invoice.invoiceNumber}`, 50, 80);
-    doc.text(`Datum: ${formatDate(invoice.issueDate)}`, 50, 95);
+    doc.text(`Rechnungs-Nr.: ${invoice.invoiceNumber}`, 50, titleY + 30);
+    doc.text(`Datum: ${formatDate(invoice.issueDate)}`, 50, titleY + 45);
     doc.fillColor('#000');
   }
 
@@ -384,6 +417,15 @@ export class InvoicePdfService {
 }
 
 // ── Formatierung ───────────────────────────────────────────────
+
+function streamToBuffer(stream: Readable): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on('data', (c: Buffer) => chunks.push(c));
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+    stream.on('error', reject);
+  });
+}
 
 function formatDate(date: Date): string {
   return date.toLocaleDateString('de-DE', {

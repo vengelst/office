@@ -11,6 +11,7 @@ import type {
 } from '@/lib/projects';
 import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
+import { CompanyLogoPrint } from '@/components/layout/app-brand';
 
 const t = texts.projects;
 
@@ -72,6 +73,7 @@ export const ProjectPrintAll = forwardRef<HTMLDivElement, { project: ProjectDeta
     return (
       <div ref={ref} className="print-all-content hidden print:space-y-4 print:p-6 text-sm">
         <div className="mb-4 border-b-2 pb-2">
+          <CompanyLogoPrint className="mb-3" />
           <h1 className="text-xl font-bold">{project.title}</h1>
           <p className="font-mono text-xs text-muted-foreground">
             {project.projectNumber} · {project.customer.companyName}

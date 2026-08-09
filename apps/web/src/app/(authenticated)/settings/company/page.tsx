@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiError } from '@/lib/api-client';
-import { settingsApi } from '@/lib/settings';
+import { companyLogoUrl, settingsApi } from '@/lib/settings';
 
 const FIELDS = {
   firma: [
@@ -43,9 +43,6 @@ const FIELDS = {
   ],
 } as const;
 
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
-
 export default function CompanySettingsPage(): React.ReactNode {
   const { toast } = useToast();
 
@@ -53,6 +50,8 @@ export default function CompanySettingsPage(): React.ReactNode {
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<Record<string, string>>({});
   const [logoKey, setLogoKey] = useState<string | null>(null);
+  const [logoTick, setLogoTick] = useState(0);
+  const [logoBroken, setLogoBroken] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -93,6 +92,8 @@ export default function CompanySettingsPage(): React.ReactNode {
     try {
       const result = await settingsApi.uploadCompanyLogo(file);
       setLogoKey(result.logoKey);
+      setLogoBroken(false);
+      setLogoTick(Date.now());
       toast({ description: 'Logo hochgeladen' });
     } catch (err) {
       toast({
@@ -151,31 +152,37 @@ export default function CompanySettingsPage(): React.ReactNode {
           {renderSection('Rechtliches', FIELDS.rechtliches)}
           {renderSection('Bankverbindung', FIELDS.bank)}
 
-          {/* Logo */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-muted-foreground">
               Logo
             </h3>
-            {logoKey && (
-              <div className="mb-2">
+            <p className="text-xs text-muted-foreground">
+              Erscheint in der App-Navigation, beim Drucken und auf
+              Rechnungs-PDFs. Empfohlen: PNG oder JPEG.
+            </p>
+            {logoKey && !logoBroken && (
+              <div className="mb-2 inline-block rounded border bg-white p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`${API_BASE_URL}/documents/download/${logoKey}`}
+                  src={companyLogoUrl(logoTick || Date.now())}
                   alt="Firmenlogo"
-                  className="h-20 rounded border object-contain"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
+                  className="h-20 max-w-[240px] object-contain"
+                  onError={() => setLogoBroken(true)}
                 />
               </div>
             )}
-            <div className="flex items-center gap-3">
+            {logoKey && logoBroken && (
+              <p className="text-sm text-amber-600">
+                Logo ist hinterlegt, konnte aber nicht geladen werden.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
               <Input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp,image/svg+xml"
                 onChange={handleLogoUpload}
-                className="max-w-xs"
+                className="max-w-xs min-h-[44px]"
               />
               {uploading && (
                 <span className="text-sm text-muted-foreground">

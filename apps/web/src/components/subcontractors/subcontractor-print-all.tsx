@@ -4,6 +4,7 @@ import { forwardRef, type ReactNode } from 'react';
 import type { SubcontractorContact, SubcontractorDetail, SubcontractorWorker } from '@/lib/workers';
 import { workerFullName } from '@/lib/workers';
 import { texts } from '@/lib/texts';
+import { CompanyLogoPrint } from '@/components/layout/app-brand';
 
 const t = texts.subcontractors;
 
@@ -61,6 +62,7 @@ export const SubcontractorPrintAll = forwardRef<
   return (
     <div ref={ref} className="print-all-content hidden print:space-y-4 print:p-6 text-sm">
       <div className="mb-4 border-b-2 pb-2">
+        <CompanyLogoPrint className="mb-3" />
         <h1 className="text-xl font-bold">{sub.name}</h1>
         <p className="text-xs text-muted-foreground">
           {sub.subcontractorType === 'SUPPLIER' ? 'Lieferant' : 'Subunternehmen'}

@@ -2,7 +2,6 @@
 
 import { useEffect, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2 } from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -18,6 +17,7 @@ import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 import { homeRouteFor } from '@/lib/roles';
 import { texts } from '@/lib/texts';
+import { AppBrand } from '@/components/layout/app-brand';
 
 export default function LoginPage(): React.ReactNode {
   const router = useRouter();
@@ -60,8 +60,8 @@ export default function LoginPage(): React.ReactNode {
     <main className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <Building2 className="h-6 w-6" />
+          <div className="mx-auto flex justify-center">
+            <AppBrand size="lg" showTagline={false} />
           </div>
           <CardTitle className="text-2xl">{texts.login.title}</CardTitle>
           <CardDescription>{texts.login.subtitle}</CardDescription>

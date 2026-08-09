@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, LogOut, Menu, User as UserIcon } from 'lucide-react';
+import { LogOut, Menu, User as UserIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -23,6 +23,7 @@ import { useAuth } from '@/lib/auth-context';
 import { texts } from '@/lib/texts';
 import { SidebarNav } from './sidebar-nav';
 import { ThemeToggle } from './theme-toggle';
+import { AppBrand } from './app-brand';
 
 /** Top-Bar mit Hamburger (mobil), Theme-Toggle und Benutzermenü. */
 export function Header(): React.ReactNode {
@@ -51,9 +52,9 @@ export function Header(): React.ReactNode {
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="flex w-64 flex-col gap-0 overflow-hidden p-0">
-            <SheetHeader className="flex h-16 shrink-0 flex-row items-center gap-2 border-b px-6 text-left">
-              <Building2 className="h-6 w-6 text-primary" />
-              <SheetTitle>{texts.app.name}</SheetTitle>
+            <SheetHeader className="flex h-16 shrink-0 flex-row items-center border-b px-6 text-left">
+              <SheetTitle className="sr-only">{texts.app.name}</SheetTitle>
+              <AppBrand showTagline={false} />
             </SheetHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <SidebarNav onNavigate={() => setMobileOpen(false)} />
