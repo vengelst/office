@@ -7,7 +7,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { texts } from '@/lib/texts';
 import {
   kioskApi,
   setWorkerSession,
@@ -25,7 +24,8 @@ import {
 import { OfflineClockBanner } from '@/components/offline-clock-banner';
 import { WorkItemsList } from '@/components/worker-work-items/work-items-list';
 import { WorkItemDetail } from '@/components/worker-work-items/work-item-detail';
-import { T } from '@/lib/i18n-work-items';
+import { KIOSK_LANGS, useKioskLocale } from '@/lib/kiosk-locale';
+import { KT } from '@/lib/texts/kiosk-terminal-i18n';
 import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
@@ -56,7 +56,7 @@ interface GpsData {
  */
 export default function KioskTerminalPage() {
   const router = useRouter();
-  const t = texts.kiosk.terminal;
+  const { lang, setLang, t, dateLocale } = useKioskLocale();
 
   // Config
   const [config, setConfig] = useState<KioskConfig | null>(null);
@@ -265,7 +265,7 @@ export default function KioskTerminalPage() {
       lastInteraction.current = Date.now();
       acquireGps();
     } catch {
-      setPinError(t.pinError);
+      setPinError(t(KT.pinError));
       setPin('');
     } finally {
       setPinLoading(false);
@@ -306,20 +306,25 @@ export default function KioskTerminalPage() {
       const now = formatTime(new Date().toISOString());
       if (result.queued) {
         setConfirmMessage(
-          `${worker.firstName} ${worker.lastName} – ${t.savedPending}`,
+          `${worker.firstName} ${worker.lastName} – ${t(KT.savedPending)}`,
         );
-        setConfirmSubtext(t.goodDay);
+        setConfirmSubtext(t(KT.goodDay));
       } else {
         setConfirmMessage(
-          t.confirmClockIn(`${worker.firstName} ${worker.lastName}`, now),
+          t(
+            KT.confirmClockIn(
+              `${worker.firstName} ${worker.lastName}`,
+              now,
+            ),
+          ),
         );
-        setConfirmSubtext(t.goodDay);
+        setConfirmSubtext(t(KT.goodDay));
       }
       setState('confirmation');
       tryVibrate();
       setTimeout(resetToIdle, 3000);
     } catch {
-      setPinError(t.error);
+      setPinError(t(KT.error));
     } finally {
       setProcessing(false);
     }
@@ -344,27 +349,29 @@ export default function KioskTerminalPage() {
       const now = formatTime(new Date().toISOString());
       if (result.queued) {
         setConfirmMessage(
-          `${worker.firstName} ${worker.lastName} – ${t.savedPending}`,
+          `${worker.firstName} ${worker.lastName} – ${t(KT.savedPending)}`,
         );
-        setConfirmSubtext(t.goodBye);
+        setConfirmSubtext(t(KT.goodBye));
       } else {
         const duration = result.lastGrossMinutes
           ? formatDuration(result.lastGrossMinutes * 60)
           : '';
         setConfirmMessage(
-          t.confirmClockOut(
-            `${worker.firstName} ${worker.lastName}`,
-            now,
-            duration,
+          t(
+            KT.confirmClockOut(
+              `${worker.firstName} ${worker.lastName}`,
+              now,
+              duration,
+            ),
           ),
         );
-        setConfirmSubtext(t.goodBye);
+        setConfirmSubtext(t(KT.goodBye));
       }
       setState('confirmation');
       tryVibrate();
       setTimeout(resetToIdle, 3000);
     } catch {
-      setPinError(t.error);
+      setPinError(t(KT.error));
     } finally {
       setProcessing(false);
     }
@@ -416,8 +423,17 @@ export default function KioskTerminalPage() {
     (a) => a.project.id === config.projectId && a.project.itemBased === true,
   );
 
-  const timeStr = clock.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-  const dateStr = clock.toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeStr = clock.toLocaleTimeString(dateLocale, {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+  const dateStr = clock.toLocaleDateString(dateLocale, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   // ── CONFIRMATION STATE ──
   if (state === 'confirmation') {
@@ -468,7 +484,7 @@ export default function KioskTerminalPage() {
         {/* Auto-Logout erst kurz vorher einblenden – sonst stört er beim Lesen. */}
         {countdown > 0 && countdown <= 30 && (
           <div className="fixed bottom-2 left-0 right-0 text-center text-xs text-gray-500">
-            {t.autoLogout(countdown)}
+            {t(KT.autoLogout(countdown))}
           </div>
         )}
       </div>
@@ -501,7 +517,7 @@ export default function KioskTerminalPage() {
             onClick={resetToIdle}
             className="rounded-lg bg-gray-800 px-4 py-2 text-lg text-gray-300 transition hover:bg-gray-700"
           >
-            ← {t.back}
+            ← {t(KT.back)}
           </button>
           <div className="text-right text-xl tabular-nums text-gray-400">
             {timeStr}
@@ -518,8 +534,8 @@ export default function KioskTerminalPage() {
           </h2>
           <p className={`text-xl ${isIn ? 'text-green-400' : 'text-gray-400'}`}>
             {isIn
-              ? `${t.clockedInSince} ${sinceStr}`
-              : t.notClockedIn}
+              ? `${t(KT.clockedInSince)} ${sinceStr}`
+              : t(KT.notClockedIn)}
           </p>
           {isIn && (
             <p className="text-3xl font-mono tabular-nums text-green-300">
@@ -531,7 +547,7 @@ export default function KioskTerminalPage() {
         {/* GPS indicator */}
         <div className="mt-4 flex justify-center">
           <span className={`text-sm ${gpsStatus === 'active' ? 'text-green-400' : gpsStatus === 'acquiring' ? 'text-yellow-400' : 'text-gray-500'}`}>
-            📍 {gpsStatus === 'active' ? t.gpsActive : gpsStatus === 'acquiring' ? t.gpsAcquiring : t.gpsInactive}
+            📍 {gpsStatus === 'active' ? t(KT.gpsActive) : gpsStatus === 'acquiring' ? t(KT.gpsAcquiring) : t(KT.gpsInactive)}
           </span>
         </div>
 
@@ -544,7 +560,7 @@ export default function KioskTerminalPage() {
               className="w-full max-w-md rounded-2xl bg-green-600 px-8 py-8 text-3xl font-bold text-white shadow-lg shadow-green-900/50 transition hover:bg-green-500 active:scale-95 disabled:opacity-60"
               style={{ minHeight: '120px' }}
             >
-              {processing ? t.processing : `▶ ${t.startWork}`}
+              {processing ? t(KT.processing) : `▶ ${t(KT.startWork)}`}
             </button>
           ) : (
             <>
@@ -554,11 +570,11 @@ export default function KioskTerminalPage() {
                 className="w-full max-w-md rounded-2xl bg-red-600 px-8 py-8 text-3xl font-bold text-white shadow-lg shadow-red-900/50 transition hover:bg-red-500 active:scale-95 disabled:opacity-60"
                 style={{ minHeight: '120px' }}
               >
-                {processing ? t.processing : `■ ${t.stopWork}`}
+                {processing ? t(KT.processing) : `■ ${t(KT.stopWork)}`}
               </button>
               {config.cameraEnabled && (
                 <label className="w-full max-w-md cursor-pointer rounded-xl bg-gray-800 px-6 py-4 text-center text-xl text-gray-200 transition hover:bg-gray-700">
-                  📷 {t.takePhoto}
+                  📷 {t(KT.takePhoto)}
                   <input
                     type="file"
                     accept="image/*"
@@ -577,7 +593,7 @@ export default function KioskTerminalPage() {
                   }}
                   className="w-full max-w-md rounded-xl bg-blue-600/90 px-6 py-4 text-center text-xl font-semibold text-white transition hover:bg-blue-500 active:scale-95"
                 >
-                  📋 {T.workItems.de} / {T.workItems.sk}
+                  📋 {t(KT.workItems)}
                 </button>
               )}
             </>
@@ -586,11 +602,11 @@ export default function KioskTerminalPage() {
           {/* Upcoming projects */}
           {!isIn && worker.assignments.length > 1 && (
             <div className="mt-4 w-full max-w-md rounded-xl bg-gray-800/50 p-4">
-              <h4 className="mb-2 text-sm font-medium text-gray-500">{t.upcomingProjects}</h4>
+              <h4 className="mb-2 text-sm font-medium text-gray-500">{t(KT.upcomingProjects)}</h4>
               {worker.assignments.slice(1).map((a) => (
                 <div key={a.id} className="text-sm text-gray-500">
                   {a.project.title}
-                  {a.startDate && ` (ab ${new Date(a.startDate).toLocaleDateString('de-DE')})`}
+                  {a.startDate && ` (ab ${new Date(a.startDate).toLocaleDateString(dateLocale)})`}
                 </div>
               ))}
             </div>
@@ -599,7 +615,7 @@ export default function KioskTerminalPage() {
 
         {/* Auto-logout */}
         <div className="fixed bottom-4 left-0 right-0 text-center text-sm text-gray-600">
-          {t.autoLogout(countdown)}
+          {t(KT.autoLogout(countdown))}
         </div>
       </div>
     );
@@ -611,17 +627,35 @@ export default function KioskTerminalPage() {
       <OfflineClockBanner variant="dark" className="mb-4" />
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-3">
         <button
           onClick={() => setShowAdminDialog(true)}
           className="rounded-lg bg-gray-800/50 px-3 py-1.5 text-sm text-gray-500 transition hover:bg-gray-700"
         >
-          {t.setupButton}
+          {t(KT.setupButton)}
         </button>
         <div className="text-right">
           <div className="text-2xl font-bold tabular-nums">{timeStr}</div>
           <div className="text-sm text-gray-500">{dateStr}</div>
         </div>
+      </div>
+
+      {/* Language */}
+      <div className="mt-4 flex justify-center gap-2" role="group" aria-label={t(KT.language)}>
+        {KIOSK_LANGS.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            onClick={() => setLang(l.id)}
+            className={`min-w-[4.5rem] rounded-xl px-4 py-3 text-lg font-bold transition active:scale-95 ${
+              lang === l.id
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+            }`}
+          >
+            {l.label}
+          </button>
+        ))}
       </div>
 
       {/* Project title */}
@@ -633,7 +667,7 @@ export default function KioskTerminalPage() {
 
       {/* PIN pad */}
       <div className="mx-auto mt-8 w-full max-w-sm">
-        <p className="mb-4 text-center text-lg text-gray-400">{t.pinTitle}</p>
+        <p className="mb-4 text-center text-lg text-gray-400">{t(KT.pinTitle)}</p>
 
         {/* PIN dots */}
         <div className="mb-6 flex justify-center gap-3">
@@ -653,7 +687,7 @@ export default function KioskTerminalPage() {
           <p className="mb-4 text-center text-red-400">{pinError}</p>
         )}
         {pinLoading && (
-          <p className="mb-4 text-center text-blue-400">{t.pinChecking}</p>
+          <p className="mb-4 text-center text-blue-400">{t(KT.pinChecking)}</p>
         )}
 
         {/* Number pad */}
@@ -673,7 +707,7 @@ export default function KioskTerminalPage() {
             disabled={pinLoading}
             className="flex h-20 items-center justify-center rounded-xl bg-gray-800 text-lg font-medium text-gray-400 transition hover:bg-gray-700 active:scale-95 lg:h-24"
           >
-            {t.clear}
+            {t(KT.clear)}
           </button>
           <button
             onClick={() => handlePinDigit('0')}
@@ -687,7 +721,7 @@ export default function KioskTerminalPage() {
             disabled={pin.length < 6 || pinLoading}
             className="flex h-20 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white transition hover:bg-blue-500 active:scale-95 disabled:opacity-40 lg:h-24"
           >
-            {t.confirm}
+            {t(KT.confirm)}
           </button>
         </div>
       </div>
@@ -696,7 +730,7 @@ export default function KioskTerminalPage() {
       {liveWorkers.length > 0 && (
         <div className="mx-auto mt-8 w-full max-w-lg">
           <div className="rounded-xl bg-gray-900/80 p-4">
-            <h3 className="mb-3 text-sm font-medium text-gray-500">{t.liveOverview}</h3>
+            <h3 className="mb-3 text-sm font-medium text-gray-500">{t(KT.liveOverview)}</h3>
             <div className="space-y-2">
               {liveWorkers
                 .filter((w) => w.clockedIn)
@@ -708,7 +742,7 @@ export default function KioskTerminalPage() {
                     </span>
                     {w.since && (
                       <span className="ml-auto text-gray-500">
-                        {t.since} {formatTime(w.since)}
+                        {t(KT.since)} {formatTime(w.since)}
                       </span>
                     )}
                   </div>
@@ -716,7 +750,7 @@ export default function KioskTerminalPage() {
             </div>
             {liveWorkers.some((w) => !w.clockedIn) && (
               <>
-                <h4 className="mb-2 mt-4 text-xs font-medium text-gray-600">{t.notOnSite}</h4>
+                <h4 className="mb-2 mt-4 text-xs font-medium text-gray-600">{t(KT.notOnSite)}</h4>
                 <div className="space-y-1">
                   {liveWorkers
                     .filter((w) => !w.clockedIn)
@@ -739,7 +773,7 @@ export default function KioskTerminalPage() {
       {showAdminDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
           <div className="w-full max-w-sm space-y-4 rounded-2xl bg-gray-900 p-6">
-            <h3 className="text-xl font-bold">{t.adminPinPrompt}</h3>
+            <h3 className="text-xl font-bold">{t(KT.adminPinPrompt)}</h3>
             <input
               type="password"
               inputMode="numeric"
@@ -757,13 +791,13 @@ export default function KioskTerminalPage() {
                 }}
                 className="flex-1 rounded-lg bg-gray-700 py-3 text-gray-300 transition hover:bg-gray-600"
               >
-                {t.back}
+                {t(KT.back)}
               </button>
               <button
                 onClick={handleAdminPinConfirm}
                 className="flex-1 rounded-lg bg-blue-600 py-3 text-white transition hover:bg-blue-500"
               >
-                {t.confirm}
+                {t(KT.confirm)}
               </button>
             </div>
           </div>

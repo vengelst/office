@@ -34,7 +34,7 @@ import {
   Wrench,
   X,
 } from 'lucide-react';
-import { both, PDF_ERRORS, T } from '@/lib/i18n-work-items';
+import { PDF_ERRORS, T, useWorkItemText } from '@/lib/i18n-work-items';
 import { formatTime, workerApi, type ClockStatus } from '@/lib/timesheets';
 import {
   apiMessage,
@@ -68,6 +68,7 @@ export function WorkItemDetail({
   onBack,
   onActivity,
 }: WorkItemDetailProps): ReactNode {
+  const tx = useWorkItemText();
   const [item, setItem] = useState<WorkItemDetailData | null>(null);
   const [clock, setClock] = useState<ClockStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -93,9 +94,9 @@ export function WorkItemDetail({
       setClock(status);
       setError('');
     } catch (err) {
-      setError(apiMessage(err, both(T.loadFailed)));
+      setError(apiMessage(err, tx(T.loadFailed)));
     }
-  }, [itemId, workerId]);
+  }, [itemId, workerId, tx]);
 
   useEffect(() => {
     let active = true;
@@ -148,20 +149,20 @@ export function WorkItemDetail({
       await load();
       if (successMessage) setFlash(successMessage);
     } catch (err) {
-      setError(apiMessage(err, both(T.loadFailed)));
+      setError(apiMessage(err, tx(T.loadFailed)));
     } finally {
       setBusy(false);
     }
   };
 
   const handleClaim = (): void => {
-    void runAction(() => workerWorkItemsApi.claim(itemId), both(T.claimed));
+    void runAction(() => workerWorkItemsApi.claim(itemId), tx(T.claimed));
   };
 
   const handleStartSession = (): void => {
     if (!clockedInHere) {
       setError(
-        `${both(T.clockInFirst)}: ${T.clockInFirstHint.de} / ${T.clockInFirstHint.sk}`,
+        `${tx(T.clockInFirst)}: ${tx(T.clockInFirstHint)}`,
       );
       return;
     }
@@ -183,7 +184,7 @@ export function WorkItemDetail({
       setPdf(loaded);
     } catch (err) {
       const reason = err instanceof WorkItemPdfError ? err.reason : 'download';
-      setError(both(PDF_ERRORS[reason]));
+      setError(tx(PDF_ERRORS[reason]));
     } finally {
       setPdfBusy(false);
     }
@@ -209,14 +210,14 @@ export function WorkItemDetail({
         await workerWorkItemsApi.rework(itemId, photos, comment);
       }
       setFlash(
-        reportMode === 'complete' ? both(T.completeSent) : both(T.reworkSent),
+        reportMode === 'complete' ? tx(T.completeSent) : tx(T.reworkSent),
       );
       setReportMode(null);
       await load();
       // Wie in der APK: nach der Meldung zurück in die Liste.
       backTimer.current = setTimeout(onBack, 1600);
     } catch (err) {
-      setError(apiMessage(err, both(T.loadFailed)));
+      setError(apiMessage(err, tx(T.loadFailed)));
     } finally {
       setSending(false);
     }
@@ -226,9 +227,9 @@ export function WorkItemDetail({
 
   if (loading) {
     return (
-      <Shell title={both(T.workItems)} onBack={onBack}>
+      <Shell title={tx(T.workItems)} onBack={onBack}>
         <p className="py-10 text-center text-sm text-gray-500">
-          {both(T.loading)}
+          {tx(T.loading)}
         </p>
       </Shell>
     );
@@ -236,9 +237,9 @@ export function WorkItemDetail({
 
   if (!item) {
     return (
-      <Shell title={both(T.workItems)} onBack={onBack}>
+      <Shell title={tx(T.workItems)} onBack={onBack}>
         <p className="py-10 text-center text-sm text-gray-500">
-          {error || both(T.loadFailed)}
+          {error || tx(T.loadFailed)}
         </p>
       </Shell>
     );
@@ -249,11 +250,11 @@ export function WorkItemDetail({
   const readOnly = item.status === 'REVIEW' || item.status === 'APPROVED';
   const claimable = !assignedToMe;
   const planLine = [
-    item.block ? `${T.block.de}/${T.block.sk} ${item.block.blockKey}` : null,
+    item.block ? `${tx(T.block)} ${item.block.blockKey}` : null,
     item.pdfFile,
-    item.pdfPage != null ? `${T.page.de}/${T.page.sk} ${item.pdfPage}` : null,
+    item.pdfPage != null ? `${tx(T.page)} ${item.pdfPage}` : null,
     item.planPage != null && item.pdfPage == null
-      ? `${T.plan.de}/${T.plan.sk} ${item.planPage}`
+      ? `${tx(T.plan)} ${item.planPage}`
       : null,
   ]
     .filter(Boolean)
@@ -288,7 +289,7 @@ export function WorkItemDetail({
             {runningSession && (
               <span className="flex items-center gap-1 text-xs font-semibold text-emerald-400">
                 <Play className="h-3.5 w-3.5" />
-                {both(T.isCurrent)} · {formatTime(runningSession.startedAt)}
+                {tx(T.isCurrent)} · {formatTime(runningSession.startedAt)}
               </span>
             )}
           </div>
@@ -300,11 +301,11 @@ export function WorkItemDetail({
           )}
 
           <dl className="mt-3 flex flex-wrap gap-4">
-            <Meta label={T.floor.de} labelSk={T.floor.sk} value={item.floor} />
-            <Meta label={T.area.de} labelSk={T.area.sk} value={item.area} />
-            <Meta label={T.room.de} labelSk={T.room.sk} value={item.room} />
-            <Meta label={T.type.de} labelSk={T.type.sk} value={item.type} />
-            <Meta label={T.rc.de} labelSk={T.rc.sk} value={item.rc} />
+            <Meta label={tx(T.floor)} value={item.floor} />
+            <Meta label={tx(T.area)} value={item.area} />
+            <Meta label={tx(T.room)} value={item.room} />
+            <Meta label={tx(T.type)} value={item.type} />
+            <Meta label={tx(T.rc)} value={item.rc} />
           </dl>
 
           {item.detail && (
@@ -328,7 +329,7 @@ export function WorkItemDetail({
                   className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-xl border border-blue-500/35 bg-gray-800 px-4 text-[15px] font-semibold text-gray-50 transition active:scale-[0.99] disabled:opacity-70"
                 >
                   <FileText className="h-5 w-5" />
-                  {pdfBusy ? both(T.openingPdf) : both(T.openPdf)}
+                  {pdfBusy ? tx(T.openingPdf) : tx(T.openPdf)}
                 </button>
               )}
             </div>
@@ -339,7 +340,7 @@ export function WorkItemDetail({
         {(item.workScopeDe || item.workScopeSk) && (
           <section className="rounded-2xl bg-gray-900 p-4">
             <h3 className="mb-2.5 text-[11px] font-semibold uppercase tracking-widest text-gray-500">
-              {both(T.workScope)}
+              {tx(T.workScope)}
             </h3>
             {item.workScopeDe && (
               <p className="whitespace-pre-line text-[15px] leading-6 text-gray-50">
@@ -361,7 +362,7 @@ export function WorkItemDetail({
         {item.reports.length > 0 && (
           <section className="rounded-2xl bg-gray-900 p-4">
             <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500">
-              {both(T.reports)}
+              {tx(T.reports)}
             </h3>
             <ul className="divide-y divide-gray-800">
               {item.reports.map((report) => (
@@ -373,13 +374,13 @@ export function WorkItemDetail({
                       <Wrench className="h-4 w-4 text-amber-500" />
                     )}
                     {report.type === 'COMPLETED'
-                      ? both(T.complete)
-                      : both(T.rework)}
+                      ? tx(T.complete)
+                      : tx(T.rework)}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    {formatDateTime(report.reportedAt)} · {both(T.byWorker)}{' '}
+                    {formatDateTime(report.reportedAt)} · {tx(T.byWorker)}{' '}
                     {report.worker.firstName} {report.worker.lastName} ·{' '}
-                    {report.photoDocumentIds.length} {both(T.photos)}
+                    {report.photoDocumentIds.length} {tx(T.photos)}
                   </p>
                   {report.comment && (
                     <p className="mt-1 text-[13px] text-gray-300">
@@ -396,7 +397,7 @@ export function WorkItemDetail({
         {item.reviews.length > 0 && (
           <section className="rounded-2xl bg-gray-900 p-4">
             <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-widest text-gray-500">
-              {both(T.reviews)}
+              {tx(T.reviews)}
             </h3>
             <ul className="divide-y divide-gray-800">
               {item.reviews.map((review) => (
@@ -404,13 +405,13 @@ export function WorkItemDetail({
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-50">
                     <ShieldCheck className="h-4 w-4 text-blue-400" />
                     {review.action === 'APPROVE'
-                      ? both(T.approvedReview)
-                      : both(T.forcedReview)}
+                      ? tx(T.approvedReview)
+                      : tx(T.forcedReview)}
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
                     {formatDateTime(review.reviewedAt)}
                     {review.reviewer
-                      ? ` · ${both(T.byWorker)} ${review.reviewer.displayName}`
+                      ? ` · ${tx(T.byWorker)} ${review.reviewer.displayName}`
                       : ''}
                   </p>
                   {review.comment && (
@@ -428,13 +429,13 @@ export function WorkItemDetail({
         {item.status === 'REVIEW' && (
           <p className="flex items-center gap-2 rounded-xl bg-gray-900 p-3.5 text-sm text-gray-300">
             <Hourglass className="h-[18px] w-[18px] text-yellow-400" />
-            {both(T.waitingForReview)}
+            {tx(T.waitingForReview)}
           </p>
         )}
         {item.status === 'APPROVED' && (
           <p className="flex items-center gap-2 rounded-xl bg-gray-900 p-3.5 text-sm text-gray-300">
             <CheckCircle2 className="h-[18px] w-[18px] text-emerald-400" />
-            {both(T.approvedHint)}
+            {tx(T.approvedHint)}
           </p>
         )}
 
@@ -444,7 +445,7 @@ export function WorkItemDetail({
             {claimable && (
               <ActionButton
                 icon={<Hand className="h-[22px] w-[22px]" />}
-                label={both(T.claim)}
+                label={tx(T.claim)}
                 variant="primary"
                 disabled={busy}
                 onClick={handleClaim}
@@ -454,7 +455,7 @@ export function WorkItemDetail({
             {assignedToMe && !runningSession && (
               <ActionButton
                 icon={<Play className="h-[22px] w-[22px]" />}
-                label={both(T.setCurrent)}
+                label={tx(T.setCurrent)}
                 variant={clockedInHere ? 'primary' : 'muted'}
                 disabled={busy}
                 onClick={handleStartSession}
@@ -464,7 +465,7 @@ export function WorkItemDetail({
             {assignedToMe && runningSession && (
               <ActionButton
                 icon={<Pause className="h-[22px] w-[22px]" />}
-                label={both(T.stopTime)}
+                label={tx(T.stopTime)}
                 variant="neutral"
                 disabled={busy}
                 onClick={handleStopSession}
@@ -475,7 +476,7 @@ export function WorkItemDetail({
               <>
                 <ActionButton
                   icon={<CheckCheck className="h-[22px] w-[22px]" />}
-                  label={both(T.complete)}
+                  label={tx(T.complete)}
                   variant="success"
                   disabled={busy}
                   onClick={() => {
@@ -485,7 +486,7 @@ export function WorkItemDetail({
                 />
                 <ActionButton
                   icon={<Wrench className="h-[22px] w-[22px]" />}
-                  label={both(T.rework)}
+                  label={tx(T.rework)}
                   variant="warn"
                   disabled={busy}
                   onClick={() => {
@@ -498,7 +499,7 @@ export function WorkItemDetail({
 
             {!assignedToMe && (
               <p className="text-center text-sm text-gray-500">
-                {both(T.claimFirst)}
+                {tx(T.claimFirst)}
               </p>
             )}
           </div>
@@ -530,7 +531,7 @@ export function WorkItemDetail({
               onClick={() => onActivity?.()}
               className="flex min-h-[44px] flex-1 items-center justify-center rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
             >
-              {both(T.openInNewTab)}
+              {tx(T.openInNewTab)}
             </a>
             <button
               type="button"
@@ -538,7 +539,7 @@ export function WorkItemDetail({
               className="flex min-h-[44px] items-center gap-1.5 rounded-xl bg-gray-800 px-4 text-sm font-medium text-gray-200"
             >
               <X className="h-4 w-4" />
-              {both(T.close)}
+              {tx(T.close)}
             </button>
           </div>
           <iframe
@@ -566,13 +567,14 @@ function Shell({
   onRefresh?: () => void;
   children: ReactNode;
 }): ReactNode {
+  const tx = useWorkItemText();
   return (
     <div className="flex min-h-screen flex-col bg-gray-950 text-gray-100">
       <header className="flex items-center gap-2 px-3 pb-3 pt-2">
         <button
           type="button"
           onClick={onBack}
-          aria-label={both(T.back)}
+          aria-label={tx(T.back)}
           className="flex h-11 w-11 items-center justify-center rounded-full text-gray-50 transition hover:bg-gray-800"
         >
           <ChevronLeft className="h-6 w-6" />
@@ -586,7 +588,7 @@ function Shell({
           <button
             type="button"
             onClick={onRefresh}
-            aria-label={both(T.refresh)}
+            aria-label={tx(T.refresh)}
             className="flex h-11 w-11 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-800"
           >
             <RotateCw className="h-5 w-5" />
@@ -598,22 +600,18 @@ function Shell({
   );
 }
 
-/** Ein Metadatenfeld (Label DE/SK + Wert); wird bei leerem Wert ausgelassen. */
+/** Ein Metadatenfeld (Label + Wert); wird bei leerem Wert ausgelassen. */
 function Meta({
   label,
-  labelSk,
   value,
 }: {
   label: string;
-  labelSk: string;
   value: string | null;
 }): ReactNode {
   if (!value) return null;
   return (
     <div className="min-w-[90px]">
-      <dt className="text-[11px] text-gray-500">
-        {label} / {labelSk}
-      </dt>
+      <dt className="text-[11px] text-gray-500">{label}</dt>
       <dd className="mt-px text-[15px] font-medium text-gray-50">{value}</dd>
     </div>
   );

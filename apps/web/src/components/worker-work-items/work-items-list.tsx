@@ -14,7 +14,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, PlayCircle, RotateCw, Search, TriangleAlert, X } from 'lucide-react';
-import { both, T } from '@/lib/i18n-work-items';
+import { T, useWorkItemText } from '@/lib/i18n-work-items';
+import { useOptionalKioskLocale } from '@/lib/kiosk-locale';
 import { formatTime, workerApi, type ClockStatus } from '@/lib/timesheets';
 import {
   apiMessage,
@@ -45,6 +46,8 @@ export function WorkItemsList({
   onBack,
   onActivity,
 }: WorkItemsListProps): ReactNode {
+  const tx = useWorkItemText();
+  const kiosk = useOptionalKioskLocale();
   const [data, setData] = useState<MyWorkItemsResponse | null>(null);
   const [clock, setClock] = useState<ClockStatus | null>(null);
   const [query, setQuery] = useState('');
@@ -62,9 +65,9 @@ export function WorkItemsList({
       setClock(status);
       setError('');
     } catch (err) {
-      setError(apiMessage(err, both(T.loadFailed)));
+      setError(apiMessage(err, tx(T.loadFailed)));
     }
-  }, [projectId, workerId]);
+  }, [projectId, workerId, tx]);
 
   useEffect(() => {
     let active = true;
@@ -121,20 +124,26 @@ export function WorkItemsList({
             onActivity?.();
             onBack();
           }}
-          aria-label={both(T.back)}
+          aria-label={tx(T.back)}
           className="flex h-11 w-11 items-center justify-center rounded-full text-gray-50 transition hover:bg-gray-800"
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold leading-tight">{T.workItems.de}</h1>
-          <p className="text-[13px] text-gray-500">{T.workItems.sk}</p>
+          {kiosk ? (
+            <h1 className="text-xl font-bold leading-tight">{tx(T.workItems)}</h1>
+          ) : (
+            <>
+              <h1 className="text-xl font-bold leading-tight">{T.workItems.de}</h1>
+              <p className="text-[13px] text-gray-500">{T.workItems.sk}</p>
+            </>
+          )}
         </div>
         <button
           type="button"
           onClick={handleRefresh}
           disabled={reloading}
-          aria-label={both(T.refresh)}
+          aria-label={tx(T.refresh)}
           className="flex h-11 w-11 items-center justify-center rounded-full text-gray-400 transition hover:bg-gray-800 disabled:opacity-50"
         >
           <RotateCw className={`h-5 w-5 ${reloading ? 'animate-spin' : ''}`} />
@@ -144,7 +153,7 @@ export function WorkItemsList({
       <div className="flex-1 px-5 pb-8">
         {loading ? (
           <p className="py-10 text-center text-sm text-gray-500">
-            {both(T.loading)}
+            {tx(T.loading)}
           </p>
         ) : (
           <>
@@ -159,14 +168,22 @@ export function WorkItemsList({
                 <TriangleAlert className="h-5 w-5 shrink-0 text-yellow-400" />
                 <div className="flex-1">
                   <p className="text-[15px] font-semibold text-yellow-400">
-                    {both(T.clockInFirst)}
+                    {tx(T.clockInFirst)}
                   </p>
-                  <p className="text-[13px] text-gray-300">
-                    {T.clockInFirstHint.de}
-                  </p>
-                  <p className="text-[13px] italic text-gray-400">
-                    {T.clockInFirstHint.sk}
-                  </p>
+                  {kiosk ? (
+                    <p className="text-[13px] text-gray-300">
+                      {tx(T.clockInFirstHint)}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-[13px] text-gray-300">
+                        {T.clockInFirstHint.de}
+                      </p>
+                      <p className="text-[13px] italic text-gray-400">
+                        {T.clockInFirstHint.sk}
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             )}
@@ -180,7 +197,7 @@ export function WorkItemsList({
                 <span className="mb-1.5 flex items-center gap-1.5">
                   <PlayCircle className="h-[18px] w-[18px] text-emerald-400" />
                   <span className="text-[11px] font-bold uppercase tracking-widest text-emerald-400">
-                    {both(T.currentItem)}
+                    {tx(T.currentItem)}
                   </span>
                 </span>
                 <span className="block font-mono text-xl font-bold text-gray-50">
@@ -192,7 +209,7 @@ export function WorkItemsList({
                   </span>
                 )}
                 <span className="mt-1.5 block text-xs text-gray-400">
-                  {both(T.timeRunning)} · {formatTime(currentSession.startedAt)}
+                  {tx(T.timeRunning)} · {formatTime(currentSession.startedAt)}
                 </span>
               </button>
             )}
@@ -206,7 +223,7 @@ export function WorkItemsList({
                   onActivity?.();
                   setQuery(e.target.value);
                 }}
-                placeholder={both(T.searchKey)}
+                placeholder={tx(T.searchKey)}
                 autoCapitalize="characters"
                 autoCorrect="off"
                 spellCheck={false}
@@ -216,7 +233,7 @@ export function WorkItemsList({
                 <button
                   type="button"
                   onClick={() => setQuery('')}
-                  aria-label={both(T.cancel)}
+                  aria-label={tx(T.cancel)}
                   className="text-gray-500"
                 >
                   <X className="h-[18px] w-[18px]" />
@@ -225,19 +242,19 @@ export function WorkItemsList({
             </div>
 
             <Section
-              title={T.myItems.de}
-              subtitle={T.myItems.sk}
+              title={kiosk ? tx(T.myItems) : T.myItems.de}
+              subtitle={kiosk ? undefined : T.myItems.sk}
               items={mine}
-              emptyText={both(T.noItems)}
+              emptyText={tx(T.noItems)}
               currentItemId={currentSession?.workItem.id ?? null}
               onSelect={handleSelect}
             />
 
             <Section
-              title={T.openPool.de}
-              subtitle={T.openPool.sk}
+              title={kiosk ? tx(T.openPool) : T.openPool.de}
+              subtitle={kiosk ? undefined : T.openPool.sk}
               items={open}
-              emptyText={both(T.noOpenItems)}
+              emptyText={tx(T.noOpenItems)}
               currentItemId={null}
               onSelect={handleSelect}
             />
@@ -258,7 +275,7 @@ function Section({
   onSelect,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   items: WorkItemListEntry[];
   emptyText: string;
   currentItemId: string | null;
@@ -268,7 +285,11 @@ function Section({
     <section className="mb-6">
       <div className="mb-2.5 flex items-baseline gap-2">
         <h2 className="text-base font-bold text-gray-50">{title}</h2>
-        <span className="flex-1 text-[13px] text-gray-500">{subtitle}</span>
+        {subtitle ? (
+          <span className="flex-1 text-[13px] text-gray-500">{subtitle}</span>
+        ) : (
+          <span className="flex-1" />
+        )}
         <span className="text-[13px] font-semibold text-gray-500">
           {items.length}
         </span>

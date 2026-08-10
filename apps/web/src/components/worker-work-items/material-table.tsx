@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { both, T } from '@/lib/i18n-work-items';
+import { T, useWorkItemText } from '@/lib/i18n-work-items';
 import { formatQty, type WorkItemMaterial } from '@/lib/worker-work-items';
 
 /**
@@ -13,11 +13,12 @@ export function MaterialTable({
 }: {
   materials: WorkItemMaterial[];
 }): ReactNode {
+  const tx = useWorkItemText();
   if (materials.length === 0) return null;
   return (
     <section className="rounded-2xl bg-gray-900 p-4">
       <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-500">
-        {both(T.material)}
+        {tx(T.material)}
       </h2>
       <ul className="divide-y divide-gray-800">
         {materials.map((line) => (

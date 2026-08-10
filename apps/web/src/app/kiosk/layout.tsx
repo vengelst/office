@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { RegisterServiceWorker } from '@/components/pwa/register-service-worker';
+import { KioskLocaleProvider } from '@/lib/kiosk-locale';
 
 /**
  * Kiosk-Layout inkl. PWA-Kopfdaten – das Tablet kann den Kiosk damit als
@@ -31,9 +32,11 @@ export default function KioskLayout({
   children: ReactNode;
 }): ReactNode {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 antialiased">
-      <RegisterServiceWorker />
-      {children}
-    </div>
+    <KioskLocaleProvider>
+      <div className="min-h-screen bg-gray-950 text-gray-100 antialiased">
+        <RegisterServiceWorker />
+        {children}
+      </div>
+    </KioskLocaleProvider>
   );
 }

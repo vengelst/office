@@ -14,7 +14,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Camera, Images, X } from 'lucide-react';
-import { both, T } from '@/lib/i18n-work-items';
+import { T, useWorkItemText } from '@/lib/i18n-work-items';
 import { MIN_COMPLETION_PHOTOS } from '@/lib/worker-work-items';
 
 /** Art der offenen Rückmeldung. */
@@ -43,6 +43,7 @@ export function CompleteReworkDialog({
   onSubmit,
   onActivity,
 }: CompleteReworkDialogProps): ReactNode {
+  const tx = useWorkItemText();
   const [photos, setPhotos] = useState<PickedPhoto[]>([]);
   const [comment, setComment] = useState('');
   const [hint, setHint] = useState('');
@@ -85,7 +86,7 @@ export function CompleteReworkDialog({
   const handleSubmit = (): void => {
     onActivity?.();
     if (!enoughPhotos) {
-      setHint(both(T.minPhotosMissing));
+      setHint(tx(T.minPhotosMissing));
       return;
     }
     onSubmit(
@@ -98,12 +99,10 @@ export function CompleteReworkDialog({
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70">
       <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-gray-900 p-5 pb-8 text-gray-100">
         <h2 className="text-xl font-bold">
-          {mode === 'complete' ? both(T.complete) : both(T.rework)}
+          {mode === 'complete' ? tx(T.complete) : tx(T.rework)}
         </h2>
         <p className="mt-1 text-[13px] text-gray-400">
-          {mode === 'complete'
-            ? `${T.minPhotos.de} · ${T.minPhotos.sk}`
-            : `${T.photos.de} / ${T.photos.sk} (optional)`}
+          {mode === 'complete' ? tx(T.minPhotos) : `${tx(T.photos)} (optional)`}
         </p>
 
         {/* Vorschau der gewählten Fotos */}
@@ -124,7 +123,7 @@ export function CompleteReworkDialog({
                 <button
                   type="button"
                   onClick={() => removePhoto(idx)}
-                  aria-label={both(T.cancel)}
+                  aria-label={tx(T.cancel)}
                   className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/65 text-white"
                 >
                   <X className="h-3.5 w-3.5" />
@@ -164,7 +163,7 @@ export function CompleteReworkDialog({
             className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-gray-800 text-[15px] font-medium text-gray-50 transition active:scale-[0.98]"
           >
             <Camera className="h-5 w-5" />
-            {both(T.camera)}
+            {tx(T.camera)}
           </button>
           <button
             type="button"
@@ -172,12 +171,12 @@ export function CompleteReworkDialog({
             className="flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-gray-800 text-[15px] font-medium text-gray-50 transition active:scale-[0.98]"
           >
             <Images className="h-5 w-5" />
-            {both(T.gallery)}
+            {tx(T.gallery)}
           </button>
         </div>
 
         <p className="mt-3 text-[13px] text-gray-400">
-          {both(T.photos)}: {photos.length}
+          {tx(T.photos)}: {photos.length}
           {mode === 'complete' ? ` / ${MIN_COMPLETION_PHOTOS}+` : ''}
         </p>
 
@@ -187,7 +186,7 @@ export function CompleteReworkDialog({
             onActivity?.();
             setComment(e.target.value);
           }}
-          placeholder={both(T.commentOptional)}
+          placeholder={tx(T.commentOptional)}
           rows={2}
           className="mt-3 min-h-[60px] w-full rounded-xl bg-gray-800 px-4 py-3 text-[15px] text-gray-50 outline-none placeholder:text-gray-500"
         />
@@ -201,7 +200,7 @@ export function CompleteReworkDialog({
             disabled={sending}
             className="min-h-[52px] flex-1 rounded-xl bg-gray-800 text-[15px] font-medium text-gray-400 disabled:opacity-50"
           >
-            {both(T.cancel)}
+            {tx(T.cancel)}
           </button>
           <button
             type="button"
@@ -209,7 +208,7 @@ export function CompleteReworkDialog({
             disabled={sending || !enoughPhotos}
             className="min-h-[52px] flex-1 rounded-xl bg-blue-600 text-[15px] font-semibold text-white transition hover:bg-blue-500 disabled:opacity-50"
           >
-            {sending ? both(T.loading) : both(T.send)}
+            {sending ? tx(T.loading) : tx(T.send)}
           </button>
         </div>
       </div>
