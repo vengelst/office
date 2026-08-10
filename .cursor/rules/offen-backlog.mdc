@@ -1,0 +1,27 @@
+---
+description: Office Offener Backlog – Time-Entries-Rollen, PIN-Login, Install/AVV; Kiosk/PIN-Hinweise
+alwaysApply: false
+---
+
+# Office – Offener Backlog
+
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries-Sicherheit, PIN-Login, Install/AVV/Managed-SaaS, Kiosk-Admin-PIN, Projektzuweisung oder Stempel-Sperren anspricht: Inhalte aus `claude-auftraege/offen-backlog.md` lesen und danach handeln.
+
+## Erledigt 2026-08-10 (kurz)
+
+- Stempel-PIN am Monteur sichtbar (`pinPlain`)
+- Kiosk-Sprachen DE / SK / SL
+
+## Offen (Priorität)
+
+1. **Time-Entries-Rollen** – Stempel-API absichern
+2. **PIN-Login härten** – kein Full-Scan aller bcrypt-Hashes
+3. **Managed Single-Tenant** – Install-/Update-Skript, AVV; License später
+
+## Betrieb (häufig)
+
+- Admin-PIN nur auf `/kiosk/setup`, nicht in Office-Settings
+- Kiosk-Projekt: nur Status **ACTIVE**; Zuweisung lokal am Gerät
+- Stempeln braucht Zuweisung mit `startDate <= heute` (Projekt ACTIVE reicht nicht)
+
+Details: **`claude-auftraege/offen-backlog.md`**.
