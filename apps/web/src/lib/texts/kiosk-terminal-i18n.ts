@@ -125,25 +125,25 @@ type TerminalI18n = {
 };
 
 function build(): TerminalI18n {
-  const keys = Object.keys(de) as (keyof typeof de)[];
-  const out = {} as TerminalI18n;
-  for (const key of keys) {
+  const out: Partial<TerminalI18n> = {};
+  (Object.keys(de) as (keyof typeof de)[]).forEach((key) => {
     const d = de[key];
     const s = sk[key];
     const l = sl[key];
     if (typeof d === 'function') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (out as any)[key] = (...args: any[]) => ({
-        de: (d as (...a: unknown[]) => string)(...args),
-        sk: (s as (...a: unknown[]) => string)(...args),
-        sl: (l as (...a: unknown[]) => string)(...args),
-      });
+      const fn = d as (...args: never[]) => string;
+      const fnSk = s as (...args: never[]) => string;
+      const fnSl = l as (...args: never[]) => string;
+      out[key] = ((...args: never[]) => ({
+        de: fn(...args),
+        sk: fnSk(...args),
+        sl: fnSl(...args),
+      })) as TerminalI18n[typeof key];
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (out as any)[key] = { de: d, sk: s, sl: l };
+      out[key] = { de: d, sk: s as string, sl: l as string } as TerminalI18n[typeof key];
     }
-  }
-  return out;
+  });
+  return out as TerminalI18n;
 }
 
 export const KT = build();
