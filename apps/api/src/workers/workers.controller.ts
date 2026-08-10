@@ -350,13 +350,17 @@ export class WorkersController {
   // ── PIN-Verwaltung ────────────────────────────────────────────
 
   /**
-   * Setzt oder aktualisiert die PIN eines Benutzers.
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @param body - Parameter `body` ({ pin: string })
-   * @returns Ergebnis
+   * Liefert die aktuelle Stempel-PIN (Klartext) zur Anzeige in der Büro-UI.
    */
+  @Get(':id/pin')
+  @ApiOperation({ summary: 'Aktuelle Stempel-PIN des Monteurs abrufen' })
+  getPin(@Param('id') id: string) {
+    return this.workers.getPin(id);
+  }
 
+  /**
+   * Setzt oder aktualisiert die PIN eines Monteurs.
+   */
   @Post(':id/pin')
   @ApiOperation({ summary: 'PIN für Monteur setzen (6 Ziffern)' })
   setPin(@Param('id') id: string, @Body() body: { pin: string }) {
@@ -365,11 +369,7 @@ export class WorkersController {
 
   /**
    * Sendet die PIN per E-Mail an den Monteur.
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @param body - Parameter `body` ({ pin: string })
    */
-
   @Post(':id/send-pin-email')
   @ApiOperation({ summary: 'PIN setzen und per E-Mail an Monteur senden' })
   sendPinEmail(@Param('id') id: string, @Body() body: { pin: string }) {

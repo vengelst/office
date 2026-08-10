@@ -240,7 +240,11 @@ export const workers = {
       sendEmail: 'PIN per E-Mail senden',
       setting: 'Wird gesetzt …',
       sending: 'Wird gesendet …',
-      hint: 'Die PIN wird für die Monteur-Stempeluhr-App benötigt.',
+      hint: 'Die PIN wird für die Monteur-Stempeluhr und den Kiosk benötigt. Sie bleibt hier sichtbar hinterlegt.',
+      current: 'Aktuelle PIN',
+      none: 'Noch keine PIN gesetzt.',
+      legacy:
+        'Es ist eine PIN hinterlegt, die vor dem Update gesetzt wurde – bitte neu setzen, damit sie hier angezeigt werden kann.',
       noEmail: 'Monteur hat keine E-Mail-Adresse hinterlegt.',
       validation: 'PIN muss genau 6 Ziffern sein.',
     },

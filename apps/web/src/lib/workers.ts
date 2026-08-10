@@ -480,6 +480,11 @@ export const workersApi = {
 
   // PIN-Verwaltung
   /**
+   * GET /workers/:id/pin – Liest die aktuelle Stempel-PIN (Klartext) zur Anzeige.
+   */
+  getPin: (id: string) =>
+    apiClient.get<{ pin: string | null; hasPin: boolean }>(`/workers/${id}/pin`),
+  /**
    * POST /workers/:id/pin – Setzt die Stempel-PIN eines Monteurs.
    * @param id - Monteur-ID
    * @param pin - Neue PIN (4–6 Ziffern)

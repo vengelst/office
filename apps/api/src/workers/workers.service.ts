@@ -841,12 +841,44 @@ export class WorkersService {
       data: {
         workerId,
         pinHash,
+        pinPlain: pin,
         validFrom: now,
         isActive: true,
       },
     });
 
     return { success: true };
+  }
+
+  /**
+   * Liefert die aktuelle Stempel-PIN eines Monteurs (Klartext) für die Büro-UI.
+   * Nur aktive PIN; ältere Einträge ohne pinPlain → null (neu setzen).
+   *
+   * @param workerId - UUID des Monteurs
+   * @returns pin oder null, plus hasPin wenn Hash existiert
+   */
+  async getPin(
+    workerId: string,
+  ): Promise<{ pin: string | null; hasPin: boolean }> {
+    await this.ensureWorker(workerId);
+    const now = new Date();
+    const active = await this.prisma.workerPin.findFirst({
+      where: {
+        workerId,
+        isActive: true,
+        validFrom: { lte: now },
+        OR: [{ validTo: null }, { validTo: { gte: now } }],
+      },
+      select: { pinPlain: true, pinHash: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!active) {
+      return { pin: null, hasPin: false };
+    }
+    return {
+      pin: active.pinPlain ?? null,
+      hasPin: true,
+    };
   }
 
   /**

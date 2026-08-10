@@ -880,6 +880,8 @@ model WorkerPin {
   id        String    @id @default(cuid())
   workerId  String
   pinHash   String
+  /// Klartext-PIN für Anzeige in der Büro-UI (Stempel-PIN, nur Office-Rollen).
+  pinPlain  String?
   validFrom DateTime
   validTo   DateTime?
   isActive  Boolean   @default(true)

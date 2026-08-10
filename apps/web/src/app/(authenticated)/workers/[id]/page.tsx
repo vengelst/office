@@ -446,23 +446,49 @@ export default function WorkerDetailPage(): React.ReactNode {
 
 /**
  * Sektion zur PIN-Verwaltung eines Mitarbeiters.
- * Erlaubt das Setzen einer 6-stelligen PIN für die Stempeluhr
- * und den Versand per E-Mail an den Mitarbeiter.
+ * Zeigt die hinterlegte Stempel-PIN an und erlaubt Setzen sowie E-Mail-Versand.
  */
 function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode {
   const t = texts.workers.pin;
   const { toast } = useToast();
   const [pin, setPin] = useState('');
+  const [currentPin, setCurrentPin] = useState<string | null>(null);
+  const [hasPin, setHasPin] = useState(false);
+  const [loadingPin, setLoadingPin] = useState(true);
   const [settingPin, setSettingPin] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
 
   const isValid = /^\d{6}$/.test(pin);
+  const pinForActions = isValid ? pin : currentPin;
+  const canUseStored = Boolean(pinForActions && /^\d{6}$/.test(pinForActions));
+
+  const loadPin = useCallback(() => {
+    setLoadingPin(true);
+    workersApi
+      .getPin(worker.id)
+      .then((res) => {
+        setCurrentPin(res.pin);
+        setHasPin(res.hasPin);
+        if (res.pin) setPin(res.pin);
+      })
+      .catch(() => {
+        setCurrentPin(null);
+        setHasPin(false);
+      })
+      .finally(() => setLoadingPin(false));
+  }, [worker.id]);
+
+  useEffect(() => {
+    loadPin();
+  }, [loadPin]);
 
   const handleSetPin = async (): Promise<void> => {
     if (!isValid) return;
     setSettingPin(true);
     try {
       await workersApi.setPin(worker.id, pin);
+      setCurrentPin(pin);
+      setHasPin(true);
       toast({ description: texts.workers.toast.pinSet });
     } catch (err) {
       toast({
@@ -475,15 +501,17 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
   };
 
   const handleSendEmail = async (): Promise<void> => {
-    if (!isValid) return;
+    if (!canUseStored || !pinForActions) return;
     if (!worker.email) {
       toast({ variant: 'destructive', description: t.noEmail });
       return;
     }
     setSendingEmail(true);
     try {
-      const result = await workersApi.sendPinEmail(worker.id, pin);
+      const result = await workersApi.sendPinEmail(worker.id, pinForActions);
       if (result.success) {
+        setCurrentPin(pinForActions);
+        setHasPin(true);
         toast({ description: texts.workers.toast.pinEmailSent });
       } else {
         toast({
@@ -505,10 +533,28 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
     <div className="space-y-3">
       <h3 className="text-sm font-semibold">{t.title}</h3>
       <p className="text-xs text-muted-foreground">{t.hint}</p>
+
+      {loadingPin ? (
+        <Skeleton className="h-12 w-48" />
+      ) : currentPin ? (
+        <div className="rounded-md border bg-muted/40 px-4 py-3">
+          <p className="text-xs text-muted-foreground">{t.current}</p>
+          <p className="font-mono text-2xl font-semibold tracking-[0.35em]">
+            {currentPin}
+          </p>
+        </div>
+      ) : hasPin ? (
+        <p className="text-sm text-amber-600 dark:text-amber-500">{t.legacy}</p>
+      ) : (
+        <p className="text-sm text-muted-foreground">{t.none}</p>
+      )}
+
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
           <Label>{t.label}</Label>
           <Input
+            type="text"
+            autoComplete="off"
             value={pin}
             onChange={(e) => {
               const v = e.target.value.replace(/\D/g, '').slice(0, 6);
@@ -530,7 +576,7 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
         <Button
           variant="outline"
           className="min-h-[44px]"
-          disabled={!isValid || sendingEmail || !worker.email}
+          disabled={!canUseStored || sendingEmail || !worker.email}
           onClick={handleSendEmail}
         >
           {sendingEmail ? t.sending : t.sendEmail}
