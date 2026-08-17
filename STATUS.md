@@ -226,12 +226,11 @@ office/
 
 ## Offene Aufgaben
 
-### Priorität (siehe `offen-backlog.md`)
-1. **PIN-Login härten** – kein Full-Scan aller bcrypt-Hashes
-2. **Managed Single-Tenant** – Install-/Update-Skript, AVV
-3. **Google People API aktivieren** – Contacts-Sync noch nicht produktiv
-4. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
+### Priorität (siehe `offen-backlog.md` / `PROJECT-STATUS.md`)
+1. **Google People API aktivieren** – Contacts-Sync noch nicht produktiv
+2. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
 
+PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App).
 ### ⚠️ Google People API aktivieren
 1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
 2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`

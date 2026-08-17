@@ -55,14 +55,14 @@
 
 ### Hohe Priorität
 
-1. **PIN-Login härten** – kein Full-Scan aller aktiven bcrypt-Hashes (`pinLogin` / `userPinLogin`)
-2. **Google People API aktivieren** – People API + DWD-Scope `contacts` für Service Account (Contacts-Sync noch nicht produktiv)
-3. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
-4. **Managed Single-Tenant** – Install-/Update-Skript, AVV; License später
+1. **Google People API aktivieren** – People API + DWD-Scope `contacts` für Service Account (Contacts-Sync noch nicht produktiv)
+2. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 
-### Erledigt (Auswahl seit 09.08.)
+### Erledigt / bewusst nicht (Auswahl)
 
 - ~~Time-Entries-Rollen~~ – 17.08.2026: Stempel nur WORKER (eigene ID) + Office/PM/SUPERADMIN
+- ~~Managed Install / AVV~~ – **nicht geplant**: Office ist eigene App, keine Mehrfach-Kundeninstanzen
+- PIN-Login **bleibt** (Monteur + Kunden-PL); Lookup-Härtung nur optional bei Last
 - ~~APK persistent~~ · ~~Kunden-PL Item-Board~~ · ~~PDF-Import Feinschliff~~ · ~~Offline-Stempeln~~ · ~~Sub-Kontakte / freie Monteure~~
 - Stempel-PIN sichtbar · Kiosk DE/SK/SL · Indexes / Feature-Flags / Splits (#18–#19)
 
@@ -152,7 +152,7 @@ Siehe auch `README.md` für Office-/PL-Accounts und PIN-Login.
 claude-fundament.md … claude-documents.md, drive-ordnerstruktur.md
 claude-arbeitsitems-01 … 15 – erledigt (u. a. Offline, Sub-Kontakte, Druck/Backup)
 claude-arbeitsitems-16 … 19 – Perf, JSDoc, Indexes/Flags, Docs-Pagination
-offen-backlog.md – PIN-Login, Managed SaaS (Time-Entries-Rollen erledigt 17.08.)
+offen-backlog.md – PIN bleibt; kein Multi-Instanz; Feature-Lücken siehe PROJECT-STATUS
 ```
 
 ---

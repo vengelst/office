@@ -1,21 +1,27 @@
 ---
-description: Office Offener Backlog – PIN-Login, Install/AVV; Kiosk/PIN-Hinweise (Time-Entries-Rollen erledigt 2026-08-17)
+description: Office Offener Backlog – Kiosk/PIN-Hinweise; PIN bleibt; kein Multi-Instanz
 alwaysApply: false
 ---
 
 # Office – Offener Backlog
 
-Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries-Sicherheit, PIN-Login, Install/AVV/Managed-SaaS, Kiosk-Admin-PIN, Projektzuweisung oder Stempel-Sperren anspricht: Inhalte aus `claude-auftraege/offen-backlog.md` lesen und danach handeln.
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries-Sicherheit, PIN-Login, Kiosk-Admin-PIN, Projektzuweisung oder Stempel-Sperren anspricht: Inhalte aus `claude-auftraege/offen-backlog.md` lesen und danach handeln.
 
 ## Erledigt
 
 - 2026-08-10: Stempel-PIN am Monteur sichtbar (`pinPlain`); Kiosk-Sprachen DE / SK / SL
 - 2026-08-17: **Time-Entries-Rollen** – Stempel-API nur WORKER (eigene ID) + Office/PM/SUPERADMIN
 
-## Offen (Priorität)
+## Produkt-Klarstellung (17.08.2026)
 
-1. **PIN-Login härten** – kein Full-Scan aller bcrypt-Hashes
-2. **Managed Single-Tenant** – Install-/Update-Skript, AVV; License später
+- Office = **eigene App** (Vivahome) – **kein** Multi-Kunden-Instanz-Produkt
+- Managed Install / AVV / License → **nicht geplant**
+- **PIN-Login bleibt** (Monteur + Kunden-PL); Lookup-Härtung nur optional bei Last
+
+## Offen (nur noch bei Bedarf)
+
+- Feature-Lücken: Google People API, UNIT_BASED-Abrechnung, Mobile Push/Branding, Reporting, …
+- Optional: PIN-Lookup ohne Full-Scan
 
 ## Betrieb (häufig)
 

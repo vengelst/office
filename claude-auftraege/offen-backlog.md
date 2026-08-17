@@ -1,6 +1,6 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: 2026-08-17 · Time-Entries-Rollen geschlossen; Rest bleibt offen.
+Stand: 2026-08-17 · Time-Entries-Rollen geschlossen; Multi-Instanz/AVV nicht geplant; PIN bleibt.
 
 Erledigt zuvor (#16–#19): Logo, Perf, JSDoc, Indexes, Feature-Flags, Splits, Docs-Pagination, Dark-Logo.
 
@@ -53,35 +53,24 @@ Erledigt am 2026-08-17:
 
 ---
 
-## 2. PIN-Login härten
+## 2. PIN-Login (besteht – Härtung optional)
 
-**Problem:** PIN-Login lädt alle aktiven PIN-Hashes und vergleicht sequentiell mit bcrypt → skaliert schlecht, CPU-lastig.
+**Status:** PIN-Login für Monteur (Kiosk/App) und Kunden-PL ist **gewollt und bleibt**. Klartext `pinPlain` = Büro-Anzeige; Login weiter über Hash.
 
-**Ziel:**
-- Lookup ohne Full-Scan (z. B. Worker-/User-Zuordnung vor Compare, oder kurzer Index + Rate-Limit)
-- Enges Rate-Limit pro IP/Gerät beibehalten/verschärfen
-- Kein Breaking Change am PIN-Flow für Kiosk/Monteur
-- Klartext `pinPlain` bleibt Büro-Anzeige; Login weiter über Hash
+**Optional später (Skalierung):** Lookup ohne Full-Scan aller bcrypt-Hashes + Rate-Limit – nur relevant, wenn die PIN-Anzahl spürbar wächst. Kein Breaking Change am Flow.
 
-**Einstieg:**
+**Einstieg (bei Bedarf):**
 - `apps/api/src/auth/auth.service.ts` (`pinLogin` / `userPinLogin`)
-- Worker-PIN / User-PIN Models (Indexes für `isActive` bereits vorhanden)
 
 ---
 
-## 3. Produktisierung Managed Single-Tenant (Install / AVV / License später)
+## ~~3. Produktisierung Managed Single-Tenant~~ – nicht geplant
 
-**Variante A:** Eine Instanz pro Kunde (eigene DB, MinIO, Domain, Secrets).
+**Klarstellung (17.08.2026):** Office ist **eine eigene App** für Vivahome – **keine** Auslieferung mehrerer Kunden-Instanzen. Install-/Update-Skript, AVV-Vorlage und License-Server sind damit **kein Backlog-Ziel**.
 
-| Teil | Status | Hinweis |
-|------|--------|---------|
-| Feature-Flags (DB) | erledigt (#18) | Module pro Instanz freischalten |
-| Install-/Update-Skript | offen | Docker Compose + `install.sh` / `update.sh` für Kunden-Linux |
-| AVV-Vorlage | offen | Vertrag Auftragsverarbeitung (Hosting) |
-| Support-Zugang | offen | kein Backdoor; optional freischaltbarer Support-Admin |
-| LicenseKey / LicenseServer | später | erst bei Self-Host / Missbrauchsrisiko |
+Falls später doch Hosting für Dritte: dann erst Variante A (eine Instanz pro Kunde) prüfen – **keine** Multi-Tenant-Shared-DB.
 
-**Keine Multi-Tenant-Shared-DB** vorerst – Isolation = getrennte Stacks.
+Feature-Flags (#18) bleiben sinnvoll für Module in **dieser** Instanz an/aus.
 
 ---
 
@@ -90,13 +79,14 @@ Erledigt am 2026-08-17:
 - Kunden-PL-Kiosk ebenfalls DE/SK/SL
 - Mobile-App: Locale-Umschalter statt immer DE/SK dual; SL ergänzen
 - UX: Hinweis, wenn Zuweisung erst in der Zukunft startet („erst ab … stempelfähig“)
+- PIN-Login-Lookup ohne Full-Scan – nur bei spürbarer Last / vielen PINs; Flow und PIN-Login bleiben
 
 ---
 
 ## Bewusst nicht jetzt
 
+- Managed Multi-Instanz / Install-Skript / AVV / Online-Lizenzserver
 - Weitere God-File-Feinschliffe außer bei Bedarf
-- Online-Lizenzserver
 - Multi-Tenant `tenantId`
 
 ---
