@@ -27,6 +27,13 @@ export interface StorageConfig {
   impersonateEmail: string;
 }
 
+/** Google Contacts Sync (Toggle; Credentials aus Speicher & Cloud). */
+export interface ContactsConfig {
+  enabled: boolean;
+  credentialsConfigured: boolean;
+  impersonateEmail: string;
+}
+
 /**
  * Öffentliche URL zum Firmenlogo-Stream (auch ohne Login).
  *
@@ -75,6 +82,19 @@ export const settingsApi = {
   testStorageConnection: () =>
     apiClient.post<{ success: boolean; error?: string }>(
       '/settings/storage/test',
+    ),
+
+  // Google Contacts
+  getContactsConfig: () =>
+    apiClient.get<ContactsConfig>('/settings/contacts'),
+  saveContactsConfig: (config: Pick<ContactsConfig, 'enabled'>) =>
+    apiFetch<{ saved: boolean }>('/settings/contacts', {
+      method: 'PUT',
+      body: config,
+    }),
+  testContactsConnection: () =>
+    apiClient.post<{ success: boolean; error?: string }>(
+      '/settings/contacts/test',
     ),
 
   // Firmeninformationen

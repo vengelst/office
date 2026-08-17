@@ -55,7 +55,7 @@
 
 ### Hohe Priorität
 
-1. **Google People API aktivieren** – People API + DWD-Scope `contacts` für Service Account (Contacts-Sync noch nicht produktiv)
+1. **Google Contacts produktiv** – unter Einstellungen → Google Contacts aktivieren; People API + DWD-Scope `contacts` in Google Admin (Credentials = Speicher & Cloud)
 2. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 
 ### Erledigt / bewusst nicht (Auswahl)

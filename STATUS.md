@@ -227,10 +227,10 @@ office/
 ## Offene Aufgaben
 
 ### Priorität (siehe `offen-backlog.md` / `PROJECT-STATUS.md`)
-1. **Google People API aktivieren** – Contacts-Sync noch nicht produktiv
+1. **Google Contacts produktiv schalten** – Einstellungen → Google Contacts; People API + DWD-Scope `contacts` in Google Admin; dann Sync aktivieren und testen
 2. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
 
-PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App).
+PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App). Google Calendar: bewusst nicht.
 ### ⚠️ Google People API aktivieren
 1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
 2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`

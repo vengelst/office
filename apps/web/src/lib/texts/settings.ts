@@ -49,9 +49,36 @@ export const settings = {
         error: 'Aktion fehlgeschlagen.',
       },
     },
+    contacts: {
+      title: 'Google Contacts',
+      subtitle:
+        'Ansprechpartner aus Office in Google Kontakte synchronisieren',
+      enabled: 'Google Contacts Sync aktivieren',
+      credentialsOk: 'Service Account und Impersonation sind unter Speicher & Cloud hinterlegt.',
+      credentialsMissing:
+        'Zuerst unter Speicher & Cloud Service Account JSON und Impersonation-E-Mail hinterlegen.',
+      openStorage: 'Zu Speicher & Cloud',
+      impersonate: 'Kontakte landen im Google-Konto von',
+      setupTitle: 'Google-Admin (einmalig)',
+      setupPeopleApi:
+        'In der Google Cloud Console die People API für das Projekt aktivieren.',
+      setupDwd:
+        'In der Google Admin Console Domain-Wide Delegation: Scope https://www.googleapis.com/auth/contacts für denselben Service Account ergänzen (zusätzlich zum Drive-Scope).',
+      testConnection: 'Verbindung testen',
+      testing: 'Wird getestet …',
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      toast: {
+        saved: 'Contacts-Konfiguration gespeichert.',
+        testSuccess: 'People API Verbindung erfolgreich.',
+        testFailed: 'Verbindungstest fehlgeschlagen.',
+        error: 'Aktion fehlgeschlagen.',
+      },
+    },
     nav: {
       email: 'E-Mail-Konfiguration',
       storage: 'Speicher & Cloud',
+      contacts: 'Google Contacts',
       breakRules: 'Pausenregeln',
       system: 'Server-Status',
       backup: 'Backup & Restore',

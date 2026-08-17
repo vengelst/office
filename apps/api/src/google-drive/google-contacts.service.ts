@@ -24,6 +24,13 @@ export interface ContactData {
   notes?: string;
 }
 
+export interface ContactsConfig {
+  enabled: boolean;
+  /** Service Account + Impersonation kommen aus den Drive-Einstellungen. */
+  credentialsConfigured: boolean;
+  impersonateEmail: string;
+}
+
 /**
  * Service für die Synchronisation von Ansprechpartnern mit Google Contacts.
  * Nutzt die People API mit Domain-Wide Delegation um Kontakte im Google-Konto
@@ -36,19 +43,71 @@ export class GoogleContactsService {
   constructor(private readonly settings: AppSettingsService) {}
 
   /**
+   * Liest Contacts-Toggle und ob Drive-Credentials vorhanden sind.
+   */
+  async getConfig(): Promise<ContactsConfig> {
+    const [enabled, json, email] = await Promise.all([
+      this.settings.get('google_contacts_enabled'),
+      this.settings.get('google_drive_service_account_json'),
+      this.settings.get('google_drive_impersonate_email'),
+    ]);
+    return {
+      enabled: enabled === 'true',
+      credentialsConfigured: Boolean(json?.trim() && email?.trim()),
+      impersonateEmail: email ?? '',
+    };
+  }
+
+  /**
+   * Speichert nur den Contacts-Aktivierungsschalter.
+   * Credentials bleiben unter Speicher & Cloud (Google Drive).
+   */
+  async saveConfig(config: Pick<ContactsConfig, 'enabled'>): Promise<void> {
+    await this.settings.set('google_contacts_enabled', String(config.enabled));
+  }
+
+  /**
+   * Prüft People-API-Zugang (contacts-Scope + DWD).
+   */
+  async testConnection(): Promise<{ success: boolean; error?: string }> {
+    try {
+      const people = await this.authenticate({ requireEnabled: false });
+      if (!people) {
+        return {
+          success: false,
+          error:
+            'Service Account oder Impersonation-E-Mail fehlt (unter Speicher & Cloud setzen).',
+        };
+      }
+      await people.people.connections.list({
+        resourceName: 'people/me',
+        pageSize: 1,
+        personFields: 'names',
+      });
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: (err as Error).message };
+    }
+  }
+
+  /**
    * Authentifiziert sich bei der Google People API via JWT und Domain-Wide Delegation.
    * Gibt null zurück wenn die Integration deaktiviert oder nicht konfiguriert ist.
    *
    * @returns Authentifizierte People-API-Instanz, oder null bei fehlender Konfiguration
    */
-  private async authenticate(): Promise<people_v1.People | null> {
+  private async authenticate(opts?: {
+    requireEnabled?: boolean;
+  }): Promise<people_v1.People | null> {
+    const requireEnabled = opts?.requireEnabled !== false;
     const [enabled, json, email] = await Promise.all([
-      this.settings.get('google_drive_enabled'),
+      this.settings.get('google_contacts_enabled'),
       this.settings.get('google_drive_service_account_json'),
       this.settings.get('google_drive_impersonate_email'),
     ]);
 
-    if (enabled !== 'true' || !json || !email) return null;
+    if (requireEnabled && enabled !== 'true') return null;
+    if (!json?.trim() || !email?.trim()) return null;
 
     const credentials = JSON.parse(json);
     const jwtClient = new google.auth.JWT({

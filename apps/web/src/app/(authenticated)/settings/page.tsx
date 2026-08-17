@@ -8,6 +8,7 @@ import {
   Server,
   DatabaseBackup,
   ToggleLeft,
+  Contact,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -31,6 +32,12 @@ const settingsLinks = [
     label: texts.settings.nav.storage,
     description: texts.settings.storage.subtitle,
     icon: HardDrive,
+  },
+  {
+    href: '/settings/contacts',
+    label: texts.settings.nav.contacts,
+    description: texts.settings.contacts.subtitle,
+    icon: Contact,
   },
   {
     href: '/settings/backup',
