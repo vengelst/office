@@ -39,9 +39,9 @@ import { UploadPhotoDto } from './dto/upload-photo.dto';
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
 
 /**
- * Stempel-Endpoints. Erreichbar sowohl mit Office-Token (Admin/PM) als auch
- * mit Worker-Token (Monteur selbst) – der globale JwtAuthGuard akzeptiert
- * beide Token-Typen; die Eigentümer-Prüfung erfolgt im Service.
+ * Stempel-Endpoints für Worker-Token (eigene workerId) und Office/PM/SUPERADMIN
+ * (beliebige workerId). CUSTOMER_PL und andere Rollen sind ausgeschlossen.
+ * Eigentümer-/Rollen-Prüfung zusätzlich im Service (Defense in Depth).
  */
 @ApiTags('time-entries')
 @ApiBearerAuth()
@@ -75,6 +75,8 @@ export class TimeEntriesController {
 
   @Post('clock-in')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
   @ApiOperation({ summary: 'Einstempeln' })
   clockIn(@Body() dto: ClockInDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.clockIn(dto, user);
@@ -90,12 +92,16 @@ export class TimeEntriesController {
 
   @Post('clock-out')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
   @ApiOperation({ summary: 'Ausstempeln' })
   clockOut(@Body() dto: ClockOutDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.clockOut(dto, user);
   }
 
   @Post('upload-photo')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
   @ApiOperation({ summary: 'Arbeitsfoto hochladen (Multipart)' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
@@ -141,6 +147,8 @@ export class TimeEntriesController {
    */
 
   @Get('status/:workerId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
   @ApiOperation({ summary: 'Aktueller Stempel-Status eines Monteurs' })
   status(
     @Param('workerId') workerId: string,
@@ -158,6 +166,8 @@ export class TimeEntriesController {
    */
 
   @Get('today/:workerId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
   @ApiOperation({ summary: 'Heutige Stempel-Einträge eines Monteurs' })
   today(@Param('workerId') workerId: string, @CurrentUser() user: AuthUser) {
     return this.timeEntries.today(workerId, user);

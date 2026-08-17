@@ -1,15 +1,21 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: 2026-08-10 (nachmittag) · Wechsel zu anderem Projekt – Stand hier festhalten.
+Stand: 2026-08-17 · Time-Entries-Rollen geschlossen; Rest bleibt offen.
 
 Erledigt zuvor (#16–#19): Logo, Perf, JSDoc, Indexes, Feature-Flags, Splits, Docs-Pagination, Dark-Logo.
 
-Erledigt am 2026-08-10 (diese Session, auf `main` / Prod):
+Erledigt am 2026-08-10:
 
 | Thema | Commit / Hinweis |
 |-------|------------------|
 | Stempel-PIN am Monteur dauerhaft sichtbar | `f954311` – `WorkerPin.pinPlain` + `GET /workers/:id/pin`; Anzeige auf Monteur-Detail. Alte PINs ohne Klartext: einmal neu setzen. |
 | Kiosk-Sprachen DE / SK / SL | `9696e9d` (+ Build-Fixes) – Sprachumschalter auf PIN-Screen; Terminal + Arbeitsitems folgen Locale (`office_kiosk_lang`). Setup/Kunden-PL bleiben Deutsch. Mobile-App weiter DE/SK dual. |
+
+Erledigt am 2026-08-17:
+
+| Thema | Hinweis |
+|-------|---------|
+| Time-Entries-Rollen absichern | `@Roles(SUPERADMIN, OFFICE, PROJECT_MANAGER, WORKER)` auf Stempel-Endpoints; `assertOwnWorker` blockiert User ohne Office/PM/SUPERADMIN (inkl. `CUSTOMER_PL`). Worker nur eigene `workerId`. |
 
 ---
 
@@ -32,16 +38,16 @@ Erledigt am 2026-08-10 (diese Session, auf `main` / Prod):
 
 ---
 
-## 1. Time-Entries-Rollen absichern
+## ~~1. Time-Entries-Rollen absichern~~ ✅ 2026-08-17
 
-**Problem:** Stempel-Endpoints (`time-entries`) haben keine klaren `@Roles`. Jeder User-JWT (inkl. ggf. `CUSTOMER_PL`) kann theoretisch fremde `workerId` stempeln. Eigentümer-Check gilt primär für Worker-Tokens.
+**War:** Stempel-Endpoints ohne klare `@Roles`; `assertOwnWorker` nur für Worker-Tokens → jeder User-JWT (inkl. `CUSTOMER_PL`) konnte fremde `workerId` stempeln.
 
-**Ziel:**
-- Office/PM/SUPERADMIN: bewusst erlaubt oder explizit whitelisten
-- `CUSTOMER_PL` / unpassende Rollen: kein Stempeln für beliebige Monteure
-- Worker-Token: nur eigene `workerId`
+**Jetzt:**
+- Controller: Stempel/Status/Foto nur `SUPERADMIN` | `OFFICE` | `PROJECT_MANAGER` | `WORKER`
+- Service: User ohne Office/PM/SUPERADMIN → `ForbiddenException`; Worker nur eigene ID
+- `GET live` unverändert nur Office/PM/SUPERADMIN; Kiosk `project-status` weiter API-Key
 
-**Einstieg:**
+**Einstieg (Referenz):**
 - `apps/api/src/time-entries/time-entries.controller.ts`
 - `apps/api/src/time-entries/time-entries.service.ts` (`assertOwnWorker`)
 

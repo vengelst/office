@@ -1,5 +1,5 @@
 ---
-description: Office Offener Backlog – Time-Entries-Rollen, PIN-Login, Install/AVV; Kiosk/PIN-Hinweise
+description: Office Offener Backlog – PIN-Login, Install/AVV; Kiosk/PIN-Hinweise (Time-Entries-Rollen erledigt 2026-08-17)
 alwaysApply: false
 ---
 
@@ -7,16 +7,15 @@ alwaysApply: false
 
 Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries-Sicherheit, PIN-Login, Install/AVV/Managed-SaaS, Kiosk-Admin-PIN, Projektzuweisung oder Stempel-Sperren anspricht: Inhalte aus `claude-auftraege/offen-backlog.md` lesen und danach handeln.
 
-## Erledigt 2026-08-10 (kurz)
+## Erledigt
 
-- Stempel-PIN am Monteur sichtbar (`pinPlain`)
-- Kiosk-Sprachen DE / SK / SL
+- 2026-08-10: Stempel-PIN am Monteur sichtbar (`pinPlain`); Kiosk-Sprachen DE / SK / SL
+- 2026-08-17: **Time-Entries-Rollen** – Stempel-API nur WORKER (eigene ID) + Office/PM/SUPERADMIN
 
 ## Offen (Priorität)
 
-1. **Time-Entries-Rollen** – Stempel-API absichern
-2. **PIN-Login härten** – kein Full-Scan aller bcrypt-Hashes
-3. **Managed Single-Tenant** – Install-/Update-Skript, AVV; License später
+1. **PIN-Login härten** – kein Full-Scan aller bcrypt-Hashes
+2. **Managed Single-Tenant** – Install-/Update-Skript, AVV; License später
 
 ## Betrieb (häufig)
 

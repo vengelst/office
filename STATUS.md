@@ -1,10 +1,11 @@
 # Office App – Projektstatus
 
-**Stand:** 09. August 2026  
+**Stand:** 17. August 2026  
 **Server:** office.vivahome.de (109.199.112.176)  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
-**Server-Pfad:** `/opt/office`
+**Server-Pfad:** `/opt/office`  
+**Kurzstatus:** siehe auch `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`
 
 ---
 
@@ -115,10 +116,11 @@ office/
 - **Zeiteinträge** mit Start-/Endzeit, Projekt, Baustelle
 - **Baustellenfotos** bei Zeiterfassung (automatisch dem Projekt zugeordnet)
 - **PDF-Export** + Ablage am Projekt; nach Kunden-PL-Approve zusätzlich **E-Mail mit PDF-Anhang**
-- **Kiosk Monteur** (`/kiosk/terminal`) – Tablet-Zeiterfassung / Items mit Worker-PIN
-- **Kiosk Kunden-PL** (`/kiosk/pl`) – PIN → eingereichte Wochenzettel sehen, unterschreiben & abzeichnen
-- **Worker-App** (`/worker-app`) – Monteur-Dashboard mit eigenen Zeiten
+- **Kiosk Monteur** (`/kiosk/terminal`) – Tablet-Zeiterfassung / Items mit Worker-PIN; UI DE / SK / SL
+- **Kiosk Kunden-PL** (`/kiosk/pl`) – PIN → eingereichte Wochenzettel sehen, unterschreiben & abzeichnen; Item-Board
+- **Worker-App** (`/worker-app`) – Monteur-Dashboard mit eigenen Zeiten; Offline-Stempel-Queue
 - **Live-Stempeluhr** (`/time-clock/live`) – Echtzeit-Anzeige aller aktiven Monteure
+- **Stempel-Rechte** – nur eigene Worker-ID bzw. Office/PM/SUPERADMIN (kein `CUSTOMER_PL`)
 
 ### 9. Dokumentensystem (`/documents`)
 - **Universelle Dokumentenverwaltung** für alle Entitäten
@@ -224,22 +226,32 @@ office/
 
 ## Offene Aufgaben
 
+### Priorität (siehe `offen-backlog.md`)
+1. **PIN-Login härten** – kein Full-Scan aller bcrypt-Hashes
+2. **Managed Single-Tenant** – Install-/Update-Skript, AVV
+3. **Google People API aktivieren** – Contacts-Sync noch nicht produktiv
+4. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
+
 ### ⚠️ Google People API aktivieren
 1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
 2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
 
-### 📱 Mobile App – Nächste Schritte
+### Mobile App – Nächste Schritte
 - **Push-Notifications** – z.B. für Erinnerungen, Projektänderungen
 - **Biometrische Authentifizierung** (optional, Fingerprint)
 - **App-Branding** – Eigenes Icon/Splash statt Platzhalter
 - ~~**APK dauerhaft verfügbar machen**~~ – erledigt: Bind-Mount `/opt/office/data/kiosk.apk` → Web-Container `public/kiosk.apk`
 
 ### Dateien die aufgeteilt werden sollten
-| Datei | Zeilen | Empfehlung |
-|---|---|---|
-| `invoices.service.ts` | 1163 | PDF-Logik, Berechnungen, CRUD trennen |
-| `contacts-tab.tsx` | 1063 | Scan-Logik, Formular, AuthImage auslagern |
-| `timesheets/[id]/page.tsx` | 810 | Formular-Komponenten extrahieren |
+| Datei | Empfehlung |
+|---|---|
+| `invoices.service.ts` | PDF-Logik, Berechnungen, CRUD trennen |
+| `contacts-tab.tsx` | Scan-Logik, Formular, AuthImage auslagern |
+| `timesheets/[id]/page.tsx` | Formular-Komponenten extrahieren |
+
+### Erledigt 17.08.2026 – Stempel-API-Rollen
+- Stempel-Endpoints (`clock-in/out`, Status, Foto) nur für `WORKER` (eigene ID) sowie `SUPERADMIN` / `OFFICE` / `PROJECT_MANAGER`
+- `CUSTOMER_PL` und andere User-Rollen können keine fremde `workerId` mehr stempeln
 
 ---
 
@@ -292,8 +304,9 @@ scp apps/mobile/kiosk.apk root@vivahome.de:/opt/office/data/kiosk.apk
 
 ### Authentifizierung
 - JWT-basiert mit Access-Token (8h Gültigkeit)
-- Rollen: SUPERADMIN, ADMIN, USER
-- Kiosk-Modus: PIN-basierte Authentifizierung für Monteure (Web + Native App)
+- Rollen: `SUPERADMIN`, `OFFICE`, `PROJECT_MANAGER`, `WORKER`, `CUSTOMER_PL`
+- Stempel-API: Worker nur eigene `workerId`; Office/PM/SUPERADMIN dürfen für Monteure stempeln; `CUSTOMER_PL` ausgeschlossen
+- Kiosk-Modus: PIN-basierte Authentifizierung für Monteure (Web + Native App) und Kunden-PL (`UserPin`)
 
 ### Datenbank
 - PostgreSQL mit Prisma ORM (v5.22.0)

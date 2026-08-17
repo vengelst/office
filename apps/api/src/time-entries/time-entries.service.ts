@@ -15,6 +15,7 @@ import {
   DocumentType,
   GpsEventType,
   Prisma,
+  RoleCode,
   TimeEntryType,
 } from '@prisma/client';
 import { AuthUser } from '@office/types';
@@ -45,6 +46,13 @@ const workerSelect = {
   lastName: true,
   photoPath: true,
 } satisfies Prisma.WorkerSelect;
+
+/** Office-Rollen, die für beliebige Monteure stempeln / Status lesen dürfen. */
+const STAMP_USER_ROLES: RoleCode[] = [
+  RoleCode.SUPERADMIN,
+  RoleCode.OFFICE,
+  RoleCode.PROJECT_MANAGER,
+];
 
 /** Nur "echte" Stempel-Events bestimmen den Ein-/Ausgestempelt-Zustand. */
 const CLOCK_TYPES: TimeEntryType[] = [
@@ -597,17 +605,28 @@ export class TimeEntriesService {
   }
 
   /**
-   * Interner Helfer: stellt sicher, dass der Aufrufer der betroffene Monteur ist.
+   * Stempel-/Status-Zugriff: Worker nur für die eigene ID; User nur mit
+   * SUPERADMIN / OFFICE / PROJECT_MANAGER. CUSTOMER_PL und andere Rollen: nein.
    *
-   * @param workerId - ID des Monteurs (string)
-   * @param actor - Ausführender Akteur (Audit) (AuthUser)
-   * @returns void
-   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
+   * @param workerId - Ziel-Monteur
+   * @param actor - JWT-Akteur
    * @throws {ForbiddenException} Wenn die Berechtigung fehlt
    */
   private assertOwnWorker(workerId: string, actor: AuthUser): void {
-    if (actor.type === 'worker' && actor.id !== workerId) {
-      throw new ForbiddenException('Nur eigene Stempelungen erlaubt');
+    if (actor.type === 'worker') {
+      if (actor.id !== workerId) {
+        throw new ForbiddenException('Nur eigene Stempelungen erlaubt');
+      }
+      return;
+    }
+
+    const allowed = actor.roles.some((role) =>
+      STAMP_USER_ROLES.includes(role as RoleCode),
+    );
+    if (!allowed) {
+      throw new ForbiddenException(
+        'Keine Berechtigung für Stempelungen anderer Monteure',
+      );
     }
   }
 
