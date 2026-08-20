@@ -1,14 +1,20 @@
 # Office App – Projekt-Status
 
-**Stand:** 17. August 2026  
+**Stand:** 20. August 2026 (Projektwechsel – Session festgehalten)  
 **Repository:** github.com/vengelst/office  
 **Branch:** `main`  
+**Letzter Feature-Commit:** `2092ef1` – Google Contacts Einstellungen  
 **Produktion:** https://office.vivahome.de (`/opt/office` auf vivahome.de)
 
-> Ausführliche Feature-Liste und Architektur: **`STATUS.md`**  
-> Item-Modus-Spezifikation: **`SPEZ-arbeitsitems.md`**  
-> Offener Backlog: **`claude-auftraege/offen-backlog.md`**  
-> Deployment: **`DEPLOYMENT.md`**
+> Ausführliche Feature-Liste: **`STATUS.md`**  
+> Session-/Backlog-Übergabe: **`claude-auftraege/offen-backlog.md`**  
+> Item-Modus: **`SPEZ-arbeitsitems.md`** · Deployment: **`DEPLOYMENT.md`**
+
+### Letzte Session (17.–20.08.2026) – Kurz
+
+1. **Stempel-Sicherheit** – `CUSTOMER_PL` / fremde `workerId` gesperrt (`488ad20`)
+2. **Produktklarstellung** – eigene App; kein Multi-Instanz/AVV; PIN bleibt; kein Calendar
+3. **Google Contacts Settings** – UI live (`2092ef1`); produktiv erst nach People API + DWD-Scope in Google Admin
 
 ---
 
@@ -32,7 +38,7 @@
 | 14 | Kommunikation | Historie am Kunden inkl. Spracheingabe |
 | 15 | To-Dos | Prioritäten, Zuordnungen, Dashboard-Widget |
 | 16 | Ausschreibungen | Submission-Suche via Research-Service |
-| 17 | Einstellungen | Firmen-Stammdaten, Pausen, Storage, Cloud, System-Status |
+| 17 | Einstellungen | Firmen-Stammdaten, Pausen, Storage/Drive, **Google Contacts**, System-Status, Feature-Flags |
 | 18 | Mobile Kiosk-App | Expo/Android APK (`de.vivahome.kiosk`), Download unter `/download` |
 | 19 | Arbeitsitems | PDF-/Excel-Import, Büro-Tab, Monteur Web/PWA/Kiosk, Kunden-PL (Kiosk-PIN + Zustell-E-Mail) |
 | 20 | Feature-Flags | Module pro Instanz freischaltbar (#18) |
@@ -60,10 +66,10 @@
 
 ### Erledigt / bewusst nicht (Auswahl)
 
-- ~~Time-Entries-Rollen~~ – 17.08.2026: Stempel nur WORKER (eigene ID) + Office/PM/SUPERADMIN
-- ~~Managed Install / AVV~~ – **nicht geplant**: Office ist eigene App, keine Mehrfach-Kundeninstanzen
-- PIN-Login **bleibt** (Monteur + Kunden-PL); Lookup-Härtung nur optional bei Last
-- ~~APK persistent~~ · ~~Kunden-PL Item-Board~~ · ~~PDF-Import Feinschliff~~ · ~~Offline-Stempeln~~ · ~~Sub-Kontakte / freie Monteure~~
+- ~~Time-Entries-Rollen~~ – 17.08.2026  
+- ~~Contacts-Einstellungen-UI~~ – 17.08.2026 (`/settings/contacts`) – Google Admin noch offen  
+- ~~Managed Install / AVV~~ – nicht geplant  
+- PIN-Login bleibt · Google Calendar bewusst nicht  
 - Stempel-PIN sichtbar · Kiosk DE/SK/SL · Indexes / Feature-Flags / Splits (#18–#19)
 
 ### Mittlere Priorität

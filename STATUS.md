@@ -1,11 +1,11 @@
 # Office App – Projektstatus
 
-**Stand:** 17. August 2026  
+**Stand:** 20. August 2026  
 **Server:** office.vivahome.de (109.199.112.176)  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
 **Server-Pfad:** `/opt/office`  
-**Kurzstatus:** siehe auch `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`
+**Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`
 
 ---
 

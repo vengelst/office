@@ -1,32 +1,22 @@
 ---
-description: Office Offener Backlog – Kiosk/PIN-Hinweise; PIN bleibt; kein Multi-Instanz
+description: Office Offener Backlog – Session 17.–20.08.2026 festgehalten; Contacts Settings live, Google Admin noch offen
 alwaysApply: false
 ---
 
 # Office – Offener Backlog
 
-Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries-Sicherheit, PIN-Login, Kiosk-Admin-PIN, Projektzuweisung oder Stempel-Sperren anspricht: Inhalte aus `claude-auftraege/offen-backlog.md` lesen und danach handeln.
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Kiosk oder Stempel anspricht: **`claude-auftraege/offen-backlog.md`** lesen.
 
-## Erledigt
+## Session-Übergabe (Stand 2026-08-20)
 
-- 2026-08-10: Stempel-PIN am Monteur sichtbar (`pinPlain`); Kiosk-Sprachen DE / SK / SL
-- 2026-08-17: **Time-Entries-Rollen** – Stempel-API nur WORKER (eigene ID) + Office/PM/SUPERADMIN
+**Erledigt & auf Prod (`main`):**
+1. Stempel-API-Rollen (`488ad20`) – kein fremdes Stempeln für CUSTOMER_PL
+2. Produktklarstellung: eigene App, kein Multi-Instanz/AVV; PIN bleibt
+3. Google Contacts **Einstellungen-UI** (`2092ef1`) – Toggle + Test; Credentials = Speicher & Cloud
 
-## Produkt-Klarstellung (17.08.2026)
-
-- Office = **eigene App** (Vivahome) – **kein** Multi-Kunden-Instanz-Produkt
-- Managed Install / AVV / License → **nicht geplant**
-- **PIN-Login bleibt** (Monteur + Kunden-PL); Lookup-Härtung nur optional bei Last
-
-## Offen (nur noch bei Bedarf)
-
-- Feature-Lücken: Google People API, UNIT_BASED-Abrechnung, Mobile Push/Branding, Reporting, …
-- Optional: PIN-Lookup ohne Full-Scan
-
-## Betrieb (häufig)
-
-- Admin-PIN nur auf `/kiosk/setup`, nicht in Office-Settings
-- Kiosk-Projekt: nur Status **ACTIVE**; Zuweisung lokal am Gerät
-- Stempeln braucht Zuweisung mit `startDate <= heute` (Projekt ACTIVE reicht nicht)
+**Noch offen (nächstes Mal):**
+- Google Admin: People API + DWD-Scope `contacts` → dann unter Einstellungen → Google Contacts Sync an + testen
+- UNIT_BASED-Abrechnung aus geprüften Items
+- Google Calendar: bewusst nicht
 
 Details: **`claude-auftraege/offen-backlog.md`**.
