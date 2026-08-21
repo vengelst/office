@@ -228,12 +228,19 @@ office/
 
 ### Priorität (siehe `offen-backlog.md` / `PROJECT-STATUS.md`)
 1. **Google Contacts produktiv schalten** – Einstellungen → Google Contacts; People API + DWD-Scope `contacts` in Google Admin; dann Sync aktivieren und testen
-2. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
+2. **Google Calendar produktiv schalten** – Einstellungen → Google Calendar; Calendar API + DWD-Scope `calendar` in Google Admin; dann Sync aktivieren und testen
+3. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
 
-PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App). Google Calendar: bewusst nicht.
+PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App). Google Calendar: App fertig (Office → Google, primary); Bidirektional bewusst nicht.
+
 ### ⚠️ Google People API aktivieren
 1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
 2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
+
+### ⚠️ Google Calendar API aktivieren
+1. Google Cloud Console → Google Calendar API aktivieren
+2. Google Admin Console → DWD → Scope `https://www.googleapis.com/auth/calendar` für denselben Service Account
+3. Office: Einstellungen → Google Calendar → Sync an → Verbindungstest; Termine unter `/calendar`
 
 ### Mobile App – Nächste Schritte
 - **Push-Notifications** – z.B. für Erinnerungen, Projektänderungen

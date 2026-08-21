@@ -1,19 +1,25 @@
 # Office App – Projekt-Status
 
-**Stand:** 20. August 2026 (Projektwechsel – Session festgehalten)  
+**Stand:** 21. August 2026 (Cloud-Auftrag #20 Google Calendar)  
 **Repository:** github.com/vengelst/office  
 **Branch:** `main`  
-**Letzter Feature-Commit:** `2092ef1` – Google Contacts Einstellungen  
+**Letzter Feature-Fokus:** Google Calendar Sync (Office → Google)  
 **Produktion:** https://office.vivahome.de (`/opt/office` auf vivahome.de)
 
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog-Übergabe: **`claude-auftraege/offen-backlog.md`**  
 > Item-Modus: **`SPEZ-arbeitsitems.md`** · Deployment: **`DEPLOYMENT.md`**
 
-### Letzte Session (17.–20.08.2026) – Kurz
+### Letzte Arbeit (21.08.2026) – Kurz
+
+1. **Google Calendar** – `CalendarEvent`, Settings `/settings/calendar`, Termine `/calendar`, Sync Office → `primary` (Europe/Berlin)
+2. Credentials = Drive-SA + Impersonation; Google Admin (Calendar API + DWD) noch manuell
+3. Projekt-Timeline `/projects/calendar` unverändert
+
+### Session davor (17.–20.08.2026)
 
 1. **Stempel-Sicherheit** – `CUSTOMER_PL` / fremde `workerId` gesperrt (`488ad20`)
-2. **Produktklarstellung** – eigene App; kein Multi-Instanz/AVV; PIN bleibt; kein Calendar
+2. **Produktklarstellung** – eigene App; kein Multi-Instanz/AVV; PIN bleibt
 3. **Google Contacts Settings** – UI live (`2092ef1`); produktiv erst nach People API + DWD-Scope in Google Admin
 
 ---
@@ -24,7 +30,7 @@
 |---|-------|-------------|
 | 1 | Projektbasis | NestJS API, Next.js Web, PostgreSQL, MinIO, Docker, JWT-Auth |
 | 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, Drucken, Google Contacts Sync |
-| 3 | Projektverwaltung | CRUD, 7-Tab-Detail, Baustellen, Zuweisungen, Kalender |
+| 3 | Projektverwaltung | CRUD, 7-Tab-Detail, Baustellen, Zuweisungen, Kalender/Timeline |
 | 4 | Monteure / Teams / Subs | Workers, Qualifikationen, Subunternehmen, Teams |
 | 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Stundenzettel, PDF, Signaturen, Live-Stempeluhr, Offline-Queue |
 | 6 | Abrechnungen | Ein-/Ausgangsrechnungen, Positionen, PDF, Zahlungsstatus |
@@ -38,10 +44,11 @@
 | 14 | Kommunikation | Historie am Kunden inkl. Spracheingabe |
 | 15 | To-Dos | Prioritäten, Zuordnungen, Dashboard-Widget |
 | 16 | Ausschreibungen | Submission-Suche via Research-Service |
-| 17 | Einstellungen | Firmen-Stammdaten, Pausen, Storage/Drive, **Google Contacts**, System-Status, Feature-Flags |
+| 17 | Einstellungen | Firmen-Stammdaten, Pausen, Storage/Drive, **Google Contacts**, **Google Calendar**, System-Status, Feature-Flags |
 | 18 | Mobile Kiosk-App | Expo/Android APK (`de.vivahome.kiosk`), Download unter `/download` |
 | 19 | Arbeitsitems | PDF-/Excel-Import, Büro-Tab, Monteur Web/PWA/Kiosk, Kunden-PL (Kiosk-PIN + Zustell-E-Mail) |
 | 20 | Feature-Flags | Module pro Instanz freischaltbar (#18) |
+| 21 | Termine / Google Calendar | CRUD `/calendar`, Sync Office → Google primary (#20) |
 
 ---
 
@@ -51,7 +58,7 @@
 - **Frontend Web:** Next.js 14 (App Router), shadcn/ui, Tailwind, React Hook Form + Zod
 - **Frontend Mobile:** React Native / Expo SDK 53, EAS Build (lokal)
 - **Auth:** JWT (User + Worker-PIN), Rollen: `SUPERADMIN`, `OFFICE`, `PROJECT_MANAGER`, `WORKER`, `CUSTOMER_PL`
-- **PDF:** pdfkit · **E-Mail:** nodemailer · **Cloud:** Google Drive / People API
+- **PDF:** pdfkit · **E-Mail:** nodemailer · **Cloud:** Google Drive / People API / Calendar API
 - **Neben-Services:** `ocr-service`, `research-service` (eigene Repos, Docker-Netz `vivahome`)
 - **Deployment:** Production auf vivahome.de (Docker Compose + Nginx + TLS)
 
@@ -61,15 +68,17 @@
 
 ### Hohe Priorität
 
-1. **Google Contacts produktiv** – unter Einstellungen → Google Contacts aktivieren; People API + DWD-Scope `contacts` in Google Admin (Credentials = Speicher & Cloud)
-2. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
+1. **Google Contacts produktiv** – People API + DWD-Scope `contacts` in Google Admin; dann Sync testen
+2. **Google Calendar produktiv** – Calendar API + DWD-Scope `calendar` in Google Admin; dann Sync testen
+3. **Einheitsbasierte Abrechnung** – `billingMode: UNIT_BASED` existiert; Abrechnung aus geprüften Arbeitsitems noch nicht verdrahtet
 
 ### Erledigt / bewusst nicht (Auswahl)
 
 - ~~Time-Entries-Rollen~~ – 17.08.2026  
 - ~~Contacts-Einstellungen-UI~~ – 17.08.2026 (`/settings/contacts`) – Google Admin noch offen  
+- ~~Google Calendar App-Seite~~ – 21.08.2026 (`/settings/calendar`, `/calendar`) – Google Admin noch offen; kein Bidirektional  
 - ~~Managed Install / AVV~~ – nicht geplant  
-- PIN-Login bleibt · Google Calendar bewusst nicht  
+- PIN-Login bleibt  
 - Stempel-PIN sichtbar · Kiosk DE/SK/SL · Indexes / Feature-Flags / Splits (#18–#19)
 
 ### Mittlere Priorität
@@ -85,6 +94,7 @@
 - **Fahrtenbuch / Tankkosten / Schäden** – Fahrzeug-Erweiterungen später
 - **Nacht-/Wochenend-Zuschläge** – bewusst keine Zuschläge
 - Kunden-PL-Kiosk i18n · Mobile Locale + SL · UX-Hinweis bei zukünftiger Zuweisung
+- Bidirektionaler Calendar-Sync / Multi-User-Kalender
 
 ---
 
@@ -115,7 +125,8 @@ prisma/migrations/
 ├── 20260808140000_add_work_card_template
 ├── 20260809100000_add_user_pin
 ├── 20260809120000_add_customer_pl_notification_email
-└── 20260809190000_add_time_entry_client_event_id
+├── 20260809190000_add_time_entry_client_event_id
+└── 20260821180000_add_calendar_events
 ```
 
 ---

@@ -24,6 +24,7 @@ export class UpdateFeatureFlagsDto {
   @IsOptional() @IsBoolean() documents?: boolean;
   @IsOptional() @IsBoolean() invoices?: boolean;
   @IsOptional() @IsBoolean() todos?: boolean;
+  @IsOptional() @IsBoolean() calendar?: boolean;
 }
 
 @ApiTags('feature-flags')
