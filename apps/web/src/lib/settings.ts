@@ -34,6 +34,13 @@ export interface ContactsConfig {
   impersonateEmail: string;
 }
 
+/** Google Calendar Sync (Toggle; Credentials aus Speicher & Cloud). */
+export interface CalendarConfig {
+  enabled: boolean;
+  credentialsConfigured: boolean;
+  impersonateEmail: string;
+}
+
 /**
  * Öffentliche URL zum Firmenlogo-Stream (auch ohne Login).
  *
@@ -95,6 +102,19 @@ export const settingsApi = {
   testContactsConnection: () =>
     apiClient.post<{ success: boolean; error?: string }>(
       '/settings/contacts/test',
+    ),
+
+  // Google Calendar
+  getCalendarConfig: () =>
+    apiClient.get<CalendarConfig>('/settings/calendar'),
+  saveCalendarConfig: (config: Pick<CalendarConfig, 'enabled'>) =>
+    apiFetch<{ saved: boolean }>('/settings/calendar', {
+      method: 'PUT',
+      body: config,
+    }),
+  testCalendarConnection: () =>
+    apiClient.post<{ success: boolean; error?: string }>(
+      '/settings/calendar/test',
     ),
 
   // Firmeninformationen

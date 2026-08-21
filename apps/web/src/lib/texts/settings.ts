@@ -75,10 +75,40 @@ export const settings = {
         error: 'Aktion fehlgeschlagen.',
       },
     },
+    calendar: {
+      title: 'Google Calendar',
+      subtitle:
+        'Office-Termine in den Google-Kalender (primary) synchronisieren',
+      enabled: 'Google Calendar Sync aktivieren',
+      credentialsOk:
+        'Service Account und Impersonation sind unter Speicher & Cloud hinterlegt.',
+      credentialsMissing:
+        'Zuerst unter Speicher & Cloud Service Account JSON und Impersonation-E-Mail hinterlegen.',
+      openStorage: 'Zu Speicher & Cloud',
+      impersonate: 'Termine landen im Google-Kalender von',
+      setupTitle: 'Google-Admin (einmalig)',
+      setupCalendarApi:
+        'In der Google Cloud Console die Google Calendar API für das Projekt aktivieren.',
+      setupDwd:
+        'In der Google Admin Console Domain-Wide Delegation: Scope https://www.googleapis.com/auth/calendar für denselben Service Account ergänzen (zusätzlich zu Drive/Contacts).',
+      note:
+        'Nur Office → Google. Kein Bidirektional-Sync, nur der primary-Kalender des impersonierten Kontos (Europe/Berlin).',
+      testConnection: 'Verbindung testen',
+      testing: 'Wird getestet …',
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      toast: {
+        saved: 'Calendar-Konfiguration gespeichert.',
+        testSuccess: 'Calendar API Verbindung erfolgreich.',
+        testFailed: 'Verbindungstest fehlgeschlagen.',
+        error: 'Aktion fehlgeschlagen.',
+      },
+    },
     nav: {
       email: 'E-Mail-Konfiguration',
       storage: 'Speicher & Cloud',
       contacts: 'Google Contacts',
+      calendar: 'Google Calendar',
       breakRules: 'Pausenregeln',
       system: 'Server-Status',
       backup: 'Backup & Restore',
