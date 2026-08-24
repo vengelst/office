@@ -31,6 +31,7 @@ import { TimesheetsService } from './timesheets.service';
 import { TimesheetPdfService } from './pdf.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
 import { UpdateDayDto } from './dto/update-day.dto';
+import { UpsertDayDto } from './dto/upsert-day.dto';
 import { SignTimesheetDto } from './dto/sign-timesheet.dto';
 import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
 
@@ -142,6 +143,15 @@ export class TimesheetsController {
    * @param dto - Request-Body / Eingabedaten (UpdateDayDto)
    * @returns Aktualisierter Tag
    */
+
+  @Post(':id/days')
+  @ApiOperation({
+    summary:
+      'Tag manuell anlegen/überschreiben (z. B. Monteur ohne Handy)',
+  })
+  upsertDay(@Param('id') id: string, @Body() dto: UpsertDayDto) {
+    return this.timesheets.upsertDay(id, dto);
+  }
 
   @Patch(':id/days/:dayId')
   @ApiOperation({ summary: 'Tageseintrag korrigieren' })

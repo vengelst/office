@@ -259,10 +259,21 @@ export interface GenerateTimesheetBody {
   projectId: string;
   weekYear: number;
   weekNumber: number;
+  /** Optional: bis KW (inkl.) – mehrere Wochen generieren */
+  weekNumberTo?: number;
 }
 
 /** Request-Body zum Aktualisieren eines einzelnen Stundenzettel-Tages. */
 export interface UpdateDayBody {
+  firstClockInAt?: string;
+  lastClockOutAt?: string;
+  breakMinutes?: number;
+  summaryComment?: string;
+}
+
+/** Request-Body: Tag manuell anlegen/überschreiben. */
+export interface UpsertDayBody {
+  workDate: string;
   firstClockInAt?: string;
   lastClockOutAt?: string;
   breakMinutes?: number;
@@ -531,11 +542,13 @@ export const timesheetsApi = {
    */
   get: (id: string) => apiClient.get<TimesheetDetail>(`/timesheets/${id}`),
   /**
-   * POST /timesheets/generate – Generiert einen Stundenzettel aus Zeiteinträgen.
-   * @param body - Monteur, Projekt, Kalenderwoche
+   * POST /timesheets/generate – Generiert Stundenzettel (eine oder mehrere KW).
+   * @param body - Monteur, Projekt, Kalenderwoche (optional bis KW)
    */
   generate: (body: GenerateTimesheetBody) =>
-    apiClient.post<TimesheetDetail>('/timesheets/generate', body),
+    apiClient.post<
+      TimesheetDetail | { sheets: TimesheetDetail[]; count: number }
+    >('/timesheets/generate', body),
   /**
    * PATCH /timesheets/:id/days/:dayId – Aktualisiert einen einzelnen Tag.
    * @param id - Stundenzettel-ID
@@ -547,6 +560,11 @@ export const timesheetsApi = {
       `/timesheets/${id}/days/${dayId}`,
       body,
     ),
+  /**
+   * POST /timesheets/:id/days – Tag manuell anlegen/überschreiben.
+   */
+  upsertDay: (id: string, body: UpsertDayBody) =>
+    apiClient.post<TimesheetDetail>(`/timesheets/${id}/days`, body),
   /**
    * POST /timesheets/:id/submit – Reicht den Stundenzettel zur Prüfung ein.
    * @param id - Stundenzettel-ID

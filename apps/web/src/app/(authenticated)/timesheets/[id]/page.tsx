@@ -30,6 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -85,6 +86,8 @@ export default function TimesheetDetailPage(): React.ReactNode {
   const [sheet, setSheet] = useState<TimesheetDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [editDay, setEditDay] = useState<TimesheetDay | null>(null);
+  const [addDayOpen, setAddDayOpen] = useState(false);
+  const [regenBusy, setRegenBusy] = useState(false);
   const [signType, setSignType] = useState<SignerType | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
@@ -156,7 +159,52 @@ export default function TimesheetDetailPage(): React.ReactNode {
         title={`KW ${sheet.weekNumber}/${sheet.weekYear} · ${workerFullName(sheet.worker)}`}
         description={`${sheet.project.title} · ${sheet.project.customer.companyName}`}
       >
-        <TimesheetStatusBadge status={sheet.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <TimesheetStatusBadge status={sheet.status} />
+          {editable && (
+            <>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                onClick={() => setAddDayOpen(true)}
+              >
+                {t.week.addDay}
+              </Button>
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                disabled={regenBusy}
+                onClick={() => {
+                  setRegenBusy(true);
+                  timesheetsApi
+                    .generate({
+                      workerId: sheet.worker.id,
+                      projectId: sheet.project.id,
+                      weekYear: sheet.weekYear,
+                      weekNumber: sheet.weekNumber,
+                    })
+                    .then((res) => {
+                      const updated =
+                        'sheets' in res ? res.sheets[0] : res;
+                      if (updated) setSheet(updated);
+                      toast({ description: t.toast.regenerated });
+                    })
+                    .catch((err) =>
+                      toast({
+                        description:
+                          err instanceof ApiError
+                            ? err.message
+                            : t.toast.error,
+                      }),
+                    )
+                    .finally(() => setRegenBusy(false));
+                }}
+              >
+                {t.week.regenerate}
+              </Button>
+            </>
+          )}
+        </div>
       </PageHeader>
 
       <Tabs defaultValue="week">
@@ -213,6 +261,18 @@ export default function TimesheetDetailPage(): React.ReactNode {
             toast({ description: t.toast.dayUpdated });
           }}
           sheetId={sheet.id}
+        />
+      )}
+
+      {addDayOpen && (
+        <AddDayDialog
+          sheet={sheet}
+          onClose={() => setAddDayOpen(false)}
+          onSaved={(updated) => {
+            setSheet(updated);
+            setAddDayOpen(false);
+            toast({ description: t.toast.dayUpdated });
+          }}
         />
       )}
 
@@ -663,6 +723,114 @@ function EditDayDialog({
         </div>
         <DialogFooter>
           <Button className="min-h-[44px]" disabled={busy} onClick={save}>
+            {busy ? t.saving : t.save}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function AddDayDialog({
+  sheet,
+  onClose,
+  onSaved,
+}: {
+  sheet: TimesheetDetail;
+  onClose: () => void;
+  onSaved: (updated: TimesheetDetail) => void;
+}): React.ReactNode {
+  const t = texts.timesheets.addDayDialog;
+  const { toast } = useToast();
+  const [date, setDate] = useState('');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+  const [brk, setBrk] = useState(0);
+  const [comment, setComment] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const save = async (): Promise<void> => {
+    if (!date) return;
+    setBusy(true);
+    try {
+      const updated = await timesheetsApi.upsertDay(sheet.id, {
+        workDate: new Date(date + 'T12:00:00').toISOString(),
+        firstClockInAt: start ? new Date(start).toISOString() : undefined,
+        lastClockOutAt: end ? new Date(end).toISOString() : undefined,
+        breakMinutes: Number(brk),
+        summaryComment: comment || undefined,
+      });
+      onSaved(updated);
+    } catch (err) {
+      toast({
+        description:
+          err instanceof ApiError ? err.message : texts.timesheets.toast.error,
+      });
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t.title}</DialogTitle>
+          <DialogDescription>{t.description}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>{t.date}</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="min-h-[44px]"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t.start}</Label>
+              <Input
+                type="datetime-local"
+                value={start}
+                onChange={(e) => setStart(e.target.value)}
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t.end}</Label>
+              <Input
+                type="datetime-local"
+                value={end}
+                onChange={(e) => setEnd(e.target.value)}
+                className="min-h-[44px]"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t.break}</Label>
+            <Input
+              type="number"
+              min={0}
+              value={brk}
+              onChange={(e) => setBrk(Number(e.target.value))}
+              className="min-h-[44px]"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label>{t.comment}</Label>
+            <Textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button
+            className="min-h-[44px]"
+            disabled={!date || busy}
+            onClick={() => void save()}
+          >
             {busy ? t.saving : t.save}
           </Button>
         </DialogFooter>

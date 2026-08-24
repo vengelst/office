@@ -3,6 +3,7 @@
  */
 
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -15,6 +16,7 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
 import { UpdateDayDto } from './dto/update-day.dto';
+import { UpsertDayDto } from './dto/upsert-day.dto';
 import {
   computeBreakMinutes,
   dayKey,
@@ -49,15 +51,46 @@ export class TimesheetGenerationService {
   // ── Generieren aus TimeEntries ───────────────────────────────
 
   /**
-   * Generiert einen Wochenstundenzettel aus den Stempel-Einträgen (TimeEntries).
-   * Aggregiert Tageweise Brutto-Zeiten und berechnet Pausen anhand der Pausenregeln.
-   * Bei bereits existierendem Zettel (DRAFT/REJECTED) wird er überschrieben.
-   *
-   * @param dto - Monteur-ID, Projekt-ID, Kalenderwoche
-   * @returns Der generierte Stundenzettel mit allen Tageseinträgen
-   * @throws ConflictException bei bereits eingereichten/genehmigten Zetteln
+   * Generiert einen oder mehrere Wochenstundenzettel aus Stempelungen.
+   * Leere Tage der KW werden immer angelegt (manuelle Bearbeitung ohne Handy).
+   * Optional `weekNumberTo` = mehrere KW in einem Lauf.
    */
   async generate(dto: GenerateTimesheetDto) {
+    const from = dto.weekNumber;
+    const to = dto.weekNumberTo ?? dto.weekNumber;
+    if (to < from) {
+      throw new BadRequestException(
+        'weekNumberTo muss größer oder gleich weekNumber sein',
+      );
+    }
+
+    const sheets = [];
+    for (let weekNumber = from; weekNumber <= to; weekNumber++) {
+      sheets.push(
+        await this.generateOneWeek({
+          workerId: dto.workerId,
+          projectId: dto.projectId,
+          weekYear: dto.weekYear,
+          weekNumber,
+        }),
+      );
+    }
+
+    if (to === from) {
+      return sheets[0];
+    }
+    return { sheets, count: sheets.length };
+  }
+
+  /**
+   * Eine Kalenderwoche: Upsert DRAFT, 7 Tageszeilen (Stempel + leere Tage).
+   */
+  private async generateOneWeek(dto: {
+    workerId: string;
+    projectId: string;
+    weekYear: number;
+    weekNumber: number;
+  }) {
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
 
@@ -74,7 +107,7 @@ export class TimesheetGenerationService {
     });
     if (existing && !EDITABLE_STATUSES.includes(existing.status)) {
       throw new ConflictException(
-        'Stundenzettel ist bereits eingereicht/freigegeben und kann nicht neu generiert werden',
+        `Stundenzettel KW ${dto.weekNumber}/${dto.weekYear} ist bereits eingereicht/freigegeben und kann nicht neu generiert werden`,
       );
     }
 
@@ -104,22 +137,52 @@ export class TimesheetGenerationService {
     );
 
     const aggregates = this.aggregateDays(entries);
+    const byKey = new Map(
+      aggregates.map((a) => [dayKey(a.workDate), a] as const),
+    );
 
-    const days = aggregates.map((a) => {
-      const breakMinutes = computeBreakMinutes(a.grossMinutes, rule);
-      return {
-        workDate: a.workDate,
-        firstClockInAt: a.firstClockInAt,
-        lastClockOutAt: a.lastClockOutAt,
-        grossMinutes: a.grossMinutes,
-        breakMinutes,
-        netMinutes: Math.max(0, a.grossMinutes - breakMinutes),
-        clockInLatitude: a.clockInLatitude,
-        clockInLongitude: a.clockInLongitude,
-        clockOutLatitude: a.clockOutLatitude,
-        clockOutLongitude: a.clockOutLongitude,
-      };
-    });
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const workDate = new Date(start);
+      workDate.setUTCDate(start.getUTCDate() + i);
+      workDate.setUTCHours(0, 0, 0, 0);
+      // Lokaler Kalendertag (API-TZ Europe/Berlin) für dayKey-Abgleich mit Stempelungen
+      const localMidnight = new Date(
+        workDate.getUTCFullYear(),
+        workDate.getUTCMonth(),
+        workDate.getUTCDate(),
+      );
+      const key = dayKey(localMidnight);
+      const a = byKey.get(key);
+      if (a) {
+        const breakMinutes = computeBreakMinutes(a.grossMinutes, rule);
+        days.push({
+          workDate: localMidnight,
+          firstClockInAt: a.firstClockInAt,
+          lastClockOutAt: a.lastClockOutAt,
+          grossMinutes: a.grossMinutes,
+          breakMinutes,
+          netMinutes: Math.max(0, a.grossMinutes - breakMinutes),
+          clockInLatitude: a.clockInLatitude,
+          clockInLongitude: a.clockInLongitude,
+          clockOutLatitude: a.clockOutLatitude,
+          clockOutLongitude: a.clockOutLongitude,
+        });
+      } else {
+        days.push({
+          workDate: localMidnight,
+          firstClockInAt: null,
+          lastClockOutAt: null,
+          grossMinutes: 0,
+          breakMinutes: 0,
+          netMinutes: 0,
+          clockInLatitude: null,
+          clockInLongitude: null,
+          clockOutLatitude: null,
+          clockOutLongitude: null,
+        });
+      }
+    }
 
     const totals = sumTotals(days);
 
@@ -158,11 +221,9 @@ export class TimesheetGenerationService {
       await tx.weeklyTimesheetDay.deleteMany({
         where: { weeklyTimesheetId: sheet.id },
       });
-      if (days.length) {
-        await tx.weeklyTimesheetDay.createMany({
-          data: days.map((d) => ({ ...d, weeklyTimesheetId: sheet.id })),
-        });
-      }
+      await tx.weeklyTimesheetDay.createMany({
+        data: days.map((d) => ({ ...d, weeklyTimesheetId: sheet.id })),
+      });
       return sheet;
     });
 
@@ -232,6 +293,92 @@ export class TimesheetGenerationService {
             : day.summaryComment,
       },
     });
+
+    await this.recomputeTotals(id);
+    return this.findOne(id);
+  }
+
+  /**
+   * Legt einen Tag an oder überschreibt ihn (manuelle Erfassung ohne Stempel/Handy).
+   */
+  async upsertDay(id: string, dto: UpsertDayDto) {
+    const sheet = await this.ensureEditable(id);
+    const workDate = parseDate(dto.workDate);
+    workDate.setHours(0, 0, 0, 0);
+
+    const { start, end } = isoWeekRange(sheet.weekYear, sheet.weekNumber);
+    const startLocal = new Date(
+      start.getUTCFullYear(),
+      start.getUTCMonth(),
+      start.getUTCDate(),
+    );
+    const endLocal = new Date(
+      end.getUTCFullYear(),
+      end.getUTCMonth(),
+      end.getUTCDate(),
+    );
+    endLocal.setHours(23, 59, 59, 999);
+    if (workDate < startLocal || workDate > endLocal) {
+      throw new BadRequestException(
+        `Datum liegt nicht in KW ${sheet.weekNumber}/${sheet.weekYear}`,
+      );
+    }
+
+    const firstClockInAt =
+      dto.firstClockInAt !== undefined
+        ? parseDate(dto.firstClockInAt)
+        : null;
+    const lastClockOutAt =
+      dto.lastClockOutAt !== undefined
+        ? parseDate(dto.lastClockOutAt)
+        : null;
+
+    let grossMinutes = 0;
+    if (firstClockInAt && lastClockOutAt) {
+      grossMinutes = diffMinutes(firstClockInAt, lastClockOutAt);
+    }
+
+    const rule = selectBreakRule(
+      await this.prisma.breakRule.findMany({
+        where: {
+          active: true,
+          OR: [
+            { scopeType: BreakScopeType.GLOBAL },
+            { scopeType: BreakScopeType.PROJECT, projectId: sheet.projectId },
+          ],
+        },
+      }),
+      sheet.projectId,
+    );
+    const breakMinutes =
+      dto.breakMinutes !== undefined
+        ? dto.breakMinutes
+        : computeBreakMinutes(grossMinutes, rule);
+
+    const existing = sheet.days.find(
+      (d) => dayKey(d.workDate) === dayKey(workDate),
+    );
+
+    const data = {
+      workDate,
+      firstClockInAt,
+      lastClockOutAt,
+      grossMinutes,
+      breakMinutes,
+      netMinutes: Math.max(0, grossMinutes - breakMinutes),
+      summaryComment: dto.summaryComment ?? existing?.summaryComment ?? null,
+    };
+
+    if (existing) {
+      await this.prisma.weeklyTimesheetDay.update({
+        where: { id: existing.id },
+        data,
+      });
+    } else {
+      await this.prisma.weeklyTimesheetDay.create({
+        data: { ...data, weeklyTimesheetId: id },
+      });
+    }
 
     await this.recomputeTotals(id);
     return this.findOne(id);

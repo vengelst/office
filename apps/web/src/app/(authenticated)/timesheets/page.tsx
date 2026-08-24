@@ -291,21 +291,34 @@ function GenerateDialog({
   const [projectId, setProjectId] = useState('');
   const [weekYear, setWeekYear] = useState(defaultWeek.weekYear);
   const [weekNumber, setWeekNumber] = useState(defaultWeek.weekNumber);
+  const [weekNumberTo, setWeekNumberTo] = useState<number | ''>('');
   const [busy, setBusy] = useState(false);
 
   const submit = async (): Promise<void> => {
     if (!workerId || !projectId) return;
     setBusy(true);
     try {
-      const sheet = await timesheetsApi.generate({
+      const body = {
         workerId,
         projectId,
         weekYear: Number(weekYear),
         weekNumber: Number(weekNumber),
-      });
-      toast({ description: texts.timesheets.toast.generated });
-      onOpenChange(false);
-      onGenerated(sheet.id);
+        ...(weekNumberTo !== '' && Number(weekNumberTo) >= Number(weekNumber)
+          ? { weekNumberTo: Number(weekNumberTo) }
+          : {}),
+      };
+      const result = await timesheetsApi.generate(body);
+      if ('sheets' in result && Array.isArray(result.sheets)) {
+        toast({
+          description: t.multiOk.replace('{count}', String(result.count)),
+        });
+        onOpenChange(false);
+        onGenerated(result.sheets[0]?.id ?? '');
+      } else {
+        toast({ description: texts.timesheets.toast.generated });
+        onOpenChange(false);
+        onGenerated(result.id);
+      }
     } catch (err) {
       toast({
         description:
@@ -354,7 +367,7 @@ function GenerateDialog({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>{t.year}</Label>
               <Input
@@ -375,7 +388,24 @@ function GenerateDialog({
                 className="min-h-[44px]"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label>{t.weekTo}</Label>
+              <Input
+                type="number"
+                min={1}
+                max={53}
+                value={weekNumberTo}
+                onChange={(e) =>
+                  setWeekNumberTo(
+                    e.target.value === '' ? '' : Number(e.target.value),
+                  )
+                }
+                className="min-h-[44px]"
+                placeholder="–"
+              />
+            </div>
           </div>
+          <p className="text-xs text-muted-foreground">{t.weekToHint}</p>
         </div>
         <DialogFooter>
           <Button

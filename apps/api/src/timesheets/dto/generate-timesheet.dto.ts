@@ -1,5 +1,12 @@
-import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsString, Max, Min, MinLength } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class GenerateTimesheetDto {
   @ApiProperty({ description: 'Monteur-ID' })
@@ -18,9 +25,20 @@ export class GenerateTimesheetDto {
   @Max(2100)
   weekYear!: number;
 
-  @ApiProperty({ example: 26, description: 'ISO-Kalenderwoche (1–53)' })
+  @ApiProperty({ example: 26, description: 'ISO-Kalenderwoche von (1–53)' })
   @IsInt()
   @Min(1)
   @Max(53)
   weekNumber!: number;
+
+  @ApiPropertyOptional({
+    example: 28,
+    description:
+      'Optional: bis Kalenderwoche (inkl.). Mehrere Wochen werden nacheinander generiert/aktualisiert.',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(53)
+  weekNumberTo?: number;
 }

@@ -19,6 +19,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { WorkItemsService } from '../work-items/work-items.service';
 import { GenerateTimesheetDto } from './dto/generate-timesheet.dto';
 import { UpdateDayDto } from './dto/update-day.dto';
+import { UpsertDayDto } from './dto/upsert-day.dto';
 import { SignTimesheetDto } from './dto/sign-timesheet.dto';
 import {
   SORTABLE_FIELDS,
@@ -242,6 +243,10 @@ export class TimesheetsService {
 
   updateDay(id: string, dayId: string, dto: UpdateDayDto) {
     return this.generation.updateDay(id, dayId, dto);
+  }
+
+  upsertDay(id: string, dto: UpsertDayDto) {
+    return this.generation.upsertDay(id, dto);
   }
 
   // ── Workflow (Fassade) ───────────────────────────────────────
