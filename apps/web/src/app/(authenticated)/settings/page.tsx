@@ -10,6 +10,7 @@ import {
   ToggleLeft,
   Contact,
   SlidersHorizontal,
+  Briefcase,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -57,6 +58,12 @@ const settingsLinks = [
     label: texts.settings.nav.breakRules,
     description: 'Automatische Pausenregelungen verwalten',
     icon: Coffee,
+  },
+  {
+    href: '/settings/activity-types',
+    label: texts.settings.nav.activityTypes,
+    description: texts.activityTypes.subtitle,
+    icon: Briefcase,
   },
   {
     href: '/settings/features',

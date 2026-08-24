@@ -82,6 +82,14 @@ export interface ClockStatus {
   timeEntryId: string | null;
   /** Nur bei clock-out: Brutto-Minuten des gerade beendeten Intervalls. */
   lastGrossMinutes?: number;
+  /** Offene Tätigkeit (Master). */
+  currentActivity?: {
+    id: string;
+    code: string;
+    name: string;
+    segmentId: string;
+    startedAt: string;
+  } | null;
 }
 
 /** Einzelner Stempel-Eintrag des heutigen Tages. */
@@ -148,6 +156,8 @@ export interface ClockInBody {
   clientEventId?: string;
   /** Optionaler Projekt-Snapshot für optimistischen Offline-Status. */
   projectSnapshot?: ClockProject | null;
+  /** Tätigkeitsbereich (Pflicht für Master-Monteur). */
+  activityTypeId?: string;
 }
 
 /** Request-Body zum Ausstempeln eines Monteurs. */
@@ -198,6 +208,18 @@ export interface TimesheetListResponse {
   totalPages: number;
 }
 
+/** Minuten je Tätigkeit an einem Stundenzettel-Tag (Master). */
+export interface TimesheetDayActivity {
+  id: string;
+  minutes: number;
+  activityType: {
+    id: string;
+    code: string;
+    name: string;
+    billable: boolean;
+  };
+}
+
 /** Einzelner Tag eines Wochenstundenzettels (Arbeitszeiten, Pausen, GPS). */
 export interface TimesheetDay {
   id: string;
@@ -213,6 +235,7 @@ export interface TimesheetDay {
   clockInLongitude: number | null;
   clockOutLatitude: number | null;
   clockOutLongitude: number | null;
+  activities?: TimesheetDayActivity[];
 }
 
 /** Digitale Signatur auf einem Wochenstundenzettel (Monteur, Kunde, Vorgesetzter). */
@@ -531,6 +554,20 @@ export const workerApi = {
    */
   uploadPhoto: (form: FormData) =>
     workerUpload<unknown>('/time-entries/upload-photo', form),
+
+  /** POST /time-entries/switch-activity – Master wechselt Tätigkeit. */
+  switchActivity: (body: {
+    workerId: string;
+    activityTypeId: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    occurredAtClient?: string;
+  }) =>
+    workerFetch<ClockStatus>('/time-entries/switch-activity', {
+      method: 'POST',
+      body,
+    }),
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -748,6 +785,20 @@ export const kioskApi = {
    * @param form - FormData mit Bilddatei
    */
   uploadPhoto: (form: FormData) => workerUpload<unknown>('/time-entries/upload-photo', form),
+
+  /** POST /time-entries/switch-activity – Master wechselt Tätigkeit. */
+  switchActivity: (body: {
+    workerId: string;
+    activityTypeId: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    occurredAtClient?: string;
+  }) =>
+    workerFetch<ClockStatus>('/time-entries/switch-activity', {
+      method: 'POST',
+      body,
+    }),
 };
 
 // ── Helfer ─────────────────────────────────────────────────────

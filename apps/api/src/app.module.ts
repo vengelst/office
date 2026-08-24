@@ -20,6 +20,7 @@ import { WorkerAuthModule } from './worker-auth/worker-auth.module';
 import { TimeEntriesModule } from './time-entries/time-entries.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { BreakRulesModule } from './break-rules/break-rules.module';
+import { ActivityTypesModule } from './activity-types/activity-types.module';
 import { InvoicesModule } from './invoices/invoices.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { AppSettingsModule } from './app-settings/app-settings.module';
@@ -62,6 +63,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     TimeEntriesModule,
     TimesheetsModule,
     BreakRulesModule,
+    ActivityTypesModule,
     InvoicesModule,
     VehiclesModule,
     AppSettingsModule,

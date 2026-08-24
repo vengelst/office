@@ -44,6 +44,9 @@ export const workerApp = {
       photoCancel: 'Abbrechen',
       photoSkip: 'Ohne Kommentar',
       logout: 'Abmelden',
+      chooseActivity: 'Tätigkeit wählen',
+      switchActivity: 'Tätigkeit wechseln',
+      currentActivity: 'Aktuelle Tätigkeit',
     },
     toast: {
       clockedIn: 'Eingestempelt.',
@@ -51,6 +54,8 @@ export const workerApp = {
       photoUploaded: 'Foto hochgeladen.',
       error: 'Aktion fehlgeschlagen.',
       noProject: 'Bitte zuerst ein Projekt auswählen.',
+      noActivity: 'Bitte Tätigkeit wählen.',
+      activitySwitched: 'Tätigkeit gewechselt.',
       savedPending: 'Gespeichert – wird synchronisiert',
     },
   } as const;

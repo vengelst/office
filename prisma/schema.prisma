@@ -572,6 +572,7 @@ model Project {
   timeEntries      TimeEntry[]
   gpsEvents        GpsEvent[]
   weeklyTimesheets WeeklyTimesheet[]
+  activitySegments TimeActivitySegment[]
   callLogs         CustomerCallLog[]
   invoices         Invoice[]
   blocks           ProjectBlock[]
@@ -758,6 +759,7 @@ model Worker {
   timeEntries          TimeEntry[]
   gpsEvents            GpsEvent[]
   weeklyTimesheets     WeeklyTimesheet[]
+  activitySegments     TimeActivitySegment[]
   languages            WorkerLanguage[]
   certifications       WorkerCertification[]
   teamMemberships      WorkerTeamMember[]
@@ -1168,8 +1170,63 @@ model WeeklyTimesheetDay {
   clockOutLatitude  Float?
   clockOutLongitude Float?
 
-  weeklyTimesheet WeeklyTimesheet @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+  weeklyTimesheet WeeklyTimesheet              @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+  activities      WeeklyTimesheetDayActivity[]
+
   @@index([weeklyTimesheetId])
+}
+
+/// Katalog abrechnungsrelevanter Tätigkeiten (Master-Monteur).
+model ActivityType {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  /// Abrechnungsrelevant (auf Stundenzettel ausweisen).
+  billable  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  segments TimeActivitySegment[]
+  dayLines WeeklyTimesheetDayActivity[]
+
+  @@index([active, sortOrder])
+}
+
+/// Zeitsegment einer Tätigkeit während einer Schicht (Master).
+model TimeActivitySegment {
+  id             String    @id @default(cuid())
+  workerId       String
+  projectId      String
+  activityTypeId String
+  startedAt      DateTime
+  endedAt        DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  worker       Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activityType ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+
+  @@index([workerId, startedAt])
+  @@index([workerId, endedAt])
+  @@index([projectId, startedAt])
+  @@index([activityTypeId])
+}
+
+/// Minuten je Tätigkeit an einem Stundenzettel-Tag (Snapshot).
+model WeeklyTimesheetDayActivity {
+  id                   String @id @default(cuid())
+  weeklyTimesheetDayId String
+  activityTypeId       String
+  minutes              Int
+
+  day          WeeklyTimesheetDay @relation(fields: [weeklyTimesheetDayId], references: [id], onDelete: Cascade)
+  activityType ActivityType       @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+
+  @@unique([weeklyTimesheetDayId, activityTypeId])
+  @@index([activityTypeId])
 }
 
 model WeeklyTimesheetSignature {

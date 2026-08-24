@@ -60,6 +60,13 @@ export interface ClockStatus {
   durationMinutes: number;
   project: { id: string; projectNumber: string; title: string } | null;
   timeEntryId: string | null;
+  currentActivity: {
+    id: string;
+    code: string;
+    name: string;
+    segmentId: string;
+    startedAt: Date;
+  } | null;
 }
 
 /**
@@ -120,6 +127,19 @@ export class TimeEntriesService {
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
+    const workerMeta = await this.prisma.worker.findUnique({
+      where: { id: dto.workerId },
+      select: { masterEngineer: true },
+    });
+    if (workerMeta?.masterEngineer) {
+      if (!dto.activityTypeId) {
+        throw new BadRequestException(
+          'Master-Monteur: Tätigkeitsbereich ist Pflicht',
+        );
+      }
+      await this.assertActiveActivityType(dto.activityTypeId);
+    }
+
     try {
       const entry = await this.prisma.timeEntry.create({
         data: {
@@ -143,6 +163,17 @@ export class TimeEntriesService {
         GpsEventType.CLOCK_IN,
         dto.projectId,
       );
+
+      if (workerMeta?.masterEngineer && dto.activityTypeId) {
+        await this.prisma.timeActivitySegment.create({
+          data: {
+            workerId: dto.workerId,
+            projectId: dto.projectId,
+            activityTypeId: dto.activityTypeId,
+            startedAt: occurredAtClient,
+          },
+        });
+      }
 
       return this.getStatus(dto.workerId);
     } catch (err) {
@@ -204,6 +235,8 @@ export class TimeEntriesService {
         GpsEventType.CLOCK_OUT,
         open.projectId,
       );
+
+      await this.closeOpenActivitySegment(dto.workerId, occurredAtClient);
 
       // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
       // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
@@ -596,15 +629,123 @@ export class TimeEntriesService {
         durationMinutes: 0,
         project: null,
         timeEntryId: null,
+        currentActivity: null,
       };
     }
+    const openSeg = await this.prisma.timeActivitySegment.findFirst({
+      where: { workerId, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        activityType: { select: { id: true, code: true, name: true } },
+      },
+    });
     return {
       clockedIn: true,
       since: latest.occurredAtClient,
       durationMinutes: diffMinutes(latest.occurredAtClient, new Date()),
       project: latest.project,
       timeEntryId: latest.id,
+      currentActivity: openSeg
+        ? {
+            id: openSeg.activityType.id,
+            code: openSeg.activityType.code,
+            name: openSeg.activityType.name,
+            segmentId: openSeg.id,
+            startedAt: openSeg.startedAt,
+          }
+        : null,
     };
+  }
+
+  /**
+   * Master wechselt die Tätigkeit ohne Ausstempeln (schließt Segment, öffnet neues).
+   */
+  async switchActivity(
+    dto: {
+      workerId: string;
+      activityTypeId: string;
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      occurredAtClient?: string;
+    },
+    actor: AuthUser,
+  ) {
+    this.assertOwnWorker(dto.workerId, actor);
+    await this.assertWorker(dto.workerId);
+
+    const worker = await this.prisma.worker.findUnique({
+      where: { id: dto.workerId },
+      select: { masterEngineer: true },
+    });
+    if (!worker?.masterEngineer) {
+      throw new ForbiddenException(
+        'Tätigkeitswechsel nur für Master-Monteure',
+      );
+    }
+
+    const open = await this.getOpenClockIn(dto.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+
+    await this.assertActiveActivityType(dto.activityTypeId);
+    const at = coerceDate(dto.occurredAtClient ?? new Date().toISOString());
+
+    const current = await this.prisma.timeActivitySegment.findFirst({
+      where: { workerId: dto.workerId, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (current?.activityTypeId === dto.activityTypeId) {
+      return this.getStatus(dto.workerId);
+    }
+
+    await this.closeOpenActivitySegment(dto.workerId, at);
+    await this.prisma.timeActivitySegment.create({
+      data: {
+        workerId: dto.workerId,
+        projectId: open.projectId,
+        activityTypeId: dto.activityTypeId,
+        startedAt: at,
+      },
+    });
+
+    if (dto.latitude != null && dto.longitude != null) {
+      await this.prisma.gpsEvent.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: open.projectId,
+          relatedTimeEntryId: open.id,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          recordedAt: at,
+          eventType: GpsEventType.ACTION,
+        },
+      });
+    }
+
+    return this.getStatus(dto.workerId);
+  }
+
+  private async closeOpenActivitySegment(
+    workerId: string,
+    endedAt: Date,
+  ): Promise<void> {
+    await this.prisma.timeActivitySegment.updateMany({
+      where: { workerId, endedAt: null },
+      data: { endedAt },
+    });
+  }
+
+  private async assertActiveActivityType(id: string): Promise<void> {
+    const row = await this.prisma.activityType.findFirst({
+      where: { id, active: true },
+      select: { id: true },
+    });
+    if (!row) {
+      throw new BadRequestException('Ungültiger oder inaktiver Tätigkeitsbereich');
+    }
   }
 
   /**

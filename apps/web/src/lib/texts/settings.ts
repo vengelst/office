@@ -80,6 +80,7 @@ export const settings = {
       storage: 'Speicher & Cloud',
       contacts: 'Google Contacts',
       breakRules: 'Pausenregeln',
+      activityTypes: 'Tätigkeitsbereiche',
       system: 'Server-Status',
       backup: 'Backup & Restore',
       features: 'Feature-Flags',

@@ -70,6 +70,7 @@ export const timesheets = {
       break: 'Pause',
       net: 'Netto',
       comment: 'Kommentar',
+      activities: 'Tätigkeiten',
       total: 'Summe',
       gps: 'GPS-Standort öffnen',
       noData: 'Für diesen Stundenzettel liegen keine Tageseinträge vor.',
