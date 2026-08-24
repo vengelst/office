@@ -6,7 +6,7 @@
 **Branch:** `main`  
 **Produktion:** https://office.vivahome.de · Kiosk: https://work.vivahome.de (`/opt/office`)
 
-> Handbuch Stammdaten: **`HANDBUCH.md`**  
+> Handbuch Stammdaten: **`HANDBUCH.md`** · **`HANDBUCH.pdf`**  
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog: **`claude-auftraege/offen-backlog.md`**  
 > Deployment: **`DEPLOYMENT.md`**

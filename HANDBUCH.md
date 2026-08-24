@@ -3,7 +3,8 @@
 **Version:** 1.0.0 (Production)  
 **App:** https://office.vivahome.de  
 **Kiosk:** https://work.vivahome.de  
-**Stand:** 2026-08-24
+**Stand:** 2026-08-24  
+**PDF:** [HANDBUCH.pdf](./HANDBUCH.pdf)
 
 Diese Anleitung beschreibt die wichtigsten Stammdaten-Schritte im Büro.  
 Login: E-Mail + Passwort (Büro-Benutzer). Monteure nutzen PIN (App/Kiosk).

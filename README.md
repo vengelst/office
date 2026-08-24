@@ -11,7 +11,7 @@ Monorepo auf Basis von **pnpm Workspaces**.
 |---|-----|
 | Büro-App | https://office.vivahome.de |
 | Kiosk | https://work.vivahome.de |
-| Handbuch (Stammdaten) | [HANDBUCH.md](./HANDBUCH.md) |
+| Handbuch (Stammdaten) | [HANDBUCH.md](./HANDBUCH.md) · [HANDBUCH.pdf](./HANDBUCH.pdf) |
 | Deployment | [DEPLOYMENT.md](./DEPLOYMENT.md) |
 | Feature-Status | [STATUS.md](./STATUS.md) |
 | Session-Backlog | [claude-auftraege/offen-backlog.md](./claude-auftraege/offen-backlog.md) |
@@ -43,6 +43,7 @@ office/
   docker-compose.prod.yml   Produktion (--env-file .env.production)
   docker-compose.dev.yml    Entwicklung
   HANDBUCH.md     Kurzanleitung Büro (Stammdaten)
+  HANDBUCH.pdf    Gleiche Anleitung als PDF
 ```
 
 ## Schnellstart (Docker, empfohlen)
