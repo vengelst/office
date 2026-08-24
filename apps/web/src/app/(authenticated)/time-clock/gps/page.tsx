@@ -1,6 +1,6 @@
 /**
  * Seite: Stempeluhr / GPS-Daten (Office-Web).
- * Filter nach Monteur + Karten-Spur in zeitlicher Reihenfolge.
+ * Filter: Monteur, Projekt, Datumsbereich von–bis; Karten-Spur.
  */
 
 'use client';
@@ -11,6 +11,7 @@ import { ExternalLink, MapPin, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
@@ -39,55 +40,99 @@ import { texts } from '@/lib/texts';
 
 const ALL = '__all__';
 
-function daysAgoIso(days: number): string {
+function toDateInputValue(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function startOfDayIso(dateStr: string): string {
+  const d = new Date(`${dateStr}T00:00:00`);
+  return d.toISOString();
+}
+
+function endOfDayIso(dateStr: string): string {
+  const d = new Date(`${dateStr}T23:59:59.999`);
+  return d.toISOString();
+}
+
+function daysAgoDate(days: number): Date {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   d.setDate(d.getDate() - days);
-  return d.toISOString();
+  return d;
 }
 
 export default function TimeClockGpsPage(): React.ReactNode {
   const t = texts.timeClock;
   const [rows, setRows] = useState<GpsEventRow[] | null>(null);
-  const [days, setDays] = useState(7);
   const [workerFilter, setWorkerFilter] = useState(ALL);
+  const [projectFilter, setProjectFilter] = useState(ALL);
+  const [dateFrom, setDateFrom] = useState(() =>
+    toDateInputValue(daysAgoDate(7)),
+  );
+  const [dateTo, setDateTo] = useState(() => toDateInputValue(new Date()));
 
   const load = useCallback(() => {
     timeEntriesApi
       .gpsEvents({
-        from: daysAgoIso(days),
+        from: startOfDayIso(dateFrom),
+        to: endOfDayIso(dateTo),
         limit: 500,
         workerId: workerFilter === ALL ? undefined : workerFilter,
+        projectId: projectFilter === ALL ? undefined : projectFilter,
       })
       .then(setRows)
       .catch(() => setRows([]));
-  }, [days, workerFilter]);
+  }, [dateFrom, dateTo, workerFilter, projectFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  /** Alle Monteure aus der ungefilterten Menge für das Dropdown – bei Filter neu laden ohne workerId. */
   const [workerOptions, setWorkerOptions] = useState<
     { id: string; name: string }[]
+  >([]);
+  const [projectOptions, setProjectOptions] = useState<
+    { id: string; label: string }[]
   >([]);
 
   useEffect(() => {
     timeEntriesApi
-      .gpsEvents({ from: daysAgoIso(days), limit: 500 })
+      .gpsEvents({
+        from: startOfDayIso(dateFrom),
+        to: endOfDayIso(dateTo),
+        limit: 500,
+      })
       .then((all) => {
-        const map = new Map<string, string>();
+        const workers = new Map<string, string>();
+        const projects = new Map<string, string>();
         for (const r of all) {
-          map.set(r.worker.id, workerFullName(r.worker));
+          workers.set(r.worker.id, workerFullName(r.worker));
+          if (r.project) {
+            projects.set(
+              r.project.id,
+              `${r.project.projectNumber} · ${r.project.title}`,
+            );
+          }
         }
         setWorkerOptions(
-          [...map.entries()]
+          [...workers.entries()]
             .map(([id, name]) => ({ id, name }))
             .sort((a, b) => a.name.localeCompare(b.name, 'de')),
         );
+        setProjectOptions(
+          [...projects.entries()]
+            .map(([id, label]) => ({ id, label }))
+            .sort((a, b) => a.label.localeCompare(b.label, 'de')),
+        );
       })
-      .catch(() => setWorkerOptions([]));
-  }, [days]);
+      .catch(() => {
+        setWorkerOptions([]);
+        setProjectOptions([]);
+      });
+  }, [dateFrom, dateTo]);
 
   const eventLabel = useMemo(
     () =>
@@ -112,6 +157,11 @@ export default function TimeClockGpsPage(): React.ReactNode {
       }));
   }, [rows, workerFilter, eventLabel]);
 
+  const applyPresetDays = (days: number) => {
+    setDateFrom(toDateInputValue(daysAgoDate(days)));
+    setDateTo(toDateInputValue(new Date()));
+  };
+
   return (
     <div>
       <PageHeader title={t.gps.title} description={t.gps.subtitle}>
@@ -128,8 +178,13 @@ export default function TimeClockGpsPage(): React.ReactNode {
         <Button asChild variant="secondary" className="min-h-[40px]">
           <Link href="/time-clock/gps">{t.tabs.gps}</Link>
         </Button>
+      </div>
 
-        <div className="w-full max-w-xs sm:ml-4">
+      <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="w-full max-w-xs space-y-1">
+          <label className="text-xs text-muted-foreground">
+            {t.gps.selectWorker}
+          </label>
           <Select value={workerFilter} onValueChange={setWorkerFilter}>
             <SelectTrigger className="min-h-[44px]">
               <SelectValue placeholder={t.gps.selectWorker} />
@@ -145,15 +200,53 @@ export default function TimeClockGpsPage(): React.ReactNode {
           </Select>
         </div>
 
-        <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
+        <div className="w-full max-w-xs space-y-1">
+          <label className="text-xs text-muted-foreground">
+            {t.gps.selectProject}
+          </label>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="min-h-[44px]">
+              <SelectValue placeholder={t.gps.selectProject} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t.gps.allProjects}</SelectItem>
+              {projectOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">{t.gps.dateFrom}</label>
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={(e) => setDateFrom(e.target.value)}
+            className="min-h-[44px] w-[11rem]"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs text-muted-foreground">{t.gps.dateTo}</label>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={(e) => setDateTo(e.target.value)}
+            className="min-h-[44px] w-[11rem]"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <span>{t.gps.daysBack}:</span>
           {[1, 7, 30].map((d) => (
             <Button
               key={d}
               size="sm"
-              variant={days === d ? 'default' : 'outline'}
+              variant="outline"
               className="min-h-[36px]"
-              onClick={() => setDays(d)}
+              onClick={() => applyPresetDays(d)}
             >
               {d}
             </Button>

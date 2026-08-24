@@ -20,6 +20,10 @@ export const timeClock = {
     empty: 'Keine GPS-Ereignisse im gewählten Zeitraum.',
     selectWorker: 'Monteur filtern',
     allWorkers: 'Alle Monteure',
+    selectProject: 'Projekt filtern',
+    allProjects: 'Alle Projekte',
+    dateFrom: 'Von',
+    dateTo: 'Bis',
     mapTitle: 'Bewegungsspur',
     mapHint:
       'Grün = Start, Blau = Zwischenpunkte, Rot = Ende – verbunden in zeitlicher Reihenfolge.',

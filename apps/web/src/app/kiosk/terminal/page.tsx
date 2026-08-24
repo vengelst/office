@@ -24,6 +24,7 @@ import {
 import { OfflineClockBanner } from '@/components/offline-clock-banner';
 import { WorkItemsList } from '@/components/worker-work-items/work-items-list';
 import { WorkItemDetail } from '@/components/worker-work-items/work-item-detail';
+import { PhotoCommentComposer } from '@/components/kiosk/photo-comment-composer';
 import { KIOSK_LANGS, useKioskLocale } from '@/lib/kiosk-locale';
 import { KT } from '@/lib/texts/kiosk-terminal-i18n';
 import { kioskDebugLog } from '@/lib/kiosk-debug';
@@ -484,7 +485,11 @@ export default function KioskTerminalPage() {
     setPhotoComment('');
   };
 
-  const uploadPhotoWithComment = async (comment: string) => {
+  const uploadPhotoWithComment = async (opts: {
+    comment: string;
+    xNorm?: number | null;
+    yNorm?: number | null;
+  }) => {
     if (!worker || !config || !photoPending) return;
     resetActivity();
     setProcessing(true);
@@ -492,8 +497,15 @@ export default function KioskTerminalPage() {
       const form = new FormData();
       form.append('file', photoPending);
       form.append('workerId', worker.id);
-      form.append('projectId', config.projectId);
-      if (comment.trim()) form.append('comment', comment.trim());
+      form.append(
+        'projectId',
+        clockStatus?.project?.id ?? selectedProjectId ?? config.projectId,
+      );
+      if (opts.comment.trim()) form.append('comment', opts.comment.trim());
+      if (opts.xNorm != null && opts.yNorm != null) {
+        form.append('commentX', String(opts.xNorm));
+        form.append('commentY', String(opts.yNorm));
+      }
       await kioskApi.uploadPhoto(form);
     } catch {
       // silently fail photo upload
@@ -851,54 +863,36 @@ export default function KioskTerminalPage() {
 
         {/* Foto-Kommentar-Dialog */}
         {photoPending && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-            <div
-              className="w-full max-w-md space-y-4 rounded-2xl bg-gray-900 p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-xl font-bold">{t(KT.photoCommentTitle)}</h3>
-              <p className="text-sm text-gray-400">{t(KT.photoCommentHint)}</p>
-              <input
-                type="text"
-                value={photoComment}
-                onChange={(e) => setPhotoComment(e.target.value)}
-                className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-lg text-white"
-                style={{ minHeight: '48px' }}
-                autoFocus
-              />
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={processing}
-                  onClick={() => void uploadPhotoWithComment(photoComment)}
-                  className="rounded-xl bg-blue-600 px-4 py-3 text-lg font-semibold text-white disabled:opacity-60"
-                  style={{ minHeight: '48px' }}
-                >
-                  {processing ? t(KT.photoUploading) : t(KT.photoCommentSave)}
-                </button>
-                <button
-                  type="button"
-                  disabled={processing}
-                  onClick={() => void uploadPhotoWithComment('')}
-                  className="rounded-xl bg-gray-800 px-4 py-3 text-base text-gray-300"
-                  style={{ minHeight: '44px' }}
-                >
-                  {t(KT.photoCommentSkip)}
-                </button>
-                <button
-                  type="button"
-                  disabled={processing}
-                  onClick={() => {
-                    setPhotoPending(null);
-                    setPhotoComment('');
-                  }}
-                  className="rounded-xl px-4 py-2 text-sm text-gray-500"
-                >
-                  {t(KT.back)}
-                </button>
-              </div>
-            </div>
-          </div>
+          <PhotoCommentComposer
+            file={photoPending}
+            comment={photoComment}
+            onCommentChange={setPhotoComment}
+            title={t(KT.photoCommentTitle)}
+            hint={t(KT.photoCommentHint)}
+            placeButton={t(KT.photoCommentPlace)}
+            placeHint={t(KT.photoCommentPlaceHint)}
+            placeDone={t(KT.photoCommentPlaceDone)}
+            clearPlace={t(KT.photoCommentClearPlace)}
+            saveLabel={
+              processing ? t(KT.photoUploading) : t(KT.photoCommentSave)
+            }
+            skipLabel={t(KT.photoCommentSkip)}
+            cancelLabel={t(KT.back)}
+            uploading={processing}
+            dark
+            onSave={(p) =>
+              void uploadPhotoWithComment({
+                comment: p.comment,
+                xNorm: p.xNorm,
+                yNorm: p.yNorm,
+              })
+            }
+            onSkip={() => void uploadPhotoWithComment({ comment: '' })}
+            onCancel={() => {
+              setPhotoPending(null);
+              setPhotoComment('');
+            }}
+          />
         )}
 
         {/* Auto-logout */}

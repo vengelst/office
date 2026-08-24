@@ -45,6 +45,7 @@ import {
   startOfflineClockSync,
 } from '@/lib/offline-clock-queue';
 import { OfflineClockBanner } from '@/components/offline-clock-banner';
+import { PhotoCommentComposer } from '@/components/kiosk/photo-comment-composer';
 import { texts } from '@/lib/texts';
 import { T } from '@/lib/i18n-work-items';
 import { cn } from '@/lib/utils';
@@ -264,7 +265,11 @@ export default function WorkerDashboardPage(): React.ReactNode {
     }
   };
 
-  const handlePhotoUpload = async (): Promise<void> => {
+  const handlePhotoUpload = async (opts?: {
+    comment: string;
+    xNorm?: number | null;
+    yNorm?: number | null;
+  }): Promise<void> => {
     if (!worker || !photoFile) return;
     const projectId = status?.clockedIn
       ? status.project?.id
@@ -279,7 +284,12 @@ export default function WorkerDashboardPage(): React.ReactNode {
       form.append('file', photoFile);
       form.append('workerId', worker.id);
       form.append('projectId', projectId);
-      if (photoComment.trim()) form.append('comment', photoComment.trim());
+      const comment = (opts?.comment ?? photoComment).trim();
+      if (comment) form.append('comment', comment);
+      if (opts?.xNorm != null && opts?.yNorm != null) {
+        form.append('commentX', String(opts.xNorm));
+        form.append('commentY', String(opts.yNorm));
+      }
       await workerApi.uploadPhoto(form);
       toast({ description: t.toast.photoUploaded });
       setPhotoOpen(false);
@@ -508,7 +518,7 @@ export default function WorkerDashboardPage(): React.ReactNode {
             <Camera className="h-5 w-5" />
             {t.dashboard.addPhoto}
           </Button>
-        ) : (
+        ) : !photoFile ? (
           <div className="space-y-3 rounded-xl border bg-card p-4">
             <input
               ref={photoInput}
@@ -528,37 +538,53 @@ export default function WorkerDashboardPage(): React.ReactNode {
               onClick={() => photoInput.current?.click()}
             >
               <Camera className="h-5 w-5" />
-              {photoFile ? photoFile.name : t.dashboard.addPhoto}
+              {t.dashboard.addPhoto}
             </Button>
-            <Input
-              value={photoComment}
-              onChange={(e) => setPhotoComment(e.target.value)}
-              placeholder={t.dashboard.photoComment}
-              className="min-h-[48px]"
-            />
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                className="min-h-[48px] flex-1"
-                onClick={() => {
-                  setPhotoOpen(false);
-                  setPhotoFile(null);
-                  setPhotoComment('');
-                }}
-              >
-                {t.dashboard.photoCancel}
-              </Button>
-              <Button
-                className="min-h-[48px] flex-1"
-                disabled={!photoFile || photoBusy}
-                onClick={handlePhotoUpload}
-              >
-                {photoBusy
-                  ? t.dashboard.photoUploading
-                  : t.dashboard.photoUpload}
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              className="min-h-[48px] w-full"
+              onClick={() => {
+                setPhotoOpen(false);
+                setPhotoFile(null);
+                setPhotoComment('');
+              }}
+            >
+              {t.dashboard.photoCancel}
+            </Button>
           </div>
+        ) : (
+          <PhotoCommentComposer
+            file={photoFile}
+            comment={photoComment}
+            onCommentChange={setPhotoComment}
+            title={t.dashboard.addPhoto}
+            hint={t.dashboard.photoCommentHint}
+            placeButton={t.dashboard.photoPlace}
+            placeHint={t.dashboard.photoPlaceHint}
+            placeDone={t.dashboard.photoPlaceDone}
+            clearPlace={t.dashboard.photoClearPlace}
+            saveLabel={
+              photoBusy
+                ? t.dashboard.photoUploading
+                : t.dashboard.photoUpload
+            }
+            skipLabel={t.dashboard.photoSkip}
+            cancelLabel={t.dashboard.photoCancel}
+            uploading={photoBusy}
+            onSave={(p) =>
+              void handlePhotoUpload({
+                comment: p.comment,
+                xNorm: p.xNorm,
+                yNorm: p.yNorm,
+              })
+            }
+            onSkip={() => void handlePhotoUpload({ comment: '' })}
+            onCancel={() => {
+              setPhotoOpen(false);
+              setPhotoFile(null);
+              setPhotoComment('');
+            }}
+          />
         )}
       </section>
 

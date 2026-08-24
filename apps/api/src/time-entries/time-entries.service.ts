@@ -395,6 +395,10 @@ export class TimeEntriesService {
       file.buffer,
       file.mimetype,
       dto.comment,
+      {
+        xNorm: dto.commentX,
+        yNorm: dto.commentY,
+      },
     );
     const uploadBuffer = overlay.buffer;
     const uploadMime = overlay.mimeType;

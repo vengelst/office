@@ -164,9 +164,29 @@ export const KT = {
     sl: 'Komentar k fotografiji',
   },
   photoCommentHint: {
-    de: 'z. B. Positionsnummer – erscheint im Bild',
-    sk: 'napr. číslo pozície – zobrazí sa na fotke',
-    sl: 'npr. številka pozicije – prikaže se na fotografiji',
+    de: 'Text eingeben. Optional: „Ins Bild setzen“ tippen und die Stelle im Foto wählen.',
+    sk: 'Zadajte text. Voliteľne: „Do fotky“ a ťuknite na miesto.',
+    sl: 'Vnesite besedilo. Po želji: „V sliko“ in tapnite mesto.',
+  },
+  photoCommentPlace: {
+    de: 'Ins Bild setzen',
+    sk: 'Do fotky',
+    sl: 'V sliko',
+  },
+  photoCommentPlaceHint: {
+    de: 'Jetzt auf die Stelle im Foto tippen …',
+    sk: 'Teraz ťuknite na miesto na fotke …',
+    sl: 'Zdaj tapnite mesto na fotografiji …',
+  },
+  photoCommentPlaceDone: {
+    de: 'Tippen …',
+    sk: 'Ťuknite …',
+    sl: 'Tapnite …',
+  },
+  photoCommentClearPlace: {
+    de: 'Position zurücksetzen',
+    sk: 'Reset pozície',
+    sl: 'Ponastavi položaj',
   },
   photoCommentSave: {
     de: 'Foto speichern',

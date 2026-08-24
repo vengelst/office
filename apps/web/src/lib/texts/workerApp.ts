@@ -33,9 +33,16 @@ export const workerApp = {
       gpsInactive: 'GPS inaktiv',
       addPhoto: 'Arbeitsfoto hinzufügen',
       photoComment: 'Kommentar (optional)',
+      photoCommentHint:
+        'Text eingeben. Optional „Ins Bild setzen“ und Stelle im Foto tippen.',
+      photoPlace: 'Ins Bild setzen',
+      photoPlaceHint: 'Jetzt auf die Stelle im Foto tippen …',
+      photoPlaceDone: 'Tippen …',
+      photoClearPlace: 'Position zurücksetzen',
       photoUpload: 'Hochladen',
       photoUploading: 'Wird hochgeladen …',
       photoCancel: 'Abbrechen',
+      photoSkip: 'Ohne Kommentar',
       logout: 'Abmelden',
     },
     toast: {
