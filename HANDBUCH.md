@@ -1,13 +1,24 @@
 # Office 1.0.0 – Kurzanleitung (Büro)
 
+**Viva Home GmbH**  
+Am Ringwall 16  
+51491 Overath  
+
 **Version:** 1.0.0 (Production)  
 **App:** https://office.vivahome.de  
 **Kiosk:** https://work.vivahome.de  
 **Stand:** 2026-08-24  
-**PDF:** [HANDBUCH.pdf](./HANDBUCH.pdf)
+**PDF:** [HANDBUCH.pdf](./HANDBUCH.pdf) (mit Screenshots)
 
 Diese Anleitung beschreibt die wichtigsten Stammdaten-Schritte im Büro.  
 Login: E-Mail + Passwort (Büro-Benutzer). Monteure nutzen PIN (App/Kiosk).
+
+Screenshots liegen unter `docs/handbuch-screens/`. PDF neu erzeugen:
+
+```bash
+python3 -m venv .pdf-venv && .pdf-venv/bin/pip install fpdf2 pillow
+.pdf-venv/bin/python scripts/build-handbuch-pdf.py
+```
 
 ---
 
@@ -151,4 +162,4 @@ Backup: **Einstellungen → Backup** (Uhrzeit = Europe/Berlin).
 
 ---
 
-*Office Vivahome · Version 1.0.0*
+*Viva Home GmbH · Am Ringwall 16 · 51491 Overath · Office Version 1.0.0*
