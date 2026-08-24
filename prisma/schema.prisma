@@ -693,6 +693,8 @@ model Worker {
   country           String?
   nationality       String?
   active            Boolean   @default(true)
+  /// Darf PIN am Kiosk (work.vivahome.de) nutzen; App bleibt unabhängig.
+  kioskAccessEnabled Boolean  @default(true)
   photoPath         String?
   hasDriversLicense Boolean   @default(false)
   notes             String?

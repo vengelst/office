@@ -30,6 +30,27 @@ import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
 
+function dayStartMs(d: Date): number {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x.getTime();
+}
+
+/** Gültige aktive Zuweisung für das Kiosk-Projekt (heute). */
+function assignmentValidToday(
+  worker: WorkerMe | null,
+  projectId: string,
+): boolean {
+  if (!worker) return false;
+  const today = dayStartMs(new Date());
+  return (worker.assignments ?? []).some((a) => {
+    if (a.project.id !== projectId) return false;
+    const start = dayStartMs(new Date(a.startDate));
+    const end = a.endDate ? dayStartMs(new Date(a.endDate)) : null;
+    return start <= today && (end === null || end >= today);
+  });
+}
+
 /**
  * Mindest-Leerlauf auf den Arbeitsitems-Screens.
  *
@@ -100,6 +121,10 @@ export default function KioskTerminalPage() {
 
   // Arbeitsitems (SPEZ-arbeitsitems.md 6/13) – gleiche Komponenten wie /worker-app
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+
+  // Foto + Kommentar (eingebrannt in Bild)
+  const [photoPending, setPhotoPending] = useState<File | null>(null);
+  const [photoComment, setPhotoComment] = useState('');
 
   // Load config
   useEffect(() => {
@@ -275,6 +300,9 @@ export default function KioskTerminalPage() {
   // Clock in/out
   const handleClockIn = async () => {
     if (!worker || !config) return;
+    if (!assignmentValidToday(worker, config.projectId)) {
+      return;
+    }
     resetActivity();
     setProcessing(true);
     try {
@@ -378,23 +406,33 @@ export default function KioskTerminalPage() {
   };
 
   // Photo
-  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!worker || !config) return;
     resetActivity();
     const file = e.target.files?.[0];
+    e.target.value = '';
     if (!file) return;
+    setPhotoPending(file);
+    setPhotoComment('');
+  };
+
+  const uploadPhotoWithComment = async (comment: string) => {
+    if (!worker || !config || !photoPending) return;
+    resetActivity();
     setProcessing(true);
     try {
       const form = new FormData();
-      form.append('file', file);
+      form.append('file', photoPending);
       form.append('workerId', worker.id);
       form.append('projectId', config.projectId);
+      if (comment.trim()) form.append('comment', comment.trim());
       await kioskApi.uploadPhoto(form);
     } catch {
       // silently fail photo upload
     } finally {
       setProcessing(false);
-      e.target.value = '';
+      setPhotoPending(null);
+      setPhotoComment('');
     }
   };
 
@@ -421,6 +459,11 @@ export default function KioskTerminalPage() {
    */
   const itemBasedProject = (worker?.assignments ?? []).some(
     (a) => a.project.id === config.projectId && a.project.itemBased === true,
+  );
+
+  const canClockInOnKioskProject = assignmentValidToday(
+    worker,
+    config.projectId,
   );
 
   const timeStr = clock.toLocaleTimeString(dateLocale, {
@@ -554,14 +597,21 @@ export default function KioskTerminalPage() {
         {/* Action buttons */}
         <div className="mt-auto flex flex-col items-center gap-4 pb-8">
           {!isIn ? (
-            <button
-              onClick={handleClockIn}
-              disabled={processing}
-              className="w-full max-w-md rounded-2xl bg-green-600 px-8 py-8 text-3xl font-bold text-white shadow-lg shadow-green-900/50 transition hover:bg-green-500 active:scale-95 disabled:opacity-60"
-              style={{ minHeight: '120px' }}
-            >
-              {processing ? t(KT.processing) : `▶ ${t(KT.startWork)}`}
-            </button>
+            <>
+              <button
+                onClick={handleClockIn}
+                disabled={processing || !canClockInOnKioskProject}
+                className="w-full max-w-md rounded-2xl bg-green-600 px-8 py-8 text-3xl font-bold text-white shadow-lg shadow-green-900/50 transition hover:bg-green-500 active:scale-95 disabled:opacity-60"
+                style={{ minHeight: '120px' }}
+              >
+                {processing ? t(KT.processing) : `▶ ${t(KT.startWork)}`}
+              </button>
+              {!canClockInOnKioskProject && (
+                <p className="max-w-md text-center text-sm text-amber-400">
+                  {t(KT.noAssignment)}
+                </p>
+              )}
+            </>
           ) : (
             <>
               <button
@@ -612,6 +662,58 @@ export default function KioskTerminalPage() {
             </div>
           )}
         </div>
+
+        {/* Foto-Kommentar-Dialog */}
+        {photoPending && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+            <div
+              className="w-full max-w-md space-y-4 rounded-2xl bg-gray-900 p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold">{t(KT.photoCommentTitle)}</h3>
+              <p className="text-sm text-gray-400">{t(KT.photoCommentHint)}</p>
+              <input
+                type="text"
+                value={photoComment}
+                onChange={(e) => setPhotoComment(e.target.value)}
+                className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-3 text-lg text-white"
+                style={{ minHeight: '48px' }}
+                autoFocus
+              />
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={processing}
+                  onClick={() => void uploadPhotoWithComment(photoComment)}
+                  className="rounded-xl bg-blue-600 px-4 py-3 text-lg font-semibold text-white disabled:opacity-60"
+                  style={{ minHeight: '48px' }}
+                >
+                  {processing ? t(KT.photoUploading) : t(KT.photoCommentSave)}
+                </button>
+                <button
+                  type="button"
+                  disabled={processing}
+                  onClick={() => void uploadPhotoWithComment('')}
+                  className="rounded-xl bg-gray-800 px-4 py-3 text-base text-gray-300"
+                  style={{ minHeight: '44px' }}
+                >
+                  {t(KT.photoCommentSkip)}
+                </button>
+                <button
+                  type="button"
+                  disabled={processing}
+                  onClick={() => {
+                    setPhotoPending(null);
+                    setPhotoComment('');
+                  }}
+                  className="rounded-xl px-4 py-2 text-sm text-gray-500"
+                >
+                  {t(KT.back)}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Auto-logout */}
         <div className="fixed bottom-4 left-0 right-0 text-center text-sm text-gray-600">

@@ -73,7 +73,10 @@ export class AuthService {
    * @returns LoginResponse (LoginResponse)
    * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
    */
-  async pinLogin(pin: string): Promise<LoginResponse> {
+  async pinLogin(
+    pin: string,
+    source: 'kiosk' | 'app' = 'app',
+  ): Promise<LoginResponse> {
     const now = new Date();
     const activePins = await this.prisma.workerPin.findMany({
       where: {
@@ -90,6 +93,11 @@ export class AuthService {
       }
       const match = await bcrypt.compare(pin, workerPin.pinHash);
       if (match) {
+        if (source === 'kiosk' && !workerPin.worker.kioskAccessEnabled) {
+          throw new UnauthorizedException(
+            'Kiosk-Zugang für diesen Monteur ist deaktiviert',
+          );
+        }
         const authUser: AuthUser = {
           id: workerPin.worker.id,
           type: 'worker',

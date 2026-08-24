@@ -205,6 +205,14 @@ export class CreateWorkerDto {
   @IsBoolean()
   active?: boolean;
 
+  @ApiPropertyOptional({
+    default: true,
+    description: 'PIN-Login am Kiosk (work.vivahome.de) erlaubt',
+  })
+  @IsOptional()
+  @IsBoolean()
+  kioskAccessEnabled?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

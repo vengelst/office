@@ -1,22 +1,23 @@
 ---
-description: Office Offener Backlog – Session 17.–20.08.2026 festgehalten; Contacts Settings live, Google Admin noch offen
+description: Office Offener Backlog – Contacts produktiv; Calendar Phase 1 (Auftrag #20)
 alwaysApply: false
 ---
 
 # Office – Offener Backlog
 
-Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Kiosk oder Stempel anspricht: **`claude-auftraege/offen-backlog.md`** lesen.
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk oder Stempel anspricht: **`claude-auftraege/offen-backlog.md`** lesen.
 
-## Session-Übergabe (Stand 2026-08-20)
+## Session-Übergabe (Stand 2026-08-21)
 
-**Erledigt & auf Prod (`main`):**
-1. Stempel-API-Rollen (`488ad20`) – kein fremdes Stempeln für CUSTOMER_PL
-2. Produktklarstellung: eigene App, kein Multi-Instanz/AVV; PIN bleibt
-3. Google Contacts **Einstellungen-UI** (`2092ef1`) – Toggle + Test; Credentials = Speicher & Cloud
+**Erledigt & auf Prod:**
+1. Stempel-API-Rollen (`488ad20`)
+2. Produktklarstellung: eigene App; PIN bleibt
+3. Google Contacts UI (`2092ef1`) + **produktiv** (People API/DWD OK, Sync an)
 
-**Noch offen (nächstes Mal):**
-- Google Admin: People API + DWD-Scope `contacts` → dann unter Einstellungen → Google Contacts Sync an + testen
-- UNIT_BASED-Abrechnung aus geprüften Items
-- Google Calendar: bewusst nicht
+**Offen:**
+- Google Admin: Calendar API + DWD-Scope `calendar` (gleicher SA)
+- Cloud-Auftrag `#20` Termine + Sync Office → Google
+- Phase 2: Rück-Sync / Kalender pro User
+- UNIT_BASED-Abrechnung
 
-Details: **`claude-auftraege/offen-backlog.md`**.
+Details: **`claude-auftraege/offen-backlog.md`** · Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**.

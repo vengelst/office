@@ -1,6 +1,6 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-08-20** (Projektwechsel – Session festhalten).
+Stand: **2026-08-21** (Google Contacts produktiv; Calendar in Arbeit).
 
 ---
 
@@ -15,15 +15,27 @@ Stand: **2026-08-20** (Projektwechsel – Session festhalten).
 **Produktentscheidungen (fest):**
 - Office = **eigene Vivahome-App** (keine Kunden-Mehrfachinstanzen)
 - **PIN-Login bleibt** (Monteur + Kunden-PL)
-- **Google Calendar:** bewusst nicht
-- **Google Contacts:** nur Contacts; Config unter **Einstellungen → Google Contacts**; SA/Impersonation von **Speicher & Cloud**
+- **Google Contacts:** Config unter **Einstellungen → Google Contacts**; SA/Impersonation von **Speicher & Cloud**
+- **Google Calendar:** Phase 1 (Office → Google, ein Workspace-Konto) – Auftrag `#20`
 
-**Noch zu tun (nächstes Wiederaufgreifen):**
-1. Google Admin: People API aktivieren + DWD-Scope `https://www.googleapis.com/auth/contacts` für denselben Service Account wie Drive
-2. In Office: Einstellungen → Google Contacts → Sync an → Verbindungstest
-3. Danach optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
+**2026-08-21 – Contacts produktiv:**
+- People API + DWD `contacts` bereits OK (Prod-Test)
+- `google_contacts_enabled=true` gesetzt; Impersonation `vivahome@vivahome.de`
+- SA: `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
 
-Prod: `office.vivahome.de` · Branch `main` · letzter Feature-Commit Contacts: `2092ef1`
+**2026-08-24 – Kiosk #21a–c:**
+- Clock-In nur mit gültiger Projektzuweisung (Datum)
+- Monteur-PIN: Kiosk-Freigabe + validFrom/validTo
+- Baustellenfoto: Kommentar wird ins Bild eingebrannt
+
+**Noch zu tun:**
+1. Google Admin: Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` (gleicher SA)
+2. Cloud-Auftrag `#20` – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`)
+3. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
+4. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
+5. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
+
+Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 
@@ -95,18 +107,18 @@ Erledigt am 2026-08-17 (Contacts-UI, deployed):
 
 ---
 
-## 3. Google Contacts – UI live, Google Admin noch offen
+## ~~3. Google Contacts~~ ✅ 2026-08-21
 
-**App-Seite:** Einstellungen → Google Contacts (`/settings/contacts`)
-- Toggle `google_contacts_enabled`
-- Verbindungstest People API
-- Credentials: Service Account + Impersonation aus **Speicher & Cloud** (nicht separat)
+**App-Seite:** Einstellungen → Google Contacts (`/settings/contacts`)  
+People API + DWD `contacts` OK; Sync-Flag auf Prod aktiv. Pro Kontakt Checkbox `syncToGoogle`.
 
-**Google-Seite (manuell, einmalig):**
-1. Cloud Console → People API aktivieren (Projekt Vivahome Office)
-2. Admin Console → DWD → Scope `https://www.googleapis.com/auth/contacts` für denselben SA wie Drive
+---
 
-Danach Sync anschalten und testen. Pro Kontakt weiter Checkbox `syncToGoogle`.
+## 3b. Google Calendar – Phase 1 (Auftrag #20)
+
+**Google Admin (manuell):** Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`  
+**App:** siehe `claude-arbeitsitems-20-google-calendar.md`  
+**Phase 2:** Rück-Sync / Kalender pro User – bewusst später
 
 ---
 
@@ -131,7 +143,7 @@ Feature-Flags (#18) bleiben sinnvoll für Module in **dieser** Instanz an/aus.
 ## Bewusst nicht jetzt
 
 - Managed Multi-Instanz / Install-Skript / AVV / Online-Lizenzserver
-- Google Calendar Sync
+- Google Calendar Phase 2 (Rück-Sync, Kalender pro Mitarbeiter)
 - Weitere God-File-Feinschliffe außer bei Bedarf
 - Multi-Tenant `tenantId`
 

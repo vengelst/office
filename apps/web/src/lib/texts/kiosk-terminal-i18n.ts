@@ -138,4 +138,29 @@ export const KT = {
     sl: 'Delovne postavke',
   },
   language: { de: 'Sprache', sk: 'Jazyk', sl: 'Jezik' },
+  noAssignment: {
+    de: 'Keine gültige Zuweisung für dieses Projekt',
+    sk: 'Žiadne platné priradenie k tomuto projektu',
+    sl: 'Ni veljavne dodelitve za ta projekt',
+  },
+  photoCommentTitle: {
+    de: 'Kommentar zum Foto',
+    sk: 'Komentár k fotografii',
+    sl: 'Komentar k fotografiji',
+  },
+  photoCommentHint: {
+    de: 'z. B. Positionsnummer – erscheint im Bild',
+    sk: 'napr. číslo pozície – zobrazí sa na fotke',
+    sl: 'npr. številka pozicije – prikaže se na fotografiji',
+  },
+  photoCommentSave: {
+    de: 'Foto speichern',
+    sk: 'Uložiť foto',
+    sl: 'Shrani fotografijo',
+  },
+  photoCommentSkip: {
+    de: 'Ohne Kommentar',
+    sk: 'Bez komentára',
+    sl: 'Brez komentarja',
+  },
 } as const;

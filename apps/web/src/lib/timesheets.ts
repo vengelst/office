@@ -434,10 +434,13 @@ export const workerApi = {
    * @param pin - 4–6-stellige PIN
    * @returns JWT-Token und Monteur-Profil
    */
-  async pinLogin(pin: string): Promise<LoginResponse> {
+  async pinLogin(
+    pin: string,
+    source: 'kiosk' | 'app' = 'app',
+  ): Promise<LoginResponse> {
     return apiClient.post<LoginResponse>(
       '/worker-auth/pin-login',
-      { pin },
+      { pin, source },
       { skipAuth: true },
     );
   },
@@ -633,7 +636,7 @@ export const kioskApi = {
    * POST /worker-auth/pin-login – PIN-Login im Kiosk-Modus.
    * @param pin - 4–6-stellige Monteur-PIN
    */
-  pinLogin: (pin: string) => workerApi.pinLogin(pin),
+  pinLogin: (pin: string) => workerApi.pinLogin(pin, 'kiosk'),
   /** GET /worker-auth/me – Lädt das Monteur-Profil im Kiosk-Kontext. */
   me: () => workerFetch<WorkerMe>('/worker-auth/me'),
   /**

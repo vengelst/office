@@ -58,7 +58,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Login mit Monteur-PIN' })
   pinLogin(@Body() dto: PinLoginDto): Promise<LoginResponse> {
-    return this.authService.pinLogin(dto.pin);
+    return this.authService.pinLogin(dto.pin, dto.source ?? 'app');
   }
 
   /**

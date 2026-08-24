@@ -2,7 +2,8 @@
 # Multi-Stage Build für Produktion.
 
 FROM node:20-alpine AS base
-RUN apk add --no-cache openssl openssh-client && corepack enable
+# libc6-compat: sharp (Foto-Kommentar-Overlay) auf Alpine/musl
+RUN apk add --no-cache openssl openssh-client libc6-compat && corepack enable
 WORKDIR /app
 
 # ── Dependencies ───────────────────────────────────────────────

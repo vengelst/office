@@ -794,13 +794,38 @@ export class WorkersService {
    * @param pin - Neue 6-stellige PIN
    * @returns Erfolgsmeldung
    */
-  async setPin(workerId: string, pin: string): Promise<{ success: true }> {
+  async setPin(
+    workerId: string,
+    pin: string,
+    options?: {
+      validFrom?: string | null;
+      validTo?: string | null;
+      kioskAccessEnabled?: boolean;
+    },
+  ): Promise<{ success: true }> {
     await this.ensureWorker(workerId);
     if (!/^\d{6}$/.test(pin)) {
       throw new BadRequestException('PIN muss genau 6 Ziffern sein.');
     }
 
     const now = new Date();
+    const validFrom = options?.validFrom
+      ? new Date(options.validFrom)
+      : now;
+    const validTo =
+      options?.validTo === undefined || options.validTo === null || options.validTo === ''
+        ? null
+        : new Date(options.validTo);
+
+    if (Number.isNaN(validFrom.getTime())) {
+      throw new BadRequestException('Ungültiges Gültig-ab-Datum');
+    }
+    if (validTo && Number.isNaN(validTo.getTime())) {
+      throw new BadRequestException('Ungültiges Gültig-bis-Datum');
+    }
+    if (validTo && validTo < validFrom) {
+      throw new BadRequestException('Gültig-bis muss nach Gültig-ab liegen');
+    }
 
     // Global uniqueness: check against all active UserPins and other WorkerPins
     const activeUserPins = await this.prisma.userPin.findMany({
@@ -842,10 +867,18 @@ export class WorkersService {
         workerId,
         pinHash,
         pinPlain: pin,
-        validFrom: now,
+        validFrom,
+        validTo,
         isActive: true,
       },
     });
+
+    if (options?.kioskAccessEnabled !== undefined) {
+      await this.prisma.worker.update({
+        where: { id: workerId },
+        data: { kioskAccessEnabled: options.kioskAccessEnabled },
+      });
+    }
 
     return { success: true };
   }
@@ -857,27 +890,48 @@ export class WorkersService {
    * @param workerId - UUID des Monteurs
    * @returns pin oder null, plus hasPin wenn Hash existiert
    */
-  async getPin(
-    workerId: string,
-  ): Promise<{ pin: string | null; hasPin: boolean }> {
+  async getPin(workerId: string): Promise<{
+    pin: string | null;
+    hasPin: boolean;
+    validFrom: string | null;
+    validTo: string | null;
+    kioskAccessEnabled: boolean;
+  }> {
     await this.ensureWorker(workerId);
+    const worker = await this.prisma.worker.findFirst({
+      where: { id: workerId, deletedAt: null },
+      select: { kioskAccessEnabled: true },
+    });
     const now = new Date();
     const active = await this.prisma.workerPin.findFirst({
       where: {
         workerId,
         isActive: true,
-        validFrom: { lte: now },
-        OR: [{ validTo: null }, { validTo: { gte: now } }],
       },
-      select: { pinPlain: true, pinHash: true },
+      select: {
+        pinPlain: true,
+        pinHash: true,
+        validFrom: true,
+        validTo: true,
+        isActive: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
     if (!active) {
-      return { pin: null, hasPin: false };
+      return {
+        pin: null,
+        hasPin: false,
+        validFrom: null,
+        validTo: null,
+        kioskAccessEnabled: worker?.kioskAccessEnabled ?? true,
+      };
     }
     return {
       pin: active.pinPlain ?? null,
       hasPin: true,
+      validFrom: active.validFrom.toISOString(),
+      validTo: active.validTo?.toISOString() ?? null,
+      kioskAccessEnabled: worker?.kioskAccessEnabled ?? true,
     };
   }
 

@@ -457,10 +457,18 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
   const [loadingPin, setLoadingPin] = useState(true);
   const [settingPin, setSettingPin] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [kioskAccess, setKioskAccess] = useState(true);
+  const [validFrom, setValidFrom] = useState('');
+  const [validTo, setValidTo] = useState('');
 
   const isValid = /^\d{6}$/.test(pin);
   const pinForActions = isValid ? pin : currentPin;
   const canUseStored = Boolean(pinForActions && /^\d{6}$/.test(pinForActions));
+
+  const toDateInput = (iso: string | null): string => {
+    if (!iso) return '';
+    return iso.slice(0, 10);
+  };
 
   const loadPin = useCallback(() => {
     setLoadingPin(true);
@@ -470,6 +478,9 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
         setCurrentPin(res.pin);
         setHasPin(res.hasPin);
         if (res.pin) setPin(res.pin);
+        setKioskAccess(res.kioskAccessEnabled);
+        setValidFrom(toDateInput(res.validFrom));
+        setValidTo(toDateInput(res.validTo));
       })
       .catch(() => {
         setCurrentPin(null);
@@ -486,10 +497,15 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
     if (!isValid) return;
     setSettingPin(true);
     try {
-      await workersApi.setPin(worker.id, pin);
+      await workersApi.setPin(worker.id, pin, {
+        validFrom: validFrom || undefined,
+        validTo: validTo || null,
+        kioskAccessEnabled: kioskAccess,
+      });
       setCurrentPin(pin);
       setHasPin(true);
       toast({ description: texts.workers.toast.pinSet });
+      loadPin();
     } catch (err) {
       toast({
         variant: 'destructive',
@@ -548,6 +564,43 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
       ) : (
         <p className="text-sm text-muted-foreground">{t.none}</p>
       )}
+
+      <label className="flex min-h-[44px] cursor-pointer items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 h-4 w-4"
+          checked={kioskAccess}
+          onChange={(e) => setKioskAccess(e.target.checked)}
+        />
+        <span>
+          <span className="font-medium">{t.kioskAccess}</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">
+            {t.kioskAccessHint}
+          </span>
+        </span>
+      </label>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1.5">
+          <Label>{t.validFrom}</Label>
+          <Input
+            type="date"
+            value={validFrom}
+            onChange={(e) => setValidFrom(e.target.value)}
+            className="min-h-[44px] w-40"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>{t.validTo}</Label>
+          <Input
+            type="date"
+            value={validTo}
+            onChange={(e) => setValidTo(e.target.value)}
+            className="min-h-[44px] w-40"
+          />
+          <p className="text-[10px] text-muted-foreground">{t.validToHint}</p>
+        </div>
+      </div>
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">

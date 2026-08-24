@@ -42,7 +42,7 @@ export class WorkerAuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Monteur-Login per PIN → Worker-Token' })
   pinLogin(@Body() dto: PinLoginDto): Promise<LoginResponse> {
-    return this.auth.pinLogin(dto.pin);
+    return this.auth.pinLogin(dto.pin, dto.source ?? 'app');
   }
 
   /**

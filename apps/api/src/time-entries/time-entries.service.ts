@@ -3,14 +3,7 @@
  * Kapselt die Geschäftslogik und den Datenzugriff dieser Domäne.
  */
 
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, BadRequestException, ConflictException } from '@nestjs/common';
 import {
   DocumentType,
   GpsEventType,
@@ -27,6 +20,7 @@ import { WorkItemWorkflowService } from '../work-items/work-item-workflow.servic
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
+import { burnCommentIntoImage } from './photo-overlay';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -100,6 +94,7 @@ export class TimeEntriesService {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
+    await this.assertProjectAssignment(dto.workerId, dto.projectId);
 
     // Idempotenter Replay: gleiche clientEventId → Status zurück, kein Insert.
     if (dto.clientEventId) {
@@ -386,7 +381,14 @@ export class TimeEntriesService {
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
 
-    const ext = extensionFor(file);
+    const overlay = await burnCommentIntoImage(
+      file.buffer,
+      file.mimetype,
+      dto.comment,
+    );
+    const uploadBuffer = overlay.buffer;
+    const uploadMime = overlay.mimeType;
+    const ext = uploadMime === 'image/jpeg' ? 'jpg' : extensionFor({ ...file, mimetype: uploadMime } as Express.Multer.File);
     const now = new Date();
 
     // Entity-Infos für lesbaren Dateinamen laden.
@@ -415,15 +417,15 @@ export class TimeEntriesService {
     // Lesbarer MinIO-Pfad.
     const storagePath = `projekte/${projectInfo.slug}/baustellenfotos/${readableFilename}`;
     const storageKey = `documents/${storagePath}`;
-    await this.storage.upload(storageKey, file.buffer, file.mimetype);
+    await this.storage.upload(storageKey, uploadBuffer, uploadMime);
 
     const doc = await this.prisma.document.create({
       data: {
         storageKey,
         storagePath,
         originalFilename: file.originalname || readableFilename,
-        mimeType: file.mimetype,
-        fileSize: file.size,
+        mimeType: uploadMime,
+        fileSize: uploadBuffer.length,
         documentType: DocumentType.SITE_PHOTO,
         title: dto.comment?.trim() || 'Baustellenfoto',
         description: dto.comment,
@@ -451,7 +453,7 @@ export class TimeEntriesService {
 
     // Google Drive Sync + Shortcut (async, non-blocking).
     this.syncPhotoToDrive(
-      doc.id, file.buffer, file.mimetype, readableFilename,
+      doc.id, uploadBuffer, uploadMime, readableFilename,
       projectInfo, workerInfo, dto.projectId, dto.workerId,
     ).catch((err) => this.logger.warn(`Drive-Foto-Sync übersprungen: ${(err as Error).message}`));
 
@@ -644,6 +646,35 @@ export class TimeEntriesService {
     });
     if (!worker) {
       throw new NotFoundException('Monteur nicht gefunden');
+    }
+  }
+
+  /**
+   * Clock-In nur mit aktiver Projektzuweisung im Datumsfenster.
+   */
+  private async assertProjectAssignment(
+    workerId: string,
+    projectId: string,
+  ): Promise<void> {
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+
+    const assignment = await this.prisma.projectAssignment.findFirst({
+      where: {
+        workerId,
+        projectId,
+        active: true,
+        startDate: { lte: endOfToday },
+        OR: [{ endDate: null }, { endDate: { gte: startOfToday } }],
+      },
+      select: { id: true },
+    });
+    if (!assignment) {
+      throw new ForbiddenException(
+        'Keine gültige Projektzuweisung für diesen Monteur (oder Zuweisung beginnt erst später)',
+      );
     }
   }
 

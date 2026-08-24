@@ -247,6 +247,12 @@ export const workers = {
         'Es ist eine PIN hinterlegt, die vor dem Update gesetzt wurde – bitte neu setzen, damit sie hier angezeigt werden kann.',
       noEmail: 'Monteur hat keine E-Mail-Adresse hinterlegt.',
       validation: 'PIN muss genau 6 Ziffern sein.',
+      kioskAccess: 'Kiosk (work.vivahome.de) nutzen',
+      kioskAccessHint:
+        'Wenn aus: Anmeldung am Baustellen-Kiosk mit dieser PIN ist gesperrt (Monteur-App bleibt möglich).',
+      validFrom: 'Gültig ab',
+      validTo: 'Gültig bis (optional)',
+      validToHint: 'Leer = unbegrenzt. Nach Ablauf schlägt der PIN-Login fehl.',
     },
     validation: {
       subcontractorRequired:

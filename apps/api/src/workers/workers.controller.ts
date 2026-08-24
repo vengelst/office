@@ -363,8 +363,21 @@ export class WorkersController {
    */
   @Post(':id/pin')
   @ApiOperation({ summary: 'PIN für Monteur setzen (6 Ziffern)' })
-  setPin(@Param('id') id: string, @Body() body: { pin: string }) {
-    return this.workers.setPin(id, body.pin);
+  setPin(
+    @Param('id') id: string,
+    @Body()
+    body: {
+      pin: string;
+      validFrom?: string | null;
+      validTo?: string | null;
+      kioskAccessEnabled?: boolean;
+    },
+  ) {
+    return this.workers.setPin(id, body.pin, {
+      validFrom: body.validFrom,
+      validTo: body.validTo,
+      kioskAccessEnabled: body.kioskAccessEnabled,
+    });
   }
 
   /**

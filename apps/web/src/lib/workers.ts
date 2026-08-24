@@ -483,14 +483,31 @@ export const workersApi = {
    * GET /workers/:id/pin – Liest die aktuelle Stempel-PIN (Klartext) zur Anzeige.
    */
   getPin: (id: string) =>
-    apiClient.get<{ pin: string | null; hasPin: boolean }>(`/workers/${id}/pin`),
+    apiClient.get<{
+      pin: string | null;
+      hasPin: boolean;
+      validFrom: string | null;
+      validTo: string | null;
+      kioskAccessEnabled: boolean;
+    }>(`/workers/${id}/pin`),
   /**
    * POST /workers/:id/pin – Setzt die Stempel-PIN eines Monteurs.
    * @param id - Monteur-ID
    * @param pin - Neue PIN (4–6 Ziffern)
    */
-  setPin: (id: string, pin: string) =>
-    apiClient.post<{ success: boolean }>(`/workers/${id}/pin`, { pin }),
+  setPin: (
+    id: string,
+    pin: string,
+    options?: {
+      validFrom?: string | null;
+      validTo?: string | null;
+      kioskAccessEnabled?: boolean;
+    },
+  ) =>
+    apiClient.post<{ success: boolean }>(`/workers/${id}/pin`, {
+      pin,
+      ...options,
+    }),
   /**
    * POST /workers/:id/send-pin-email – Sendet die PIN per E-Mail an den Monteur.
    * @param id - Monteur-ID
