@@ -19,6 +19,7 @@ mit klarer Aufgabenteilung:
 ## Domain & Pfade
 
 - Domain App: `office.vivahome.de`
+- Domain Kiosk: `work.vivahome.de` (Root → `/kiosk`; Setup/Terminal/PL)
 - Domain MinIO Console: `minio.office.vivahome.de`
 - Server-App-Pfad: `/opt/office`
 - GitHub-Repo: `https://github.com/vengelst/office.git`
@@ -40,6 +41,8 @@ Nginx proxiert von außen:
 
 - `office.vivahome.de/api` → `127.0.0.1:5701`
 - `office.vivahome.de/*` → `127.0.0.1:5700`
+- `work.vivahome.de/api` → `127.0.0.1:5701` (gleiche API)
+- `work.vivahome.de/*` → `127.0.0.1:5700` (Next; Middleware erzwingt Kiosk)
 - `minio.office.vivahome.de` → `127.0.0.1:5703`
 
 ---
@@ -74,7 +77,7 @@ chmod +x deploy/server-deploy.sh
 | `JWT_SECRET` | Lang, zufällig. z. B. `openssl rand -hex 48` |
 | `MINIO_ACCESS_KEY`, `MINIO_SECRET_KEY` | MinIO-Zugangsdaten |
 | `NEXT_PUBLIC_API_URL` | `https://office.vivahome.de/api` |
-| `WEB_ORIGIN` | `https://office.vivahome.de` |
+| `WEB_ORIGIN` | `https://office.vivahome.de,https://work.vivahome.de` |
 
 ### Nginx + TLS
 
@@ -91,9 +94,16 @@ sudo cp /opt/office/deploy/nginx/minio.office.vivahome.de.conf \
 sudo ln -s /etc/nginx/sites-available/minio.office.vivahome.de.conf \
            /etc/nginx/sites-enabled/minio.office.vivahome.de.conf
 
+# Kiosk (work)
+sudo cp /opt/office/deploy/nginx/work.vivahome.de.conf \
+        /etc/nginx/sites-available/work.vivahome.de.conf
+sudo ln -s /etc/nginx/sites-available/work.vivahome.de.conf \
+           /etc/nginx/sites-enabled/work.vivahome.de.conf
+
 sudo nginx -t
 sudo systemctl reload nginx
 sudo certbot --nginx -d office.vivahome.de -d minio.office.vivahome.de
+sudo certbot --nginx -d work.vivahome.de
 ```
 
 ---

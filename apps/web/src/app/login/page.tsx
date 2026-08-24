@@ -19,6 +19,14 @@ import { homeRouteFor } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 import { AppBrand } from '@/components/layout/app-brand';
 
+/** Auf der Kiosk-Domain nach Login zurück zum Setup (nicht Büro-Dashboard). */
+function postLoginRoute(user: Parameters<typeof homeRouteFor>[0]): string {
+  if (typeof window !== 'undefined' && window.location.hostname === 'work.vivahome.de') {
+    return '/kiosk/setup';
+  }
+  return homeRouteFor(user);
+}
+
 export default function LoginPage(): React.ReactNode {
   const router = useRouter();
   const { login, isAuthenticated, isLoading, user } = useAuth();
@@ -31,7 +39,7 @@ export default function LoginPage(): React.ReactNode {
   // Bereits angemeldet → Startseite je nach Rolle (Kunden-PL: /pl).
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
-      router.replace(homeRouteFor(user));
+      router.replace(postLoginRoute(user));
     }
   }, [isLoading, isAuthenticated, user, router]);
 
@@ -40,7 +48,7 @@ export default function LoginPage(): React.ReactNode {
     setSubmitting(true);
     try {
       const loggedIn = await login(email, password);
-      router.replace(homeRouteFor(loggedIn));
+      router.replace(postLoginRoute(loggedIn));
     } catch (error) {
       const message =
         error instanceof ApiError

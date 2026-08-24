@@ -70,6 +70,8 @@ cfg_nginxConfigLocalPath=""
 cfg_nginxConfigName=""
 cfg_nginxMinioConfigLocalPath=""
 cfg_nginxMinioConfigName=""
+cfg_nginxWorkConfigLocalPath=""
+cfg_nginxWorkConfigName=""
 cfg_nginxSitesAvailablePath=""
 cfg_nginxSitesEnabledPath=""
 cfg_forceServerReset=""
@@ -85,6 +87,8 @@ set_defaults() {
     cfg_nginxConfigName="office.vivahome.de.conf"
     cfg_nginxMinioConfigLocalPath="deploy/nginx/minio.office.vivahome.de.conf"
     cfg_nginxMinioConfigName="minio.office.vivahome.de.conf"
+    cfg_nginxWorkConfigLocalPath="deploy/nginx/work.vivahome.de.conf"
+    cfg_nginxWorkConfigName="work.vivahome.de.conf"
     cfg_nginxSitesAvailablePath="/etc/nginx/sites-available"
     cfg_nginxSitesEnabledPath="/etc/nginx/sites-enabled"
     cfg_forceServerReset="true"
@@ -103,6 +107,8 @@ nginxConfigLocalPath="$cfg_nginxConfigLocalPath"
 nginxConfigName="$cfg_nginxConfigName"
 nginxMinioConfigLocalPath="$cfg_nginxMinioConfigLocalPath"
 nginxMinioConfigName="$cfg_nginxMinioConfigName"
+nginxWorkConfigLocalPath="$cfg_nginxWorkConfigLocalPath"
+nginxWorkConfigName="$cfg_nginxWorkConfigName"
 nginxSitesAvailablePath="$cfg_nginxSitesAvailablePath"
 nginxSitesEnabledPath="$cfg_nginxSitesEnabledPath"
 forceServerReset="$cfg_forceServerReset"
@@ -114,6 +120,7 @@ load_config() {
     if [[ -f "$CONFIG_FILE" ]]; then
         local remoteName branch repoUrl serverHost serverUser serverPath
         local nginxConfigLocalPath nginxConfigName nginxMinioConfigLocalPath nginxMinioConfigName
+        local nginxWorkConfigLocalPath nginxWorkConfigName
         local nginxSitesAvailablePath nginxSitesEnabledPath forceServerReset
         source "$CONFIG_FILE"
         [[ -n "${remoteName:-}" ]] && cfg_remoteName="$remoteName"
@@ -126,6 +133,8 @@ load_config() {
         [[ -n "${nginxConfigName:-}" ]] && cfg_nginxConfigName="$nginxConfigName"
         [[ -n "${nginxMinioConfigLocalPath:-}" ]] && cfg_nginxMinioConfigLocalPath="$nginxMinioConfigLocalPath"
         [[ -n "${nginxMinioConfigName:-}" ]] && cfg_nginxMinioConfigName="$nginxMinioConfigName"
+        [[ -n "${nginxWorkConfigLocalPath:-}" ]] && cfg_nginxWorkConfigLocalPath="$nginxWorkConfigLocalPath"
+        [[ -n "${nginxWorkConfigName:-}" ]] && cfg_nginxWorkConfigName="$nginxWorkConfigName"
         [[ -n "${nginxSitesAvailablePath:-}" ]] && cfg_nginxSitesAvailablePath="$nginxSitesAvailablePath"
         [[ -n "${nginxSitesEnabledPath:-}" ]] && cfg_nginxSitesEnabledPath="$nginxSitesEnabledPath"
         [[ -n "${forceServerReset:-}" ]] && cfg_forceServerReset="$forceServerReset"
@@ -144,6 +153,7 @@ show_config() {
     write_info "Server path: $cfg_serverPath"
     write_info "Nginx config: $cfg_nginxConfigLocalPath"
     write_info "Nginx MinIO config: $cfg_nginxMinioConfigLocalPath"
+    write_info "Nginx Work (Kiosk) config: $cfg_nginxWorkConfigLocalPath"
     write_info "Force server reset: $cfg_forceServerReset"
 }
 
@@ -351,6 +361,23 @@ install_nginx_configs() {
             ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "bash -lc ${(q)nginx_minio_cmd}"
     else
         write_warn "MinIO Nginx-Config nicht gefunden: $local_minio_config"
+    fi
+
+    # Kiosk (work.vivahome.de)
+    local local_work_config="$REPO_ROOT/$cfg_nginxWorkConfigLocalPath"
+    if [[ -f "$local_work_config" ]]; then
+        local remote_work_staging_file="$remote_staging/$cfg_nginxWorkConfigName"
+        local remote_work_available_file="$cfg_nginxSitesAvailablePath/$cfg_nginxWorkConfigName"
+        local remote_work_enabled_file="$cfg_nginxSitesEnabledPath/$cfg_nginxWorkConfigName"
+
+        invoke_checked "scp work config -> ${ssh_target}:$remote_work_staging_file" \
+            scp -o StrictHostKeyChecking=accept-new "$local_work_config" "${ssh_target}:$remote_work_staging_file"
+
+        local nginx_work_cmd="set -e; sudo cp '$remote_work_staging_file' '$remote_work_available_file'; sudo ln -sfn '$remote_work_available_file' '$remote_work_enabled_file'"
+        invoke_checked "ssh $ssh_target (nginx install work/kiosk)" \
+            ssh -o StrictHostKeyChecking=accept-new "$ssh_target" "bash -lc ${(q)nginx_work_cmd}"
+    else
+        write_warn "Work Nginx-Config nicht gefunden: $local_work_config"
     fi
 
     # Test and reload

@@ -25,8 +25,14 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix('api');
 
+  // Kommagetrennt: z. B. office + Kiosk-Domain work.vivahome.de
+  const corsOrigins = (process.env.WEB_ORIGIN ?? 'http://localhost:3900')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+
   app.enableCors({
-    origin: process.env.WEB_ORIGIN ?? 'http://localhost:3900',
+    origin: corsOrigins.length <= 1 ? corsOrigins[0] : corsOrigins,
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
