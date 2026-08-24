@@ -143,6 +143,21 @@ export const KT = {
     sk: 'Žiadne platné priradenie k tomuto projektu',
     sl: 'Ni veljavne dodelitve za ta projekt',
   },
+  projectLabel: {
+    de: 'Projekt',
+    sk: 'Projekt',
+    sl: 'Projekt',
+  },
+  chooseProject: {
+    de: 'Projekt wählen (Master-Monteur)',
+    sk: 'Vyberte projekt (master)',
+    sl: 'Izberite projekt (master)',
+  },
+  bookingOn: {
+    de: 'Zeiten werden gebucht auf',
+    sk: 'Čas sa eviduje na',
+    sl: 'Čas se knjiži na',
+  },
   photoCommentTitle: {
     de: 'Kommentar zum Foto',
     sk: 'Komentár k fotografii',

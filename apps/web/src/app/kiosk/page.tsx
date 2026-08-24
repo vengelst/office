@@ -25,7 +25,7 @@ export default function KioskPage() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-gray-950">
       <div className="animate-pulse text-2xl text-gray-400">Laden …</div>
     </div>
   );

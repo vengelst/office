@@ -97,6 +97,8 @@ export default function KioskTerminalPage() {
   // Worker (after PIN)
   const [worker, setWorker] = useState<WorkerMe | null>(null);
   const [clockStatus, setClockStatus] = useState<ClockStatus | null>(null);
+  /** Projekt fürs Einstempeln (Master kann wählen; sonst Kiosk-Setup-Projekt). */
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
   // GPS
   const [gps, setGps] = useState<GpsData | null>(null);
@@ -145,9 +147,15 @@ export default function KioskTerminalPage() {
         return;
       }
       setConfig(c);
+      setSelectedProjectId(c.projectId);
       startOfflineClockSync();
       if (c.fullscreen) {
-        document.documentElement.requestFullscreen?.().catch(() => {});
+        // Nach Paint, sonst kurzer Browser-Flash
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            document.documentElement.requestFullscreen?.().catch(() => {});
+          }, 300);
+        });
       }
     } catch {
       router.replace('/kiosk/setup');
@@ -240,9 +248,10 @@ export default function KioskTerminalPage() {
     setGps(null);
     setGpsStatus('inactive');
     setSelectedItemId(null);
+    setSelectedProjectId(config?.projectId ?? null);
     clearWorkerSession();
     loadLiveOverview();
-  }, [loadLiveOverview]);
+  }, [loadLiveOverview, config?.projectId]);
 
   // PIN pad
   const handlePinDigit = (digit: string) => {
@@ -287,6 +296,12 @@ export default function KioskTerminalPage() {
       }
       const merged = await getOptimisticClockStatus(me.id, status);
       setClockStatus(merged);
+      // Master: wenn schon eingestempelt → aktuelles Projekt; sonst Setup-Default
+      const defaultProjectId =
+        merged.clockedIn && merged.project?.id
+          ? merged.project.id
+          : config?.projectId ?? null;
+      setSelectedProjectId(defaultProjectId);
       setState('action');
       lastInteraction.current = Date.now();
       acquireGps();
@@ -301,7 +316,8 @@ export default function KioskTerminalPage() {
   // Clock in/out
   const handleClockIn = async () => {
     if (!worker || !config) return;
-    if (!assignmentValidToday(worker, config.projectId)) {
+    const projectId = selectedProjectId ?? config.projectId;
+    if (!assignmentValidToday(worker, projectId)) {
       return;
     }
     resetActivity();
@@ -309,11 +325,15 @@ export default function KioskTerminalPage() {
     try {
       const gpsData = gps ?? (await acquireGps());
       const assignment = (worker.assignments ?? []).find(
-        (a) => a.project.id === config.projectId,
+        (a) => a.project.id === projectId,
       );
+      const projectTitle =
+        assignment?.project.title ??
+        (projectId === config.projectId ? config.projectTitle : '') ??
+        '';
       const result = await kioskApi.clockIn({
         workerId: worker.id,
-        projectId: config.projectId,
+        projectId,
         latitude: gpsData?.latitude,
         longitude: gpsData?.longitude,
         accuracy: gpsData?.accuracy,
@@ -326,9 +346,9 @@ export default function KioskTerminalPage() {
               title: assignment.project.title,
             }
           : {
-              id: config.projectId,
+              id: projectId,
               projectNumber: '',
-              title: config.projectTitle ?? '',
+              title: projectTitle,
             },
       });
       setClockStatus(result);
@@ -448,24 +468,53 @@ export default function KioskTerminalPage() {
     }
   };
 
-  if (!config) return null;
+  if (!config) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-400">
+        Laden …
+      </div>
+    );
+  }
 
   /**
-   * Ist das Kiosk-Projekt item-basiert?
+   * Ist das gewählte (bzw. Kiosk-)Projekt item-basiert?
    *
    * Bewusst zur Laufzeit aus `/worker-auth/me` gelesen (Zuweisung des gerade
    * angemeldeten Monteurs) statt aus der gespeicherten Kiosk-Config: Ein alter
    * Config-Eintrag im LocalStorage kennt das Flag nicht, und der Item-Modus
    * kann im Büro jederzeit umgeschaltet werden.
    */
+  const activeProjectId = selectedProjectId ?? config.projectId;
+
   const itemBasedProject = (worker?.assignments ?? []).some(
-    (a) => a.project.id === config.projectId && a.project.itemBased === true,
+    (a) => a.project.id === activeProjectId && a.project.itemBased === true,
   );
 
-  const canClockInOnKioskProject = assignmentValidToday(
-    worker,
-    config.projectId,
-  );
+  const canClockInOnKioskProject = assignmentValidToday(worker, activeProjectId);
+
+  /** Anzeige-Titel: eingestempelt → Status-Projekt; sonst Auswahl / Setup. */
+  const displayProjectTitle =
+    clockStatus?.project?.title ||
+    (worker?.assignments ?? []).find((a) => a.project.id === activeProjectId)
+      ?.project.title ||
+    (activeProjectId === config.projectId ? config.projectTitle : null) ||
+    config.projectTitle;
+
+  /** Master: eindeutige Projekte aus Assignments (API liefert ACTIVE/PLANNED). */
+  const masterProjectOptions = worker?.masterEngineer
+    ? Array.from(
+        new Map(
+          (worker.assignments ?? []).map((a) => [
+            a.project.id,
+            {
+              id: a.project.id,
+              title: a.project.title,
+              projectNumber: a.project.projectNumber,
+            },
+          ]),
+        ).values(),
+      )
+    : [];
 
   const timeStr = clock.toLocaleTimeString(dateLocale, {
     hour: '2-digit',
@@ -576,6 +625,10 @@ export default function KioskTerminalPage() {
           <h2 className="text-4xl font-bold">
             {worker.firstName} {worker.lastName}
           </h2>
+          <p className="text-center text-lg text-gray-300">
+            <span className="text-gray-500">{t(KT.projectLabel)}: </span>
+            {displayProjectTitle}
+          </p>
           <p className={`text-xl ${isIn ? 'text-green-400' : 'text-gray-400'}`}>
             {isIn
               ? `${t(KT.clockedInSince)} ${sinceStr}`
@@ -587,6 +640,38 @@ export default function KioskTerminalPage() {
             </p>
           )}
         </div>
+
+        {/* Master-Monteur: Projekt wählen, auf das gestempelt wird */}
+        {worker.masterEngineer && !isIn && masterProjectOptions.length > 0 && (
+          <div className="mx-auto mt-6 w-full max-w-md">
+            <label className="mb-2 block text-center text-sm text-gray-400">
+              {t(KT.chooseProject)}
+            </label>
+            <select
+              value={activeProjectId}
+              onChange={(e) => {
+                resetActivity();
+                setSelectedProjectId(e.target.value);
+              }}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-4 text-lg text-white"
+              style={{ minHeight: '56px' }}
+            >
+              {/* Setup-Projekt immer anbieten */}
+              {!masterProjectOptions.some((p) => p.id === config.projectId) && (
+                <option value={config.projectId}>{config.projectTitle}</option>
+              )}
+              {masterProjectOptions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.projectNumber ? `${p.projectNumber} · ` : ''}
+                  {p.title}
+                </option>
+              ))}
+            </select>
+            <p className="mt-2 text-center text-xs text-gray-500">
+              {t(KT.bookingOn)}
+            </p>
+          </div>
+        )}
 
         {/* GPS indicator */}
         <div className="mt-4 flex justify-center">
