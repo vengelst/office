@@ -67,6 +67,10 @@ enum GpsEventType {
   CLOCK_IN
   CLOCK_OUT
   MANUAL
+  LOGIN
+  LOGOUT
+  PHOTO
+  ACTION
 }
 
 enum WeeklyTimesheetStatus {

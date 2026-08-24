@@ -91,7 +91,7 @@ export class TimeEntriesController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
-  @ApiOperation({ summary: 'Periodischer GPS-Punkt während aktiver Schicht' })
+  @ApiOperation({ summary: 'GPS-Punkt (Intervall, Login, Logout, Foto, Aktion)' })
   gpsPing(@Body() dto: GpsPingDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.gpsPing(dto, user);
   }

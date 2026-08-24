@@ -117,7 +117,7 @@ export interface LiveEntry {
 export interface GpsEventRow {
   id: string;
   recordedAt: string;
-  eventType: 'CLOCK_IN' | 'CLOCK_OUT' | 'MANUAL';
+  eventType: 'CLOCK_IN' | 'CLOCK_OUT' | 'MANUAL' | 'LOGIN' | 'LOGOUT' | 'PHOTO' | 'ACTION';
   latitude: number;
   longitude: number;
   accuracy: number | null;

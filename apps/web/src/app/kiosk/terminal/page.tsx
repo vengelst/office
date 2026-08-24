@@ -29,6 +29,7 @@ import { KIOSK_LANGS, useKioskLocale } from '@/lib/kiosk-locale';
 import { KT } from '@/lib/texts/kiosk-terminal-i18n';
 import { kioskDebugLog } from '@/lib/kiosk-debug';
 import { usePeriodicGpsPing } from '@/lib/use-periodic-gps-ping';
+import { recordWorkerGps, appendGpsToFormData } from '@/lib/record-worker-gps';
 import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
@@ -262,27 +263,6 @@ export default function KioskTerminalPage() {
     });
   }, []);
 
-  // Auto-logout countdown (läuft auf allen Screens der Monteur-Session)
-  useEffect(() => {
-    if (!SESSION_STATES.includes(state) || !config) return;
-    const limit =
-      state === 'action'
-        ? config.autoLogoutSeconds
-        : Math.max(config.autoLogoutSeconds, ITEMS_IDLE_SECONDS);
-    let fired = false;
-    const interval = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - lastInteraction.current) / 1000);
-      const remaining = Math.max(0, limit - elapsed);
-      setCountdown(remaining);
-      if (remaining === 0 && !fired) {
-        fired = true;
-        resetToIdle();
-      }
-    }, 1000);
-    return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state, config]);
-
   const resetActivity = () => {
     lastInteraction.current = Date.now();
   };
@@ -300,6 +280,47 @@ export default function KioskTerminalPage() {
     setLiveWorkers([]);
     clearWorkerSession();
   }, [config?.projectId]);
+
+  /** Logout inkl. Auto-Logout: zuerst GPS, dann Session beenden. */
+  const endSession = useCallback(async () => {
+    const w = worker;
+    if (w?.id) {
+      await recordWorkerGps({
+        workerId: w.id,
+        eventType: 'LOGOUT',
+        projectId:
+          clockStatus?.project?.id ?? selectedProjectId ?? config?.projectId,
+        timeoutMs: 5000,
+      });
+    }
+    resetToIdle();
+  }, [
+    worker,
+    clockStatus?.project?.id,
+    selectedProjectId,
+    config?.projectId,
+    resetToIdle,
+  ]);
+
+  // Auto-logout countdown (läuft auf allen Screens der Monteur-Session)
+  useEffect(() => {
+    if (!SESSION_STATES.includes(state) || !config) return;
+    const limit =
+      state === 'action'
+        ? config.autoLogoutSeconds
+        : Math.max(config.autoLogoutSeconds, ITEMS_IDLE_SECONDS);
+    let fired = false;
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - lastInteraction.current) / 1000);
+      const remaining = Math.max(0, limit - elapsed);
+      setCountdown(remaining);
+      if (remaining === 0 && !fired) {
+        fired = true;
+        void endSession();
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [state, config, endSession]);
 
   // PIN pad
   const handlePinDigit = (digit: string) => {
@@ -353,6 +374,12 @@ export default function KioskTerminalPage() {
       setState('action');
       lastInteraction.current = Date.now();
       acquireGps();
+      void recordWorkerGps({
+        workerId: me.id,
+        eventType: 'LOGIN',
+        projectId: defaultProjectId,
+        timeoutMs: 10000,
+      });
     } catch {
       setPinError(t(KT.pinError));
       setPin('');
@@ -419,7 +446,9 @@ export default function KioskTerminalPage() {
       }
       setState('confirmation');
       tryVibrate();
-      setTimeout(resetToIdle, 3000);
+      setTimeout(() => {
+        void endSession();
+      }, 3000);
     } catch {
       setPinError(t(KT.error));
     } finally {
@@ -466,7 +495,9 @@ export default function KioskTerminalPage() {
       }
       setState('confirmation');
       tryVibrate();
-      setTimeout(resetToIdle, 3000);
+      setTimeout(() => {
+        void endSession();
+      }, 3000);
     } catch {
       setPinError(t(KT.error));
     } finally {
@@ -506,6 +537,7 @@ export default function KioskTerminalPage() {
         form.append('commentX', String(opts.xNorm));
         form.append('commentY', String(opts.yNorm));
       }
+      await appendGpsToFormData(form);
       await kioskApi.uploadPhoto(form);
     } catch {
       // silently fail photo upload
@@ -678,7 +710,9 @@ export default function KioskTerminalPage() {
         {/* Header */}
         <div className="flex items-start justify-between">
           <button
-            onClick={resetToIdle}
+            onClick={() => {
+              void endSession();
+            }}
             className="rounded-lg bg-gray-800 px-4 py-2 text-lg text-gray-300 transition hover:bg-gray-700"
           >
             ← {t(KT.back)}

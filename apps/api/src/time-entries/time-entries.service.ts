@@ -471,6 +471,22 @@ export class TimeEntriesService {
       projectInfo, workerInfo, dto.projectId, dto.workerId,
     ).catch((err) => this.logger.warn(`Drive-Foto-Sync übersprungen: ${(err as Error).message}`));
 
+    if (dto.latitude != null && dto.longitude != null) {
+      const open = await this.getOpenClockIn(dto.workerId);
+      await this.prisma.gpsEvent.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: dto.projectId,
+          relatedTimeEntryId: open?.id ?? null,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          recordedAt: now,
+          eventType: GpsEventType.PHOTO,
+        },
+      });
+    }
+
     return doc;
   }
 
@@ -623,7 +639,8 @@ export class TimeEntriesService {
   }
 
   /**
-   * Periodischer GPS-Punkt während einer offenen Schicht (MANUAL).
+   * GPS-Punkt speichern (Intervall, Login, Logout, Foto, Aktion).
+   * Intervall (MANUAL) nur bei offener Schicht; Login/Logout/Foto/Aktion immer.
    */
   async gpsPing(
     dto: {
@@ -632,31 +649,44 @@ export class TimeEntriesService {
       longitude: number;
       accuracy?: number;
       projectId?: string;
+      eventType?: GpsEventType;
     },
     actor: AuthUser,
   ) {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
 
+    const eventType = dto.eventType ?? GpsEventType.MANUAL;
+    const allowed: GpsEventType[] = [
+      GpsEventType.MANUAL,
+      GpsEventType.LOGIN,
+      GpsEventType.LOGOUT,
+      GpsEventType.PHOTO,
+      GpsEventType.ACTION,
+    ];
+    if (!allowed.includes(eventType)) {
+      throw new BadRequestException('Ungültiger GPS-Ereignistyp');
+    }
+
     const open = await this.getOpenClockIn(dto.workerId);
-    if (!open) {
+    if (eventType === GpsEventType.MANUAL && !open) {
       throw new ConflictException('Monteur ist nicht eingestempelt');
     }
 
-    const projectId = dto.projectId ?? open.projectId;
+    const projectId = dto.projectId ?? open?.projectId ?? null;
     const event = await this.prisma.gpsEvent.create({
       data: {
         workerId: dto.workerId,
         projectId,
-        relatedTimeEntryId: open.id,
+        relatedTimeEntryId: open?.id ?? null,
         latitude: dto.latitude,
         longitude: dto.longitude,
         accuracy: dto.accuracy,
         recordedAt: new Date(),
-        eventType: GpsEventType.MANUAL,
+        eventType,
       },
     });
-    return { id: event.id, recordedAt: event.recordedAt };
+    return { id: event.id, recordedAt: event.recordedAt, eventType };
   }
 
   /**

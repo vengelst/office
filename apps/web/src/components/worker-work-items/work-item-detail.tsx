@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { PDF_ERRORS, T, useWorkItemText } from '@/lib/i18n-work-items';
 import { formatTime, workerApi, type ClockStatus } from '@/lib/timesheets';
+import { recordWorkerGps } from '@/lib/record-worker-gps';
 import {
   apiMessage,
   formatDateTime,
@@ -145,6 +146,12 @@ export function WorkItemDetail({
     setBusy(true);
     setError('');
     try {
+      void recordWorkerGps({
+        workerId,
+        eventType: 'ACTION',
+        projectId: item?.projectId,
+        timeoutMs: 6000,
+      });
       await fn();
       await load();
       if (successMessage) setFlash(successMessage);

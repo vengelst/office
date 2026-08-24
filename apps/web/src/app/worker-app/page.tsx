@@ -9,6 +9,7 @@ import {
   setWorkerSession,
   workerApi,
 } from '@/lib/timesheets';
+import { recordWorkerGps } from '@/lib/record-worker-gps';
 import { texts } from '@/lib/texts';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,12 @@ export default function WorkerPinPage(): React.ReactNode {
         window.localStorage.setItem(WORKER_TOKEN_KEY, res.accessToken);
         const me = await workerApi.me();
         setWorkerSession(res.accessToken, me);
+        void recordWorkerGps({
+          workerId: me.id,
+          eventType: 'LOGIN',
+          projectId: me.assignments?.[0]?.project?.id,
+          timeoutMs: 10000,
+        });
         router.replace('/worker-app/dashboard');
       } catch {
         // Ungültige PIN oder Netzwerkfehler → zurücksetzen.

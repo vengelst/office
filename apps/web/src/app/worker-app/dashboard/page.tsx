@@ -50,6 +50,10 @@ import { texts } from '@/lib/texts';
 import { T } from '@/lib/i18n-work-items';
 import { cn } from '@/lib/utils';
 import { usePeriodicGpsPing } from '@/lib/use-periodic-gps-ping';
+import {
+  appendGpsToFormData,
+  recordWorkerGps,
+} from '@/lib/record-worker-gps';
 
 function dayStart(d: Date): number {
   const x = new Date(d);
@@ -290,6 +294,7 @@ export default function WorkerDashboardPage(): React.ReactNode {
         form.append('commentX', String(opts.xNorm));
         form.append('commentY', String(opts.yNorm));
       }
+      await appendGpsToFormData(form);
       await workerApi.uploadPhoto(form);
       toast({ description: t.toast.photoUploaded });
       setPhotoOpen(false);
@@ -305,9 +310,21 @@ export default function WorkerDashboardPage(): React.ReactNode {
   };
 
   const handleLogout = (): void => {
-    void workerApi.logout().catch(() => {});
-    clearWorkerSession();
-    router.replace('/worker-app');
+    const projectId = status?.project?.id ?? selectedProjectId;
+    const wid = worker?.id;
+    void (async () => {
+      if (wid) {
+        await recordWorkerGps({
+          workerId: wid,
+          eventType: 'LOGOUT',
+          projectId,
+          timeoutMs: 5000,
+        });
+      }
+      void workerApi.logout().catch(() => {});
+      clearWorkerSession();
+      router.replace('/worker-app');
+    })();
   };
 
   if (!worker) {

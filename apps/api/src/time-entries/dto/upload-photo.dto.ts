@@ -1,6 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
+import {
+  IsLatitude,
+  IsLongitude,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 /** Metadaten beim Multipart-Upload eines Arbeitsfotos von der Baustelle. */
 export class UploadPhotoDto {
@@ -36,4 +45,22 @@ export class UploadPhotoDto {
   @Min(0)
   @Max(1)
   commentY?: number;
+
+  @ApiPropertyOptional({ description: 'GPS-Breitengrad beim Foto' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsLatitude()
+  latitude?: number;
+
+  @ApiPropertyOptional({ description: 'GPS-Längengrad beim Foto' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsLongitude()
+  longitude?: number;
+
+  @ApiPropertyOptional({ description: 'GPS-Genauigkeit (Meter)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  accuracy?: number;
 }

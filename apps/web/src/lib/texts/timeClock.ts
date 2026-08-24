@@ -16,7 +16,7 @@ export const timeClock = {
   },
   gps: {
     title: 'GPS-Daten',
-    subtitle: 'Aufgezeichnete Standorte beim Ein- und Ausstempeln sowie unterwegs',
+    subtitle: 'Standorte bei Login, Stempel, Foto, Aktionen und im Intervall',
     empty: 'Keine GPS-Ereignisse im gewählten Zeitraum.',
     selectWorker: 'Monteur filtern',
     allWorkers: 'Alle Monteure',
@@ -31,7 +31,11 @@ export const timeClock = {
     eventTypes: {
       CLOCK_IN: 'Einstempeln',
       CLOCK_OUT: 'Ausstempeln',
-      MANUAL: 'Unterwegs',
+      MANUAL: 'Intervall',
+      LOGIN: 'Login',
+      LOGOUT: 'Logout',
+      PHOTO: 'Foto',
+      ACTION: 'Aktion',
     },
     columns: {
       time: 'Zeit',
