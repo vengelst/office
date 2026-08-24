@@ -1,5 +1,6 @@
 # Office 1.0.0 – Kurzanleitung (Büro)
 
+**Viva Home**  
 **Viva Home GmbH**  
 Am Ringwall 16  
 51491 Overath  
@@ -8,12 +9,16 @@ Am Ringwall 16
 **App:** https://office.vivahome.de  
 **Kiosk:** https://work.vivahome.de  
 **Stand:** 2026-08-24  
-**PDF:** [HANDBUCH.pdf](./HANDBUCH.pdf) (mit Screenshots)
+**PDF:** [HANDBUCH.pdf](./HANDBUCH.pdf) (helles Design, druckgeeignet)
 
-Diese Anleitung beschreibt die wichtigsten Stammdaten-Schritte im Büro.  
-Login: E-Mail + Passwort (Büro-Benutzer). Monteure nutzen PIN (App/Kiosk).
+© Viva Home GmbH
 
-Screenshots liegen unter `docs/handbuch-screens/`. PDF neu erzeugen:
+Diese Kurzanleitung beschreibt die festen Büro-Schritte für die Stammdaten:  
+Kunde, Projekt, Monteur, Subunternehmen sowie die Zuordnungen Monteur↔Sub und Monteur↔Projekt.
+
+Anmeldung Büro: E-Mail und Passwort. Monteure stempeln mit 6-stelliger PIN (App/Kiosk).
+
+Screenshots: `docs/handbuch-screens/` (helles App-Design). PDF neu erzeugen:
 
 ```bash
 python3 -m venv .pdf-venv && .pdf-venv/bin/pip install fpdf2 pillow
@@ -24,142 +29,135 @@ python3 -m venv .pdf-venv && .pdf-venv/bin/pip install fpdf2 pillow
 
 ## Inhaltsverzeichnis
 
-1. [Kunde anlegen](#1-kunde-anlegen)
-2. [Projekt anlegen](#2-projekt-anlegen)
-3. [Monteur (Engineer) anlegen](#3-monteur-engineer-anlegen)
-4. [Subunternehmen anlegen](#4-subunternehmen-anlegen)
-5. [Monteur einem Subunternehmen zuordnen](#5-monteur-einem-subunternehmen-zuordnen)
-6. [Monteur einem Projekt zuweisen](#6-monteur-einem-projekt-zuweisen)
-7. [Kurz: Stempel & Stundenzettel](#7-kurz-stempel--stundenzettel)
+1. [Orientierung im Menü](#1-orientierung-im-menü)
+2. [Kunde anlegen](#2-kunde-anlegen)
+3. [Projekt anlegen](#3-projekt-anlegen)
+4. [Monteur anlegen](#4-monteur-anlegen)
+5. [Subunternehmen anlegen](#5-subunternehmen-anlegen)
+6. [Monteur einem Subunternehmen zuordnen](#6-monteur-einem-subunternehmen-zuordnen)
+7. [Monteur einem Projekt zuweisen](#7-monteur-einem-projekt-zuweisen)
+8. [Stempel und Stundenzettel (Kurz)](#8-stempel-und-stundenzettel-kurz)
 
 ---
 
-## 1. Kunde anlegen
+## 1. Orientierung im Menü
 
-1. Menü **Kunden** → Button **Neuer Kunde** (oder `/customers/new`).
-2. Pflicht-/Kerndaten ausfüllen, z. B.:
-   - Firmenname  
-   - Adresse, PLZ, Ort  
-   - optional Bewertung, Notizen  
-3. **Speichern**. Die Kundennummer (z. B. `K-2026-…`) wird vergeben.
-4. Auf der Kunden-Detailseite ergänzen Sie bei Bedarf:
-   - **Kontakte** (Ansprechpartner, optional Visitenkarten-Scan)  
-   - **Niederlassungen**  
-   - **E-Mails / Bankverbindungen**  
-   - **Dokumente**
+Nach dem Login öffnet sich das Dashboard. Links steht die Hauptnavigation. Für die Stammdaten nutzen Sie vor allem:
 
-> Tipp: Google-Contacts-Sync nur für Kontakte mit gesetzter Sync-Option (Einstellungen → Google Contacts).
+- **Kunden** – Firmenkunden anlegen und pflegen  
+- **Projekte** – Aufträge anlegen und Monteure zuweisen  
+- **Monteure** – Personenstammdaten, PIN, Typ Angestellt/Sub  
+- **Subunternehmen** – Firmen der Fremdmonteure  
+
+Oben rechts können Sie das Design wechseln. Für Ausdrucke und diese Anleitung ist das **helle Design** vorgesehen.
 
 ---
 
-## 2. Projekt anlegen
+## 2. Kunde anlegen
 
-1. Menü **Projekte** → **Neues Projekt** (`/projects/new`).
-2. Mindestens wählen/ausfüllen:
-   - **Kunde** (bestehend)  
-   - **Titel**  
-   - Status (z. B. Geplant / Aktiv)  
-3. **Speichern**. Projektnummer (z. B. `P-2026-…`) wird vergeben.
-4. Im Projekt-Detail bei Bedarf:
-   - Standorte / Baustellen  
-   - Tab **Monteure** (Zuweisungen) – siehe Abschnitt 6  
-   - Arbeitsitems (nur wenn Item-Modus aktiv)  
-   - Dokumente, Notizen  
+1. Menü **Kunden** öffnen.  
+2. Oben rechts **Neuer Kunde** wählen (`/customers/new`).  
+3. Mindestens den **Firmennamen** ausfüllen. Empfohlen: Adresse (Straße, PLZ, Ort), Status **Aktiv**.  
+4. **Speichern**. Die Kundennummer (z. B. `K-2026-…`) wird vergeben.  
+5. Im Kundendetail bei Bedarf ergänzen: Kontakte, Niederlassungen, E-Mails, Bankverbindungen, Dokumente.
 
-Ohne gültige **Projektzuweisung** dürfen normale Monteure am Kiosk nicht einstempeln (Ausnahme: **Master-Monteur**).
+Hinweis: Der Google-Contacts-Sync gilt nur für Kontakte mit gesetzter Sync-Option (Einstellungen → Google Contacts).
 
 ---
 
-## 3. Monteur (Engineer) anlegen
+## 3. Projekt anlegen
 
-1. Menü **Monteure** → **Neuer Monteur** (`/workers/new`).
-2. Stammdaten:
-   - Vorname, Nachname  
-   - **Typ:** `Angestellt` oder `Subunternehmen`  
-   - Verfügbarkeit, Kontaktdaten nach Bedarf  
-3. **Speichern**. Monteurnummer (z. B. `W-2026-…`) wird vergeben.
-4. Auf der Detailseite:
-   - Tab **Stammdaten:** optional **Master-Monteur** (darf ohne Zuweisung auf jedes Projekt stempeln)  
-   - Bereich **PIN:** 6-stellige PIN setzen; optional **Kiosk nutzen** und Gültig ab/bis  
-   - Qualifikationen, Vertrag, Dokumente nach Bedarf  
+1. Menü **Projekte** → **Neues Projekt** (`/projects/new`).  
+2. Pflicht: **Titel** und bestehender **Kunde**.  
+3. Optional: Leistungsart und Priorität.  
+4. **Speichern**. Die Projektnummer (z. B. `P-2026-…`) wird vergeben.  
+5. Im Projektdetail: Standorte pflegen und im Tab **Monteure** die Zuweisungen setzen (siehe Abschnitt 7).
 
-PIN wird für Monteur-App und Kiosk (`work.vivahome.de`) verwendet.
+Wichtig für den Kiosk: Normale Monteure dürfen nur mit gültiger, aktiver Projektzuweisung einstempeln. Ausnahme: **Master-Monteur**.
 
 ---
 
-## 4. Subunternehmen anlegen
+## 4. Monteur anlegen
 
-1. Menü **Subunternehmen** → **Neues Subunternehmen** (`/subcontractors/new`).
-2. Name und Kontaktdaten (Person, E-Mail, Telefon, Adresse) eintragen.
-3. Optional Bank-/Steuerdaten.
+1. Menü **Monteure** → **Neuer Monteur** (`/workers/new`).  
+2. Pflicht: Vorname und Nachname.  
+3. Typ wählen: **Angestellt** oder **Subunternehmen**. Verfügbarkeit z. B. **Verfügbar**.  
+4. **Speichern**. Die Monteurnummer (z. B. `W-2026-…`) wird vergeben.  
+5. Im Detail: optional **Master-Monteur**; unter PIN eine 6-stellige PIN setzen; bei Bedarf **Kiosk nutzen** und Gültig ab/bis.
+
+Die PIN gilt für Monteur-App und Kiosk (`work.vivahome.de`). Ohne Kiosk-Freigabe ist der PIN-Login am Kiosk gesperrt.
+
+---
+
+## 5. Subunternehmen anlegen
+
+1. Menü **Subunternehmen** → **Neues Subunternehmen**.  
+2. Pflicht: Firmenname. Empfohlen: Kontaktperson, E-Mail, Telefon, Adresse.  
+3. Optional: Steuer- und Bankdaten.  
 4. **Speichern**.
 
 Danach können Monteure vom Typ „Subunternehmen“ diesem Sub zugeordnet werden.
 
 ---
 
-## 5. Monteur einem Subunternehmen zuordnen
+## 6. Monteur einem Subunternehmen zuordnen
 
-1. **Monteure** → gewünschten Monteur öffnen.
-2. Tab **Stammdaten** bearbeiten:
-   - **Typ** auf **Subunternehmen** stellen  
-   - Im Feld **Subunternehmen** den Eintrag aus Abschnitt 4 wählen  
-3. **Speichern**.
+1. Menü **Monteure** → gewünschten Monteur öffnen.  
+2. Tab **Stammdaten** bearbeiten.  
+3. Typ auf **Subunternehmen** stellen.  
+4. Im Pflichtfeld **Subunternehmen** den Eintrag aus Abschnitt 5 wählen.  
+5. **Speichern**.
 
-Hinweise:
-- Bei Typ **Angestellt** entfällt die Sub-Zuordnung (Feld wird geleert).  
-- Sub-Monteure erscheinen in Listen weiterhin unter Monteure; der Sub ist in den Stammdaten sichtbar.
+- Bei Typ **Angestellt** wird die Sub-Zuordnung entfernt.  
+- Der Monteur bleibt in der Monteurliste; der Sub erscheint in den Stammdaten.
 
 ---
 
-## 6. Monteur einem Projekt zuweisen
+## 7. Monteur einem Projekt zuweisen
 
-Zwei übliche Wege:
+### Weg A – vom Projekt (empfohlen)
 
-### A) Vom Projekt aus (empfohlen)
-
-1. **Projekte** → Projekt öffnen.  
+1. Menü **Projekte** → Projekt öffnen.  
 2. Tab **Monteure**.  
-3. Monteur wählen, **Startdatum** setzen, optional Endedatum / Rolle / Vorarbeiter.  
-4. Zuweisung speichern (**aktiv**).
+3. **Monteur zuordnen**.  
+4. Zeitraum Von/Bis, Monteur, optional Funktion/Teamleitung.  
+5. **Speichern** (Zuweisung aktiv).
 
-### B) Vom Monteur aus
+### Weg B – vom Monteur
 
-1. **Monteure** → Monteur öffnen.  
-2. Tab **Projekte & Teams**.  
-3. Projekt wählen und Datumsfenster setzen, speichern.
+1. Monteur öffnen → Tab **Projekte & Teams**.  
+2. Projekt und Datumsfenster setzen → speichern.
 
-Wichtig für den Kiosk:
-- Zuweisung muss **aktiv** sein.  
-- **Heute** muss im Fenster `Startdatum` … `Endedatum` (oder ohne Ende) liegen.  
-- Sonst erscheint am Kiosk: keine gültige Zuweisung (außer Master-Monteur).
+### Kiosk-Regel
+
+Zum Einstempeln muss die Zuweisung **aktiv** sein und das heutige Datum im Fenster Von–Bis liegen (oder Bis leer). Sonst: keine gültige Zuweisung – außer beim Master-Monteur.
 
 ---
 
-## 7. Kurz: Stempel & Stundenzettel
+## 8. Stempel und Stundenzettel (Kurz)
 
 | Was | Wo |
 |-----|-----|
-| Kiosk einrichten | Tablet: https://work.vivahome.de → Setup (Admin-PIN) → Projekt wählen |
+| Kiosk einrichten | `work.vivahome.de` → Setup (Admin-PIN) → aktives Projekt → starten |
 | Einstempeln | Kiosk oder Monteur-App mit PIN |
-| Stundenzettel | Büro: **Stundenzettel** → „Anlegen / öffnen“ (Monteur, Projekt, KW; optional bis KW) |
-| Manuell ohne Handy | Stundenzettel öffnen (Entwurf) → **Tag erfassen** oder Tageszeile bearbeiten |
-| Neu aus Stempelungen | Im Entwurf: **Aus Stempelungen neu laden** |
+| Stundenzettel | Büro → **Stundenzettel** → Anlegen/öffnen (Monteur, Projekt, KW) |
+| Manuell | Entwurf → **Tag erfassen** / Tageszeile bearbeiten |
+| Neu aus Stempelungen | Entwurf → **Aus Stempelungen neu laden** |
 
-Backup: **Einstellungen → Backup** (Uhrzeit = Europe/Berlin).
-
----
-
-## Empfohlene Reihenfolge beim Start eines Auftrags
-
-1. Kunde anlegen (falls neu)  
-2. Projekt anlegen und Kunde verknüpfen  
-3. Subunternehmen anlegen (falls Fremdmonteure)  
-4. Monteure anlegen / Subs zuordnen  
-5. Monteure dem Projekt zuweisen (Datum!)  
-6. PIN setzen + ggf. Kiosk-Freigabe  
-7. Kiosk auf Baustelle auf das Projekt einrichten  
+Backup: **Einstellungen → Backup** (Europe/Berlin).
 
 ---
 
-*Viva Home GmbH · Am Ringwall 16 · 51491 Overath · Office Version 1.0.0*
+## Empfohlene Reihenfolge für einen neuen Auftrag
+
+1. Kunde anlegen oder bestehenden Kunden wählen  
+2. Projekt anlegen und Kunden verknüpfen  
+3. Subunternehmen anlegen (nur bei Fremdmonteuren)  
+4. Monteure anlegen und ggf. dem Sub zuordnen  
+5. Monteure dem Projekt zuweisen (Datum beachten)  
+6. PIN setzen und ggf. Kiosk-Freigabe aktivieren  
+7. Kiosk auf der Baustelle auf dieses Projekt einrichten  
+
+---
+
+*Viva Home | © Viva Home GmbH | Am Ringwall 16, 51491 Overath | Office Version 1.0.0*
