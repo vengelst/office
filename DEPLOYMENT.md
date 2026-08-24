@@ -139,6 +139,120 @@ Interaktives Menü:
 
 ---
 
+## SSH-Zugang (Produktion)
+
+| Feld | Wert |
+|---|---|
+| Host / IP | `vivahome.de` bzw. `109.199.112.176` (Hostname `vmd200614`) |
+| User | `root` |
+| **SSH-Port** | **`2805`** (nicht 22 — von Cloud/außen oft Timeout) |
+| App-Pfad | `/opt/office` |
+
+```bash
+# Vom Mac / lokal
+ssh -p 2805 root@109.199.112.176
+# oder
+ssh -p 2805 root@vivahome.de
+```
+
+Damit Tools ohne `-p` (z. B. `abgleich/office.sh`) funktionieren, lokal in `~/.ssh/config`:
+
+```
+Host vivahome.de 109.199.112.176
+  User root
+  Port 2805
+```
+
+### `authorized_keys` auf dem Server
+
+Datei: `/root/.ssh/authorized_keys`  
+Jede Zeile = genau ein Key. **Keine** Dateipfade, Screenshot-Namen oder Zeilenumbrüche mitten in der Key-Zeile.
+
+Typische Einträge (Stand 2026-08-24):
+
+| Kommentar am Zeilenende | Zweck |
+|---|---|
+| `volkhard@macbook` | Lokaler Mac (Standard-Deploy) |
+| `office-api-monitor` | Monitoring |
+| `cursor-cloud-agent` | Vorgesehener Cloud-Key (Private Key muss zur Umgebung passen) |
+| `cursor-cloud-office-deploy` | Cursor-Cloud-Agent (Keypaar in der Cloud-VM) |
+
+**Aktueller Cloud-Deploy-Public-Key** (VM-Datei `~/.ssh/id_ed25519_office_deploy`):
+
+```text
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHEIjZdqg3/4jmozOADs/Ft7QYCeAY7EyN0nbn/gQjFK cursor-cloud-office-deploy
+```
+
+Freischalten (auf dem Server, z. B. aus Mac-SSH-Session):
+
+```bash
+echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHEIjZdqg3/4jmozOADs/Ft7QYCeAY7EyN0nbn/gQjFK cursor-cloud-office-deploy' >> /root/.ssh/authorized_keys
+```
+
+Test vom Cloud-Agenten:
+
+```bash
+ssh -p 2805 -i ~/.ssh/id_ed25519_office_deploy root@109.199.112.176 hostname
+# erwartet: vmd200614
+```
+
+### Cursor Cloud Agent vs. lokaler Mac
+
+| Umgebung | SSH zum Server |
+|---|---|
+| **Mac-Terminal / lokaler Cursor-Agent** | Ja — Key `volkhard@macbook` (`ssh-add --apple-use-keychain ~/.ssh/id_ed25519`) |
+| **Cursor Cloud Agent (AWS-VM)** | Nur mit **eigenem** Keypaar in der VM + Public Key in `authorized_keys`. Weitergeleiteter Mac-Agent liefert oft `agent refused operation` (kein Signieren). `ping` scheitert oft (`CAP_NET_RAW`) — normal; `curl`/`ssh` nutzen. |
+
+Cloud-Agent: Key in der VM erzeugen, Public Key auf dem Server eintragen:
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_office_deploy -N '' -C 'cursor-cloud-office-deploy'
+cat ~/.ssh/id_ed25519_office_deploy.pub
+```
+
+Empfohlene SSH-Config in der Cloud-VM (`~/.ssh/config`):
+
+```
+Host office
+  HostName 109.199.112.176
+  User root
+  Port 2805
+  IdentityFile ~/.ssh/id_ed25519_office_deploy
+  IdentitiesOnly yes
+  StrictHostKeyChecking accept-new
+```
+
+Danach: `ssh office`.
+
+**Hinweis:** Cloud-VMs sind ephemer. Nach neuem Agent-Lauf ggf. neues Keypaar + erneuter `authorized_keys`-Eintrag (oder Private Key dauerhaft im Cursor-Environment hinterlegen).
+
+### Was 2026-08-24 passiert ist (Kurzprotokoll)
+
+1. Cloud-Agent: Port **22** Timeout; SSH lauscht auf **2805**.
+2. Mac-Key lokal ok; Agent-Forwarding in die Cloud-VM signierte nicht (`agent refused operation`).
+3. Neues Keypaar `id_ed25519_office_deploy` in der Cloud-VM; Public Key in `authorized_keys` → SSH ok.
+4. `authorized_keys` kurz durch Screenshot-Pfad in Zeile 1 beschädigt — bereinigt.
+5. `/root/kiosk.apk` überschreibt **nicht** `/root/.ssh` (`ls -l` blendet Dotfiles aus).
+6. Deploy `main` (PR #19 Master-Tätigkeitsbereiche); API ok; ActivityTypes geseedet.
+
+### Direkter Deploy per SSH
+
+Skript: `deploy/server-deploy.sh` (Flags: `--repo-url`, `--branch`, `--path`, optional `--force-reset`).
+
+```bash
+ssh -p 2805 root@109.199.112.176 'cd /opt/office && bash deploy/server-deploy.sh --repo-url https://github.com/vengelst/office.git --branch main --path /opt/office'
+```
+
+Lokale Server-Änderungen verwerfen (z. B. nach `sed`):
+
+```bash
+ssh -p 2805 root@109.199.112.176 'cd /opt/office && bash deploy/server-deploy.sh --repo-url https://github.com/vengelst/office.git --branch main --path /opt/office --force-reset'
+```
+
+Bei `/usr/bin/env: 'bash\r'`: CRLF entfernen (`sed -i 's/\r$//' deploy/server-deploy.sh`) und/oder `bash deploy/server-deploy.sh …` nutzen.
+
+---
+
 ## Server — direkter Zugriff
 
 ```bash
@@ -161,12 +275,15 @@ Einmalig / nach neuem EAS-Build:
 
 ```bash
 mkdir -p /opt/office/data
-# von lokal: scp apps/mobile/kiosk.apk root@vivahome.de:/opt/office/data/kiosk.apk
-# oder vom Server, falls noch unter /root:
+# von lokal (Port 2805):
+scp -P 2805 apps/mobile/kiosk.apk root@109.199.112.176:/opt/office/data/kiosk.apk
+# oder vom Server, falls die Datei noch unter /root liegt:
 cp -n /root/kiosk.apk /opt/office/data/kiosk.apk
 ```
 
-Die Datei muss vor dem Web-Container-Start existieren (sonst erzeugt Docker ein Verzeichnis).
+**Hinweis:** `/root/kiosk.apk` überschreibt **nicht** `/root/.ssh` (`ls -l` blendet Dotfiles aus).
+
+Die Datei muss vor dem Web-Container-Start unter `/opt/office/data/kiosk.apk` liegen (sonst erzeugt Docker ein Verzeichnis).
 
 ### Was auf dem Server **nie** passieren darf
 
