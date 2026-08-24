@@ -1,16 +1,17 @@
 /**
  * Seite: settings / general (Office-Web).
- * Allgemeine Schalter – u. a. Kiosk-Debug-Log.
+ * Allgemeine Schalter – Kiosk-Debug-Log + GPS-Intervall.
  */
 
 'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, MapPin, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth-context';
@@ -25,6 +26,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [debugLogEnabled, setDebugLogEnabled] = useState(false);
+  const [gpsIntervalMinutes, setGpsIntervalMinutes] = useState(20);
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -33,17 +35,25 @@ export default function GeneralSettingsPage(): React.ReactNode {
   useEffect(() => {
     kioskSettingsApi
       .getGeneral()
-      .then((data) => setDebugLogEnabled(data.debugLogEnabled))
+      .then((data) => {
+        setDebugLogEnabled(data.debugLogEnabled);
+        setGpsIntervalMinutes(data.gpsIntervalMinutes ?? 20);
+      })
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
 
   const handleSave = async (): Promise<void> => {
     if (!canEdit) return;
+    const interval = Math.min(240, Math.max(1, Math.round(gpsIntervalMinutes)));
     setSaving(true);
     try {
-      const saved = await kioskSettingsApi.putGeneral({ debugLogEnabled });
+      const saved = await kioskSettingsApi.putGeneral({
+        debugLogEnabled,
+        gpsIntervalMinutes: interval,
+      });
       setDebugLogEnabled(saved.debugLogEnabled);
+      setGpsIntervalMinutes(saved.gpsIntervalMinutes);
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -83,7 +93,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
       )}
 
       <Card>
-        <CardContent className="space-y-4 py-5">
+        <CardContent className="space-y-6 py-5">
           <div className="flex items-start gap-3">
             <SlidersHorizontal className="mt-0.5 h-5 w-5 text-muted-foreground" />
             <div className="flex-1">
@@ -104,6 +114,32 @@ export default function GeneralSettingsPage(): React.ReactNode {
                 {debugLogEnabled ? t.on : t.off}
               </span>
             </label>
+          </div>
+
+          <div className="flex items-start gap-3 border-t pt-5">
+            <MapPin className="mt-0.5 h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 space-y-2">
+              <p className="font-medium text-sm">{t.gpsIntervalTitle}</p>
+              <p className="text-xs text-muted-foreground">
+                {t.gpsIntervalHint}
+              </p>
+              <div className="flex max-w-xs items-center gap-2">
+                <Input
+                  type="number"
+                  min={1}
+                  max={240}
+                  disabled={!canEdit}
+                  value={gpsIntervalMinutes}
+                  onChange={(e) =>
+                    setGpsIntervalMinutes(Number(e.target.value) || 1)
+                  }
+                  className="min-h-[44px] w-28"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {t.gpsIntervalUnit}
+                </span>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

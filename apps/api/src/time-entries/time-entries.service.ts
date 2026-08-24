@@ -619,6 +619,43 @@ export class TimeEntriesService {
   }
 
   /**
+   * Periodischer GPS-Punkt während einer offenen Schicht (MANUAL).
+   */
+  async gpsPing(
+    dto: {
+      workerId: string;
+      latitude: number;
+      longitude: number;
+      accuracy?: number;
+      projectId?: string;
+    },
+    actor: AuthUser,
+  ) {
+    this.assertOwnWorker(dto.workerId, actor);
+    await this.assertWorker(dto.workerId);
+
+    const open = await this.getOpenClockIn(dto.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+
+    const projectId = dto.projectId ?? open.projectId;
+    const event = await this.prisma.gpsEvent.create({
+      data: {
+        workerId: dto.workerId,
+        projectId,
+        relatedTimeEntryId: open.id,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        accuracy: dto.accuracy,
+        recordedAt: new Date(),
+        eventType: GpsEventType.MANUAL,
+      },
+    });
+    return { id: event.id, recordedAt: event.recordedAt };
+  }
+
+  /**
    * GPS-Ereignisse für die Stempeluhr-Übersicht (Büro).
    */
   async listGpsEvents(params: {

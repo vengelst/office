@@ -93,6 +93,10 @@ export const settings = {
       kioskDebugTitle: 'Kiosk-Debug-Log',
       kioskDebugHint:
         'Wenn aktiv, zeigt das Stempel-Terminal unten rechts ein Log (API-Aufrufe, Navigation). Schreiben erfolgt weiterhin nur bei aktivem Schalter.',
+      gpsIntervalTitle: 'GPS-Speicherintervall',
+      gpsIntervalHint:
+        'Während einer aktiven Schicht (Monteur-App) wird der Standort in diesem Abstand zusätzlich gespeichert. Ein- und Ausstempeln speichern immer einen Punkt. Standard: 20 Minuten.',
+      gpsIntervalUnit: 'Minuten',
       on: 'An',
       off: 'Aus',
       save: 'Speichern',

@@ -1,5 +1,6 @@
 /**
  * Seite: Stempeluhr / GPS-Daten (Office-Web).
+ * Filter nach Monteur + Karten-Spur in zeitlicher Reihenfolge.
  */
 
 'use client';
@@ -12,6 +13,13 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,6 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { GpsTrackMap } from '@/components/time-clock/gps-track-map';
 import { WorkerAvatar } from '@/components/workers/worker-avatar';
 import { workerFullName } from '@/lib/workers';
 import { buildMapsUrl } from '@/lib/format';
@@ -27,6 +36,8 @@ import {
   type GpsEventRow,
 } from '@/lib/timesheets';
 import { texts } from '@/lib/texts';
+
+const ALL = '__all__';
 
 function daysAgoIso(days: number): string {
   const d = new Date();
@@ -39,17 +50,44 @@ export default function TimeClockGpsPage(): React.ReactNode {
   const t = texts.timeClock;
   const [rows, setRows] = useState<GpsEventRow[] | null>(null);
   const [days, setDays] = useState(7);
+  const [workerFilter, setWorkerFilter] = useState(ALL);
 
   const load = useCallback(() => {
     timeEntriesApi
-      .gpsEvents({ from: daysAgoIso(days), limit: 300 })
+      .gpsEvents({
+        from: daysAgoIso(days),
+        limit: 500,
+        workerId: workerFilter === ALL ? undefined : workerFilter,
+      })
       .then(setRows)
       .catch(() => setRows([]));
-  }, [days]);
+  }, [days, workerFilter]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  /** Alle Monteure aus der ungefilterten Menge für das Dropdown – bei Filter neu laden ohne workerId. */
+  const [workerOptions, setWorkerOptions] = useState<
+    { id: string; name: string }[]
+  >([]);
+
+  useEffect(() => {
+    timeEntriesApi
+      .gpsEvents({ from: daysAgoIso(days), limit: 500 })
+      .then((all) => {
+        const map = new Map<string, string>();
+        for (const r of all) {
+          map.set(r.worker.id, workerFullName(r.worker));
+        }
+        setWorkerOptions(
+          [...map.entries()]
+            .map(([id, name]) => ({ id, name }))
+            .sort((a, b) => a.name.localeCompare(b.name, 'de')),
+        );
+      })
+      .catch(() => setWorkerOptions([]));
+  }, [days]);
 
   const eventLabel = useMemo(
     () =>
@@ -57,6 +95,22 @@ export default function TimeClockGpsPage(): React.ReactNode {
         t.gps.eventTypes[type] ?? type,
     [t.gps.eventTypes],
   );
+
+  const mapPoints = useMemo(() => {
+    if (!rows || workerFilter === ALL) return [];
+    return [...rows]
+      .sort(
+        (a, b) =>
+          new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime(),
+      )
+      .map((r) => ({
+        id: r.id,
+        latitude: r.latitude,
+        longitude: r.longitude,
+        recordedAt: r.recordedAt,
+        label: eventLabel(r.eventType),
+      }));
+  }, [rows, workerFilter, eventLabel]);
 
   return (
     <div>
@@ -67,13 +121,30 @@ export default function TimeClockGpsPage(): React.ReactNode {
         </Button>
       </PageHeader>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <Button asChild variant="ghost" className="min-h-[40px]">
           <Link href="/time-clock/live">{t.tabs.live}</Link>
         </Button>
         <Button asChild variant="secondary" className="min-h-[40px]">
           <Link href="/time-clock/gps">{t.tabs.gps}</Link>
         </Button>
+
+        <div className="w-full max-w-xs sm:ml-4">
+          <Select value={workerFilter} onValueChange={setWorkerFilter}>
+            <SelectTrigger className="min-h-[44px]">
+              <SelectValue placeholder={t.gps.selectWorker} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t.gps.allWorkers}</SelectItem>
+              {workerOptions.map((w) => (
+                <SelectItem key={w.id} value={w.id}>
+                  {w.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
           <span>{t.gps.daysBack}:</span>
           {[1, 7, 30].map((d) => (
@@ -89,6 +160,20 @@ export default function TimeClockGpsPage(): React.ReactNode {
           ))}
         </div>
       </div>
+
+      {workerFilter === ALL ? (
+        <p className="mb-4 text-sm text-muted-foreground">{t.gps.mapNeedWorker}</p>
+      ) : mapPoints.length > 0 ? (
+        <Card className="mb-6">
+          <CardContent className="space-y-2 p-4">
+            <div>
+              <p className="text-sm font-medium">{t.gps.mapTitle}</p>
+              <p className="text-xs text-muted-foreground">{t.gps.mapHint}</p>
+            </div>
+            <GpsTrackMap points={mapPoints} />
+          </CardContent>
+        </Card>
+      ) : null}
 
       {rows === null ? (
         <Skeleton className="h-64 w-full" />

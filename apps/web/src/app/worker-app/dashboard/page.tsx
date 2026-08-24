@@ -48,6 +48,7 @@ import { OfflineClockBanner } from '@/components/offline-clock-banner';
 import { texts } from '@/lib/texts';
 import { T } from '@/lib/i18n-work-items';
 import { cn } from '@/lib/utils';
+import { usePeriodicGpsPing } from '@/lib/use-periodic-gps-ping';
 
 function dayStart(d: Date): number {
   const x = new Date(d);
@@ -107,6 +108,12 @@ export default function WorkerDashboardPage(): React.ReactNode {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoInput = useRef<HTMLInputElement>(null);
+
+  usePeriodicGpsPing({
+    active: Boolean(status?.clockedIn && worker?.id),
+    workerId: worker?.id,
+    projectId: status?.project?.id ?? selectedProjectId ?? null,
+  });
 
   // Auth-Gate + Initialdaten
   useEffect(() => {

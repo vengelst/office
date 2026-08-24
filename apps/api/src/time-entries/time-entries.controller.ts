@@ -35,6 +35,7 @@ import { TimeEntriesService } from './time-entries.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
+import { GpsPingDto } from './dto/gps-ping.dto';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -84,6 +85,15 @@ export class TimeEntriesController {
       projectId,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  @Post('gps-ping')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
+  @ApiOperation({ summary: 'Periodischer GPS-Punkt während aktiver Schicht' })
+  gpsPing(@Body() dto: GpsPingDto, @CurrentUser() user: AuthUser) {
+    return this.timeEntries.gpsPing(dto, user);
   }
 
   /**

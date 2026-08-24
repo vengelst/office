@@ -16,12 +16,18 @@ export const timeClock = {
   },
   gps: {
     title: 'GPS-Daten',
-    subtitle: 'Aufgezeichnete Standorte beim Ein- und Ausstempeln',
+    subtitle: 'Aufgezeichnete Standorte beim Ein- und Ausstempeln sowie unterwegs',
     empty: 'Keine GPS-Ereignisse im gewählten Zeitraum.',
+    selectWorker: 'Monteur filtern',
+    allWorkers: 'Alle Monteure',
+    mapTitle: 'Bewegungsspur',
+    mapHint:
+      'Grün = Start, Blau = Zwischenpunkte, Rot = Ende – verbunden in zeitlicher Reihenfolge.',
+    mapNeedWorker: 'Für die Karte bitte einen Monteur auswählen.',
     eventTypes: {
       CLOCK_IN: 'Einstempeln',
       CLOCK_OUT: 'Ausstempeln',
-      MANUAL: 'Manuell',
+      MANUAL: 'Unterwegs',
     },
     columns: {
       time: 'Zeit',

@@ -27,6 +27,7 @@ import { WorkItemDetail } from '@/components/worker-work-items/work-item-detail'
 import { KIOSK_LANGS, useKioskLocale } from '@/lib/kiosk-locale';
 import { KT } from '@/lib/texts/kiosk-terminal-i18n';
 import { kioskDebugLog } from '@/lib/kiosk-debug';
+import { usePeriodicGpsPing } from '@/lib/use-periodic-gps-ping';
 import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
@@ -132,6 +133,16 @@ export default function KioskTerminalPage() {
   // Foto + Kommentar (eingebrannt in Bild)
   const [photoPending, setPhotoPending] = useState<File | null>(null);
   const [photoComment, setPhotoComment] = useState('');
+
+  usePeriodicGpsPing({
+    active: Boolean(
+      clockStatus?.clockedIn &&
+        worker?.id &&
+        (state === 'action' || state === 'items' || state === 'itemDetail'),
+    ),
+    workerId: worker?.id,
+    projectId: clockStatus?.project?.id ?? selectedProjectId,
+  });
 
   // Load config (einmalig – nicht bei jeder router-Identity)
   useEffect(() => {

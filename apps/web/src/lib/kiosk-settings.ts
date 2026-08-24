@@ -1,5 +1,5 @@
 /**
- * Client für allgemeine Kiosk-/Office-Einstellungen.
+ * Client für allgemeine Kiosk-/GPS-Einstellungen.
  */
 
 import { apiClient } from './api-client';
@@ -9,16 +9,23 @@ const API_BASE =
 
 export interface KioskGeneralSettings {
   debugLogEnabled: boolean;
+  gpsIntervalMinutes: number;
 }
 
 export const kioskSettingsApi = {
-  /** Öffentlich – Kiosk vor PIN. */
+  /** Öffentlich – Kiosk / Monteur-App. */
   getPublic: async (): Promise<KioskGeneralSettings> => {
-    const res = await fetch(`${API_BASE}/kiosk-settings/public`, {
-      cache: 'no-store',
-    });
-    if (!res.ok) return { debugLogEnabled: false };
-    return res.json() as Promise<KioskGeneralSettings>;
+    try {
+      const res = await fetch(`${API_BASE}/kiosk-settings/public`, {
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        return { debugLogEnabled: false, gpsIntervalMinutes: 20 };
+      }
+      return res.json() as Promise<KioskGeneralSettings>;
+    } catch {
+      return { debugLogEnabled: false, gpsIntervalMinutes: 20 };
+    }
   },
   getGeneral: () =>
     apiClient.get<KioskGeneralSettings>('/kiosk-settings/general'),
