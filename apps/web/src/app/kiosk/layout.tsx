@@ -1,15 +1,17 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { RegisterServiceWorker } from '@/components/pwa/register-service-worker';
+import { KioskInstallPrompt } from '@/components/kiosk/kiosk-install-prompt';
 import { KioskLocaleProvider } from '@/lib/kiosk-locale';
 
 /**
- * Kiosk-Layout inkl. PWA-Kopfdaten – das Tablet kann den Kiosk damit als
- * eigenständige App (Vollbild, ohne Browser-Leisten) starten.
+ * Kiosk-Layout inkl. PWA-Kopfdaten – Smartphone/Tablet speichern den Kiosk als
+ * eigenständige App (Vollbild). Manifest startet auf /kiosk (nicht worker-app).
  */
 export const metadata: Metadata = {
-  title: 'Kiosk-Terminal',
-  manifest: '/manifest.webmanifest',
+  title: 'Vivahome Kiosk',
+  applicationName: 'VH Kiosk',
+  manifest: '/manifest-kiosk.webmanifest',
   appleWebApp: {
     capable: true,
     title: 'VH Kiosk',
@@ -18,6 +20,9 @@ export const metadata: Metadata = {
   icons: {
     icon: '/icons/icon-192.png',
     apple: '/icons/apple-touch-icon.png',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
   },
 };
 
@@ -36,6 +41,7 @@ export default function KioskLayout({
       <div className="min-h-screen bg-gray-950 text-gray-100 antialiased">
         <RegisterServiceWorker />
         {children}
+        <KioskInstallPrompt />
       </div>
     </KioskLocaleProvider>
   );

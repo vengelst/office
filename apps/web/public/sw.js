@@ -12,6 +12,8 @@ const SHELL_PATHS = [
   '/worker-app/dashboard',
   '/kiosk',
   '/kiosk/terminal',
+  '/kiosk/setup',
+  '/kiosk/pl',
 ];
 
 function isApi(url) {

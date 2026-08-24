@@ -5,6 +5,19 @@
 
 export const kiosk = {
     title: 'Kiosk-Terminal',
+    install: {
+      title: 'Als App speichern',
+      subtitle:
+        'Speichern Sie den Kiosk auf dem Home-Bildschirm – dann starten Sie ihn wie eine App (ohne Browser-Leiste).',
+      androidHint:
+        'Tippen Sie auf „App installieren“, oder nutzen Sie das Menü Ihres Browsers („App installieren“ / „Zum Startbildschirm“).',
+      installButton: 'App installieren',
+      iosStep1: 'In Safari das Teilen-Symbol antippen (Quadrat mit Pfeil nach oben).',
+      iosStep2: '„Zum Home-Bildschirm“ wählen.',
+      iosStep3: 'Mit „Hinzufügen“ bestätigen.',
+      later: 'Später',
+      never: 'Nicht mehr anzeigen',
+    },
     setup: {
       title: 'Kiosk einrichten',
       subtitle: 'Konfiguration für dieses Gerät',
