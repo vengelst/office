@@ -5,6 +5,7 @@ repoUrl="https://github.com/vengelst/office.git"
 serverHost="vivahome.de"
 serverUser="root"
 serverPath="/opt/office"
+# SSH-Port 2805: in ~/.ssh/config für vivahome.de setzen (siehe DEPLOYMENT.md)
 nginxConfigLocalPath="deploy/nginx/office.vivahome.de.conf"
 nginxConfigName="office.vivahome.de.conf"
 nginxMinioConfigLocalPath="deploy/nginx/minio.office.vivahome.de.conf"

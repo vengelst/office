@@ -12,3 +12,34 @@ alwaysApply: true
 3. Lokales Testen ist nicht relevant – der Benutzer testet ausschließlich auf dem Server
 
 Das gilt für **alle Apps** (MailPilot, Office, etc.) als grundsätzliches Vorgehen.
+
+## Office — SSH-Details
+
+- Host: `vivahome.de` / `109.199.112.176` (`vmd200614`)
+- User: `root`
+- **Port: `2805`** (nicht 22)
+- Pfad: `/opt/office`
+- Doku: `DEPLOYMENT.md` → Abschnitt „SSH-Zugang (Produktion)“
+
+```bash
+ssh -p 2805 root@109.199.112.176
+# Cloud-Agent mit Deploy-Key:
+ssh office   # wenn ~/.ssh/config Host office gesetzt ist
+```
+
+Deploy-Skript auf dem Server:
+
+```bash
+cd /opt/office && bash deploy/server-deploy.sh \
+  --repo-url https://github.com/vengelst/office.git \
+  --branch main \
+  --path /opt/office
+# bei lokalen Server-Änderungen: zusätzlich --force-reset
+```
+
+### Cursor Cloud Agent
+
+- Läuft in einer AWS-VM, nicht auf dem Mac.
+- Mac-SSH-Agent-Forwarding signiert oft nicht (`agent refused operation`).
+- Lösung: Keypaar in der VM (`~/.ssh/id_ed25519_office_deploy`), Public Key in `/root/.ssh/authorized_keys` auf dem Server.
+- `ping` in der Cloud-VM kann an Capabilities scheitern — `curl`/`ssh` verwenden.
