@@ -9,12 +9,19 @@ import {
   DatabaseBackup,
   ToggleLeft,
   Contact,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
 import { texts } from '@/lib/texts';
 
 const settingsLinks = [
+  {
+    href: '/settings/general',
+    label: texts.settings.nav.general,
+    description: texts.settings.general.subtitle,
+    icon: SlidersHorizontal,
+  },
   {
     href: '/settings/company',
     label: 'Firmeninformationen',

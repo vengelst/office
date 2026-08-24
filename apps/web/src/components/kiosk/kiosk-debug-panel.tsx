@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * Sichtbares Debug-Log im Kiosk (Flicker-/Redirect-Diagnose).
- * Button unten rechts; mit ?debug=1 oder nach Tippen dauerhaft offen.
+ * Sichtbares Debug-Log im Kiosk – nur wenn Office „Kiosk-Debug-Log“ an ist
+ * (oder URL ?debug=1).
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -10,12 +10,15 @@ import {
   clearKioskDebug,
   getKioskDebugEntries,
   installKioskFetchLogger,
+  isKioskDebugLoggingEnabled,
   isKioskDebugOpen,
   kioskDebugLog,
+  setKioskDebugLoggingEnabled,
   setKioskDebugOpen,
   subscribeKioskDebug,
   type KioskDebugEntry,
 } from '@/lib/kiosk-debug';
+import { kioskSettingsApi } from '@/lib/kiosk-settings';
 
 function formatTime(ts: number): string {
   const d = new Date(ts);
@@ -44,21 +47,35 @@ function levelClass(level: KioskDebugEntry['level']): string {
 }
 
 export function KioskDebugPanel(): React.ReactNode {
+  const [enabled, setEnabled] = useState(false);
   const [open, setOpen] = useState(false);
   const [entries, setEntries] = useState<readonly KioskDebugEntry[]>([]);
 
   useEffect(() => {
-    installKioskFetchLogger();
-    kioskDebugLog('info', 'Debug-Panel mount', window.location.href);
-    setOpen(isKioskDebugOpen());
-    setEntries([...getKioskDebugEntries()]);
+    const forceDebug =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('debug') === '1';
+
+    void kioskSettingsApi.getPublic().then((cfg) => {
+      const on = forceDebug || cfg.debugLogEnabled;
+      setKioskDebugLoggingEnabled(on);
+      setEnabled(on);
+      if (on) {
+        installKioskFetchLogger();
+        kioskDebugLog('info', 'Debug-Log aktiv', window.location.href);
+        setOpen(forceDebug || isKioskDebugOpen());
+      }
+    });
+
     return subscribeKioskDebug(() => {
       setEntries([...getKioskDebugEntries()]);
       setOpen(isKioskDebugOpen());
+      setEnabled(isKioskDebugLoggingEnabled());
     });
   }, []);
 
   useEffect(() => {
+    if (!enabled) return;
     const onVis = () => {
       kioskDebugLog(
         'info',
@@ -75,13 +92,15 @@ export function KioskDebugPanel(): React.ReactNode {
       window.removeEventListener('visibilitychange', onVis);
       window.removeEventListener('pageshow', onPageShow);
     };
-  }, []);
+  }, [enabled]);
 
   const toggle = useCallback(() => {
     const next = !open;
     setKioskDebugOpen(next);
     setOpen(next);
   }, [open]);
+
+  if (!enabled) return null;
 
   return (
     <div className="pointer-events-none fixed bottom-3 right-3 z-[100] flex flex-col items-end gap-2">

@@ -83,6 +83,24 @@ export const settings = {
       system: 'Server-Status',
       backup: 'Backup & Restore',
       features: 'Feature-Flags',
+      general: 'Allgemein',
+    },
+    general: {
+      title: 'Allgemeine Einstellungen',
+      subtitle: 'Schalter für Kiosk und Betrieb',
+      back: 'Zurück zu Einstellungen',
+      readOnly: 'Nur SUPERADMIN oder OFFICE können speichern.',
+      kioskDebugTitle: 'Kiosk-Debug-Log',
+      kioskDebugHint:
+        'Wenn aktiv, zeigt das Stempel-Terminal unten rechts ein Log (API-Aufrufe, Navigation). Schreiben erfolgt weiterhin nur bei aktivem Schalter.',
+      on: 'An',
+      off: 'Aus',
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      toast: {
+        saved: 'Einstellungen gespeichert.',
+        error: 'Speichern fehlgeschlagen.',
+      },
     },
     features: {
       title: 'Feature-Flags',

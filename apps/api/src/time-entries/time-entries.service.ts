@@ -137,7 +137,12 @@ export class TimeEntriesService {
         },
       });
 
-      await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_IN);
+      await this.maybeRecordGps(
+        entry.id,
+        dto,
+        GpsEventType.CLOCK_IN,
+        dto.projectId,
+      );
 
       return this.getStatus(dto.workerId);
     } catch (err) {
@@ -193,7 +198,12 @@ export class TimeEntriesService {
         },
       });
 
-      await this.maybeRecordGps(entry.id, dto, GpsEventType.CLOCK_OUT);
+      await this.maybeRecordGps(
+        entry.id,
+        dto,
+        GpsEventType.CLOCK_OUT,
+        open.projectId,
+      );
 
       // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
       // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
@@ -591,11 +601,13 @@ export class TimeEntriesService {
     timeEntryId: string,
     dto: ClockInDto | ClockOutDto,
     eventType: GpsEventType,
+    projectId?: string | null,
   ): Promise<void> {
     if (dto.latitude === undefined || dto.longitude === undefined) return;
     await this.prisma.gpsEvent.create({
       data: {
         workerId: dto.workerId,
+        projectId: projectId ?? null,
         relatedTimeEntryId: timeEntryId,
         latitude: dto.latitude,
         longitude: dto.longitude,
@@ -604,6 +616,51 @@ export class TimeEntriesService {
         eventType,
       },
     });
+  }
+
+  /**
+   * GPS-Ereignisse für die Stempeluhr-Übersicht (Büro).
+   */
+  async listGpsEvents(params: {
+    from?: string;
+    to?: string;
+    workerId?: string;
+    projectId?: string;
+    limit?: number;
+  }) {
+    const take = Math.min(Math.max(params.limit ?? 200, 1), 500);
+    const recordedAt: { gte?: Date; lte?: Date } = {};
+    if (params.from) recordedAt.gte = new Date(params.from);
+    if (params.to) recordedAt.lte = new Date(params.to);
+
+    const rows = await this.prisma.gpsEvent.findMany({
+      where: {
+        ...(Object.keys(recordedAt).length ? { recordedAt } : {}),
+        ...(params.workerId ? { workerId: params.workerId } : {}),
+        ...(params.projectId ? { projectId: params.projectId } : {}),
+      },
+      orderBy: { recordedAt: 'desc' },
+      take,
+      include: {
+        worker: {
+          select: { id: true, firstName: true, lastName: true, photoPath: true },
+        },
+        project: {
+          select: { id: true, title: true, projectNumber: true },
+        },
+      },
+    });
+
+    return rows.map((r) => ({
+      id: r.id,
+      recordedAt: r.recordedAt,
+      eventType: r.eventType,
+      latitude: r.latitude,
+      longitude: r.longitude,
+      accuracy: r.accuracy,
+      worker: r.worker,
+      project: r.project,
+    }));
   }
 
   /**

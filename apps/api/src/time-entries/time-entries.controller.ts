@@ -11,6 +11,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Query,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -63,6 +64,26 @@ export class TimeEntriesController {
   @ApiOperation({ summary: 'Alle aktuell eingestempelten Monteure' })
   live() {
     return this.timeEntries.live();
+  }
+
+  @Get('gps-events')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
+  @ApiOperation({ summary: 'GPS-Ereignisse (Stempel-Historie)' })
+  gpsEvents(
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+    @Query('workerId') workerId?: string,
+    @Query('projectId') projectId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.timeEntries.listGpsEvents({
+      from,
+      to,
+      workerId,
+      projectId,
+      limit: limit ? Number(limit) : undefined,
+    });
   }
 
   /**

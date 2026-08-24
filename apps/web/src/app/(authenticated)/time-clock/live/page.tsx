@@ -96,6 +96,15 @@ export default function TimeClockLivePage(): React.ReactNode {
         </Button>
       </PageHeader>
 
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Button asChild variant="secondary" className="min-h-[40px]">
+          <a href="/time-clock/live">{t.tabs.live}</a>
+        </Button>
+        <Button asChild variant="ghost" className="min-h-[40px]">
+          <a href="/time-clock/gps">{t.tabs.gps}</a>
+        </Button>
+      </div>
+
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm font-medium text-emerald-600">
           {t.liveCount(filtered.length)}

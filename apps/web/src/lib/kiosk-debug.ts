@@ -20,9 +20,20 @@ let seq = 0;
 const entries: KioskDebugEntry[] = [];
 const listeners = new Set<() => void>();
 let fetchPatched = false;
+/** Von Office-Einstellung bzw. ?debug=1 – steuert Schreiben + UI. */
+let loggingEnabled = false;
 
 function notify(): void {
   listeners.forEach((l) => l());
+}
+
+export function setKioskDebugLoggingEnabled(enabled: boolean): void {
+  loggingEnabled = enabled;
+  notify();
+}
+
+export function isKioskDebugLoggingEnabled(): boolean {
+  return loggingEnabled;
 }
 
 export function kioskDebugLog(
@@ -30,6 +41,7 @@ export function kioskDebugLog(
   message: string,
   detail?: unknown,
 ): void {
+  if (!loggingEnabled) return;
   let detailStr: string | undefined;
   if (detail !== undefined) {
     try {
@@ -76,12 +88,9 @@ export function isKioskDebugOpen(): boolean {
     if (new URLSearchParams(window.location.search).get('debug') === '1') {
       return true;
     }
-    const stored = localStorage.getItem(STORAGE_KEY);
-    // Default: offen, bis der Nutzer schließt (Diagnose Flicker-Loop)
-    if (stored === null) return true;
-    return stored === '1';
+    return localStorage.getItem(STORAGE_KEY) === '1';
   } catch {
-    return true;
+    return false;
   }
 }
 

@@ -113,6 +113,27 @@ export interface LiveEntry {
   timeEntryId: string;
 }
 
+/** GPS-Ereignis aus der Stempeluhr-Historie. */
+export interface GpsEventRow {
+  id: string;
+  recordedAt: string;
+  eventType: 'CLOCK_IN' | 'CLOCK_OUT' | 'MANUAL';
+  latitude: number;
+  longitude: number;
+  accuracy: number | null;
+  worker: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    photoPath: string | null;
+  };
+  project: {
+    id: string;
+    title: string;
+    projectNumber: string;
+  } | null;
+}
+
 /** Request-Body zum Einstempeln eines Monteurs. */
 export interface ClockInBody {
   workerId: string;
@@ -523,6 +544,27 @@ export const timeEntriesApi = {
    * @returns Liste der Live-Einträge mit Monteur, Projekt und Dauer
    */
   live: () => apiClient.get<LiveEntry[]>('/time-entries/live'),
+  /**
+   * GET /time-entries/gps-events – GPS-Historie (Ein-/Ausstempeln).
+   */
+  gpsEvents: (params?: {
+    from?: string;
+    to?: string;
+    workerId?: string;
+    projectId?: string;
+    limit?: number;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set('from', params.from);
+    if (params?.to) q.set('to', params.to);
+    if (params?.workerId) q.set('workerId', params.workerId);
+    if (params?.projectId) q.set('projectId', params.projectId);
+    if (params?.limit) q.set('limit', String(params.limit));
+    const qs = q.toString();
+    return apiClient.get<GpsEventRow[]>(
+      `/time-entries/gps-events${qs ? `?${qs}` : ''}`,
+    );
+  },
 };
 
 /** API-Client für Wochenstundenzettel (CRUD, Workflow, Signatur, PDF). */
