@@ -132,8 +132,8 @@ for _ in $(seq 1 30); do
   sleep 2
 done
 
-# ---------- 6. Start API (runs migrations + seed on startup) ----------
-log "Starting API service (runs migrations + seed automatically)"
+# ---------- 6. Start API (runs migrations on startup; kein Seed in Prod) ----------
+log "Starting API service (runs migrations automatically)"
 "${COMPOSE[@]}" up -d api
 
 log "Waiting for API container to stabilize (30s)"
