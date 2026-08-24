@@ -573,6 +573,7 @@ model Project {
   blocks           ProjectBlock[]
   workItems        WorkItem[]
   customerPls      ProjectCustomerPlAssignment[]
+  calendarEvents   CalendarEvent[]
 
   @@index([customerId])
   @@index([status, deletedAt])
@@ -1318,6 +1319,29 @@ model Todo {
 
   @@index([status, assignedToId, dueDate])
   @@index([linkedEntityType, linkedEntityId])
+  @@index([createdById])
+}
+
+/// Office-Termine mit optionalem Sync in den Google-Kalender (primary, Europe/Berlin).
+model CalendarEvent {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?  @db.Text
+  location      String?
+  startAt       DateTime
+  endAt         DateTime
+  allDay        Boolean  @default(false)
+  projectId     String?
+  googleEventId String?
+  syncToGoogle  Boolean  @default(true)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([startAt, endAt])
+  @@index([projectId])
   @@index([createdById])
 }
 

@@ -17,6 +17,7 @@ import {
   Receipt,
   FolderArchive,
   CheckSquare,
+  CalendarDays,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -48,6 +49,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { href: '/dashboard', label: texts.nav.dashboard, icon: LayoutDashboard },
       { href: '/todos', label: texts.todos.title, icon: CheckSquare },
+      { href: '/calendar', label: texts.calendar.title, icon: CalendarDays },
       { href: '/customers', label: texts.nav.customers, icon: Users },
       { href: '/projects', label: texts.nav.projects, icon: FolderKanban },
       { href: '/workers', label: texts.nav.workers, icon: HardHat },

@@ -17,6 +17,7 @@ export const DEFAULT_FEATURE_FLAGS = {
   documents: true,
   invoices: true,
   todos: true,
+  calendar: true,
 } as const;
 
 export type FeatureFlagKey = keyof typeof DEFAULT_FEATURE_FLAGS;
@@ -36,6 +37,7 @@ export const NAV_HREF_TO_FEATURE: Partial<Record<string, FeatureFlagKey>> = {
   '/documents': 'documents',
   '/invoices': 'invoices',
   '/todos': 'todos',
+  '/calendar': 'calendar',
 };
 
 export const FEATURE_FLAG_LABELS: Record<FeatureFlagKey, string> = {
@@ -51,6 +53,7 @@ export const FEATURE_FLAG_LABELS: Record<FeatureFlagKey, string> = {
   documents: 'Dokumente',
   invoices: 'Rechnungen',
   todos: 'To-Dos',
+  calendar: 'Termine',
 };
 
 export const featureFlagsApi = {
