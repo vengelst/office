@@ -55,9 +55,10 @@ services:
     image: office-api:latest
     container_name: office-api
     restart: unless-stopped
+    # KEIN `prisma db seed` in Produktion – Seed überschreibt/legt Demo-Daten an
+    # und lief fälschlich bei jedem Container-Start.
     command: >
       sh -c "pnpm prisma migrate deploy &&
-             pnpm prisma db seed &&
              node apps/api/dist/main.js"
     working_dir: /app
     env_file:
