@@ -7,7 +7,7 @@ import type { ApiErrorResponse } from '@office/types';
 
 /** Basis-URL der Backend-API (aus Umgebungsvariable oder Fallback auf localhost). */
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
+  process.env.NEXT_PUBLIC_API_URL?.trim() || 'http://localhost:3801/api';
 
 /** LocalStorage-Schlüssel für das Office-JWT. */
 export const TOKEN_STORAGE_KEY = 'office_token';
