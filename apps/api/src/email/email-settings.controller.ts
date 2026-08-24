@@ -13,21 +13,45 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { RoleCode } from '@prisma/client';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsString,
+  Max,
+  Min,
+} from 'class-validator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { EmailService, SmtpConfig } from './email.service';
 
 class SmtpConfigDto {
+  @IsString()
   host!: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(65535)
   port!: number;
+
+  @IsString()
   user!: string;
+
+  @IsString()
   pass!: string;
+
+  @IsString()
   fromName!: string;
+
+  @IsString()
   fromEmail!: string;
+
+  @IsBoolean()
   secure!: boolean;
 }
 
 class TestEmailDto {
+  @IsEmail()
   to!: string;
 }
 
