@@ -140,6 +140,8 @@ export interface WorkerDetail {
   country: string | null;
   nationality: string | null;
   active: boolean;
+  /** Master-Monteur: Stempeln auf jedes Projekt ohne Zuweisung. */
+  masterEngineer?: boolean;
   photoPath: string | null;
   hasDriversLicense: boolean;
   notes: string | null;

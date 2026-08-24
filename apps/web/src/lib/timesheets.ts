@@ -58,6 +58,8 @@ export interface WorkerMe {
   phone: string | null;
   photoPath: string | null;
   availability: string;
+  /** Master-Monteur: Stempeln auf jedes Projekt ohne Zuweisung. */
+  masterEngineer?: boolean;
   assignments: WorkerMeAssignment[];
 }
 

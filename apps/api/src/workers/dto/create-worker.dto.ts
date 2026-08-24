@@ -213,6 +213,15 @@ export class CreateWorkerDto {
   @IsBoolean()
   kioskAccessEnabled?: boolean;
 
+  @ApiPropertyOptional({
+    default: false,
+    description:
+      'Master-Monteur: Stempeln auf jedes Projekt ohne Zuweisung',
+  })
+  @IsOptional()
+  @IsBoolean()
+  masterEngineer?: boolean;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()

@@ -36,12 +36,13 @@ function dayStartMs(d: Date): number {
   return x.getTime();
 }
 
-/** Gültige aktive Zuweisung für das Kiosk-Projekt (heute). */
+/** Gültige aktive Zuweisung für das Kiosk-Projekt (heute), oder Master-Monteur. */
 function assignmentValidToday(
   worker: WorkerMe | null,
   projectId: string,
 ): boolean {
   if (!worker) return false;
+  if (worker.masterEngineer) return true;
   const today = dayStartMs(new Date());
   return (worker.assignments ?? []).some((a) => {
     if (a.project.id !== projectId) return false;

@@ -17,6 +17,8 @@ export class WorkerAuthService {
   /**
    * Liefert das Profil des über das Worker-Token identifizierten Monteurs inkl. seiner aktiven Projektzuweisungen. Die Zuweisungen werden von der Monteur-App benötigt, um das einzustempelnde Projekt auszuwählen (aktuell = startDate <= heute, zukünftig = startDate > heute). `project.itemBased` sagt der App, ob für dieses Projekt der Arbeitsitems-Bereich angeboten wird – so entfällt ein Extra-Call.
    *
+   * Master-Monteure erhalten zusätzlich alle aktiven Projekte als virtuelle Zuweisungen (ohne echte Assignment-Zeile).
+   *
    * @param workerId - ID des Monteurs (string)
    * @returns Auth-Profil
    * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
@@ -33,6 +35,7 @@ export class WorkerAuthService {
         phone: true,
         photoPath: true,
         availability: true,
+        masterEngineer: true,
         assignments: {
           where: { active: true },
           orderBy: { startDate: 'asc' },
@@ -47,8 +50,6 @@ export class WorkerAuthService {
                 id: true,
                 projectNumber: true,
                 title: true,
-                // Steuert in der Monteur-App, ob der Arbeitsitems-Bereich
-                // für dieses Projekt angeboten wird (SPEZ-arbeitsitems.md).
                 itemBased: true,
                 customer: { select: { companyName: true } },
               },
@@ -60,6 +61,45 @@ export class WorkerAuthService {
     if (!worker) {
       throw new NotFoundException('Monteur nicht gefunden');
     }
-    return worker;
+
+    if (!worker.masterEngineer) {
+      return worker;
+    }
+
+    const assignedIds = new Set(worker.assignments.map((a) => a.project.id));
+    const projects = await this.prisma.project.findMany({
+      where: {
+        deletedAt: null,
+        status: { in: ['ACTIVE', 'PLANNED'] },
+      },
+      orderBy: { projectNumber: 'asc' },
+      select: {
+        id: true,
+        projectNumber: true,
+        title: true,
+        itemBased: true,
+        customer: { select: { companyName: true } },
+      },
+    });
+
+    const startDate = new Date();
+    startDate.setFullYear(startDate.getFullYear() - 1);
+    startDate.setHours(0, 0, 0, 0);
+
+    const virtual = projects
+      .filter((p) => !assignedIds.has(p.id))
+      .map((project) => ({
+        id: `master-${project.id}`,
+        startDate,
+        endDate: null as Date | null,
+        isLead: true,
+        roleName: 'Master',
+        project,
+      }));
+
+    return {
+      ...worker,
+      assignments: [...worker.assignments, ...virtual],
+    };
   }
 }

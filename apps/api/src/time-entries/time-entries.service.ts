@@ -651,11 +651,20 @@ export class TimeEntriesService {
 
   /**
    * Clock-In nur mit aktiver Projektzuweisung im Datumsfenster.
+   * Master-Monteure dürfen jedes Projekt ohne Zuweisung stempeln.
    */
   private async assertProjectAssignment(
     workerId: string,
     projectId: string,
   ): Promise<void> {
+    const worker = await this.prisma.worker.findFirst({
+      where: { id: workerId, active: true, deletedAt: null },
+      select: { masterEngineer: true },
+    });
+    if (worker?.masterEngineer) {
+      return;
+    }
+
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     const endOfToday = new Date();

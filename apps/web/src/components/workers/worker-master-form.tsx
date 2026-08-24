@@ -68,6 +68,7 @@ const schema = z
     shoeSize: z.string().optional(),
     clothingSize: z.string().optional(),
     hasDriversLicense: z.boolean().optional(),
+    masterEngineer: z.boolean().optional(),
     notes: z.string().optional(),
   })
   .superRefine((v, ctx) => {
@@ -109,6 +110,7 @@ function toPayload(v: WorkerMasterFormValues): Record<string, unknown> {
     shoeSize: s(v.shoeSize),
     clothingSize: s(v.clothingSize),
     hasDriversLicense: v.hasDriversLicense ?? false,
+    masterEngineer: v.masterEngineer ?? false,
     notes: s(v.notes),
   };
 }
@@ -164,6 +166,7 @@ export function WorkerMasterForm({
       shoeSize: worker?.shoeSize ?? '',
       clothingSize: worker?.clothingSize ?? '',
       hasDriversLicense: worker?.hasDriversLicense ?? false,
+      masterEngineer: worker?.masterEngineer ?? false,
       notes: worker?.notes ?? '',
     },
   });
@@ -180,6 +183,7 @@ export function WorkerMasterForm({
   const workerType = watch('workerType');
   const subcontractorId = watch('subcontractorId');
   const hasDriversLicense = watch('hasDriversLicense');
+  const masterEngineer = watch('masterEngineer');
   const addressLine1 = watch('addressLine1');
   const postalCode = watch('postalCode');
   const city = watch('city');
@@ -396,6 +400,20 @@ export function WorkerMasterForm({
               className="h-4 w-4"
             />
             {f.hasDriversLicense}
+          </label>
+          <label className="flex min-h-[44px] cursor-pointer items-start gap-2 text-sm md:col-span-2">
+            <input
+              type="checkbox"
+              checked={masterEngineer ?? false}
+              onChange={(e) => setValue('masterEngineer', e.target.checked)}
+              className="mt-1 h-4 w-4"
+            />
+            <span>
+              <span className="font-medium">{f.masterEngineer}</span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {f.masterEngineerHint}
+              </span>
+            </span>
           </label>
         </div>
       </section>

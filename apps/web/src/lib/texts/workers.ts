@@ -126,6 +126,9 @@ export const workers = {
       shoeSize: 'Schuhgröße',
       clothingSize: 'Konfektionsgröße',
       hasDriversLicense: 'Führerschein',
+      masterEngineer: 'Master-Monteur',
+      masterEngineerHint:
+        'Darf auf jedes Projekt stempeln – auch ohne Projektzuweisung (z. B. Chef-Monteur / eigene Stunden).',
       notes: 'Notizen',
       idNumber: 'Personalausweis-Nr.',
       taxNumber: 'Steuernummer',

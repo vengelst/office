@@ -695,6 +695,8 @@ model Worker {
   active            Boolean   @default(true)
   /// Darf PIN am Kiosk (work.vivahome.de) nutzen; App bleibt unabhängig.
   kioskAccessEnabled Boolean  @default(true)
+  /// Master-Monteur: darf auf jedes Projekt stempeln, auch ohne Zuweisung.
+  masterEngineer     Boolean  @default(false)
   photoPath         String?
   hasDriversLicense Boolean   @default(false)
   notes             String?
