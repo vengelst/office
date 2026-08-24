@@ -30,6 +30,19 @@ import { BackupDataService } from './backup-data.service';
 /** Basisverzeichnis für Backup-Dateien (Docker-Volume). */
 const BACKUP_DIR = process.env.BACKUP_DIR || '/data/backups';
 
+/** Stunde/Minute in Europe/Berlin (Bürozeit für den Backup-Zeitplan). */
+function berlinHourMinute(d: Date): { hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Berlin',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(d);
+  const hour = Number(parts.find((p) => p.type === 'hour')?.value ?? '0');
+  const minute = Number(parts.find((p) => p.type === 'minute')?.value ?? '0');
+  return { hour, minute };
+}
+
 @Injectable()
 export class BackupsService implements OnModuleInit {
   private readonly logger = new Logger(BackupsService.name);
@@ -173,10 +186,9 @@ export class BackupsService implements OnModuleInit {
     const cfg = await this.ensureConfig();
     if (!cfg.enabled) return;
     const now = new Date();
-    if (
-      now.getHours() !== cfg.scheduleHour ||
-      now.getMinutes() !== cfg.scheduleMinute
-    ) {
+    // Zeitplan gilt für Europe/Berlin (UI: lokale Bürozeit), unabhängig von Container-TZ (oft UTC).
+    const { hour, minute } = berlinHourMinute(now);
+    if (hour !== cfg.scheduleHour || minute !== cfg.scheduleMinute) {
       return;
     }
     // Innerhalb derselben Minute nicht mehrfach starten

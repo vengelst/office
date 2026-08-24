@@ -80,6 +80,7 @@ services:
       WEB_ORIGIN: ${WEB_ORIGIN}
       API_PORT: "3801"
       NODE_ENV: production
+      TZ: Europe/Berlin
       OCR_SERVICE_URL: ${OCR_SERVICE_URL:-http://ocr-service:8000}
       RESEARCH_SERVICE_URL: ${RESEARCH_SERVICE_URL:-http://research-service:8000}
       RESEARCH_API_KEY: ${RESEARCH_API_KEY}

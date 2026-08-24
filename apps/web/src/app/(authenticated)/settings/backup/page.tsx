@@ -265,6 +265,7 @@ export default function BackupSettingsPage(): React.ReactNode {
           >
             {saving ? t.saving : t.save}
           </Button>
+          <p className="text-xs text-muted-foreground">{t.scheduleHint}</p>
           {config && (
             <p className="text-xs text-muted-foreground">
               {t.lastUpdated}: {formatDateTime(config.updatedAt)}

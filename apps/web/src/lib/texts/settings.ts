@@ -101,9 +101,11 @@ export const settings = {
       subtitle: 'Datenbank-Backups planen, manuell erstellen und Module wiederherstellen',
       scheduleTitle: 'Zeitplan',
       enabled: 'Automatisches Backup aktivieren',
-      hour: 'Stunde (0–23)',
-      minute: 'Minute (0–59)',
+      hour: 'Stunde (0–23, Europe/Berlin)',
+      minute: 'Minute (0–59, Europe/Berlin)',
       retentionDays: 'Aufbewahrung (Tage)',
+      scheduleHint:
+        'Die Uhrzeit gilt für Europe/Berlin (deutsche Ortszeit), nicht UTC.',
       save: 'Speichern',
       saving: 'Wird gespeichert …',
       lastUpdated: 'Zuletzt geändert',
