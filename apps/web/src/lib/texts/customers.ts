@@ -136,6 +136,13 @@ export const customers = {
       documents: 'Noch keine Dokumente.',
       addNow: 'Jetzt anlegen →',
     },
+    contactsView: {
+      layout: 'Darstellung',
+      table: 'Tabelle',
+      cols2: '2 Spalten',
+      cols3: '3 Spalten',
+      cols4: '4 Spalten',
+    },
     headquarters: 'Hauptsitz',
     allBranches: 'Alle Standorte',
     coordinates: 'Koordinaten',

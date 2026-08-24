@@ -8,18 +8,11 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Camera,
-  CreditCard,
-  Gift,
-  Linkedin,
-  Pencil,
   Plus,
   Search,
-  Trash2,
   X,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import {
   Select,
   SelectContent,
@@ -28,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
-import { MailLink, PhoneLink } from '@/components/customers/contact-links';
 import { EmptyState } from '@/components/customers/empty-state';
 import { ContactSearchDialog } from '@/components/customers/contact-search-dialog';
 import { useToast } from '@/components/ui/use-toast';
@@ -42,12 +34,17 @@ import {
 import { ApiError, TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { uploadDocument } from '@/lib/upload';
 import { scanBusinessCard, type BusinessCardData } from '@/lib/ocr';
-import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
-import { AuthImage } from './contacts/contacts-helpers';
 import { ContactFormDialog } from './contacts/contact-form-dialog';
 import { ContactScanDialog } from './contacts/contact-scan-dialog';
 import { normalizeSalutation } from './contacts/contact-salutation-select';
+import {
+  ContactCardItem,
+  ContactsTable,
+  CONTACTS_VIEW_KEY,
+  gridClassForView,
+  type ContactsViewMode,
+} from './contacts/contact-list-views';
 import {
   ALL,
   API_BASE_URL,
@@ -96,6 +93,27 @@ export function ContactsTab({
 
   const [cardImages, setCardImages] = useState<Record<string, string>>({});
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ContactsViewMode>('2');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CONTACTS_VIEW_KEY);
+      if (raw === 'table' || raw === '2' || raw === '3' || raw === '4') {
+        setViewMode(raw);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const changeViewMode = (mode: ContactsViewMode): void => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem(CONTACTS_VIEW_KEY, mode);
+    } catch {
+      // ignore
+    }
+  };
 
   /** Lädt Visitenkarten-Bilder aller Kontakte parallel und baut eine Map contactId → Bild-URL. */
   const loadBusinessCards = useCallback(() => {
@@ -403,20 +421,36 @@ export function ContactsTab({
         onChange={onScanFileSelected}
       />
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <Select value={filter} onValueChange={setFilter}>
-          <SelectTrigger className="min-h-[44px] w-full max-w-xs">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t.allBranches}</SelectItem>
-            <SelectItem value={NONE}>{t.headquarters}</SelectItem>
-            {branches.map((b) => (
-              <SelectItem key={b.id} value={b.id}>
-                {b.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="min-h-[44px] w-full max-w-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>{t.allBranches}</SelectItem>
+              <SelectItem value={NONE}>{t.headquarters}</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={viewMode}
+            onValueChange={(v) => changeViewMode(v as ContactsViewMode)}
+          >
+            <SelectTrigger className="min-h-[44px] w-[10.5rem]">
+              <SelectValue placeholder={t.contactsView.layout} />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="table">{t.contactsView.table}</SelectItem>
+              <SelectItem value="2">{t.contactsView.cols2}</SelectItem>
+              <SelectItem value="3">{t.contactsView.cols3}</SelectItem>
+              <SelectItem value="4">{t.contactsView.cols4}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"
@@ -449,6 +483,17 @@ export function ContactsTab({
         />
       ) : visibleContacts.length === 0 ? (
         <EmptyState message={t.empties.contacts} />
+      ) : viewMode === 'table' ? (
+        <ContactsTable
+          contacts={visibleContacts}
+          cardImages={cardImages}
+          branchLabel={(id) => branchName(id)}
+          uploadFor={uploadFor}
+          onEdit={openEdit}
+          onDelete={setDeleteId}
+          onUpload={triggerUpload}
+          onLightbox={setLightboxSrc}
+        />
       ) : (
         <div className="space-y-6">
           {Array.from(groups.entries()).map(([key, list]) => (
@@ -458,115 +503,19 @@ export function ContactsTab({
                   {branchName(key === NONE ? null : key)}
                 </h4>
               )}
-              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <div className={gridClassForView(viewMode)}>
                 {list.map((c) => (
-                  <Card key={c.id}>
-                    <CardContent className="space-y-3 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium">
-                            {[c.title, c.firstName, c.lastName]
-                              .filter(Boolean)
-                              .join(' ')}
-                          </p>
-                          {(c.role || c.department) && (
-                            <p className="text-sm text-muted-foreground">
-                              {[c.role, c.department]
-                                .filter(Boolean)
-                                .join(' · ')}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex shrink-0 flex-col items-end gap-2">
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-11 w-11"
-                              onClick={() => openEdit(c)}
-                              aria-label={t.actions.edit}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-11 w-11 text-destructive"
-                              onClick={() => setDeleteId(c.id)}
-                              aria-label={t.actions.delete}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          {cardImages[c.id] && (
-                            <AuthImage
-                              src={cardImages[c.id]}
-                              alt={`Visitenkarte ${c.firstName} ${c.lastName}`}
-                              className="h-16 w-28 cursor-pointer rounded border object-cover transition-opacity hover:opacity-90"
-                              onClick={(blobUrl) => setLightboxSrc(blobUrl)}
-                            />
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col gap-1 text-sm">
-                        {c.email && <MailLink email={c.email} />}
-                        {c.phoneMobile && (
-                          <PhoneLink phone={c.phoneMobile} mobile />
-                        )}
-                        {c.phoneLandline && <PhoneLink phone={c.phoneLandline} />}
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                        {c.birthday && (
-                          <span className="inline-flex items-center gap-1">
-                            <Gift className="h-3 w-3" />
-                            {formatDate(c.birthday)}
-                          </span>
-                        )}
-                        {c.linkedInUrl && (
-                          <a
-                            href={c.linkedInUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex min-h-[44px] items-center gap-1 text-primary hover:underline"
-                          >
-                            <Linkedin className="h-3 w-3" />
-                            LinkedIn
-                          </a>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-1.5">
-                        {c.isAccountingContact && (
-                          <Badge variant="outline">
-                            {t.fields.isAccountingContact}
-                          </Badge>
-                        )}
-                        {c.isProjectContact && (
-                          <Badge variant="outline">
-                            {t.fields.isProjectContact}
-                          </Badge>
-                        )}
-                        {c.isSignatory && (
-                          <Badge variant="outline">
-                            {t.fields.isSignatory}
-                          </Badge>
-                        )}
-                      </div>
-
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="min-h-[44px]"
-                        disabled={uploadFor === c.id}
-                        onClick={() => triggerUpload(c.id)}
-                      >
-                        <CreditCard className="h-4 w-4" />
-                        {t.actions.uploadBusinessCard}
-                      </Button>
-                    </CardContent>
-                  </Card>
+                  <ContactCardItem
+                    key={c.id}
+                    contact={c}
+                    cardSrc={cardImages[c.id]}
+                    compact={viewMode === '3' || viewMode === '4'}
+                    uploadBusy={uploadFor === c.id}
+                    onEdit={() => openEdit(c)}
+                    onDelete={() => setDeleteId(c.id)}
+                    onUpload={() => triggerUpload(c.id)}
+                    onLightbox={setLightboxSrc}
+                  />
                 ))}
               </div>
             </div>
