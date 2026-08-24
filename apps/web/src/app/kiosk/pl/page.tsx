@@ -86,6 +86,7 @@ export default function KioskPlPage() {
   // Auto-logout
   const [countdown, setCountdown] = useState(0);
   const lastInteraction = useRef(Date.now());
+  const wantFullscreen = useRef(false);
 
   // Admin PIN dialog
   const [showAdminDialog, setShowAdminDialog] = useState(false);
@@ -109,13 +110,17 @@ export default function KioskPlPage() {
         return;
       }
       setConfig(c);
-      if (c.fullscreen) {
-        document.documentElement.requestFullscreen?.().catch(() => {});
-      }
+      wantFullscreen.current = Boolean(c.fullscreen);
     } catch {
       router.replace('/kiosk/setup');
     }
   }, [router]);
+
+  const tryEnterFullscreen = useCallback(() => {
+    if (!wantFullscreen.current) return;
+    if (typeof document === 'undefined' || document.fullscreenElement) return;
+    void document.documentElement.requestFullscreen?.().catch(() => {});
+  }, []);
 
   // Clock tick
   useEffect(() => {
@@ -291,7 +296,10 @@ export default function KioskPlPage() {
   // ── CONFIRMATION ──
   if (state === 'confirmation') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-6 p-8"
+        onPointerDown={tryEnterFullscreen}
+      >
         <div className="text-8xl">✅</div>
         <p className="text-center text-3xl font-bold">{t.successTitle}</p>
         <p className="text-xl text-gray-400">{confirmMessage}</p>
@@ -309,6 +317,7 @@ export default function KioskPlPage() {
         className="flex min-h-screen flex-col p-4"
         onClick={resetActivity}
         onTouchStart={resetActivity}
+        onPointerDown={tryEnterFullscreen}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -445,6 +454,7 @@ export default function KioskPlPage() {
         className="flex min-h-screen flex-col p-4"
         onClick={resetActivity}
         onTouchStart={resetActivity}
+        onPointerDown={tryEnterFullscreen}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
@@ -580,7 +590,10 @@ export default function KioskPlPage() {
 
   // ── IDLE (PIN entry) ──
   return (
-    <div className="flex min-h-screen flex-col p-6">
+    <div
+      className="flex min-h-screen flex-col p-6"
+      onPointerDown={tryEnterFullscreen}
+    >
       {/* Header */}
       <div className="flex items-start justify-between">
         <button

@@ -42,7 +42,8 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    ThrottlerModule.forRoot([{ ttl: 60000, limit: 60 }]),
+    // SPA + Kiosk brauchen mehr als 60/min; Auth-Routen haben eigene engere Limits.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 300 }]),
     PrismaModule,
     FeatureFlagsModule,
     AuthModule,

@@ -22,6 +22,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -131,6 +132,7 @@ export class TimeEntriesController {
    */
 
   @Public()
+  @SkipThrottle()
   @UseGuards(ApiKeyGuard)
   @Get('project-status/:projectId')
   @ApiOperation({ summary: 'Stempel-Status aller Monteure eines Projekts (Kiosk)' })

@@ -110,6 +110,9 @@ export default function KioskTerminalPage() {
   // Auto-logout
   const [countdown, setCountdown] = useState(0);
   const lastInteraction = useRef(Date.now());
+  /** Fullscreen nur nach User-Geste (Browser-API). */
+  const wantFullscreen = useRef(false);
+  const liveOverviewInFlight = useRef(false);
 
   // Confirmation
   const [confirmMessage, setConfirmMessage] = useState('');
@@ -149,18 +152,18 @@ export default function KioskTerminalPage() {
       setConfig(c);
       setSelectedProjectId(c.projectId);
       startOfflineClockSync();
-      if (c.fullscreen) {
-        // Nach Paint, sonst kurzer Browser-Flash
-        requestAnimationFrame(() => {
-          setTimeout(() => {
-            document.documentElement.requestFullscreen?.().catch(() => {});
-          }, 300);
-        });
-      }
+      wantFullscreen.current = Boolean(c.fullscreen);
     } catch {
       router.replace('/kiosk/setup');
     }
   }, [router]);
+
+  /** Vollbild erst beim Tippen – requestFullscreen braucht eine User-Geste. */
+  const tryEnterFullscreen = useCallback(() => {
+    if (!wantFullscreen.current) return;
+    if (typeof document === 'undefined' || document.fullscreenElement) return;
+    void document.documentElement.requestFullscreen?.().catch(() => {});
+  }, []);
 
   // Clock tick
   useEffect(() => {
@@ -169,10 +172,18 @@ export default function KioskTerminalPage() {
   }, []);
 
   // Load live overview
+  const projectId = config?.projectId;
   const loadLiveOverview = useCallback(() => {
-    if (!config) return;
-    kioskApi.projectStatus(config.projectId).then(setLiveWorkers).catch(() => {});
-  }, [config]);
+    if (!projectId || liveOverviewInFlight.current) return;
+    liveOverviewInFlight.current = true;
+    kioskApi
+      .projectStatus(projectId)
+      .then(setLiveWorkers)
+      .catch(() => {})
+      .finally(() => {
+        liveOverviewInFlight.current = false;
+      });
+  }, [projectId]);
 
   useEffect(() => {
     loadLiveOverview();
@@ -223,11 +234,13 @@ export default function KioskTerminalPage() {
       state === 'action'
         ? config.autoLogoutSeconds
         : Math.max(config.autoLogoutSeconds, ITEMS_IDLE_SECONDS);
+    let fired = false;
     const interval = setInterval(() => {
       const elapsed = Math.floor((Date.now() - lastInteraction.current) / 1000);
       const remaining = Math.max(0, limit - elapsed);
       setCountdown(remaining);
-      if (remaining === 0) {
+      if (remaining === 0 && !fired) {
+        fired = true;
         resetToIdle();
       }
     }, 1000);
@@ -470,7 +483,10 @@ export default function KioskTerminalPage() {
 
   if (!config) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-400">
+      <div
+        className="flex min-h-screen items-center justify-center bg-gray-950 text-gray-400"
+        onPointerDown={tryEnterFullscreen}
+      >
         Laden …
       </div>
     );
@@ -531,7 +547,10 @@ export default function KioskTerminalPage() {
   // ── CONFIRMATION STATE ──
   if (state === 'confirmation') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-6 p-8">
+      <div
+        className="flex min-h-screen flex-col items-center justify-center gap-6 p-8"
+        onPointerDown={tryEnterFullscreen}
+      >
         <div className="text-8xl">✅</div>
         <p className="text-center text-3xl font-bold">{confirmMessage}</p>
         <p className="text-xl text-gray-400">{confirmSubtext}</p>
@@ -544,7 +563,12 @@ export default function KioskTerminalPage() {
   // Jede Berührung zählt als Aktivität, damit der Auto-Logout nicht zuschlägt.
   if ((state === 'items' || state === 'itemDetail') && worker) {
     return (
-      <div onClick={resetActivity} onTouchStart={resetActivity} onKeyDown={resetActivity}>
+      <div
+        onClick={resetActivity}
+        onTouchStart={resetActivity}
+        onKeyDown={resetActivity}
+        onPointerDown={tryEnterFullscreen}
+      >
         {state === 'items' ? (
           <WorkItemsList
             workerId={worker.id}
@@ -597,6 +621,7 @@ export default function KioskTerminalPage() {
         className="flex min-h-screen flex-col p-6"
         onClick={resetActivity}
         onTouchStart={resetActivity}
+        onPointerDown={tryEnterFullscreen}
       >
         <OfflineClockBanner
           workerId={worker.id}
@@ -811,7 +836,10 @@ export default function KioskTerminalPage() {
 
   // ── IDLE STATE (PIN entry) ──
   return (
-    <div className="flex min-h-screen flex-col p-6">
+    <div
+      className="flex min-h-screen flex-col p-6"
+      onPointerDown={tryEnterFullscreen}
+    >
       <OfflineClockBanner variant="dark" className="mb-4" />
 
       {/* Header */}

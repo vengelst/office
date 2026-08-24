@@ -17,6 +17,12 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
+  // Hinter Nginx: echte Client-IP aus X-Forwarded-For (sonst teilen alle ein Rate-Limit).
+  const httpAdapter = app.getHttpAdapter().getInstance() as {
+    set?: (key: string, value: unknown) => void;
+  };
+  httpAdapter.set?.('trust proxy', 1);
+
   const jwtSecret = process.env.JWT_SECRET;
   if (process.env.NODE_ENV === 'production' && (!jwtSecret || jwtSecret === 'change-me-in-production')) {
     console.error('FATAL: JWT_SECRET muss in Produktion gesetzt sein!');
