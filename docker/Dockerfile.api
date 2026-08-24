@@ -3,7 +3,8 @@
 
 FROM node:20-alpine AS base
 # libc6-compat: sharp (Foto-Kommentar-Overlay) auf Alpine/musl
-RUN apk add --no-cache openssl openssh-client libc6-compat && corepack enable
+# font-dejavu + fontconfig: SVG-Text im Overlay (sonst nur schwarzer Balken)
+RUN apk add --no-cache openssl openssh-client libc6-compat fontconfig font-dejavu && corepack enable
 WORKDIR /app
 
 # ── Dependencies ───────────────────────────────────────────────
@@ -23,7 +24,7 @@ RUN pnpm --filter @office/api build
 
 # ── Runtime ────────────────────────────────────────────────────
 FROM base AS runtime
-RUN apk add --no-cache poppler-utils
+RUN apk add --no-cache poppler-utils fontconfig font-dejavu
 ENV NODE_ENV=production
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/apps/api/node_modules ./apps/api/node_modules

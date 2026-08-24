@@ -1,8 +1,27 @@
 /**
  * Brennt einen Kommentar als Banner/Label in ein Baustellenfoto (SVG via sharp).
+ * Braucht System-Fonts (DejaVu) im Container – sonst nur schwarzer Balken ohne Text.
  */
 
+import { existsSync } from 'node:fs';
 import sharp from 'sharp';
+
+/** Bekannte Pfade für DejaVu (Alpine font-dejavu / Debian). */
+const FONT_CANDIDATES = [
+  '/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/ttf-dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+  '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/ttf-dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+];
+
+function resolveFontFile(): string | null {
+  for (const p of FONT_CANDIDATES) {
+    if (existsSync(p)) return p;
+  }
+  return null;
+}
 
 function escapeXml(s: string): string {
   return s
@@ -30,10 +49,32 @@ function wrapLines(text: string, maxChars: number): string[] {
   return lines.slice(0, 4);
 }
 
+function fontFaceCss(fontPath: string | null): string {
+  if (!fontPath) return '';
+  // file://-URL für librsvg/sharp – absolute Systemschrift einbinden
+  const href = `file://${fontPath}`;
+  return `<defs><style type="text/css"><![CDATA[
+@font-face { font-family: "OverlayFont"; src: url("${href}"); }
+]]></style></defs>`;
+}
+
+function buildTspans(
+  lines: string[],
+  x: number,
+  lineHeight: number,
+): string {
+  return lines
+    .map(
+      (line, i) =>
+        `<tspan x="${x}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`,
+    )
+    .join('');
+}
+
 export interface BurnCommentOptions {
-  /** Relative X-Position 0–1 (Linkskante des Labels). Ohne Wert: Banner unten. */
+  /** Relative X-Position 0–1 (Mitte des Labels). Ohne Wert: Banner unten. */
   xNorm?: number | null;
-  /** Relative Y-Position 0–1 (Oberkante des Labels). Ohne Wert: Banner unten. */
+  /** Relative Y-Position 0–1 (Mitte des Labels). Ohne Wert: Banner unten. */
   yNorm?: number | null;
 }
 
@@ -69,12 +110,11 @@ export async function burnCommentIntoImage(
       return { buffer, mimeType };
     }
     const barHeight = padding * 2 + lines.length * lineHeight;
-    const tspans = lines
-      .map(
-        (line, i) =>
-          `<tspan x="${padding}" dy="${i === 0 ? 0 : lineHeight}">${escapeXml(line)}</tspan>`,
-      )
-      .join('');
+    const fontPath = resolveFontFile();
+    const fontFamily = fontPath
+      ? 'OverlayFont, DejaVu Sans, sans-serif'
+      : 'DejaVu Sans, Liberation Sans, Arial, sans-serif';
+    const defs = fontFaceCss(fontPath);
 
     const hasPos =
       options?.xNorm != null &&
@@ -90,20 +130,23 @@ export async function burnCommentIntoImage(
         width - 16,
         Math.max(
           Math.round(width * 0.35),
-          padding * 2 + Math.round(fontSize * 0.55 * Math.max(...lines.map((l) => l.length))),
+          padding * 2 +
+            Math.round(fontSize * 0.55 * Math.max(...lines.map((l) => l.length))),
         ),
       );
       let left = Math.round(xNorm * width - labelWidth / 2);
       let top = Math.round(yNorm * height - barHeight / 2);
       left = Math.min(Math.max(8, left), width - labelWidth - 8);
       top = Math.min(Math.max(8, top), height - barHeight - 8);
+      const textX = left + padding;
 
       const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+  ${defs}
   <rect x="${left}" y="${top}" width="${labelWidth}" height="${barHeight}"
-        rx="8" ry="8" fill="rgba(0,0,0,0.75)"/>
-  <text x="${left + padding}" y="${top + padding + fontSize}"
-        font-family="Arial, Helvetica, sans-serif"
-        font-size="${fontSize}" fill="#ffffff" font-weight="600">${tspans}</text>
+        rx="8" ry="8" fill="rgba(0,0,0,0.78)"/>
+  <text x="${textX}" y="${top + padding + fontSize}"
+        font-family="${fontFamily}"
+        font-size="${fontSize}" fill="#ffffff" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
 </svg>`;
 
       out = await image
@@ -111,11 +154,13 @@ export async function burnCommentIntoImage(
         .jpeg({ quality: 88 })
         .toBuffer();
     } else {
+      const textX = padding;
       const svg = `<svg width="${width}" height="${barHeight}" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100%" height="100%" fill="rgba(0,0,0,0.72)"/>
-  <text x="${padding}" y="${padding + fontSize}"
-        font-family="Arial, Helvetica, sans-serif"
-        font-size="${fontSize}" fill="#ffffff" font-weight="600">${tspans}</text>
+  ${defs}
+  <rect width="100%" height="100%" fill="rgba(0,0,0,0.78)"/>
+  <text x="${textX}" y="${padding + fontSize}"
+        font-family="${fontFamily}"
+        font-size="${fontSize}" fill="#ffffff" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
 </svg>`;
 
       out = await image
