@@ -56,6 +56,13 @@ const WorkerDocumentsTab = dynamic(
     ),
   { loading: () => tabFallback },
 );
+const WorkerSitePhotosTab = dynamic(
+  () =>
+    import('@/components/workers/worker-site-photos-tab').then(
+      (m) => m.WorkerSitePhotosTab,
+    ),
+  { loading: () => tabFallback },
+);
 const WorkerQualificationsTab = dynamic(
   () =>
     import('@/components/workers/worker-qualifications-tab').then(
@@ -359,6 +366,9 @@ export default function WorkerDetailPage(): React.ReactNode {
           <TabsTrigger value="documents" className="min-h-[44px]">
             {t.tabs.documents}
           </TabsTrigger>
+          <TabsTrigger value="sitePhotos" className="min-h-[44px]">
+            {t.tabs.sitePhotos}
+          </TabsTrigger>
           <TabsTrigger value="qualifications" className="min-h-[44px]">
             {t.tabs.qualifications}
           </TabsTrigger>
@@ -396,6 +406,10 @@ export default function WorkerDetailPage(): React.ReactNode {
 
         <TabsContent value="documents">
           <WorkerDocumentsTab worker={worker} onSaved={load} />
+        </TabsContent>
+
+        <TabsContent value="sitePhotos">
+          <WorkerSitePhotosTab worker={worker} />
         </TabsContent>
 
         <TabsContent value="qualifications">

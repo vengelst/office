@@ -40,6 +40,7 @@ export const projects = {
       equipment: 'Equipment',
       arbeitsitems: 'Arbeitsitems',
       dokumente: 'Dokumente',
+      sitePhotos: 'Baustellenfotos',
       emailVerteiler: 'E-Mail-Verteiler',
       notizenVerlauf: 'Notizen & Verlauf',
       printTab: 'Aktuelle Ansicht drucken',

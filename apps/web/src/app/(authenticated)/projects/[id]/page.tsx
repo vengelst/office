@@ -104,6 +104,13 @@ const DocumentsTabV2 = dynamic(
     ),
   { loading: () => tabFallback },
 );
+const ProjectSitePhotosTab = dynamic(
+  () =>
+    import('@/components/projects/project-site-photos-tab').then(
+      (m) => m.ProjectSitePhotosTab,
+    ),
+  { loading: () => tabFallback },
+);
 
 const STATUSES: ProjectStatus[] = [
   'DRAFT',
@@ -340,6 +347,9 @@ export default function ProjectDetailPage(): React.ReactNode {
           <TabsTrigger value="dokumente" className="min-h-[44px]">
             {t.tabs.dokumente}
           </TabsTrigger>
+          <TabsTrigger value="sitePhotos" className="min-h-[44px]">
+            {t.tabs.sitePhotos}
+          </TabsTrigger>
           <TabsTrigger value="emailVerteiler" className="min-h-[44px]">
             {t.tabs.emailVerteiler}
           </TabsTrigger>
@@ -391,7 +401,15 @@ export default function ProjectDetailPage(): React.ReactNode {
         </TabsContent>
 
         <TabsContent value="dokumente">
-          <DocumentsTabV2 entityType="PROJECT" entityId={id} />
+          <DocumentsTabV2
+            entityType="PROJECT"
+            entityId={id}
+            excludeTypes={['SITE_PHOTO']}
+          />
+        </TabsContent>
+
+        <TabsContent value="sitePhotos">
+          <ProjectSitePhotosTab projectId={id} />
         </TabsContent>
 
         <TabsContent value="emailVerteiler">

@@ -72,6 +72,7 @@ export const workers = {
     tabs: {
       master: 'Stammdaten',
       documents: 'Dokumente & Ausweise',
+      sitePhotos: 'Baustellenfotos',
       qualifications: 'Qualifikationen & Sprachen',
       contract: 'Vertrag & Kosten',
       equipment: 'Ausrüstung',

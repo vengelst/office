@@ -441,8 +441,8 @@ export class TimeEntriesService {
         mimeType: uploadMime,
         fileSize: uploadBuffer.length,
         documentType: DocumentType.SITE_PHOTO,
-        title: dto.comment?.trim() || 'Baustellenfoto',
-        description: dto.comment,
+        title: 'Baustellenfoto',
+        description: dto.comment?.trim() || null,
         uploadedByUserId: actor.type === 'user' ? actor.id : null,
         links: {
           create: [

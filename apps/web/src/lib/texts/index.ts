@@ -23,6 +23,7 @@ import { offlineClock } from './offlineClock';
 import { settings } from './settings';
 import { vehicles } from './vehicles';
 import { documents } from './documents';
+import { sitePhotos } from './sitePhotos';
 import { kiosk } from './kiosk';
 import { map } from './map';
 import { equipment } from './equipment';
@@ -51,6 +52,7 @@ export const texts = {
   settings,
   vehicles,
   documents,
+  sitePhotos,
   kiosk,
   map,
   equipment,

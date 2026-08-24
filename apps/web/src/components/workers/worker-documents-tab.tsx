@@ -176,7 +176,11 @@ export function WorkerDocumentsTab({
         <h3 className="text-sm font-semibold text-muted-foreground">
           {s.documents}
         </h3>
-        <DocumentsTabV2 entityType="WORKER" entityId={worker.id} />
+        <DocumentsTabV2
+          entityType="WORKER"
+          entityId={worker.id}
+          excludeTypes={['SITE_PHOTO']}
+        />
       </section>
     </div>
   );
