@@ -1,6 +1,24 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-08-21** (Google Contacts produktiv; Calendar in Arbeit).
+Stand: **2026-08-24** · **Version 1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)
+
+Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**
+
+---
+
+## Release 1.0.0 – was sich geändert hat (Kurz)
+
+| Bereich | Inhalt |
+|---------|--------|
+| Kiosk #21a–c | Clock-In nur mit gültiger Projektzuweisung; PIN-Kiosk-Freigabe + Gültigkeit; Foto-Kommentar im Bild |
+| Master-Monteur | Stempeln ohne Zuweisung auf ACTIVE/PLANNED-Projekte |
+| Stundenzettel | Anlegen/Öffnen, KW-Bereich, volle Woche Mo–So, manuelle Tage, Neu laden aus Stempelungen |
+| Backup | Zeitplan Europe/Berlin; UI-Hinweise |
+| Betrieb | Kein `prisma db seed` mehr beim Prod-API-Start |
+| Contacts | Google Contacts produktiv |
+| Docs | README / STATUS / PROJECT-STATUS / dieses Backlog + **HANDBUCH.md** |
+
+Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 
@@ -23,10 +41,12 @@ Stand: **2026-08-21** (Google Contacts produktiv; Calendar in Arbeit).
 - `google_contacts_enabled=true` gesetzt; Impersonation `vivahome@vivahome.de`
 - SA: `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
 
-**2026-08-24 – Kiosk #21a–c:**
+**2026-08-24 – Kiosk #21a–c + 1.0.0:**
 - Clock-In nur mit gültiger Projektzuweisung (Datum)
 - Monteur-PIN: Kiosk-Freigabe + validFrom/validTo
 - Baustellenfoto: Kommentar wird ins Bild eingebrannt
+- Master-Monteur, Stundenzettel-Bearbeitung, Backup Berlin, Seed nicht in Prod-Start
+- Release-Tag **v1.0.0** (Ende Beta / Produktivstart)
 
 **Noch zu tun:**
 1. Google Admin: Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` (gleicher SA)
@@ -34,8 +54,6 @@ Stand: **2026-08-21** (Google Contacts produktiv; Calendar in Arbeit).
 3. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
 4. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
 5. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
-
-Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 

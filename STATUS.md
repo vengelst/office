@@ -1,10 +1,12 @@
 # Office App – Projektstatus
 
-**Stand:** 20. August 2026  
-**Server:** office.vivahome.de (109.199.112.176)  
+**Version:** **1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
+**Stand:** 24. August 2026  
+**Server:** office.vivahome.de · Kiosk: work.vivahome.de  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
 **Server-Pfad:** `/opt/office`  
+**Handbuch Stammdaten:** [`HANDBUCH.md`](./HANDBUCH.md)  
 **Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`
 
 ---
@@ -74,7 +76,7 @@ office/
 - **Visitenkarten-Tab** – eigener Bereich für gescannte Visitenkarten (Galerie + Lightbox)
 - **Dokumente-Tab** – Universelle Dokumentenverwaltung (ohne Visitenkarten)
 - **Drucken** – Dropdown mit "Aktuelle Ansicht" oder "Gesamtübersicht" (alle Daten auf einer Seite)
-- **Google Contacts Sync** – Ansprechpartner werden automatisch in Google Contacts angelegt/aktualisiert/gelöscht (via People API + DWD) ⚠️ **Noch nicht aktiviert** – People API + DWD-Scope müssen in Google Admin eingerichtet werden
+- **Google Contacts Sync** – Ansprechpartner werden automatisch in Google Contacts angelegt/aktualisiert/gelöscht (via People API + DWD) – **produktiv** (Einstellungen → Google Contacts)
 
 ### 2. Projektverwaltung (`/projects`)
 - **CRUD** für Projekte mit Projektnummer (P-YYYY-NNNN)
@@ -85,6 +87,9 @@ office/
 
 ### 3. Monteurverwaltung (`/workers`)
 - **CRUD** für Monteure mit Mitarbeiternummer
+- **Typ** Angestellt / Subunternehmen inkl. Sub-Zuordnung
+- **Master-Monteur** – Stempeln auf jedes aktive/geplante Projekt ohne Zuweisung
+- **PIN** inkl. Kiosk-Freigabe und Gültigkeitszeitraum (`validFrom` / `validTo`)
 - **Qualifikationen** und Zertifikate mit Ablaufdaten
 - **Dokumentenverwaltung** (Ausweise, Führerscheine, Arbeitsgenehmigungen)
 - **Verfügbarkeit** und Teamzuordnung
@@ -116,7 +121,10 @@ office/
 - **Zeiteinträge** mit Start-/Endzeit, Projekt, Baustelle
 - **Baustellenfotos** bei Zeiterfassung (automatisch dem Projekt zugeordnet)
 - **PDF-Export** + Ablage am Projekt; nach Kunden-PL-Approve zusätzlich **E-Mail mit PDF-Anhang**
-- **Kiosk Monteur** (`/kiosk/terminal`) – Tablet-Zeiterfassung / Items mit Worker-PIN; UI DE / SK / SL
+- **Kiosk Monteur** (`/kiosk/terminal` auf work.vivahome.de) – Tablet-Zeiterfassung / Items mit Worker-PIN; UI DE / SK / SL; PWA
+- **Clock-In nur mit gültiger Projektzuweisung** (Datumsfenster) – Ausnahme Master-Monteur
+- **Baustellenfotos** – Kommentar wird ins Bild eingebrannt (`sharp`)
+- **Stundenzettel-Büro** – Anlegen/Öffnen (KW-Bereich), volle Woche Mo–So, manuelle Tage („Tag erfassen“), Neu laden aus Stempelungen
 - **Kiosk Kunden-PL** (`/kiosk/pl`) – PIN → eingereichte Wochenzettel sehen, unterschreiben & abzeichnen; Item-Board
 - **Worker-App** (`/worker-app`) – Monteur-Dashboard mit eigenen Zeiten; Offline-Stempel-Queue
 - **Live-Stempeluhr** (`/time-clock/live`) – Echtzeit-Anzeige aller aktiven Monteure
@@ -227,13 +235,15 @@ office/
 ## Offene Aufgaben
 
 ### Priorität (siehe `offen-backlog.md` / `PROJECT-STATUS.md`)
-1. **Google Contacts produktiv schalten** – Einstellungen → Google Contacts; People API + DWD-Scope `contacts` in Google Admin; dann Sync aktivieren und testen
+1. **Google Calendar Phase 1** – Calendar API + DWD-Scope; Cloud-Auftrag `#20` (Office → Google)
 2. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
+3. Optional: Kiosk-Konfig zentral im Office; Phase-2 Calendar Rück-Sync
 
-PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App). Google Calendar: bewusst nicht.
-### ⚠️ Google People API aktivieren
-1. Google Cloud Console → Projekt "Vivahome Office" → People API aktivieren
-2. Google Admin Console → Sicherheit → API-Steuerung → DWD → Scope `https://www.googleapis.com/auth/contacts` hinzufügen für Service Account `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
+PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App).  
+Google Contacts: **produktiv** (People API + DWD OK).
+
+### ~~Google People API aktivieren~~ ✅ (erledigt 2026-08-21)
+People API + DWD-Scope `contacts` aktiv; Sync unter Einstellungen → Google Contacts.
 
 ### Mobile App – Nächste Schritte
 - **Push-Notifications** – z.B. für Erinnerungen, Projektänderungen
@@ -251,6 +261,12 @@ PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht gep
 ### Erledigt 17.08.2026 – Stempel-API-Rollen
 - Stempel-Endpoints (`clock-in/out`, Status, Foto) nur für `WORKER` (eigene ID) sowie `SUPERADMIN` / `OFFICE` / `PROJECT_MANAGER`
 - `CUSTOMER_PL` und andere User-Rollen können keine fremde `workerId` mehr stempeln
+
+### Erledigt 21.–24.08.2026 – Contacts, Kiosk, 1.0.0
+- Google Contacts produktiv; Calendar Phase 1 weiter offen
+- Kiosk: Zuweisungspflicht, PIN-Freigabe, Foto-Kommentar im Bild; Domain work.vivahome.de
+- Master-Monteur; Stundenzettel manuell/KW-Bereich/Neu laden; Backup Europe/Berlin
+- Kein `prisma db seed` beim Prod-API-Start; Release **v1.0.0** + `HANDBUCH.md`
 
 ---
 
@@ -310,7 +326,7 @@ scp apps/mobile/kiosk.apk root@vivahome.de:/opt/office/data/kiosk.apk
 ### Datenbank
 - PostgreSQL mit Prisma ORM (v5.22.0)
 - Migrationen in `prisma/migrations/`
-- Seed-Daten in `prisma/seed.ts`
+- Seed-Daten in `prisma/seed.ts` (**nur Entwicklung** – in Produktion nicht beim API-Start)
 
 ### Storage
 - **MinIO** – Primärer Dokumentenspeicher (S3-kompatibel)

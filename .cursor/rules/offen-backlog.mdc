@@ -1,18 +1,21 @@
 ---
-description: Office Offener Backlog – Contacts produktiv; Calendar Phase 1 (Auftrag #20)
+description: Office Offener Backlog – v1.0.0 Production; Calendar Phase 1 (Auftrag #20)
 alwaysApply: false
 ---
 
 # Office – Offener Backlog
 
-Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk oder Stempel anspricht: **`claude-auftraege/offen-backlog.md`** lesen.
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel oder Handbuch anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** lesen.
 
-## Session-Übergabe (Stand 2026-08-21)
+## Session-Übergabe (Stand 2026-08-24 · Version 1.0.0)
 
 **Erledigt & auf Prod:**
 1. Stempel-API-Rollen (`488ad20`)
 2. Produktklarstellung: eigene App; PIN bleibt
-3. Google Contacts UI (`2092ef1`) + **produktiv** (People API/DWD OK, Sync an)
+3. Google Contacts UI + **produktiv**
+4. Kiosk #21a–c (Zuweisung, PIN-Freigabe, Foto-Overlay)
+5. Master-Monteur, Stundenzettel-Bearbeitung, Backup Europe/Berlin, kein Prod-Seed
+6. Release-Tag **v1.0.0**; Doku + **HANDBUCH.md** (Stammdaten)
 
 **Offen:**
 - Google Admin: Calendar API + DWD-Scope `calendar` (gleicher SA)
@@ -20,4 +23,4 @@ Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google
 - Phase 2: Rück-Sync / Kalender pro User
 - UNIT_BASED-Abrechnung
 
-Details: **`claude-auftraege/offen-backlog.md`** · Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**.
+Details: **`claude-auftraege/offen-backlog.md`** · Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`** · Handbuch: **`HANDBUCH.md`**.

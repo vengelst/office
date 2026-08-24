@@ -1,9 +1,20 @@
 # Office
 
+**Version 1.0.0 (Production)** · Release: https://github.com/vengelst/office/releases/tag/v1.0.0
+
 Webanwendung für CRM, Projektverwaltung, Monteurverwaltung, mobile Zeiterfassung
 mit GPS, Wochen-Stundenzettel mit Signatur, Dokumentenmanagement und Kiosk-/PIN-Modus.
 
-Monorepo auf Basis von **pnpm Workspaces** (ohne Turborepo).
+Monorepo auf Basis von **pnpm Workspaces**.
+
+| | URL |
+|---|-----|
+| Büro-App | https://office.vivahome.de |
+| Kiosk | https://work.vivahome.de |
+| Handbuch (Stammdaten) | [HANDBUCH.md](./HANDBUCH.md) |
+| Deployment | [DEPLOYMENT.md](./DEPLOYMENT.md) |
+| Feature-Status | [STATUS.md](./STATUS.md) |
+| Session-Backlog | [claude-auftraege/offen-backlog.md](./claude-auftraege/offen-backlog.md) |
 
 ## Tech-Stack
 
@@ -21,15 +32,17 @@ office/
   apps/
     web/          Next.js Frontend (Port 3800)
     api/          NestJS Backend  (Port 3801, Prefix /api)
+    mobile/       Expo Kiosk-App (Android)
   packages/
-    types/        Geteilte TypeScript-Typen (re-exportiert Prisma-Typen)
+    types/        Geteilte TypeScript-Typen
   prisma/
     schema.prisma Datenmodell
     migrations/   Versionierte SQL-Migrationen
-    seed.ts       Seed-Daten
+    seed.ts       Seed-Daten (nur Dev – nicht in Prod-Start)
   docker/         Dockerfiles (Produktion)
-  docker-compose.dev.yml   Entwicklungs-Stack (Hot-Reload)
-  docker-compose.yml       Produktions-Stack
+  docker-compose.prod.yml   Produktion (--env-file .env.production)
+  docker-compose.dev.yml    Entwicklung
+  HANDBUCH.md     Kurzanleitung Büro (Stammdaten)
 ```
 
 ## Schnellstart (Docker, empfohlen)
@@ -41,8 +54,8 @@ cp .env.example .env        # Werte bei Bedarf anpassen
 docker compose -f docker-compose.dev.yml up --build
 ```
 
-Beim ersten Start werden automatisch Abhängigkeiten installiert, die Datenbank
-migriert und Seed-Daten eingespielt. Anschließend erreichbar:
+Beim ersten Start werden Abhängigkeiten installiert, die Datenbank
+migriert und Seed-Daten eingespielt. Anschließend:
 
 | Dienst             | URL                              |
 | ------------------ | -------------------------------- |
@@ -51,18 +64,18 @@ migriert und Seed-Daten eingespielt. Anschließend erreichbar:
 | API-Doku (Swagger) | http://localhost:3801/api/docs   |
 | MinIO Console      | http://localhost:9001            |
 
-## Lokale Entwicklung (ohne Docker)
+## Produktion (vivahome.de)
 
 ```bash
-pnpm install
-# PostgreSQL + MinIO bereitstellen, DATABASE_URL in .env auf localhost setzen
-pnpm prisma generate
-pnpm prisma migrate deploy   # oder: pnpm prisma migrate dev
-pnpm prisma db seed
-pnpm dev                     # startet web + api parallel
+cd /opt/office
+git pull
+docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
 ```
 
-## Standard-Zugangsdaten (Seed)
+**Wichtig:** Immer `--env-file .env.production` – sonst sind DB/Secrets leer.  
+In Prod läuft **kein** `prisma db seed` mehr beim API-Start.
+
+## Standard-Zugangsdaten (nur Seed / Entwicklung)
 
 | Rolle           | E-Mail              | Passwort   |
 | --------------- | ------------------- | ---------- |
@@ -70,9 +83,7 @@ pnpm dev                     # startet web + api parallel
 | OFFICE          | buero@office.local  | `buero123` |
 | PROJECT_MANAGER | pl@office.local     | `pl123`    |
 
-Beispiel-Monteur „Max Muster" – **PIN: `123456`** (Login über `/api/auth/pin-login`).
-
-> ⚠️ Diese Zugangsdaten sind nur für die Entwicklung gedacht.
+> ⚠️ Nicht für produktive Passwörter verwenden.
 
 ## Nützliche Skripte (Root)
 
@@ -82,17 +93,15 @@ Beispiel-Monteur „Max Muster" – **PIN: `123456`** (Login über `/api/auth/pi
 | `pnpm build`            | alle Pakete bauen                     |
 | `pnpm lint`             | Lint/Typecheck über alle Pakete       |
 | `pnpm prisma:migrate`   | Migration erstellen/anwenden (dev)    |
-| `pnpm prisma:seed`      | Seed-Daten einspielen                 |
+| `pnpm prisma:seed`      | Seed-Daten einspielen (nur Dev)       |
 | `pnpm prisma:studio`    | Prisma Studio öffnen                  |
 
-## API-Überblick (Auftrag #1)
+## API-Überblick
 
 - `GET  /api` – Health-Check
 - `POST /api/auth/login` – E-Mail + Passwort → JWT
-- `POST /api/auth/pin-login` – Monteur-PIN → JWT (`type: worker`)
+- `POST /api/auth/pin-login` / `/api/worker-auth/pin-login` – Monteur-PIN → JWT
 - `POST /api/auth/logout` – Session invalidieren
 - `POST /api/auth/refresh` – Token erneuern
-- `GET/POST/PATCH/DELETE /api/users` – Benutzerverwaltung (nur SUPERADMIN)
 
-Authentifizierung per `Authorization: Bearer <token>`. Routen sind standardmäßig
-geschützt (globaler `JwtAuthGuard`); öffentliche Routen sind mit `@Public()` markiert.
+Authentifizierung: `Authorization: Bearer <token>`.
