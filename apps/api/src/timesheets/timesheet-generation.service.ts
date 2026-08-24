@@ -141,7 +141,18 @@ export class TimesheetGenerationService {
       aggregates.map((a) => [dayKey(a.workDate), a] as const),
     );
 
-    const days = [];
+    const days: Array<{
+      workDate: Date;
+      firstClockInAt: Date | null;
+      lastClockOutAt: Date | null;
+      grossMinutes: number;
+      breakMinutes: number;
+      netMinutes: number;
+      clockInLatitude: number | null;
+      clockInLongitude: number | null;
+      clockOutLatitude: number | null;
+      clockOutLongitude: number | null;
+    }> = [];
     for (let i = 0; i < 7; i++) {
       const workDate = new Date(start);
       workDate.setUTCDate(start.getUTCDate() + i);
