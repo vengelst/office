@@ -47,6 +47,7 @@ import { texts } from '@/lib/texts';
 import { AuthImage } from './contacts/contacts-helpers';
 import { ContactFormDialog } from './contacts/contact-form-dialog';
 import { ContactScanDialog } from './contacts/contact-scan-dialog';
+import { normalizeSalutation } from './contacts/contact-salutation-select';
 import {
   ALL,
   API_BASE_URL,
@@ -189,6 +190,8 @@ export function ContactsTab({
     if (!externalAction) return;
     if (externalAction.kind === 'edit') {
       openEdit(externalAction.contact);
+    } else if (externalAction.kind === 'scan') {
+      openScanDialog();
     } else {
       openCreate(externalAction.branchId ?? NONE);
     }
@@ -300,7 +303,7 @@ export function ContactsTab({
       .then((data) => {
         setScanResult(data);
         setScanForm({
-          title: data.title.value ?? '',
+          title: normalizeSalutation(data.title.value),
           firstName: data.firstName.value ?? '',
           lastName: data.lastName.value ?? '',
           role: data.role.value ?? '',
@@ -459,8 +462,8 @@ export function ContactsTab({
                 {list.map((c) => (
                   <Card key={c.id}>
                     <CardContent className="space-y-3 p-4">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium">
                             {[c.title, c.firstName, c.lastName]
                               .filter(Boolean)
@@ -474,25 +477,35 @@ export function ContactsTab({
                             </p>
                           )}
                         </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-11 w-11"
-                            onClick={() => openEdit(c)}
-                            aria-label={t.actions.edit}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-11 w-11 text-destructive"
-                            onClick={() => setDeleteId(c.id)}
-                            aria-label={t.actions.delete}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div className="flex shrink-0 flex-col items-end gap-2">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-11 w-11"
+                              onClick={() => openEdit(c)}
+                              aria-label={t.actions.edit}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-11 w-11 text-destructive"
+                              onClick={() => setDeleteId(c.id)}
+                              aria-label={t.actions.delete}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          {cardImages[c.id] && (
+                            <AuthImage
+                              src={cardImages[c.id]}
+                              alt={`Visitenkarte ${c.firstName} ${c.lastName}`}
+                              className="h-16 w-28 cursor-pointer rounded border object-cover transition-opacity hover:opacity-90"
+                              onClick={(blobUrl) => setLightboxSrc(blobUrl)}
+                            />
+                          )}
                         </div>
                       </div>
 
@@ -503,15 +516,6 @@ export function ContactsTab({
                         )}
                         {c.phoneLandline && <PhoneLink phone={c.phoneLandline} />}
                       </div>
-
-                      {cardImages[c.id] && (
-                        <AuthImage
-                          src={cardImages[c.id]}
-                          alt={`Visitenkarte ${c.firstName} ${c.lastName}`}
-                          className="w-full max-h-40 rounded-lg border object-contain cursor-pointer hover:opacity-90 transition-opacity"
-                          onClick={(blobUrl) => setLightboxSrc(blobUrl)}
-                        />
-                      )}
 
                       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         {c.birthday && (

@@ -347,9 +347,11 @@ export default function CustomerDetailPage(): React.ReactNode {
 
         <TabsContent value="businessCards">
           <BusinessCardsTab
-            entityId={id}
-            entityType="CUSTOMER"
             contacts={customer.contacts}
+            onScanClick={() => {
+              setActiveTab('contacts');
+              setContactAction({ kind: 'scan' });
+            }}
           />
         </TabsContent>
 

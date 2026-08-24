@@ -17,7 +17,8 @@ export const CONTACT_METHODS = ['EMAIL', 'PHONE', 'MOBILE'] as const;
  */
 export type ContactsExternalAction =
   | { kind: 'edit'; contact: CustomerContact }
-  | { kind: 'create'; branchId: string | null };
+  | { kind: 'create'; branchId: string | null }
+  | { kind: 'scan' };
 
 export type FormState = {
   title: string;

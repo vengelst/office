@@ -27,6 +27,7 @@ import type { CustomerBranch } from '@/lib/customers';
 import type { BusinessCardData } from '@/lib/ocr';
 import { texts } from '@/lib/texts';
 import { Checkbox } from './contacts-helpers';
+import { ContactSalutationSelect } from './contact-salutation-select';
 import {
   CONTACT_METHODS,
   NONE,
@@ -123,12 +124,12 @@ export function ContactScanDialog({
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <Field label={t.fields.title}>
-                      <Input
+                      <ContactSalutationSelect
                         value={scanForm.title}
-                        onChange={(e) =>
-                          setScanForm((p) => ({ ...p, title: e.target.value }))
+                        onChange={(v) =>
+                          setScanForm((p) => ({ ...p, title: v }))
                         }
-                        className="min-h-[44px]"
+                        noneLabel={t.fields.titleNone}
                       />
                     </Field>
                     <Field label={t.fields.firstName} required>

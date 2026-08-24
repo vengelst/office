@@ -1,19 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
-import { Camera, CreditCard, Download, Trash2, Upload, X } from 'lucide-react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { CreditCard, Download, Trash2, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
 import { EmptyState } from '@/components/customers/empty-state';
 import { useToast } from '@/components/ui/use-toast';
-import {
-  documentsApi,
-  type Document,
-} from '@/lib/documents';
-import { uploadDocument, downloadDocument } from '@/lib/upload';
-import { ApiError, TOKEN_STORAGE_KEY } from '@/lib/api-client';
+import { documentsApi, type Document } from '@/lib/documents';
+import { downloadDocument } from '@/lib/upload';
+import { TOKEN_STORAGE_KEY } from '@/lib/api-client';
 import { formatDate } from '@/lib/format';
 import { texts } from '@/lib/texts';
 
@@ -21,22 +18,16 @@ const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
 
 /**
- * Tab-Komponente zur Anzeige und Verwaltung von Visitenkarten eines Kunden.
- * Sammelt Visitenkarten sowohl vom Kunden als auch von dessen Kontakten,
- * zeigt sie in einer Grid-Ansicht mit Lightbox und bietet Upload/Löschen.
- *
- * @param entityId - ID der übergeordneten Entität (Kunde, Projekt, etc.)
- * @param entityType - Typ der Entität, Standard ist 'CUSTOMER'
- * @param contacts - Kontakte des Kunden (für Zuordnung und Namensanzeige)
+ * Visitenkarten eines Kunden – nur Karten, die einem Ansprechpartner
+ * zugeordnet sind (keine doppelte Ablage am Kunden-Stamm).
  */
 export function BusinessCardsTab({
-  entityId,
-  entityType = 'CUSTOMER',
   contacts,
+  onScanClick,
 }: {
-  entityId: string;
-  entityType?: string;
   contacts: { id: string; firstName: string; lastName: string }[];
+  /** Wechselt zum Kontakte-Tab und öffnet den Scan (optional). */
+  onScanClick?: () => void;
 }): ReactNode {
   const { toast } = useToast();
   const t = texts.customers;
@@ -44,20 +35,17 @@ export function BusinessCardsTab({
   const [loading, setLoading] = useState(true);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
-  const fileInput = useRef<HTMLInputElement>(null);
 
-  /** Lädt alle Visitenkarten der Entität und ihrer Kontakte, dedupliziert und sortiert nach Datum. */
   const load = useCallback(() => {
     setLoading(true);
+    if (contacts.length === 0) {
+      setCards([]);
+      setLoading(false);
+      return;
+    }
 
-    const promises = [
-      documentsApi.list({
-        entityType,
-        entityId,
-        documentType: 'BUSINESS_CARD',
-        limit: 100,
-      }),
-      ...contacts.map((c) =>
+    Promise.all(
+      contacts.map((c) =>
         documentsApi.list({
           entityType: 'CONTACT',
           entityId: c.id,
@@ -65,14 +53,10 @@ export function BusinessCardsTab({
           limit: 100,
         }),
       ),
-    ];
-
-    Promise.all(promises)
+    )
       .then((results) => {
         const all = results.flatMap((r) => r.data);
-        const unique = Array.from(
-          new Map(all.map((d) => [d.id, d])).values(),
-        );
+        const unique = Array.from(new Map(all.map((d) => [d.id, d])).values());
         unique.sort(
           (a, b) =>
             new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
@@ -81,7 +65,7 @@ export function BusinessCardsTab({
       })
       .catch(() => setCards([]))
       .finally(() => setLoading(false));
-  }, [entityType, entityId, contacts]);
+  }, [contacts]);
 
   useEffect(() => {
     load();
@@ -92,29 +76,6 @@ export function BusinessCardsTab({
     if (!contactLink) return null;
     const c = contacts.find((ct) => ct.id === contactLink.entityId);
     return c ? `${c.firstName} ${c.lastName}` : null;
-  };
-
-  const onFileSelected = (e: React.ChangeEvent<HTMLInputElement>): void => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    uploadDocument({
-      file,
-      documentType: 'BUSINESS_CARD',
-      title: 'Visitenkarte',
-      entityType,
-      entityId,
-    })
-      .then(() => {
-        toast({ description: t.toast.uploaded });
-        load();
-      })
-      .catch((err) =>
-        toast({
-          variant: 'destructive',
-          description: err instanceof ApiError ? err.message : t.toast.error,
-        }),
-      );
   };
 
   const confirmDelete = (): void => {
@@ -131,42 +92,35 @@ export function BusinessCardsTab({
 
   return (
     <div className="space-y-4">
-      <input
-        ref={fileInput}
-        type="file"
-        accept="image/*"
-        capture="environment"
-        className="hidden"
-        onChange={onFileSelected}
-      />
-
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {cards.length} {cards.length === 1 ? 'Visitenkarte' : 'Visitenkarten'}
+          <span className="ml-1 text-xs">
+            (nur Ansprechpartner)
+          </span>
         </p>
-        <Button
-          className="min-h-[44px]"
-          onClick={() => fileInput.current?.click()}
-        >
-          <Camera className="h-4 w-4" />
-          Visitenkarte hinzufügen
-        </Button>
+        {onScanClick && (
+          <Button className="min-h-[44px]" onClick={onScanClick}>
+            <CreditCard className="h-4 w-4" />
+            {t.actions.scanBusinessCard}
+          </Button>
+        )}
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-56 w-full rounded-lg" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-lg" />
           ))}
         </div>
       ) : cards.length === 0 ? (
         <EmptyState
-          message="Noch keine Visitenkarten vorhanden"
+          message="Noch keine Visitenkarten an Ansprechpartnern"
           actionLabel={t.actions.scanBusinessCard}
-          onAction={() => fileInput.current?.click()}
+          onAction={onScanClick}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {cards.map((doc) => (
             <Card key={doc.id} className="overflow-hidden">
               <AuthCardImage
@@ -174,40 +128,37 @@ export function BusinessCardsTab({
                 alt={doc.title || doc.originalFilename}
                 onClick={(blobUrl) => setLightboxSrc(blobUrl)}
               />
-              <CardContent className="space-y-2 p-3">
-                <div className="flex items-start justify-between gap-2">
+              <CardContent className="space-y-1 p-2">
+                <div className="flex items-start justify-between gap-1">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-medium">
-                      {doc.title || doc.originalFilename}
-                    </p>
                     {contactName(doc) && (
-                      <p className="truncate text-xs text-muted-foreground">
+                      <p className="truncate text-xs font-medium">
                         <CreditCard className="mr-1 inline h-3 w-3" />
                         {contactName(doc)}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       {formatDate(doc.createdAt)}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-1">
+                  <div className="flex shrink-0 gap-0.5">
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9"
+                      className="h-8 w-8"
                       onClick={() => downloadDocument(doc.id)}
                       title="Herunterladen"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3.5 w-3.5" />
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-9 w-9 text-destructive"
+                      className="h-8 w-8 text-destructive"
                       onClick={() => setDeleteId(doc.id)}
                       title="Löschen"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   </div>
                 </div>
@@ -250,14 +201,6 @@ export function BusinessCardsTab({
   );
 }
 
-/**
- * Visitenkarten-Bild mit authentifiziertem Laden.
- * Zeigt einen Skeleton-Platzhalter bis das Bild geladen ist.
- *
- * @param docId - Dokument-ID für den Download-Endpunkt
- * @param alt - Alt-Text des Bildes
- * @param onClick - Callback mit Blob-URL (für Lightbox)
- */
 function AuthCardImage({
   docId,
   alt,
@@ -295,7 +238,7 @@ function AuthCardImage({
   }, [docId]);
 
   if (!blobUrl) {
-    return <Skeleton className="aspect-[16/10] w-full" />;
+    return <Skeleton className="aspect-[3/2] w-full" />;
   }
 
   return (
@@ -307,7 +250,7 @@ function AuthCardImage({
       <img
         src={blobUrl}
         alt={alt}
-        className="aspect-[16/10] w-full object-contain bg-muted/30 transition-opacity hover:opacity-90"
+        className="aspect-[3/2] w-full object-cover"
       />
     </button>
   );

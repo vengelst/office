@@ -93,8 +93,10 @@ export class OcrController {
   ): Promise<BusinessCardData> {
     validateOcrFile(file);
     const result = await this.ocr.extractText(file!.buffer, file!.mimetype);
-    if (!result.text) {
-      throw new BadRequestException('Kein Text erkannt');
+    if (!result.text?.trim()) {
+      throw new BadRequestException(
+        'Kein Text erkannt. Bitte Karte gut ausleuchten – Querformat wird automatisch gedreht.',
+      );
     }
     return parseBusinessCard(result.text);
   }

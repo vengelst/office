@@ -24,6 +24,7 @@ import { Field } from '@/components/customers/customer-form';
 import type { CustomerBranch } from '@/lib/customers';
 import { texts } from '@/lib/texts';
 import { Checkbox } from './contacts-helpers';
+import { ContactSalutationSelect } from './contact-salutation-select';
 import {
   CONTACT_METHODS,
   NONE,
@@ -63,10 +64,10 @@ export function ContactFormDialog({
           <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <Field label={t.fields.title}>
-                <Input
+                <ContactSalutationSelect
                   value={form.title}
-                  onChange={(e) => set('title', e.target.value)}
-                  className="min-h-[44px]"
+                  onChange={(v) => set('title', v)}
+                  noneLabel={t.fields.titleNone}
                 />
               </Field>
               <Field label={t.fields.firstName} required>
