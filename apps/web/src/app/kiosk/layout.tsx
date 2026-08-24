@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { RegisterServiceWorker } from '@/components/pwa/register-service-worker';
 import { KioskInstallPrompt } from '@/components/kiosk/kiosk-install-prompt';
 import { KioskDarkBoot } from '@/components/kiosk/kiosk-dark-boot';
+import { KioskDebugPanel } from '@/components/kiosk/kiosk-debug-panel';
 import { KioskLocaleProvider } from '@/lib/kiosk-locale';
 
 /**
@@ -51,6 +52,7 @@ export default function KioskLayout({
         <RegisterServiceWorker />
         {children}
         <KioskInstallPrompt />
+        <KioskDebugPanel />
       </div>
     </KioskLocaleProvider>
   );

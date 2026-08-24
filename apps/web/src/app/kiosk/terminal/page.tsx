@@ -26,6 +26,7 @@ import { WorkItemsList } from '@/components/worker-work-items/work-items-list';
 import { WorkItemDetail } from '@/components/worker-work-items/work-item-detail';
 import { KIOSK_LANGS, useKioskLocale } from '@/lib/kiosk-locale';
 import { KT } from '@/lib/texts/kiosk-terminal-i18n';
+import { kioskDebugLog } from '@/lib/kiosk-debug';
 import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
@@ -132,37 +133,50 @@ export default function KioskTerminalPage() {
   const [photoPending, setPhotoPending] = useState<File | null>(null);
   const [photoComment, setPhotoComment] = useState('');
 
-  // Load config
+  // Load config (einmalig – nicht bei jeder router-Identity)
   useEffect(() => {
+    kioskDebugLog('mount', 'Terminal mount');
     const raw = localStorage.getItem(KIOSK_CONFIG_KEY);
     if (!raw) {
+      kioskDebugLog('nav', 'Terminal → setup (keine Config)');
       router.replace('/kiosk/setup');
       return;
     }
     try {
       const c = JSON.parse(raw) as KioskConfig;
       if (!c.projectId) {
+        kioskDebugLog('nav', 'Terminal → setup (kein projectId)');
         router.replace('/kiosk/setup');
         return;
       }
       if (c.mode === 'customer_pl') {
+        kioskDebugLog('nav', 'Terminal → pl (customer_pl)');
         router.replace('/kiosk/pl');
         return;
       }
+      kioskDebugLog('info', 'Config geladen', c.projectTitle ?? c.projectId);
       setConfig(c);
       setSelectedProjectId(c.projectId);
       startOfflineClockSync();
       wantFullscreen.current = Boolean(c.fullscreen);
     } catch {
+      kioskDebugLog('error', 'Config JSON ungültig');
       router.replace('/kiosk/setup');
     }
-  }, [router]);
+    return () => {
+      kioskDebugLog('mount', 'Terminal unmount');
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nur beim Mount
+  }, []);
 
   /** Vollbild erst beim Tippen – requestFullscreen braucht eine User-Geste. */
   const tryEnterFullscreen = useCallback(() => {
     if (!wantFullscreen.current) return;
     if (typeof document === 'undefined' || document.fullscreenElement) return;
-    void document.documentElement.requestFullscreen?.().catch(() => {});
+    kioskDebugLog('info', 'requestFullscreen (User-Geste)');
+    void document.documentElement.requestFullscreen?.().catch((err) => {
+      kioskDebugLog('warn', 'Fullscreen fehlgeschlagen', String(err));
+    });
   }, []);
 
   // Clock tick
@@ -176,10 +190,16 @@ export default function KioskTerminalPage() {
   const loadLiveOverview = useCallback(() => {
     if (!projectId || liveOverviewInFlight.current) return;
     liveOverviewInFlight.current = true;
+    kioskDebugLog('api', 'projectStatus starten', projectId);
     kioskApi
       .projectStatus(projectId)
-      .then(setLiveWorkers)
-      .catch(() => {})
+      .then((rows) => {
+        kioskDebugLog('info', `projectStatus OK (${rows.length})`);
+        setLiveWorkers(rows);
+      })
+      .catch((err) => {
+        kioskDebugLog('error', 'projectStatus fehlgeschlagen', String(err));
+      })
       .finally(() => {
         liveOverviewInFlight.current = false;
       });

@@ -30,7 +30,6 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequireFeature } from '../feature-flags/require-feature.decorator';
 import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import { TimeEntriesService } from './time-entries.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
@@ -131,9 +130,13 @@ export class TimeEntriesController {
    * @returns Status
    */
 
+  /**
+   * Öffentlicher Kiosk-Überblick (wer ist auf dem Projekt eingestempelt).
+   * Ohne API-Key: sonst 401 → Frontend-Redirect → Reload-Loop auf work.*.
+   * Projekt-ID ist ein nicht erratbarer Cuid.
+   */
   @Public()
   @SkipThrottle()
-  @UseGuards(ApiKeyGuard)
   @Get('project-status/:projectId')
   @ApiOperation({ summary: 'Stempel-Status aller Monteure eines Projekts (Kiosk)' })
   projectStatus(@Param('projectId') projectId: string) {

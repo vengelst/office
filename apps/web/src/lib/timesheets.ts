@@ -4,6 +4,7 @@
 
 import { ApiError, apiClient } from './api-client';
 import type { ApiErrorResponse, LoginResponse } from '@office/types';
+import { isKioskPath, kioskDebugLog } from './kiosk-debug';
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3801/api';
@@ -399,9 +400,19 @@ export async function workerFetch<T>(
   const data: unknown = isJson ? await res.json() : null;
 
   if (!res.ok) {
+    // Auf dem Kiosk NIEMALS hard nach /worker-app navigieren:
+    // work.* Middleware leitet /worker-app → /kiosk → Terminal → erneut 401 → Endlosschleife.
     if (res.status === 401 && typeof window !== 'undefined') {
       clearWorkerSession();
-      window.location.href = '/worker-app';
+      if (isKioskPath()) {
+        kioskDebugLog(
+          'error',
+          '401 auf Kiosk – kein Redirect (Loop-Schutz)',
+          path,
+        );
+      } else {
+        window.location.href = '/worker-app';
+      }
     }
     const payload = (data as ApiErrorResponse | null) ?? undefined;
     const message = payload

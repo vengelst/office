@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { texts } from '@/lib/texts';
+import { kioskDebugLog } from '@/lib/kiosk-debug';
 import {
   SignatureCanvas,
   type SignatureCanvasHandle,
@@ -92,8 +93,9 @@ export default function KioskPlPage() {
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
 
-  // Load config
+  // Load config (einmalig)
   useEffect(() => {
+    kioskDebugLog('mount', 'PL mount');
     const raw = localStorage.getItem(KIOSK_CONFIG_KEY);
     if (!raw) {
       router.replace('/kiosk/setup');
@@ -106,6 +108,7 @@ export default function KioskPlPage() {
         return;
       }
       if (c.mode !== 'customer_pl') {
+        kioskDebugLog('nav', 'PL → terminal');
         router.replace('/kiosk/terminal');
         return;
       }
@@ -114,7 +117,9 @@ export default function KioskPlPage() {
     } catch {
       router.replace('/kiosk/setup');
     }
-  }, [router]);
+    return () => kioskDebugLog('mount', 'PL unmount');
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- nur beim Mount
+  }, []);
 
   const tryEnterFullscreen = useCallback(() => {
     if (!wantFullscreen.current) return;
