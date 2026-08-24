@@ -184,9 +184,11 @@ export default function TimesheetDetailPage(): React.ReactNode {
                       weekNumber: sheet.weekNumber,
                     })
                     .then((res) => {
-                      const updated =
-                        'sheets' in res ? res.sheets[0] : res;
-                      if (updated) setSheet(updated);
+                      if ('sheets' in res) {
+                        if (res.sheets[0]) setSheet(res.sheets[0]);
+                      } else {
+                        setSheet(res);
+                      }
                       toast({ description: t.toast.regenerated });
                     })
                     .catch((err) =>

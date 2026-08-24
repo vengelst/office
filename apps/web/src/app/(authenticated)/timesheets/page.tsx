@@ -308,12 +308,13 @@ function GenerateDialog({
           : {}),
       };
       const result = await timesheetsApi.generate(body);
-      if ('sheets' in result && Array.isArray(result.sheets)) {
+      if ('sheets' in result) {
         toast({
           description: t.multiOk.replace('{count}', String(result.count)),
         });
         onOpenChange(false);
-        onGenerated(result.sheets[0]?.id ?? '');
+        const firstId = result.sheets[0]?.id;
+        if (firstId) onGenerated(firstId);
       } else {
         toast({ description: texts.timesheets.toast.generated });
         onOpenChange(false);
