@@ -36,6 +36,7 @@ import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
 import { GpsPingDto } from './dto/gps-ping.dto';
+import { SwitchActivityDto } from './dto/switch-activity.dto';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -128,6 +129,18 @@ export class TimeEntriesController {
   @ApiOperation({ summary: 'Ausstempeln' })
   clockOut(@Body() dto: ClockOutDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.clockOut(dto, user);
+  }
+
+  @Post('switch-activity')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
+  @ApiOperation({ summary: 'Master: Tätigkeit während der Schicht wechseln' })
+  switchActivity(
+    @Body() dto: SwitchActivityDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.timeEntries.switchActivity(dto, user);
   }
 
   @Post('upload-photo')

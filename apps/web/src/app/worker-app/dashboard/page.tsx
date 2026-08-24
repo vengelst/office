@@ -41,6 +41,10 @@ import {
   type WorkerMeAssignment,
 } from '@/lib/timesheets';
 import {
+  activityTypesApi,
+  type ActivityTypeItem,
+} from '@/lib/activity-types';
+import {
   getOptimisticClockStatus,
   startOfflineClockSync,
 } from '@/lib/offline-clock-queue';
@@ -103,6 +107,8 @@ export default function WorkerDashboardPage(): React.ReactNode {
   const [status, setStatus] = useState<ClockStatus | null>(null);
   const [today, setToday] = useState<TodayEntry[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [activityTypes, setActivityTypes] = useState<ActivityTypeItem[]>([]);
+  const [selectedActivityTypeId, setSelectedActivityTypeId] = useState('');
   const [busy, setBusy] = useState(false);
   const [gpsOk, setGpsOk] = useState<boolean | null>(null);
   const [, setTick] = useState(0);
@@ -155,6 +161,29 @@ export default function WorkerDashboardPage(): React.ReactNode {
     void getGeo().then((g) => setGpsOk(g !== null));
   }, [refresh]);
 
+  // Master: Tätigkeitskatalog laden
+  useEffect(() => {
+    if (!worker?.masterEngineer) {
+      setActivityTypes([]);
+      setSelectedActivityTypeId('');
+      return;
+    }
+    void activityTypesApi
+      .listActiveForWorker()
+      .then((list) => {
+        setActivityTypes(list);
+        setSelectedActivityTypeId((prev) => {
+          if (prev && list.some((a) => a.id === prev)) return prev;
+          const fromStatus = status?.currentActivity?.id;
+          if (fromStatus && list.some((a) => a.id === fromStatus)) {
+            return fromStatus;
+          }
+          return list[0]?.id ?? '';
+        });
+      })
+      .catch(() => setActivityTypes([]));
+  }, [worker?.masterEngineer, worker?.id, status?.currentActivity?.id]);
+
   // Sekunden-Timer, solange eingestempelt.
   useEffect(() => {
     if (!status?.clockedIn) return;
@@ -195,6 +224,10 @@ export default function WorkerDashboardPage(): React.ReactNode {
       toast({ description: t.toast.noProject });
       return;
     }
+    if (worker.masterEngineer && !selectedActivityTypeId) {
+      toast({ description: t.toast.noActivity });
+      return;
+    }
     const assignment = (worker.assignments ?? []).find(
       (a) => a.project.id === projectId,
     );
@@ -209,6 +242,9 @@ export default function WorkerDashboardPage(): React.ReactNode {
         occurredAtClient: new Date().toISOString(),
         sourceDevice:
           typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+        activityTypeId: worker.masterEngineer
+          ? selectedActivityTypeId
+          : undefined,
         projectSnapshot: assignment
           ? {
               id: assignment.project.id,
@@ -227,6 +263,31 @@ export default function WorkerDashboardPage(): React.ReactNode {
         await refresh(worker.id);
         toast({ description: t.toast.clockedIn });
       }
+    } catch (err) {
+      toast({
+        description: err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSwitchActivity = async (activityTypeId: string): Promise<void> => {
+    if (!worker || !status?.clockedIn) return;
+    if (activityTypeId === status.currentActivity?.id) return;
+    setSelectedActivityTypeId(activityTypeId);
+    setBusy(true);
+    try {
+      const geo = await getGeo();
+      setGpsOk(geo !== null);
+      const next = await workerApi.switchActivity({
+        workerId: worker.id,
+        activityTypeId,
+        ...geo,
+        occurredAtClient: new Date().toISOString(),
+      });
+      setStatus(next);
+      toast({ description: t.toast.activitySwitched });
     } catch (err) {
       toast({
         description: err instanceof ApiError ? err.message : t.toast.error,
@@ -474,9 +535,53 @@ export default function WorkerDashboardPage(): React.ReactNode {
           </p>
         )}
 
+        {worker?.masterEngineer && activityTypes.length > 0 && (
+          <div className="w-full max-w-sm space-y-2">
+            <p className="text-center text-sm text-muted-foreground">
+              {clockedIn
+                ? t.dashboard.switchActivity
+                : t.dashboard.chooseActivity}
+            </p>
+            {clockedIn && status?.currentActivity && (
+              <p className="text-center text-sm font-medium text-emerald-600">
+                {t.dashboard.currentActivity}: {status.currentActivity.name}
+              </p>
+            )}
+            <Select
+              value={selectedActivityTypeId}
+              onValueChange={(id) => {
+                if (clockedIn) {
+                  void handleSwitchActivity(id);
+                } else {
+                  setSelectedActivityTypeId(id);
+                }
+              }}
+              disabled={busy}
+            >
+              <SelectTrigger className="min-h-[48px] w-full">
+                <SelectValue placeholder={t.dashboard.chooseActivity} />
+              </SelectTrigger>
+              <SelectContent>
+                {activityTypes.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <button
           type="button"
-          disabled={busy || (!clockedIn && current.length === 0)}
+          disabled={
+            busy ||
+            (!clockedIn && current.length === 0) ||
+            (!clockedIn &&
+              !!worker?.masterEngineer &&
+              activityTypes.length > 0 &&
+              !selectedActivityTypeId)
+          }
           onClick={clockedIn ? handleClockOut : handleClockIn}
           className={cn(
             'flex h-40 w-40 flex-col items-center justify-center gap-2 rounded-full text-lg font-semibold text-white shadow-lg transition-transform active:scale-95 disabled:opacity-50',

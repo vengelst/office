@@ -360,6 +360,7 @@ function WeekTab({
             <TableHead className="text-right">{t.gross}</TableHead>
             <TableHead className="text-right">{t.break}</TableHead>
             <TableHead className="text-right">{t.net}</TableHead>
+            <TableHead>{t.activities}</TableHead>
             <TableHead>{t.comment}</TableHead>
             {editable && <TableHead className="w-px" />}
           </TableRow>
@@ -400,6 +401,16 @@ function WeekTab({
               </TableCell>
               <TableCell className="text-right font-mono font-medium">
                 {formatMinutes(d.netMinutes)}
+              </TableCell>
+              <TableCell className="max-w-[12rem] text-xs text-muted-foreground">
+                {(d.activities ?? []).length === 0
+                  ? '—'
+                  : (d.activities ?? [])
+                      .map(
+                        (a) =>
+                          `${a.activityType.name} ${formatMinutes(a.minutes)}`,
+                      )
+                      .join(' · ')}
               </TableCell>
               <TableCell className="max-w-[14rem] truncate text-muted-foreground">
                 {d.summaryComment ?? ''}

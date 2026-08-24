@@ -57,6 +57,8 @@ export interface OfflineClockEntry {
   gps?: OfflineClockGps;
   sourceDevice?: string;
   comment?: string;
+  /** Tätigkeitsbereich (Master Clock-In). */
+  activityTypeId?: string;
   createdAt: string;
   status: OfflineQueueItemStatus;
   lastError?: string;
@@ -451,6 +453,7 @@ export async function offlineAwareClockIn(
       },
       sourceDevice: body.sourceDevice,
       comment: body.comment,
+      activityTypeId: body.activityTypeId,
       createdAt: new Date().toISOString(),
       status: 'pending',
       projectSnapshot: projectSnapshot ?? null,
@@ -556,6 +559,9 @@ export async function syncOfflineClockQueue(): Promise<void> {
           sourceDevice: entry.sourceDevice,
           comment: entry.comment,
           clientEventId: entry.id,
+          ...(entry.type === 'CLOCK_IN' && entry.activityTypeId
+            ? { activityTypeId: entry.activityTypeId }
+            : {}),
         };
         if (entry.type === 'CLOCK_IN') {
           await clockFetchDirect('/time-entries/clock-in', body);

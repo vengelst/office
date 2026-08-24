@@ -232,9 +232,59 @@ export class TimesheetGenerationService {
       await tx.weeklyTimesheetDay.deleteMany({
         where: { weeklyTimesheetId: sheet.id },
       });
-      await tx.weeklyTimesheetDay.createMany({
-        data: days.map((d) => ({ ...d, weeklyTimesheetId: sheet.id })),
+
+      const weekSegments = await tx.timeActivitySegment.findMany({
+        where: {
+          workerId: dto.workerId,
+          projectId: dto.projectId,
+          startedAt: { lte: end },
+          OR: [{ endedAt: null }, { endedAt: { gte: start } }],
+        },
+        select: {
+          activityTypeId: true,
+          startedAt: true,
+          endedAt: true,
+        },
       });
+
+      for (const d of days) {
+        const dayRow = await tx.weeklyTimesheetDay.create({
+          data: { ...d, weeklyTimesheetId: sheet.id },
+        });
+        const dayStart = new Date(d.workDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(d.workDate);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const byType = new Map<string, number>();
+        for (const seg of weekSegments) {
+          const segStart = seg.startedAt < dayStart ? dayStart : seg.startedAt;
+          const segEndRaw = seg.endedAt ?? new Date();
+          const segEnd = segEndRaw > dayEnd ? dayEnd : segEndRaw;
+          if (segEnd <= segStart) continue;
+          if (seg.startedAt > dayEnd || (seg.endedAt && seg.endedAt < dayStart)) {
+            continue;
+          }
+          const mins = Math.max(
+            0,
+            Math.round((segEnd.getTime() - segStart.getTime()) / 60000),
+          );
+          if (mins <= 0) continue;
+          byType.set(
+            seg.activityTypeId,
+            (byType.get(seg.activityTypeId) ?? 0) + mins,
+          );
+        }
+        if (byType.size > 0) {
+          await tx.weeklyTimesheetDayActivity.createMany({
+            data: [...byType.entries()].map(([activityTypeId, minutes]) => ({
+              weeklyTimesheetDayId: dayRow.id,
+              activityTypeId,
+              minutes,
+            })),
+          });
+        }
+      }
       return sheet;
     });
 

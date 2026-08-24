@@ -30,6 +30,10 @@ import { KT } from '@/lib/texts/kiosk-terminal-i18n';
 import { kioskDebugLog } from '@/lib/kiosk-debug';
 import { usePeriodicGpsPing } from '@/lib/use-periodic-gps-ping';
 import { recordWorkerGps, appendGpsToFormData } from '@/lib/record-worker-gps';
+import {
+  activityTypesApi,
+  type ActivityTypeItem,
+} from '@/lib/activity-types';
 import type { KioskConfig } from '../setup/page';
 
 const KIOSK_CONFIG_KEY = 'office_kiosk_config';
@@ -103,6 +107,10 @@ export default function KioskTerminalPage() {
   const [clockStatus, setClockStatus] = useState<ClockStatus | null>(null);
   /** Projekt fürs Einstempeln (Master kann wählen; sonst Kiosk-Setup-Projekt). */
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [activityTypes, setActivityTypes] = useState<ActivityTypeItem[]>([]);
+  const [selectedActivityTypeId, setSelectedActivityTypeId] = useState<string | null>(
+    null,
+  );
 
   // GPS
   const [gps, setGps] = useState<GpsData | null>(null);
@@ -371,6 +379,18 @@ export default function KioskTerminalPage() {
           ? merged.project.id
           : config?.projectId ?? null;
       setSelectedProjectId(defaultProjectId);
+      setSelectedActivityTypeId(null);
+      if (me.masterEngineer) {
+        void activityTypesApi
+          .listActiveForWorker()
+          .then((list) => {
+            setActivityTypes(list);
+            if (list[0]) setSelectedActivityTypeId(list[0].id);
+          })
+          .catch(() => setActivityTypes([]));
+      } else {
+        setActivityTypes([]);
+      }
       setState('action');
       lastInteraction.current = Date.now();
       acquireGps();
@@ -395,6 +415,10 @@ export default function KioskTerminalPage() {
     if (!assignmentValidToday(worker, projectId)) {
       return;
     }
+    if (worker.masterEngineer && !selectedActivityTypeId) {
+      setPinError(t(KT.activityRequired));
+      return;
+    }
     resetActivity();
     setProcessing(true);
     try {
@@ -414,6 +438,7 @@ export default function KioskTerminalPage() {
         accuracy: gpsData?.accuracy,
         occurredAtClient: new Date().toISOString(),
         sourceDevice: 'kiosk',
+        activityTypeId: selectedActivityTypeId ?? undefined,
         projectSnapshot: assignment
           ? {
               id: assignment.project.id,
@@ -775,6 +800,53 @@ export default function KioskTerminalPage() {
             <p className="mt-2 text-center text-xs text-gray-500">
               {t(KT.bookingOn)}
             </p>
+          </div>
+        )}
+
+        {/* Master: Tätigkeit wählen / wechseln */}
+        {worker.masterEngineer && activityTypes.length > 0 && (
+          <div className="mx-auto mt-4 w-full max-w-md">
+            <label className="mb-2 block text-center text-sm text-gray-400">
+              {isIn ? t(KT.switchActivity) : t(KT.chooseActivity)}
+            </label>
+            {isIn && clockStatus?.currentActivity && (
+              <p className="mb-2 text-center text-sm text-emerald-400">
+                {t(KT.currentActivity)}: {clockStatus.currentActivity.name}
+              </p>
+            )}
+            <select
+              value={selectedActivityTypeId ?? ''}
+              onChange={(e) => {
+                resetActivity();
+                const id = e.target.value || null;
+                setSelectedActivityTypeId(id);
+                if (isIn && id && worker) {
+                  void (async () => {
+                    try {
+                      const gpsData = gps ?? (await acquireGps());
+                      const next = await kioskApi.switchActivity({
+                        workerId: worker.id,
+                        activityTypeId: id,
+                        latitude: gpsData?.latitude,
+                        longitude: gpsData?.longitude,
+                        accuracy: gpsData?.accuracy,
+                      });
+                      setClockStatus(next);
+                    } catch {
+                      /* ignore */
+                    }
+                  })();
+                }
+              }}
+              className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-4 text-lg text-white"
+              style={{ minHeight: '56px' }}
+            >
+              {activityTypes.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
