@@ -128,6 +128,8 @@ office/
 - **Kiosk Kunden-PL** (`/kiosk/pl`) – PIN → eingereichte Wochenzettel sehen, unterschreiben & abzeichnen; Item-Board
 - **Worker-App** (`/worker-app`) – Monteur-Dashboard mit eigenen Zeiten; Offline-Stempel-Queue
 - **Live-Stempeluhr** (`/time-clock/live`) – Echtzeit-Anzeige aller aktiven Monteure
+- **Stempeluhr Zeitraum** (`/time-clock/period`) – Tages-/KW-Übersicht aller Monteure, Pause gebucht vs. Regel, Korrekturen (Auftrag #23)
+- **Pause stempeln** am Kiosk/Worker-App (`BREAK_START`/`BREAK_END`); Clock-Out schließt offene Pause automatisch
 - **Stempel-Rechte** – nur eigene Worker-ID bzw. Office/PM/SUPERADMIN (kein `CUSTOMER_PL`)
 
 ### 9. Dokumentensystem (`/documents`)

@@ -29,6 +29,9 @@ export const workerApp = {
       todayEmpty: 'Heute noch keine Stempelungen.',
       clockIn: 'Ein',
       clockOut: 'Aus',
+      startBreak: 'Pause starten',
+      endBreak: 'Pause beenden',
+      onBreakSince: 'Pause seit',
       gpsActive: 'GPS aktiv',
       gpsInactive: 'GPS inaktiv',
       addPhoto: 'Arbeitsfoto hinzufügen',
@@ -51,6 +54,8 @@ export const workerApp = {
     toast: {
       clockedIn: 'Eingestempelt.',
       clockedOut: 'Ausgestempelt.',
+      breakStarted: 'Pause gestartet.',
+      breakEnded: 'Pause beendet.',
       photoUploaded: 'Foto hochgeladen.',
       error: 'Aktion fehlgeschlagen.',
       noProject: 'Bitte zuerst ein Projekt auswählen.',

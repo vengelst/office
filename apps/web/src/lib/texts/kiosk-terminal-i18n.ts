@@ -48,6 +48,21 @@ export const KT = {
     sk: 'UKONČIŤ PRÁCU',
     sl: 'KONČAJ DELO',
   },
+  startBreak: {
+    de: 'Pause starten',
+    sk: 'Začať prestávku',
+    sl: 'Začni odmor',
+  },
+  endBreak: {
+    de: 'Pause beenden',
+    sk: 'Ukončiť prestávku',
+    sl: 'Končaj odmor',
+  },
+  onBreakSince: {
+    de: 'Pause seit',
+    sk: 'Prestávka od',
+    sl: 'Odmor od',
+  },
   takePhoto: {
     de: 'Foto aufnehmen',
     sk: 'Odfotiť',
