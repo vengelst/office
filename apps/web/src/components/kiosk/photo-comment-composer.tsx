@@ -258,6 +258,44 @@ export function PhotoCommentComposer({
   );
 }
 
+/** Relative Luminanz (0–1) an der Label-Position – analog zur Server-Logik. */
+function sampleLuminanceAt(
+  img: HTMLImageElement,
+  xNorm: number,
+  yNorm: number,
+): number {
+  try {
+    const nw = img.naturalWidth || 1;
+    const nh = img.naturalHeight || 1;
+    const sampleW = Math.max(8, Math.round(nw * 0.12));
+    const sampleH = Math.max(8, Math.round(nh * 0.08));
+    let sx = Math.round(xNorm * nw - sampleW / 2);
+    let sy = Math.round(yNorm * nh - sampleH / 2);
+    sx = Math.min(Math.max(0, sx), nw - sampleW);
+    sy = Math.min(Math.max(0, sy), nh - sampleH);
+    const canvas = document.createElement('canvas');
+    canvas.width = sampleW;
+    canvas.height = sampleH;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return 0.25;
+    ctx.drawImage(img, sx, sy, sampleW, sampleH, 0, 0, sampleW, sampleH);
+    const { data } = ctx.getImageData(0, 0, sampleW, sampleH);
+    let sum = 0;
+    let count = 0;
+    const step = Math.max(4, Math.floor((data.length / 4) / 256)) * 4;
+    for (let i = 0; i + 2 < data.length; i += step) {
+      const r = data[i] / 255;
+      const g = data[i + 1] / 255;
+      const b = data[i + 2] / 255;
+      sum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      count += 1;
+    }
+    return count === 0 ? 0.25 : sum / count;
+  } catch {
+    return 0.25;
+  }
+}
+
 /** Label über dem sichtbaren Bildbereich (nicht über Letterbox). */
 function PlacementLabel({
   img,
@@ -278,11 +316,19 @@ function PlacementLabel({
   const offsetY = (rect.height - dispH) / 2;
   const leftPct = ((offsetX + pos.x * dispW) / rect.width) * 100;
   const topPct = ((offsetY + pos.y * dispH) / rect.height) * 100;
+  const luminance = sampleLuminanceAt(img, pos.x, pos.y);
+  const lightBg = luminance >= 0.55;
+  const style: React.CSSProperties = {
+    left: `${leftPct}%`,
+    top: `${topPct}%`,
+    backgroundColor: lightBg ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.78)',
+    color: lightBg ? '#111111' : '#ffffff',
+  };
 
   return (
     <div
-      className="pointer-events-none absolute z-[5] max-w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-black/75 px-3 py-2 text-sm font-semibold text-white shadow"
-      style={{ left: `${leftPct}%`, top: `${topPct}%` }}
+      className="pointer-events-none absolute z-[5] max-w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-lg px-3 py-2 text-sm font-semibold shadow"
+      style={style}
     >
       {text}
     </div>

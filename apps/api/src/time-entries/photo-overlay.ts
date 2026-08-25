@@ -1,6 +1,9 @@
 /**
- * Brennt einen Kommentar als Banner/Label in ein Baustellenfoto (SVG via sharp).
- * Braucht System-Fonts (DejaVu) im Container – sonst nur schwarzer Balken ohne Text.
+ * Brennt einen Kommentar als Label/Banner in ein Baustellenfoto (SVG via sharp).
+ * Text- und Hintergrundfarbe richten sich nach der lokalen Bildhelligkeit,
+ * damit der Kommentar auf hellen und dunklen Fotos lesbar bleibt.
+ *
+ * Braucht System-Fonts (DejaVu) im Container – sonst nur Balken ohne Text.
  */
 
 import { existsSync } from 'node:fs';
@@ -15,6 +18,9 @@ const FONT_CANDIDATES = [
   '/usr/share/fonts/ttf-dejavu/DejaVuSans.ttf',
   '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
 ];
+
+/** Relative Luminanz darüber → dunkler Text auf hellem Grund. */
+const LUMINANCE_LIGHT_THRESHOLD = 0.55;
 
 function resolveFontFile(): string | null {
   for (const p of FONT_CANDIDATES) {
@@ -51,7 +57,6 @@ function wrapLines(text: string, maxChars: number): string[] {
 
 function fontFaceCss(fontPath: string | null): string {
   if (!fontPath) return '';
-  // file://-URL für librsvg/sharp – absolute Systemschrift einbinden
   const href = `file://${fontPath}`;
   return `<defs><style type="text/css"><![CDATA[
 @font-face { font-family: "OverlayFont"; src: url("${href}"); }
@@ -78,9 +83,79 @@ export interface BurnCommentOptions {
   yNorm?: number | null;
 }
 
+export interface OverlayColors {
+  text: string;
+  background: string;
+}
+
+/**
+ * Wählt Kontrastfarben anhand mittlerer Luminanz (0–1).
+ * Hell → dunkler Text auf hellem Grund; dunkel → heller Text auf dunklem Grund.
+ */
+export function colorsForLuminance(luminance: number): OverlayColors {
+  if (luminance >= LUMINANCE_LIGHT_THRESHOLD) {
+    return {
+      text: '#111111',
+      background: 'rgba(255,255,255,0.88)',
+    };
+  }
+  return {
+    text: '#ffffff',
+    background: 'rgba(0,0,0,0.78)',
+  };
+}
+
+/**
+ * Misst die mittlere relative Luminanz in einem Bildausschnitt (0–1).
+ * Bei Fehlern: 0.25 (dunkler Fallback → weißer Text).
+ */
+export async function sampleRegionLuminance(
+  buffer: Buffer,
+  region: { left: number; top: number; width: number; height: number },
+  imageWidth: number,
+  imageHeight: number,
+): Promise<number> {
+  let left = Math.max(0, Math.floor(region.left));
+  let top = Math.max(0, Math.floor(region.top));
+  let width = Math.max(1, Math.floor(region.width));
+  let height = Math.max(1, Math.floor(region.height));
+  if (left >= imageWidth || top >= imageHeight) return 0.25;
+  width = Math.min(width, imageWidth - left);
+  height = Math.min(height, imageHeight - top);
+  if (width < 1 || height < 1) return 0.25;
+
+  try {
+    const { data, info } = await sharp(buffer, { failOn: 'none' })
+      .extract({ left, top, width, height })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    const channels = info.channels;
+    if (channels < 3 || data.length < channels) return 0.25;
+
+    let sum = 0;
+    let count = 0;
+    const pixelCount = Math.floor(data.length / channels);
+    const step = Math.max(1, Math.floor(pixelCount / 256));
+    for (let i = 0; i + 2 < data.length; i += channels * step) {
+      const r = data[i] / 255;
+      const g = data[i + 1] / 255;
+      const b = data[i + 2] / 255;
+      sum += 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      count += 1;
+    }
+    if (count === 0) return 0.25;
+    return sum / count;
+  } catch {
+    return 0.25;
+  }
+}
+
 /**
  * Zeichnet den Kommentar ins Bild.
- * Mit xNorm/yNorm: Label an der getippten Stelle; sonst dunkler Balken unten.
+ * Mit xNorm/yNorm: Label an der getippten Stelle; sonst Banner unten.
+ * Farben adaptiv zur lokalen Bildhelligkeit.
  */
 export async function burnCommentIntoImage(
   buffer: Buffer,
@@ -131,7 +206,9 @@ export async function burnCommentIntoImage(
         Math.max(
           Math.round(width * 0.35),
           padding * 2 +
-            Math.round(fontSize * 0.55 * Math.max(...lines.map((l) => l.length))),
+            Math.round(
+              fontSize * 0.55 * Math.max(...lines.map((l) => l.length)),
+            ),
         ),
       );
       let left = Math.round(xNorm * width - labelWidth / 2);
@@ -140,13 +217,21 @@ export async function burnCommentIntoImage(
       top = Math.min(Math.max(8, top), height - barHeight - 8);
       const textX = left + padding;
 
+      const luminance = await sampleRegionLuminance(
+        buffer,
+        { left, top, width: labelWidth, height: barHeight },
+        width,
+        height,
+      );
+      const colors = colorsForLuminance(luminance);
+
       const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
   ${defs}
   <rect x="${left}" y="${top}" width="${labelWidth}" height="${barHeight}"
-        rx="8" ry="8" fill="rgba(0,0,0,0.78)"/>
+        rx="8" ry="8" fill="${colors.background}"/>
   <text x="${textX}" y="${top + padding + fontSize}"
         font-family="${fontFamily}"
-        font-size="${fontSize}" fill="#ffffff" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
+        font-size="${fontSize}" fill="${colors.text}" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
 </svg>`;
 
       out = await image
@@ -155,12 +240,29 @@ export async function burnCommentIntoImage(
         .toBuffer();
     } else {
       const textX = padding;
+      const sampleH = Math.min(
+        height,
+        Math.max(barHeight, Math.round(height * 0.12)),
+      );
+      const luminance = await sampleRegionLuminance(
+        buffer,
+        {
+          left: 0,
+          top: Math.max(0, height - sampleH),
+          width,
+          height: sampleH,
+        },
+        width,
+        height,
+      );
+      const colors = colorsForLuminance(luminance);
+
       const svg = `<svg width="${width}" height="${barHeight}" xmlns="http://www.w3.org/2000/svg">
   ${defs}
-  <rect width="100%" height="100%" fill="rgba(0,0,0,0.78)"/>
+  <rect width="100%" height="100%" fill="${colors.background}"/>
   <text x="${textX}" y="${padding + fontSize}"
         font-family="${fontFamily}"
-        font-size="${fontSize}" fill="#ffffff" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
+        font-size="${fontSize}" fill="${colors.text}" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
 </svg>`;
 
       out = await image
