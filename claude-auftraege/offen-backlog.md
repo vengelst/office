@@ -52,8 +52,9 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 1. Google Admin: Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` (gleicher SA)
 2. Cloud-Auftrag `#20` – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`)
 3. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
-4. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
-5. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
+4. **Cloud-Auftrag `#23` – Stempeluhr & Stundenzettel Gesamtkonzept** (`claude-arbeitsitems-23-stempeluhr-stundenzettel.md`): Pause Start/Stopp am Kiosk, Office-Tab Zeitraum (Tag/KW + Projekt/Monteur/Team), Korrekturen, Anbindung Stundenzettel
+5. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
+6. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
 
 ---
 
