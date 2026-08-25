@@ -321,13 +321,14 @@ function PlacementLabel({
   const style: React.CSSProperties = {
     left: `${leftPct}%`,
     top: `${topPct}%`,
-    backgroundColor: lightBg ? 'rgba(255,255,255,0.88)' : 'rgba(0,0,0,0.78)',
+    backgroundColor: lightBg ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.82)',
     color: lightBg ? '#111111' : '#ffffff',
+    border: `2px solid ${lightBg ? '#111111' : '#ffffff'}`,
   };
 
   return (
     <div
-      className="pointer-events-none absolute z-[5] max-w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-lg px-3 py-2 text-sm font-semibold shadow"
+      className="pointer-events-none absolute z-[5] max-w-[70%] -translate-x-1/2 -translate-y-1/2 rounded-2xl px-3 py-2 text-sm font-semibold shadow"
       style={style}
     >
       {text}

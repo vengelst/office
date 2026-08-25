@@ -1,7 +1,7 @@
 /**
  * Brennt einen Kommentar als Label/Banner in ein Baustellenfoto (SVG via sharp).
- * Text- und Hintergrundfarbe richten sich nach der lokalen Bildhelligkeit,
- * damit der Kommentar auf hellen und dunklen Fotos lesbar bleibt.
+ * Text-, Hintergrund- und Randfarbe richten sich nach der lokalen Bildhelligkeit.
+ * EXIF-Orientierung wird immer in die Pixel übernommen (Hochkant bleibt Hochkant).
  *
  * Braucht System-Fonts (DejaVu) im Container – sonst nur Balken ohne Text.
  */
@@ -86,22 +86,26 @@ export interface BurnCommentOptions {
 export interface OverlayColors {
   text: string;
   background: string;
+  /** Sichtbarer Rand – kontrastreich zur Bildhelligkeit. */
+  border: string;
 }
 
 /**
  * Wählt Kontrastfarben anhand mittlerer Luminanz (0–1).
- * Hell → dunkler Text auf hellem Grund; dunkel → heller Text auf dunklem Grund.
+ * Hell → dunkler Text/Rand auf hellem Grund; dunkel → hell auf dunklem Grund.
  */
 export function colorsForLuminance(luminance: number): OverlayColors {
   if (luminance >= LUMINANCE_LIGHT_THRESHOLD) {
     return {
       text: '#111111',
-      background: 'rgba(255,255,255,0.88)',
+      background: 'rgba(255,255,255,0.92)',
+      border: '#111111',
     };
   }
   return {
     text: '#ffffff',
-    background: 'rgba(0,0,0,0.78)',
+    background: 'rgba(0,0,0,0.82)',
+    border: '#ffffff',
   };
 }
 
@@ -153,9 +157,8 @@ export async function sampleRegionLuminance(
 }
 
 /**
- * Zeichnet den Kommentar ins Bild.
- * Mit xNorm/yNorm: Label an der getippten Stelle; sonst Banner unten.
- * Farben adaptiv zur lokalen Bildhelligkeit.
+ * Übernimmt EXIF-Orientierung in die Pixel und liefert JPEG.
+ * Ohne Kommentar: nur Normierung; mit Kommentar: Label/Banner einbrennen.
  */
 export async function burnCommentIntoImage(
   buffer: Buffer,
@@ -163,16 +166,23 @@ export async function burnCommentIntoImage(
   comment: string | undefined | null,
   options?: BurnCommentOptions,
 ): Promise<{ buffer: Buffer; mimeType: string }> {
-  const text = comment?.trim();
-  if (!text) {
-    return { buffer, mimeType };
-  }
   if (!/^image\//.test(mimeType) || mimeType.includes('svg')) {
     return { buffer, mimeType };
   }
 
   try {
-    const image = sharp(buffer, { failOn: 'none' });
+    // .rotate() ohne Winkel = EXIF auto-orient → Hochkant bleibt Hochkant.
+    const oriented = await sharp(buffer, { failOn: 'none' })
+      .rotate()
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    const text = comment?.trim();
+    if (!text) {
+      return { buffer: oriented, mimeType: 'image/jpeg' };
+    }
+
+    const image = sharp(oriented, { failOn: 'none' });
     const meta = await image.metadata();
     const width = meta.width ?? 1200;
     const height = meta.height ?? 900;
@@ -182,7 +192,7 @@ export async function burnCommentIntoImage(
     const maxChars = Math.max(12, Math.floor(width / (fontSize * 0.55)));
     const lines = wrapLines(text, maxChars);
     if (lines.length === 0) {
-      return { buffer, mimeType };
+      return { buffer: oriented, mimeType: 'image/jpeg' };
     }
     const barHeight = padding * 2 + lines.length * lineHeight;
     const fontPath = resolveFontFile();
@@ -190,6 +200,8 @@ export async function burnCommentIntoImage(
       ? 'OverlayFont, DejaVu Sans, sans-serif'
       : 'DejaVu Sans, Liberation Sans, Arial, sans-serif';
     const defs = fontFaceCss(fontPath);
+    const cornerRadius = Math.max(12, Math.round(fontSize * 0.55));
+    const strokeWidth = Math.max(2, Math.round(fontSize * 0.08));
 
     const hasPos =
       options?.xNorm != null &&
@@ -218,7 +230,7 @@ export async function burnCommentIntoImage(
       const textX = left + padding;
 
       const luminance = await sampleRegionLuminance(
-        buffer,
+        oriented,
         { left, top, width: labelWidth, height: barHeight },
         width,
         height,
@@ -228,7 +240,9 @@ export async function burnCommentIntoImage(
       const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
   ${defs}
   <rect x="${left}" y="${top}" width="${labelWidth}" height="${barHeight}"
-        rx="8" ry="8" fill="${colors.background}"/>
+        rx="${cornerRadius}" ry="${cornerRadius}"
+        fill="${colors.background}"
+        stroke="${colors.border}" stroke-width="${strokeWidth}"/>
   <text x="${textX}" y="${top + padding + fontSize}"
         font-family="${fontFamily}"
         font-size="${fontSize}" fill="${colors.text}" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
@@ -245,7 +259,7 @@ export async function burnCommentIntoImage(
         Math.max(barHeight, Math.round(height * 0.12)),
       );
       const luminance = await sampleRegionLuminance(
-        buffer,
+        oriented,
         {
           left: 0,
           top: Math.max(0, height - sampleH),
@@ -256,10 +270,15 @@ export async function burnCommentIntoImage(
         height,
       );
       const colors = colorsForLuminance(luminance);
+      const bannerRadius = Math.max(10, Math.round(cornerRadius * 0.75));
 
       const svg = `<svg width="${width}" height="${barHeight}" xmlns="http://www.w3.org/2000/svg">
   ${defs}
-  <rect width="100%" height="100%" fill="${colors.background}"/>
+  <rect x="${strokeWidth / 2}" y="${strokeWidth / 2}"
+        width="${width - strokeWidth}" height="${barHeight - strokeWidth}"
+        rx="${bannerRadius}" ry="${bannerRadius}"
+        fill="${colors.background}"
+        stroke="${colors.border}" stroke-width="${strokeWidth}"/>
   <text x="${textX}" y="${padding + fontSize}"
         font-family="${fontFamily}"
         font-size="${fontSize}" fill="${colors.text}" font-weight="700">${buildTspans(lines, textX, lineHeight)}</text>
