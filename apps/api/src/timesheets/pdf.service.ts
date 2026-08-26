@@ -38,7 +38,17 @@ export class TimesheetPdfService {
       include: {
         worker: true,
         project: { include: { customer: true } },
-        days: { orderBy: { workDate: 'asc' } },
+        days: {
+          orderBy: { workDate: 'asc' },
+          include: {
+            activities: {
+              include: {
+                activityType: { select: { id: true, name: true, code: true } },
+              },
+              orderBy: { activityType: { sortOrder: 'asc' } },
+            },
+          },
+        },
         signatures: true,
       },
     });
@@ -151,6 +161,55 @@ export class TimesheetPdfService {
       true,
     );
     y += 30;
+
+    // ── Tätigkeitsaufschlüsselung (Master) ──────────────────
+    const activityRows: Array<{ day: string; name: string; minutes: number }> =
+      [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + i);
+      const day = dayMap.get(dateKey(date));
+      for (const a of day?.activities ?? []) {
+        activityRows.push({
+          day: WEEKDAYS[i],
+          name: a.activityType.name,
+          minutes: a.minutes,
+        });
+      }
+    }
+    if (activityRows.length > 0) {
+      doc.y = y;
+      doc.x = startX;
+      doc.fontSize(12).text('Tätigkeiten (abrechnungsrelevant)');
+      doc.moveDown(0.4);
+      y = doc.y;
+      const aCols = [
+        { label: 'Tag', width: 50 },
+        { label: 'Tätigkeit', width: 280 },
+        { label: 'Minuten', width: 80 },
+      ];
+      this.drawRow(
+        doc,
+        startX,
+        y,
+        aCols,
+        aCols.map((c) => c.label),
+        true,
+      );
+      y += 20;
+      for (const row of activityRows) {
+        this.drawRow(
+          doc,
+          startX,
+          y,
+          aCols,
+          [row.day, row.name, formatMinutes(row.minutes)],
+          false,
+        );
+        y += 18;
+      }
+      y += 16;
+    }
 
     // ── Unterschriften ──────────────────────────────────────
     doc.y = y;

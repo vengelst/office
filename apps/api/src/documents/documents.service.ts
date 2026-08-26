@@ -637,8 +637,10 @@ export class DocumentsService {
     try {
       const sharpModule = await import('sharp');
       const sharp = sharpModule.default ?? sharpModule;
+      // EXIF auto-orient, dann in Quadrat einpassen (Hochkant bleibt Hochkant).
       const thumb = await sharp(buffer)
-        .resize(300, 300, { fit: 'cover' })
+        .rotate()
+        .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 80 })
         .toBuffer();
       const thumbnailKey = `${storageKey}.thumb.jpg`;

@@ -10,6 +10,8 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Delete,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -36,6 +38,9 @@ import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
 import { GpsPingDto } from './dto/gps-ping.dto';
+import { SwitchActivityDto } from './dto/switch-activity.dto';
+import { BreakDto } from './dto/break.dto';
+import { ManualEntryDto, UpdateEntryDto } from './dto/manual-entry.dto';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -128,6 +133,103 @@ export class TimeEntriesController {
   @ApiOperation({ summary: 'Ausstempeln' })
   clockOut(@Body() dto: ClockOutDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.clockOut(dto, user);
+  }
+
+
+  @Get('overview')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
+  @ApiOperation({ summary: 'Stempel-Übersicht Zeitraum (Tag oder KW)' })
+  overview(
+    @Query('date') date?: string,
+    @Query('weekYear') weekYear?: string,
+    @Query('weekNumber') weekNumber?: string,
+    @Query('projectId') projectId?: string,
+    @Query('workerId') workerId?: string,
+    @Query('teamId') teamId?: string,
+  ) {
+    return this.timeEntries.overview({
+      date,
+      weekYear: weekYear ? Number(weekYear) : undefined,
+      weekNumber: weekNumber ? Number(weekNumber) : undefined,
+      projectId,
+      workerId,
+      teamId,
+    });
+  }
+
+  @Get('timeline/:workerId')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
+  @ApiOperation({ summary: 'Tages-Timeline eines Monteurs' })
+  timeline(
+    @Param('workerId') workerId: string,
+    @Query('date') date: string,
+  ) {
+    return this.timeEntries.timeline(workerId, date);
+  }
+
+  @Post('break-start')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
+  @ApiOperation({ summary: 'Pause starten' })
+  breakStart(@Body() dto: BreakDto, @CurrentUser() user: AuthUser) {
+    return this.timeEntries.breakStart(dto, user);
+  }
+
+  @Post('break-end')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
+  @ApiOperation({ summary: 'Pause beenden' })
+  breakEnd(@Body() dto: BreakDto, @CurrentUser() user: AuthUser) {
+    return this.timeEntries.breakEnd(dto, user);
+  }
+
+  @Post('manual')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
+  @ApiOperation({ summary: 'Manuelles Stempel-Event (Büro)' })
+  createManual(@Body() dto: ManualEntryDto, @CurrentUser() user: AuthUser) {
+    return this.timeEntries.createManual(dto, user);
+  }
+
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
+  @ApiOperation({ summary: 'Stempel-Event korrigieren' })
+  updateEntry(
+    @Param('id') id: string,
+    @Body() dto: UpdateEntryDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.timeEntries.updateEntry(id, dto, user);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')
+  @ApiOperation({ summary: 'Stempel-Event löschen' })
+  deleteEntry(
+    @Param('id') id: string,
+    @Body() body: { comment: string },
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.timeEntries.deleteEntry(id, user, body.comment);
+  }
+
+  @Post('switch-activity')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
+  @ApiOperation({ summary: 'Master: Tätigkeit während der Schicht wechseln' })
+  switchActivity(
+    @Body() dto: SwitchActivityDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.timeEntries.switchActivity(dto, user);
   }
 
   @Post('upload-photo')

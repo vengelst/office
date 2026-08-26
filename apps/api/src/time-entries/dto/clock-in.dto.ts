@@ -56,4 +56,12 @@ export class ClockInDto {
   @IsOptional()
   @IsUUID('4')
   clientEventId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tätigkeitsbereich (Pflicht für Master-Monteur)',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  activityTypeId?: string;
 }

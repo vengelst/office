@@ -1,22 +1,22 @@
 ---
-description: Office Offener Backlog – v1.0.0 Production; Calendar Phase 1 (Auftrag #20)
+description: Office Offener Backlog – v1.0.1 Production; Calendar Phase 1 (Auftrag #20)
 alwaysApply: false
 ---
 
 # Office – Offener Backlog
 
-Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel, Handbuch oder GPS anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** lesen.
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel, Handbuch, GPS oder Stempeluhr anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** lesen.
 
-## Session-Übergabe (Stand 2026-08-26 · Version 1.0.0)
+## Session-Übergabe (Stand 2026-08-26 · Version 1.0.1)
 
 **Erledigt & auf Prod:**
-1. Stempel-API-Rollen (`488ad20`)
-2. Produktklarstellung: eigene App; PIN bleibt
-3. Google Contacts UI + **produktiv**
-4. Kiosk #21a–c (Zuweisung, PIN-Freigabe, Foto-Overlay)
-5. Master-Monteur, Stundenzettel-Bearbeitung, Backup Europe/Berlin, kein Prod-Seed
-6. Release-Tag **v1.0.0**; Doku + **HANDBUCH.md** (+ PDF)
-7. GPS-Übersicht/Filter/Spur; GPS bei Login/Logout/Foto/Aktionen; Baustellenfotos-Tab; Kiosk-Fixes
+1. Stempel-API-Rollen; eigene App; PIN bleibt
+2. Google Contacts UI + **produktiv**
+3. Kiosk #21a–c; Master-Monteur; Stundenzettel-Bearbeitung; Backup Berlin; kein Prod-Seed
+4. Release **v1.0.0** + Handbuch (+ PDF)
+5. GPS (Übersicht/Filter/Spur + Login/Logout/Foto/Aktionen); Baustellenfotos-Tab; Kiosk-Fixes
+6. **#22** Master-Tätigkeitsbereiche · **#23** Stempeluhr Zeitraum / Pause / Korrekturen
+7. Release **v1.0.1** (UI-Splits, App-Icon, Foto-Feinschliff)
 
 **Offen (Prio):**
 - Google Admin: Calendar API + DWD-Scope `calendar` (gleicher SA)

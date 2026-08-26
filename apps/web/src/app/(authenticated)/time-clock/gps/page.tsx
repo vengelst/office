@@ -175,6 +175,9 @@ export default function TimeClockGpsPage(): React.ReactNode {
         <Button asChild variant="ghost" className="min-h-[40px]">
           <Link href="/time-clock/live">{t.tabs.live}</Link>
         </Button>
+        <Button asChild variant="ghost" className="min-h-[40px]">
+          <Link href="/time-clock/period">{t.tabs.period}</Link>
+        </Button>
         <Button asChild variant="secondary" className="min-h-[40px]">
           <Link href="/time-clock/gps">{t.tabs.gps}</Link>
         </Button>

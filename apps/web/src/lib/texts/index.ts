@@ -18,6 +18,7 @@ import { customerPl } from './customerPl';
 import { timeClock } from './timeClock';
 import { invoices } from './invoices';
 import { breakRules } from './breakRules';
+import { activityTypes } from './activityTypes';
 import { workerApp } from './workerApp';
 import { offlineClock } from './offlineClock';
 import { settings } from './settings';
@@ -47,6 +48,7 @@ export const texts = {
   timeClock,
   invoices,
   breakRules,
+  activityTypes,
   workerApp,
   offlineClock,
   settings,

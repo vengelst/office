@@ -48,6 +48,21 @@ export const KT = {
     sk: 'UKONČIŤ PRÁCU',
     sl: 'KONČAJ DELO',
   },
+  startBreak: {
+    de: 'Pause starten',
+    sk: 'Začať prestávku',
+    sl: 'Začni odmor',
+  },
+  endBreak: {
+    de: 'Pause beenden',
+    sk: 'Ukončiť prestávku',
+    sl: 'Končaj odmor',
+  },
+  onBreakSince: {
+    de: 'Pause seit',
+    sk: 'Prestávka od',
+    sl: 'Odmor od',
+  },
   takePhoto: {
     de: 'Foto aufnehmen',
     sk: 'Odfotiť',
@@ -150,13 +165,33 @@ export const KT = {
   },
   chooseProject: {
     de: 'Projekt wählen (Master-Monteur)',
-    sk: 'Vyberte projekt (master)',
-    sl: 'Izberite projekt (master)',
+    sk: 'Vyberte projekt (Master)',
+    sl: 'Izberite projekt (Master)',
   },
   bookingOn: {
     de: 'Zeiten werden gebucht auf',
     sk: 'Čas sa eviduje na',
     sl: 'Čas se knjiži na',
+  },
+  chooseActivity: {
+    de: 'Tätigkeit wählen',
+    sk: 'Vyberte činnosť',
+    sl: 'Izberite dejavnost',
+  },
+  switchActivity: {
+    de: 'Tätigkeit wechseln',
+    sk: 'Zmeniť činnosť',
+    sl: 'Zamenjaj dejavnost',
+  },
+  currentActivity: {
+    de: 'Aktuelle Tätigkeit',
+    sk: 'Aktuálna činnosť',
+    sl: 'Trenutna dejavnost',
+  },
+  activityRequired: {
+    de: 'Bitte Tätigkeit wählen',
+    sk: 'Prosím vyberte činnosť',
+    sl: 'Prosimo izberite dejavnost',
   },
   photoCommentTitle: {
     de: 'Kommentar zum Foto',

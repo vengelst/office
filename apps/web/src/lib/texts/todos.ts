@@ -44,6 +44,9 @@ export const todos = {
     },
     empty: 'Keine Aufgaben vorhanden',
     overdue: 'Überfällig',
+    hover: {
+      noDescription: 'Keine Beschreibung hinterlegt.',
+    },
     dashboard: {
       title: 'Meine Aufgaben',
       open: 'Offen',

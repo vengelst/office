@@ -157,7 +157,7 @@ export function SitePhotosGallery({
       {loading ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="aspect-[4/3] w-full rounded-lg" />
+            <Skeleton key={i} className="aspect-square w-full rounded-lg" />
           ))}
         </div>
       ) : filtered.length === 0 ? (
@@ -317,20 +317,20 @@ function AuthPhotoThumb({
   }, [docId]);
 
   if (!blobUrl) {
-    return <Skeleton className="aspect-[4/3] w-full" />;
+    return <Skeleton className="aspect-square w-full" />;
   }
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className="block w-full overflow-hidden"
+      className="block w-full overflow-hidden bg-muted"
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={blobUrl}
         alt={alt}
-        className="aspect-[4/3] w-full object-cover"
+        className="aspect-square w-full object-contain"
       />
     </button>
   );

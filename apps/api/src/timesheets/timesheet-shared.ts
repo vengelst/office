@@ -80,7 +80,19 @@ export const detailInclude = {
   },
   reviewedBy: { select: { id: true, displayName: true } },
   approvedBy: { select: { id: true, displayName: true } },
-  days: { orderBy: { workDate: 'asc' } },
+  days: {
+    orderBy: { workDate: 'asc' },
+    include: {
+      activities: {
+        include: {
+          activityType: {
+            select: { id: true, code: true, name: true, billable: true },
+          },
+        },
+        orderBy: { activityType: { sortOrder: 'asc' } },
+      },
+    },
+  },
   signatures: { orderBy: { signedAt: 'asc' } },
 } satisfies Prisma.WeeklyTimesheetInclude;
 

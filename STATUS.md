@@ -1,7 +1,7 @@
 # Office App – Projektstatus
 
-**Version:** **1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
-**Stand:** 26. August 2026  
+**Version:** **1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) (Basis: [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0))  
+**Stand:** 26. August 2026 · Prod-Branch: `main`  
 **Server:** office.vivahome.de · Kiosk: work.vivahome.de  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
@@ -129,6 +129,8 @@ office/
 - **Kiosk Kunden-PL** (`/kiosk/pl`) – PIN → eingereichte Wochenzettel sehen, unterschreiben & abzeichnen; Item-Board
 - **Worker-App** (`/worker-app`) – Monteur-Dashboard mit eigenen Zeiten; Offline-Stempel-Queue
 - **Live-Stempeluhr** (`/time-clock/live`) – Echtzeit-Anzeige aller aktiven Monteure
+- **Stempeluhr Zeitraum** (`/time-clock/period`) – Tages-/KW-Übersicht aller Monteure, Pause gebucht vs. Regel, Korrekturen (Auftrag #23)
+- **Pause stempeln** am Kiosk/Worker-App (`BREAK_START`/`BREAK_END`); Clock-Out schließt offene Pause automatisch
 - **Stempel-Rechte** – nur eigene Worker-ID bzw. Office/PM/SUPERADMIN (kein `CUSTOMER_PL`)
 
 ### 9. Dokumentensystem (`/documents`)
@@ -274,13 +276,19 @@ People API + DWD-Scope `contacts` aktiv; Sync unter Einstellungen → Google Con
 ## Deployment
 
 ### Server
-- **Host:** vivahome.de (root-Zugang via SSH)
+- **Host:** `vivahome.de` / `109.199.112.176` (`vmd200614`)
+- **SSH:** `root@…` **Port `2805`** (nicht 22)
 - **Pfad:** `/opt/office`
 - **URL:** https://office.vivahome.de
+- **Cloud-Agent-SSH:** eigener Deploy-Key in der VM + Public Key in `/root/.ssh/authorized_keys` — Details: [`DEPLOYMENT.md`](./DEPLOYMENT.md) Abschnitt „SSH-Zugang“
 
 ### Deployment-Befehl
 ```bash
-cd /opt/office && git pull && docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d
+# Bevorzugt (Server-Skript, Port 2805):
+ssh -p 2805 root@109.199.112.176 'cd /opt/office && bash deploy/server-deploy.sh --repo-url https://github.com/vengelst/office.git --branch main --path /opt/office'
+
+# Alternativ manuell:
+ssh -p 2805 root@109.199.112.176 'cd /opt/office && git pull && docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d'
 ```
 **WICHTIG:** Immer `--env-file .env.production` verwenden, sonst sind die Umgebungsvariablen leer!
 
@@ -307,12 +315,12 @@ Die `kiosk.apk` ist **nicht** im Docker-Image enthalten (zu groß). Persistenz �
 
 Neue APK nach lokalem EAS-Build:
 ```bash
-scp apps/mobile/kiosk.apk root@vivahome.de:/opt/office/data/kiosk.apk
+scp -P 2805 apps/mobile/kiosk.apk root@109.199.112.176:/opt/office/data/kiosk.apk
 # Container neu starten nur nötig, wenn die Datei vorher fehlte (Mount-Typ):
 # docker compose -f docker-compose.prod.yml --env-file .env.production up -d web
 ```
 
-**Wichtig:** Die Host-Datei muss **vor** dem ersten `up` existieren – sonst erzeugt Docker ein Verzeichnis statt einer Datei.
+**Wichtig:** Die Host-Datei muss **vor** dem ersten `up` existieren – sonst erzeugt Docker ein Verzeichnis statt einer Datei. Zielpfad ist `/opt/office/data/kiosk.apk` (nicht `/root/kiosk.apk`).
 
 ---
 

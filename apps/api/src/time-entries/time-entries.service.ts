@@ -20,7 +20,22 @@ import { WorkItemWorkflowService } from '../work-items/work-item-workflow.servic
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
 import { UploadPhotoDto } from './dto/upload-photo.dto';
+import { BreakDto } from './dto/break.dto';
+import { ManualEntryDto, UpdateEntryDto } from './dto/manual-entry.dto';
 import { burnCommentIntoImage } from './photo-overlay';
+import {
+  berlinDateKey,
+  berlinDayRange,
+  effectiveBreakMinutes,
+  grossMinutesFromClocks,
+  isoWeekRangeBerlin,
+  type StempelEvent,
+} from './break-calc.util';
+import {
+  selectBreakRule,
+  isoWeekOf,
+} from '../timesheets/timesheet.util';
+import { FINAL_STATUSES } from '../timesheets/timesheet-shared';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -60,7 +75,23 @@ export interface ClockStatus {
   durationMinutes: number;
   project: { id: string; projectNumber: string; title: string } | null;
   timeEntryId: string | null;
+  /** Pause aktiv (BREAK_START ohne BREAK_END seit offenem CLOCK_IN). */
+  onBreak: boolean;
+  breakStartedAt: Date | null;
+  currentActivity: {
+    id: string;
+    code: string;
+    name: string;
+    segmentId: string;
+    startedAt: Date;
+  } | null;
 }
+
+export type OverviewRowStatus =
+  | 'CLOCKED_IN'
+  | 'ON_BREAK'
+  | 'CLOCKED_OUT'
+  | 'NO_ENTRIES';
 
 /**
  * Service für die Zeiterfassung (Stempeluhr).
@@ -120,6 +151,19 @@ export class TimeEntriesService {
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
+    const workerMeta = await this.prisma.worker.findUnique({
+      where: { id: dto.workerId },
+      select: { masterEngineer: true },
+    });
+    if (workerMeta?.masterEngineer) {
+      if (!dto.activityTypeId) {
+        throw new BadRequestException(
+          'Master-Monteur: Tätigkeitsbereich ist Pflicht',
+        );
+      }
+      await this.assertActiveActivityType(dto.activityTypeId);
+    }
+
     try {
       const entry = await this.prisma.timeEntry.create({
         data: {
@@ -143,6 +187,17 @@ export class TimeEntriesService {
         GpsEventType.CLOCK_IN,
         dto.projectId,
       );
+
+      if (workerMeta?.masterEngineer && dto.activityTypeId) {
+        await this.prisma.timeActivitySegment.create({
+          data: {
+            workerId: dto.workerId,
+            projectId: dto.projectId,
+            activityTypeId: dto.activityTypeId,
+            startedAt: occurredAtClient,
+          },
+        });
+      }
 
       return this.getStatus(dto.workerId);
     } catch (err) {
@@ -182,6 +237,26 @@ export class TimeEntriesService {
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
     try {
+      // Pause während Clock-Out automatisch schließen (Auftrag #23).
+      const openBreakForOut = await this.getOpenBreakStart(
+        dto.workerId,
+        open.occurredAtClient,
+      );
+      if (openBreakForOut) {
+        const breakEndAt = new Date(occurredAtClient.getTime() - 1);
+        await this.prisma.timeEntry.create({
+          data: {
+            workerId: dto.workerId,
+            projectId: open.projectId,
+            entryType: TimeEntryType.BREAK_END,
+            occurredAtClient: breakEndAt,
+            comment: 'Automatisch beendet vor Ausstempeln',
+            sourceDevice: dto.sourceDevice,
+            createdByUserId: actor.type === 'user' ? actor.id : null,
+          },
+        });
+      }
+
       const entry = await this.prisma.timeEntry.create({
         data: {
           workerId: dto.workerId,
@@ -204,6 +279,8 @@ export class TimeEntriesService {
         GpsEventType.CLOCK_OUT,
         open.projectId,
       );
+
+      await this.closeOpenActivitySegment(dto.workerId, occurredAtClient);
 
       // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
       // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
@@ -596,15 +673,131 @@ export class TimeEntriesService {
         durationMinutes: 0,
         project: null,
         timeEntryId: null,
+        onBreak: false,
+        breakStartedAt: null,
+        currentActivity: null,
       };
     }
+    const openBreak = await this.getOpenBreakStart(
+      workerId,
+      latest.occurredAtClient,
+    );
+    const openSeg = await this.prisma.timeActivitySegment.findFirst({
+      where: { workerId, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        activityType: { select: { id: true, code: true, name: true } },
+      },
+    });
     return {
       clockedIn: true,
       since: latest.occurredAtClient,
       durationMinutes: diffMinutes(latest.occurredAtClient, new Date()),
       project: latest.project,
       timeEntryId: latest.id,
+      onBreak: !!openBreak,
+      breakStartedAt: openBreak?.occurredAtClient ?? null,
+      currentActivity: openSeg
+        ? {
+            id: openSeg.activityType.id,
+            code: openSeg.activityType.code,
+            name: openSeg.activityType.name,
+            segmentId: openSeg.id,
+            startedAt: openSeg.startedAt,
+          }
+        : null,
     };
+  }
+
+  /**
+   * Master wechselt die Tätigkeit ohne Ausstempeln (schließt Segment, öffnet neues).
+   */
+  async switchActivity(
+    dto: {
+      workerId: string;
+      activityTypeId: string;
+      latitude?: number;
+      longitude?: number;
+      accuracy?: number;
+      occurredAtClient?: string;
+    },
+    actor: AuthUser,
+  ) {
+    this.assertOwnWorker(dto.workerId, actor);
+    await this.assertWorker(dto.workerId);
+
+    const worker = await this.prisma.worker.findUnique({
+      where: { id: dto.workerId },
+      select: { masterEngineer: true },
+    });
+    if (!worker?.masterEngineer) {
+      throw new ForbiddenException(
+        'Tätigkeitswechsel nur für Master-Monteure',
+      );
+    }
+
+    const open = await this.getOpenClockIn(dto.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+
+    await this.assertActiveActivityType(dto.activityTypeId);
+    const at = coerceDate(dto.occurredAtClient ?? new Date().toISOString());
+
+    const current = await this.prisma.timeActivitySegment.findFirst({
+      where: { workerId: dto.workerId, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (current?.activityTypeId === dto.activityTypeId) {
+      return this.getStatus(dto.workerId);
+    }
+
+    await this.closeOpenActivitySegment(dto.workerId, at);
+    await this.prisma.timeActivitySegment.create({
+      data: {
+        workerId: dto.workerId,
+        projectId: open.projectId,
+        activityTypeId: dto.activityTypeId,
+        startedAt: at,
+      },
+    });
+
+    if (dto.latitude != null && dto.longitude != null) {
+      await this.prisma.gpsEvent.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: open.projectId,
+          relatedTimeEntryId: open.id,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          recordedAt: at,
+          eventType: GpsEventType.ACTION,
+        },
+      });
+    }
+
+    return this.getStatus(dto.workerId);
+  }
+
+  private async closeOpenActivitySegment(
+    workerId: string,
+    endedAt: Date,
+  ): Promise<void> {
+    await this.prisma.timeActivitySegment.updateMany({
+      where: { workerId, endedAt: null },
+      data: { endedAt },
+    });
+  }
+
+  private async assertActiveActivityType(id: string): Promise<void> {
+    const row = await this.prisma.activityType.findFirst({
+      where: { id, active: true },
+      select: { id: true },
+    });
+    if (!row) {
+      throw new BadRequestException('Ungültiger oder inaktiver Tätigkeitsbereich');
+    }
   }
 
   /**
@@ -619,7 +812,7 @@ export class TimeEntriesService {
    */
   private async maybeRecordGps(
     timeEntryId: string,
-    dto: ClockInDto | ClockOutDto,
+    dto: ClockInDto | ClockOutDto | BreakDto,
     eventType: GpsEventType,
     projectId?: string | null,
   ): Promise<void> {
@@ -831,6 +1024,538 @@ export class TimeEntriesService {
       throw new NotFoundException('Projekt nicht gefunden');
     }
   }
+
+  // ── Pause (Auftrag #23) ──────────────────────────────────────
+
+  /**
+   * Startet eine Pause (nur bei offenem CLOCK_IN und ohne laufende Pause).
+   */
+  async breakStart(dto: BreakDto, actor: AuthUser) {
+    this.assertOwnWorker(dto.workerId, actor);
+    await this.assertWorker(dto.workerId);
+
+    if (dto.clientEventId) {
+      const existing = await this.findByClientEventId(dto.clientEventId);
+      if (existing) return this.getStatus(dto.workerId);
+    }
+
+    const open = await this.getOpenClockIn(dto.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+    if (await this.getOpenBreakStart(dto.workerId, open.occurredAtClient)) {
+      throw new ConflictException('Pause läuft bereits');
+    }
+
+    const occurredAtClient = coerceDate(dto.occurredAtClient);
+    try {
+      const entry = await this.prisma.timeEntry.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: open.projectId,
+          entryType: TimeEntryType.BREAK_START,
+          occurredAtClient,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          comment: dto.comment,
+          sourceDevice: dto.sourceDevice,
+          clientEventId: dto.clientEventId ?? null,
+          createdByUserId: actor.type === 'user' ? actor.id : null,
+        },
+      });
+      await this.maybeRecordGps(
+        entry.id,
+        dto,
+        GpsEventType.ACTION,
+        open.projectId,
+      );
+      return this.getStatus(dto.workerId);
+    } catch (err) {
+      if (dto.clientEventId && isUniqueClientEventConflict(err)) {
+        return this.getStatus(dto.workerId);
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Beendet die laufende Pause.
+   */
+  async breakEnd(dto: BreakDto, actor: AuthUser) {
+    this.assertOwnWorker(dto.workerId, actor);
+    await this.assertWorker(dto.workerId);
+
+    if (dto.clientEventId) {
+      const existing = await this.findByClientEventId(dto.clientEventId);
+      if (existing) return this.getStatus(dto.workerId);
+    }
+
+    const open = await this.getOpenClockIn(dto.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+    if (!(await this.getOpenBreakStart(dto.workerId, open.occurredAtClient))) {
+      throw new ConflictException('Keine laufende Pause');
+    }
+
+    const occurredAtClient = coerceDate(dto.occurredAtClient);
+    try {
+      const entry = await this.prisma.timeEntry.create({
+        data: {
+          workerId: dto.workerId,
+          projectId: open.projectId,
+          entryType: TimeEntryType.BREAK_END,
+          occurredAtClient,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          accuracy: dto.accuracy,
+          comment: dto.comment,
+          sourceDevice: dto.sourceDevice,
+          clientEventId: dto.clientEventId ?? null,
+          createdByUserId: actor.type === 'user' ? actor.id : null,
+        },
+      });
+      await this.maybeRecordGps(
+        entry.id,
+        dto,
+        GpsEventType.ACTION,
+        open.projectId,
+      );
+      return this.getStatus(dto.workerId);
+    } catch (err) {
+      if (dto.clientEventId && isUniqueClientEventConflict(err)) {
+        return this.getStatus(dto.workerId);
+      }
+      throw err;
+    }
+  }
+
+  /** Offener BREAK_START seit dem letzten CLOCK_IN, sonst null. */
+  private async getOpenBreakStart(workerId: string, since: Date) {
+    const events = await this.prisma.timeEntry.findMany({
+      where: {
+        workerId,
+        occurredAtClient: { gte: since },
+        entryType: {
+          in: [TimeEntryType.BREAK_START, TimeEntryType.BREAK_END],
+        },
+      },
+      orderBy: { occurredAtClient: 'asc' },
+      select: {
+        id: true,
+        entryType: true,
+        occurredAtClient: true,
+        projectId: true,
+      },
+    });
+    let open: (typeof events)[number] | null = null;
+    for (const e of events) {
+      if (e.entryType === TimeEntryType.BREAK_START) open = e;
+      else if (e.entryType === TimeEntryType.BREAK_END) open = null;
+    }
+    return open;
+  }
+
+  // ── Zeitraum-Übersicht / Timeline / Korrekturen ──────────────
+
+  async overview(params: {
+    date?: string;
+    weekYear?: number;
+    weekNumber?: number;
+    projectId?: string;
+    workerId?: string;
+    teamId?: string;
+  }) {
+    let from: Date;
+    let to: Date;
+    if (params.weekYear != null && params.weekNumber != null) {
+      const r = isoWeekRangeBerlin(params.weekYear, params.weekNumber);
+      from = r.from;
+      to = r.to;
+    } else if (params.date) {
+      const r = berlinDayRange(params.date);
+      from = r.from;
+      to = r.to;
+    } else {
+      throw new BadRequestException(
+        'date oder weekYear+weekNumber erforderlich',
+      );
+    }
+    if ((to.getTime() - from.getTime()) / 86_400_000 > 31.5) {
+      throw new BadRequestException('Zeitraum max. 31 Tage');
+    }
+
+    let workerIds: string[] | undefined;
+    if (params.workerId) {
+      workerIds = [params.workerId];
+    } else if (params.teamId) {
+      const members = await this.prisma.workerTeamMember.findMany({
+        where: { teamId: params.teamId, leftAt: null },
+        select: { workerId: true },
+      });
+      workerIds = members.map((m) => m.workerId);
+      if (workerIds.length === 0) {
+        return { from: from.toISOString(), to: to.toISOString(), rows: [] };
+      }
+    }
+
+    const workers = await this.prisma.worker.findMany({
+      where: {
+        deletedAt: null,
+        ...(workerIds ? { id: { in: workerIds } } : {}),
+      },
+      select: {
+        id: true,
+        workerNumber: true,
+        firstName: true,
+        lastName: true,
+        active: true,
+      },
+      orderBy: [{ lastName: 'asc' }, { firstName: 'asc' }],
+    });
+
+    const entries = await this.prisma.timeEntry.findMany({
+      where: {
+        occurredAtClient: { gte: from, lte: to },
+        ...(workerIds ? { workerId: { in: workerIds } } : {}),
+        ...(params.projectId ? { projectId: params.projectId } : {}),
+      },
+      orderBy: { occurredAtClient: 'asc' },
+      select: {
+        workerId: true,
+        projectId: true,
+        entryType: true,
+        occurredAtClient: true,
+        project: {
+          select: { id: true, projectNumber: true, title: true },
+        },
+      },
+    });
+
+    const rules = await this.prisma.breakRule.findMany({
+      where: {
+        active: true,
+        OR: [
+          { scopeType: 'GLOBAL' },
+          { scopeType: 'PROJECT' },
+        ],
+      },
+    });
+
+    const byWorker = new Map<string, typeof entries>();
+    for (const e of entries) {
+      const list = byWorker.get(e.workerId) ?? [];
+      list.push(e);
+      byWorker.set(e.workerId, list);
+    }
+
+    const now = new Date();
+    const until = to.getTime() > now.getTime() ? now : to;
+    const rows = [];
+
+    for (const w of workers) {
+      const we = byWorker.get(w.id) ?? [];
+      if (
+        params.projectId &&
+        !params.workerId &&
+        !params.teamId &&
+        we.length === 0
+      ) {
+        continue;
+      }
+
+      const events: StempelEvent[] = we.map((e) => ({
+        entryType: e.entryType,
+        occurredAtClient: e.occurredAtClient,
+        projectId: e.projectId,
+      }));
+      const gross = grossMinutesFromClocks(events, until);
+      const projectIds = [...new Set(we.map((e) => e.projectId))];
+      const primaryRule = selectBreakRule(
+        rules,
+        projectIds[0] ?? params.projectId ?? '',
+      );
+      const breakInfo = effectiveBreakMinutes(
+        events,
+        gross,
+        primaryRule,
+        until,
+      );
+
+      const firstIn =
+        we.find((e) => e.entryType === TimeEntryType.CLOCK_IN)
+          ?.occurredAtClient ?? null;
+      const outs = we.filter((e) => e.entryType === TimeEntryType.CLOCK_OUT);
+      const lastOut = outs.length
+        ? outs[outs.length - 1].occurredAtClient
+        : null;
+
+      const live = await this.getStatus(w.id);
+      let status: OverviewRowStatus = 'NO_ENTRIES';
+      if (we.length === 0) status = 'NO_ENTRIES';
+      else if (live.onBreak) status = 'ON_BREAK';
+      else if (live.clockedIn) status = 'CLOCKED_IN';
+      else status = 'CLOCKED_OUT';
+
+      const warnings: string[] = [];
+      if (breakInfo.booked > 0 && breakInfo.booked < breakInfo.rule) {
+        warnings.push('PAUSE_BELOW_RULE');
+      }
+      if (breakInfo.usedFallback && gross > 0) {
+        warnings.push('BREAK_RULE_FALLBACK');
+      }
+      if (firstIn && !lastOut && !live.clockedIn) {
+        warnings.push('MISSING_CLOCK_OUT');
+      }
+      if (gross > 10 * 60) warnings.push('OVER_10H');
+
+      const projects = [];
+      for (const pid of projectIds) {
+        const pe = we.filter((e) => e.projectId === pid);
+        const pEvents: StempelEvent[] = pe.map((e) => ({
+          entryType: e.entryType,
+          occurredAtClient: e.occurredAtClient,
+          projectId: e.projectId,
+        }));
+        const pGross = grossMinutesFromClocks(pEvents, until);
+        const pBreak = effectiveBreakMinutes(
+          pEvents,
+          pGross,
+          selectBreakRule(rules, pid),
+          until,
+        );
+        const meta = pe[0]?.project;
+        if (!meta) continue;
+        projects.push({
+          id: meta.id,
+          projectNumber: meta.projectNumber,
+          title: meta.title,
+          grossMinutes: pGross,
+          netMinutes: Math.max(0, pGross - pBreak.effective),
+        });
+      }
+
+      rows.push({
+        worker: {
+          id: w.id,
+          workerNumber: w.workerNumber,
+          firstName: w.firstName,
+          lastName: w.lastName,
+          active: w.active,
+        },
+        status,
+        firstClockInAt: firstIn,
+        lastClockOutAt: lastOut,
+        grossMinutes: gross,
+        breakBookedMinutes: breakInfo.booked,
+        breakRuleMinutes: breakInfo.rule,
+        netMinutes: Math.max(0, gross - breakInfo.effective),
+        warnings,
+        projects,
+      });
+    }
+
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      rows,
+    };
+  }
+
+  async timeline(workerId: string, date: string) {
+    if (!date) {
+      throw new BadRequestException('date (YYYY-MM-DD) erforderlich');
+    }
+    const { from, to } = berlinDayRange(date);
+    const worker = await this.prisma.worker.findFirst({
+      where: { id: workerId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!worker) throw new NotFoundException('Monteur nicht gefunden');
+
+    const entries = await this.prisma.timeEntry.findMany({
+      where: {
+        workerId,
+        occurredAtClient: { gte: from, lte: to },
+      },
+      orderBy: { occurredAtClient: 'asc' },
+      select: {
+        id: true,
+        entryType: true,
+        occurredAtClient: true,
+        occurredAtServer: true,
+        latitude: true,
+        longitude: true,
+        accuracy: true,
+        comment: true,
+        sourceDevice: true,
+        clientEventId: true,
+        createdByUserId: true,
+        project: {
+          select: { id: true, projectNumber: true, title: true },
+        },
+      },
+    });
+
+    const segments = await this.prisma.timeActivitySegment.findMany({
+      where: {
+        workerId,
+        startedAt: { lte: to },
+        OR: [{ endedAt: null }, { endedAt: { gte: from } }],
+      },
+      orderBy: { startedAt: 'asc' },
+      include: {
+        activityType: { select: { id: true, code: true, name: true } },
+        project: { select: { id: true, projectNumber: true, title: true } },
+      },
+    });
+
+    return {
+      date,
+      from: from.toISOString(),
+      to: to.toISOString(),
+      locked: await this.isDayLocked(workerId, date),
+      entries,
+      segments: segments.map((s) => ({
+        id: s.id,
+        startedAt: s.startedAt,
+        endedAt: s.endedAt,
+        activityType: s.activityType,
+        project: s.project,
+      })),
+    };
+  }
+
+  async createManual(dto: ManualEntryDto, actor: AuthUser) {
+    if (actor.type !== 'user') {
+      throw new ForbiddenException('Nur Büro darf manuell stempeln');
+    }
+    await this.assertProject(dto.projectId);
+    const worker = await this.prisma.worker.findFirst({
+      where: { id: dto.workerId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!worker) throw new NotFoundException('Monteur nicht gefunden');
+
+    const occurredAtClient = coerceDate(dto.occurredAtClient);
+    const dateKey = berlinDateKey(occurredAtClient);
+    if (await this.isDayLocked(dto.workerId, dateKey)) {
+      throw new ConflictException(
+        'Tag ist in freigegebenem/gesperrtem Stundenzettel – zuerst zurücksetzen',
+      );
+    }
+    if (!dto.comment?.trim()) {
+      throw new BadRequestException(
+        'Kommentar bei manueller Korrektur Pflicht',
+      );
+    }
+
+    const allowed: TimeEntryType[] = [
+      TimeEntryType.CLOCK_IN,
+      TimeEntryType.CLOCK_OUT,
+      TimeEntryType.BREAK_START,
+      TimeEntryType.BREAK_END,
+      TimeEntryType.MANUAL_ADJUSTMENT,
+    ];
+    if (!allowed.includes(dto.entryType)) {
+      throw new BadRequestException('Ungültiger entryType');
+    }
+
+    return this.prisma.timeEntry.create({
+      data: {
+        workerId: dto.workerId,
+        projectId: dto.projectId,
+        entryType: dto.entryType,
+        occurredAtClient,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        accuracy: dto.accuracy,
+        comment: dto.comment,
+        sourceDevice: 'office-manual',
+        createdByUserId: actor.id,
+      },
+    });
+  }
+
+  async updateEntry(id: string, dto: UpdateEntryDto, actor: AuthUser) {
+    if (actor.type !== 'user') {
+      throw new ForbiddenException('Nur Büro darf korrigieren');
+    }
+    const entry = await this.prisma.timeEntry.findUnique({ where: { id } });
+    if (!entry) throw new NotFoundException('Eintrag nicht gefunden');
+
+    const dateKey = berlinDateKey(entry.occurredAtClient);
+    if (await this.isDayLocked(entry.workerId, dateKey)) {
+      throw new ConflictException(
+        'Tag ist in freigegebenem/gesperrtem Stundenzettel – zuerst zurücksetzen',
+      );
+    }
+    if (dto.occurredAtClient && !dto.comment?.trim()) {
+      throw new BadRequestException('Kommentar bei Zeitänderung Pflicht');
+    }
+    if (!dto.occurredAtClient && dto.comment === undefined) {
+      throw new BadRequestException('Keine Änderung');
+    }
+
+    return this.prisma.timeEntry.update({
+      where: { id },
+      data: {
+        ...(dto.occurredAtClient
+          ? { occurredAtClient: coerceDate(dto.occurredAtClient) }
+          : {}),
+        ...(dto.comment !== undefined ? { comment: dto.comment } : {}),
+        createdByUserId: actor.id,
+      },
+    });
+  }
+
+  async deleteEntry(id: string, actor: AuthUser, comment: string) {
+    if (actor.type !== 'user') {
+      throw new ForbiddenException('Nur Büro darf löschen');
+    }
+    if (!comment?.trim()) {
+      throw new BadRequestException('Kommentar beim Löschen Pflicht');
+    }
+    const entry = await this.prisma.timeEntry.findUnique({ where: { id } });
+    if (!entry) throw new NotFoundException('Eintrag nicht gefunden');
+
+    const dateKey = berlinDateKey(entry.occurredAtClient);
+    if (await this.isDayLocked(entry.workerId, dateKey)) {
+      throw new ConflictException(
+        'Tag ist in freigegebenem/gesperrtem Stundenzettel – zuerst zurücksetzen',
+      );
+    }
+
+    await this.prisma.timeEntry.update({
+      where: { id },
+      data: {
+        comment: `[GELÖSCHT] ${comment} | zuvor: ${entry.comment ?? ''}`,
+        createdByUserId: actor.id,
+      },
+    });
+    await this.prisma.timeEntry.delete({ where: { id } });
+    return { ok: true };
+  }
+
+  private async isDayLocked(
+    workerId: string,
+    dateStr: string,
+  ): Promise<boolean> {
+    const day = berlinDayRange(dateStr).from;
+    const { weekYear, weekNumber } = isoWeekOf(day);
+    const locked = await this.prisma.weeklyTimesheet.findFirst({
+      where: {
+        workerId,
+        weekYear,
+        weekNumber,
+        status: { in: FINAL_STATUSES },
+      },
+      select: { id: true },
+    });
+    return !!locked;
+  }
+
 }
 
 // ── Hilfsfunktionen ────────────────────────────────────────────

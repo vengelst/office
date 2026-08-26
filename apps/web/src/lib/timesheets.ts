@@ -82,7 +82,19 @@ export interface ClockStatus {
   timeEntryId: string | null;
   /** Nur bei clock-out: Brutto-Minuten des gerade beendeten Intervalls. */
   lastGrossMinutes?: number;
+  /** Offene Tätigkeit (Master). */
+  currentActivity?: {
+    id: string;
+    code: string;
+    name: string;
+    segmentId: string;
+    startedAt: string;
+  } | null;
+  /** Pause aktiv. */
+  onBreak?: boolean;
+  breakStartedAt?: string | null;
 }
+
 
 /** Einzelner Stempel-Eintrag des heutigen Tages. */
 export interface TodayEntry {
@@ -148,6 +160,8 @@ export interface ClockInBody {
   clientEventId?: string;
   /** Optionaler Projekt-Snapshot für optimistischen Offline-Status. */
   projectSnapshot?: ClockProject | null;
+  /** Tätigkeitsbereich (Pflicht für Master-Monteur). */
+  activityTypeId?: string;
 }
 
 /** Request-Body zum Ausstempeln eines Monteurs. */
@@ -198,6 +212,18 @@ export interface TimesheetListResponse {
   totalPages: number;
 }
 
+/** Minuten je Tätigkeit an einem Stundenzettel-Tag (Master). */
+export interface TimesheetDayActivity {
+  id: string;
+  minutes: number;
+  activityType: {
+    id: string;
+    code: string;
+    name: string;
+    billable: boolean;
+  };
+}
+
 /** Einzelner Tag eines Wochenstundenzettels (Arbeitszeiten, Pausen, GPS). */
 export interface TimesheetDay {
   id: string;
@@ -213,6 +239,7 @@ export interface TimesheetDay {
   clockInLongitude: number | null;
   clockOutLatitude: number | null;
   clockOutLongitude: number | null;
+  activities?: TimesheetDayActivity[];
 }
 
 /** Digitale Signatur auf einem Wochenstundenzettel (Monteur, Kunde, Vorgesetzter). */
@@ -525,17 +552,130 @@ export const workerApi = {
     const { offlineAwareClockOut } = await import('./offline-clock-queue');
     return offlineAwareClockOut(body);
   },
+  breakStart: async (body: BreakBody) => {
+    const { offlineAwareBreakStart } = await import('./offline-clock-queue');
+    return offlineAwareBreakStart(body);
+  },
+  breakEnd: async (body: BreakBody) => {
+    const { offlineAwareBreakEnd } = await import('./offline-clock-queue');
+    return offlineAwareBreakEnd(body);
+  },
   /**
    * POST /time-entries/upload-photo – Lädt ein Arbeitsfoto hoch.
    * @param form - FormData mit Bilddatei
    */
   uploadPhoto: (form: FormData) =>
     workerUpload<unknown>('/time-entries/upload-photo', form),
+
+  /** POST /time-entries/switch-activity – Master wechselt Tätigkeit. */
+  switchActivity: (body: {
+    workerId: string;
+    activityTypeId: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    occurredAtClient?: string;
+  }) =>
+    workerFetch<ClockStatus>('/time-entries/switch-activity', {
+      method: 'POST',
+      body,
+    }),
 };
 
 // ──────────────────────────────────────────────────────────────
 // Office-API (Office-Token via apiClient)
 // ──────────────────────────────────────────────────────────────
+
+
+export type OverviewRowStatus =
+  | 'CLOCKED_IN'
+  | 'ON_BREAK'
+  | 'CLOCKED_OUT'
+  | 'NO_ENTRIES';
+
+export interface TimeOverviewRow {
+  worker: {
+    id: string;
+    workerNumber: string;
+    firstName: string;
+    lastName: string;
+    active: boolean;
+  };
+  status: OverviewRowStatus;
+  firstClockInAt: string | null;
+  lastClockOutAt: string | null;
+  grossMinutes: number;
+  breakBookedMinutes: number;
+  breakRuleMinutes: number;
+  netMinutes: number;
+  warnings: string[];
+  projects: Array<{
+    id: string;
+    projectNumber: string;
+    title: string;
+    grossMinutes: number;
+    netMinutes: number;
+  }>;
+}
+
+export interface TimeOverviewResponse {
+  from: string;
+  to: string;
+  rows: TimeOverviewRow[];
+}
+
+export interface TimeTimelineEntry {
+  id: string;
+  entryType: string;
+  occurredAtClient: string;
+  occurredAtServer: string;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy: number | null;
+  comment: string | null;
+  sourceDevice: string | null;
+  clientEventId: string | null;
+  createdByUserId: string | null;
+  project: { id: string; projectNumber: string; title: string };
+}
+
+export interface TimeTimelineResponse {
+  date: string;
+  from: string;
+  to: string;
+  locked: boolean;
+  entries: TimeTimelineEntry[];
+  segments: Array<{
+    id: string;
+    startedAt: string;
+    endedAt: string | null;
+    activityType: { id: string; code: string; name: string };
+    project: { id: string; projectNumber: string; title: string };
+  }>;
+}
+
+export interface BreakBody {
+  workerId: string;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+  occurredAtClient?: string;
+  comment?: string;
+  sourceDevice?: string;
+  clientEventId?: string;
+}
+
+export interface ManualTimeEntryBody {
+  workerId: string;
+  projectId: string;
+  entryType: string;
+  occurredAtClient: string;
+  comment?: string;
+  latitude?: number;
+  longitude?: number;
+  accuracy?: number;
+}
+
 
 /** API-Client für die Live-Zeiterfassungsübersicht im Büro (Office-Token). */
 export const timeEntriesApi = {
@@ -565,6 +705,38 @@ export const timeEntriesApi = {
       `/time-entries/gps-events${qs ? `?${qs}` : ''}`,
     );
   },
+
+  overview: (params: {
+    date?: string;
+    weekYear?: number;
+    weekNumber?: number;
+    projectId?: string;
+    workerId?: string;
+    teamId?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params.date) q.set('date', params.date);
+    if (params.weekYear != null) q.set('weekYear', String(params.weekYear));
+    if (params.weekNumber != null) q.set('weekNumber', String(params.weekNumber));
+    if (params.projectId) q.set('projectId', params.projectId);
+    if (params.workerId) q.set('workerId', params.workerId);
+    if (params.teamId) q.set('teamId', params.teamId);
+    const qs = q.toString();
+    return apiClient.get<TimeOverviewResponse>(
+      `/time-entries/overview${qs ? `?${qs}` : ''}`,
+    );
+  },
+  timeline: (workerId: string, date: string) =>
+    apiClient.get<TimeTimelineResponse>(
+      `/time-entries/timeline/${workerId}?date=${encodeURIComponent(date)}`,
+    ),
+  createManual: (body: ManualTimeEntryBody) =>
+    apiClient.post<unknown>('/time-entries/manual', body),
+  updateEntry: (id: string, body: { occurredAtClient?: string; comment?: string }) =>
+    apiClient.patch<unknown>(`/time-entries/${id}`, body),
+  deleteEntry: (id: string, comment: string) =>
+    apiClient.delete<unknown>(`/time-entries/${id}`, { body: { comment } }),
+
 };
 
 /** API-Client für Wochenstundenzettel (CRUD, Workflow, Signatur, PDF). */
@@ -736,6 +908,14 @@ export const kioskApi = {
     const { offlineAwareClockOut } = await import('./offline-clock-queue');
     return offlineAwareClockOut(body);
   },
+  breakStart: async (body: BreakBody) => {
+    const { offlineAwareBreakStart } = await import('./offline-clock-queue');
+    return offlineAwareBreakStart(body);
+  },
+  breakEnd: async (body: BreakBody) => {
+    const { offlineAwareBreakEnd } = await import('./offline-clock-queue');
+    return offlineAwareBreakEnd(body);
+  },
   /**
    * GET /time-entries/project-status/:projectId – Status aller Monteure eines Projekts.
    * @param projectId - Projekt-ID
@@ -748,6 +928,20 @@ export const kioskApi = {
    * @param form - FormData mit Bilddatei
    */
   uploadPhoto: (form: FormData) => workerUpload<unknown>('/time-entries/upload-photo', form),
+
+  /** POST /time-entries/switch-activity – Master wechselt Tätigkeit. */
+  switchActivity: (body: {
+    workerId: string;
+    activityTypeId: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    occurredAtClient?: string;
+  }) =>
+    workerFetch<ClockStatus>('/time-entries/switch-activity', {
+      method: 'POST',
+      body,
+    }),
 };
 
 // ── Helfer ─────────────────────────────────────────────────────

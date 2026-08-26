@@ -24,6 +24,7 @@ import {
   isoWeekRange,
   selectBreakRule,
 } from './timesheet.util';
+import { effectiveBreakMinutes, type StempelEvent } from '../time-entries/break-calc.util';
 import {
   EDITABLE_STATUSES,
   detailInclude,
@@ -117,7 +118,14 @@ export class TimesheetGenerationService {
       where: {
         workerId: dto.workerId,
         projectId: dto.projectId,
-        entryType: { in: [TimeEntryType.CLOCK_IN, TimeEntryType.CLOCK_OUT] },
+        entryType: {
+          in: [
+            TimeEntryType.CLOCK_IN,
+            TimeEntryType.CLOCK_OUT,
+            TimeEntryType.BREAK_START,
+            TimeEntryType.BREAK_END,
+          ],
+        },
         occurredAtClient: { gte: start, lte: end },
       },
       orderBy: { occurredAtClient: 'asc' },
@@ -166,7 +174,18 @@ export class TimesheetGenerationService {
       const key = dayKey(localMidnight);
       const a = byKey.get(key);
       if (a) {
-        const breakMinutes = computeBreakMinutes(a.grossMinutes, rule);
+        const dayEvents: StempelEvent[] = entries
+          .filter((e) => dayKey(e.occurredAtClient) === key)
+          .map((e) => ({
+            entryType: e.entryType,
+            occurredAtClient: e.occurredAtClient,
+            projectId: e.projectId,
+          }));
+        const breakMinutes = effectiveBreakMinutes(
+          dayEvents,
+          a.grossMinutes,
+          rule,
+        ).effective;
         days.push({
           workDate: localMidnight,
           firstClockInAt: a.firstClockInAt,
@@ -232,9 +251,59 @@ export class TimesheetGenerationService {
       await tx.weeklyTimesheetDay.deleteMany({
         where: { weeklyTimesheetId: sheet.id },
       });
-      await tx.weeklyTimesheetDay.createMany({
-        data: days.map((d) => ({ ...d, weeklyTimesheetId: sheet.id })),
+
+      const weekSegments = await tx.timeActivitySegment.findMany({
+        where: {
+          workerId: dto.workerId,
+          projectId: dto.projectId,
+          startedAt: { lte: end },
+          OR: [{ endedAt: null }, { endedAt: { gte: start } }],
+        },
+        select: {
+          activityTypeId: true,
+          startedAt: true,
+          endedAt: true,
+        },
       });
+
+      for (const d of days) {
+        const dayRow = await tx.weeklyTimesheetDay.create({
+          data: { ...d, weeklyTimesheetId: sheet.id },
+        });
+        const dayStart = new Date(d.workDate);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(d.workDate);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        const byType = new Map<string, number>();
+        for (const seg of weekSegments) {
+          const segStart = seg.startedAt < dayStart ? dayStart : seg.startedAt;
+          const segEndRaw = seg.endedAt ?? new Date();
+          const segEnd = segEndRaw > dayEnd ? dayEnd : segEndRaw;
+          if (segEnd <= segStart) continue;
+          if (seg.startedAt > dayEnd || (seg.endedAt && seg.endedAt < dayStart)) {
+            continue;
+          }
+          const mins = Math.max(
+            0,
+            Math.round((segEnd.getTime() - segStart.getTime()) / 60000),
+          );
+          if (mins <= 0) continue;
+          byType.set(
+            seg.activityTypeId,
+            (byType.get(seg.activityTypeId) ?? 0) + mins,
+          );
+        }
+        if (byType.size > 0) {
+          await tx.weeklyTimesheetDayActivity.createMany({
+            data: [...byType.entries()].map(([activityTypeId, minutes]) => ({
+              weeklyTimesheetDayId: dayRow.id,
+              activityTypeId,
+              minutes,
+            })),
+          });
+        }
+      }
       return sheet;
     });
 

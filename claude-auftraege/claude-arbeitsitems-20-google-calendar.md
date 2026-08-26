@@ -1,6 +1,6 @@
 # Cloud-Auftrag #20: Google Calendar – Termine in Office + Sync Office → Google
 
-**Status:** Spec startklar (2026-08-26) · Prod = **v1.0.0** · Branch `main`  
+**Status:** Spec startklar (2026-08-26) · Prod = **v1.0.1** · Branch `main`  
 **Voraussetzung für grünen Verbindungstest (manuell, nicht Teil dieses Auftrags):** Google Admin – Calendar API + DWD-Scope `calendar` (siehe unten). Ohne Admin-Schritt: Code + Builds trotzdem grün; nur Settings-Test schlägt fehl.
 
 ## Kontext
@@ -22,7 +22,7 @@ Produktion: `office.vivahome.de` (`/opt/office`), Branch `main`.
 
 **Ist-Zustand Kalender:** `/projects/calendar` ist nur eine **Projekt-Timeline** (plannedStart/End), keine Termin-Entität, kein Google Calendar. Unverändert lassen.
 
-**Nicht Teil dieses Auftrags:** GPS, Baustellenfotos, Kiosk – bereits live; nicht anfassen außer Kollision.
+**Nicht Teil dieses Auftrags:** GPS, Baustellenfotos, Kiosk, #22 Tätigkeiten, #23 Zeitraum/Pause – bereits live; nicht anfassen außer Kollision.
 
 ---
 

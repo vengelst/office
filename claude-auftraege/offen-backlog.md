@@ -1,6 +1,6 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-08-26** · **Version 1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)
+Stand: **2026-08-26** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**
 
@@ -22,7 +22,7 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 
-## Session 24.–26.08.2026 – nach v1.0.0 (live auf Prod)
+## Session 24.–26.08.2026 – nach v1.0.0 / Release 1.0.1 (live auf Prod)
 
 | Thema | Commits (Auswahl) | Status |
 |-------|-------------------|--------|
@@ -34,6 +34,10 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 | Kiosk: Flash/Fullscreen/401-Loop/Foto-Tipp/Master-Projektwahl | `59e6b44` … `18171a1` | live |
 | Handbuch PDF (Kopf, Seitenzahlen, Screenshots, druckfreundlich) | `71c7d63` … `5392eea` | live |
 | SMTP-DTO Whitelist | `6be5334` | live |
+| **#22** Master-Tätigkeitsbereiche (Katalog, Kiosk-Wechsel, Stundenzettel) | `627b2b2` | live |
+| **#23** Stempeluhr Zeitraum, Pause Start/Stopp, Korrekturen | `57ce4e6` | live |
+| UI-Splits (Kiosk/Timesheet/Equipment/Worker), App-Icon, Foto-Feinschliff | `1c4cd51` … `8fd0b49` | live |
+| Release-Tag **v1.0.1** | `27f1f23` … | live |
 
 **Nächster Cloud-Auftrag:** `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`.
 
@@ -71,6 +75,8 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 3. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
 4. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
 5. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
+
+~~#22 Master-Tätigkeitsbereiche~~ ✅ · ~~#23 Stempeluhr Zeitraum / Pause / Korrekturen~~ ✅ (in v1.0.1)
 
 ---
 

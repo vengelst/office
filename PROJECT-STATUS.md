@@ -1,8 +1,8 @@
 # Office App – Projekt-Status
 
-**Version:** **1.0.0 (Production)**  
+**Version:** **1.0.1 (Production)**  
 **Stand:** 26. August 2026  
-**Repository:** github.com/vengelst/office · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
+**Repository:** github.com/vengelst/office · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1)  
 **Branch:** `main`  
 **Produktion:** https://office.vivahome.de · Kiosk: https://work.vivahome.de (`/opt/office`)
 
@@ -23,10 +23,11 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 - Backup-Zeitplan **Europe/Berlin**; Seed nicht mehr bei jedem API-Start in Prod
 - Google Contacts produktiv
 
-**Nachgezogen seit 1.0.0 (Auswahl, 24.–26.08.):**
+**Nachgezogen bis 1.0.1 (Auswahl, 24.–26.08.):**
 - GPS-Übersicht, Filter, Karten-Spur; GPS bei Login/Logout/Foto/Aktionen
-- Baustellenfotos-Tab (Monteur + Projekt); Kiosk-Stabilität
-- Handbuch als druckfreundliches PDF
+- Baustellenfotos-Tab; Kiosk-Stabilität; Handbuch-PDF
+- **#22** Master-Tätigkeitsbereiche · **#23** Stempeluhr Zeitraum / Pause / Korrekturen
+- UI-Komponenten-Splits; Vivahome-App-Icon
 
 ---
 
@@ -38,7 +39,7 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 | 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, Drucken, Google Contacts Sync |
 | 3 | Projektverwaltung | CRUD, Detail-Tabs, Baustellen, Zuweisungen |
 | 4 | Monteure / Teams / Subs | Workers, Qualifikationen, Subunternehmen, Teams, Master-Monteur, PIN |
-| 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Stundenzettel (manuell + Generate), PDF, Signaturen, Live, Offline-Queue |
+| 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Pause, Tätigkeiten (Master), Zeitraum-Tab, Stundenzettel, PDF, Signaturen, Live, Offline-Queue |
 | 6 | Abrechnungen | Ein-/Ausgangsrechnungen (Modul vorhanden; Daten je Instanz) |
 | 7 | Fahrzeuge | CRUD, Zuweisungen, Fristen |
 | 8 | Dokumente | Ordner, Versionen, Drive-Sync |
@@ -50,7 +51,7 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 | 14 | Kommunikation | Kundenhistorie |
 | 15 | To-Dos | Prioritäten, Dashboard |
 | 16 | Ausschreibungen | Submissions |
-| 17 | Einstellungen | Firma, Pausen, Storage, Contacts, Backup, System, Feature-Flags |
+| 17 | Einstellungen | Firma, Pausen, Tätigkeitsbereiche, Storage, Contacts, Backup, System, Feature-Flags |
 | 18 | Mobile Kiosk-App | Expo/Android APK |
 | 19 | Arbeitsitems | Import, Büro, Monteur, Kunden-PL |
 | 20 | Feature-Flags | Module an/aus |
