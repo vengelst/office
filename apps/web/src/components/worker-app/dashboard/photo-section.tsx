@@ -7,7 +7,7 @@ interface PhotoSectionProps {
   photoFile: File | null;
   photoComment: string;
   photoBusy: boolean;
-  photoInputRef: React.RefObject<HTMLInputElement | null>;
+  photoInputRef: React.MutableRefObject<HTMLInputElement | null>;
   onOpen: () => void;
   onClose: () => void;
   onFileSelect: (file: File | null) => void;

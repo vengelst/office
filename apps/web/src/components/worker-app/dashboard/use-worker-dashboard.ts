@@ -49,7 +49,7 @@ export function useWorkerDashboard() {
   const [photoComment, setPhotoComment] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
-  const photoInput = useRef<HTMLInputElement>(null);
+  const photoInput = useRef<HTMLInputElement | null>(null);
 
   usePeriodicGpsPing({
     active: Boolean(status?.clockedIn && worker?.id),
