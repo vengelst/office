@@ -1,8 +1,8 @@
 # Office App – Projekt-Status
 
-**Version:** **1.0.0 (Production)**  
-**Stand:** 24. August 2026  
-**Repository:** github.com/vengelst/office · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
+**Version:** **1.0.1 (Production)**  
+**Stand:** 26. August 2026  
+**Repository:** github.com/vengelst/office · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1)  
 **Branch:** `main`  
 **Produktion:** https://office.vivahome.de · Kiosk: https://work.vivahome.de (`/opt/office`)
 
