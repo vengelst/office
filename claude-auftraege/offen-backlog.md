@@ -22,6 +22,13 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 
+## Session-Notiz Cursor 26.08.2026 (Übergabe)
+
+- Backlog/Status auf **v1.0.1** nachgezogen; GPS/#22/#23 als erledigt dokumentiert
+- Cloud-Auftrag **#20** Google Calendar Phase 1 Spec startklar
+- Regel: **Push + Deploy immer durch den Agenten** (`.cursor/rules/deploy-workflow.mdc`), bis Benutzer widerruft
+- Nächster Schritt Office: Google Admin Calendar-Scope, dann Cloud #20
+
 ## Session 24.–26.08.2026 – nach v1.0.0 / Release 1.0.1 (live auf Prod)
 
 | Thema | Commits (Auswahl) | Status |
