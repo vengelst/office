@@ -1,7 +1,7 @@
 # Office App – Projekt-Status
 
 **Version:** **1.0.0 (Production)**  
-**Stand:** 24. August 2026  
+**Stand:** 26. August 2026  
 **Repository:** github.com/vengelst/office · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
 **Branch:** `main`  
 **Produktion:** https://office.vivahome.de · Kiosk: https://work.vivahome.de (`/opt/office`)
@@ -9,6 +9,7 @@
 > Handbuch Stammdaten: **`HANDBUCH.md`** · **`HANDBUCH.pdf`**  
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog: **`claude-auftraege/offen-backlog.md`**  
+> Nächster Cloud-Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**  
 > Deployment: **`DEPLOYMENT.md`**
 
 ### Release 1.0.0 – Produktivstart (Ende Beta)
@@ -21,6 +22,11 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 - Stundenzettel: anlegen/öffnen, KW-Bereich, volle Woche Mo–So, manuelle Tage, Neu laden aus Stempelungen
 - Backup-Zeitplan **Europe/Berlin**; Seed nicht mehr bei jedem API-Start in Prod
 - Google Contacts produktiv
+
+**Nachgezogen seit 1.0.0 (Auswahl, 24.–26.08.):**
+- GPS-Übersicht, Filter, Karten-Spur; GPS bei Login/Logout/Foto/Aktionen
+- Baustellenfotos-Tab (Monteur + Projekt); Kiosk-Stabilität
+- Handbuch als druckfreundliches PDF
 
 ---
 
@@ -63,4 +69,4 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 
 ## Offene Punkte / Backlog
 
-Siehe **`claude-auftraege/offen-backlog.md`** (u. a. Google Calendar Phase 1, UNIT_BASED-Abrechnung).
+Siehe **`claude-auftraege/offen-backlog.md`**. Nächster Auftrag: **Google Calendar Phase 1 (#20)** – Spec startklar; davor Google Admin Calendar-Scope.

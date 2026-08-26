@@ -1,6 +1,6 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-08-24** · **Version 1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)
+Stand: **2026-08-26** · **Version 1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**
 
@@ -19,6 +19,23 @@ Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kur
 | Docs | README / STATUS / PROJECT-STATUS / dieses Backlog + **HANDBUCH.md** |
 
 Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
+
+---
+
+## Session 24.–26.08.2026 – nach v1.0.0 (live auf Prod)
+
+| Thema | Commits (Auswahl) | Status |
+|-------|-------------------|--------|
+| GPS-Übersicht, Live nur Master, Kiosk-Log-Schalter | `7e0d3bd` | live |
+| GPS Monteur-Filter, Karten-Spur, Speicherintervall | `cdddb82` | live |
+| GPS Projekt-/Datumsfilter; Kommentar-Position im Foto | `50bbc73` | live |
+| Baustellenfotos als Tab (Monteur + Projekt) | `a11467c` | live |
+| Foto-Kommentar lesbar; GPS bei Login/Logout/Foto/Aktionen | `f88e22d`, `653dfe4` | live |
+| Kiosk: Flash/Fullscreen/401-Loop/Foto-Tipp/Master-Projektwahl | `59e6b44` … `18171a1` | live |
+| Handbuch PDF (Kopf, Seitenzahlen, Screenshots, druckfreundlich) | `71c7d63` … `5392eea` | live |
+| SMTP-DTO Whitelist | `6be5334` | live |
+
+**Nächster Cloud-Auftrag:** `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`.
 
 ---
 
@@ -48,9 +65,9 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 - Master-Monteur, Stundenzettel-Bearbeitung, Backup Berlin, Seed nicht in Prod-Start
 - Release-Tag **v1.0.0** (Ende Beta / Produktivstart)
 
-**Noch zu tun:**
-1. Google Admin: Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` (gleicher SA)
-2. Cloud-Auftrag `#20` – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`)
+**Noch zu tun (Priorität):**
+1. **Google Admin (manuell, Voraussetzung für #20-Test):** Calendar API aktivieren + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
+2. **Cloud-Auftrag `#20`** – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`) – Spec startklar
 3. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
 4. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
 5. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)

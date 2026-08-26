@@ -1,5 +1,8 @@
 # Cloud-Auftrag #20: Google Calendar – Termine in Office + Sync Office → Google
 
+**Status:** Spec startklar (2026-08-26) · Prod = **v1.0.0** · Branch `main`  
+**Voraussetzung für grünen Verbindungstest (manuell, nicht Teil dieses Auftrags):** Google Admin – Calendar API + DWD-Scope `calendar` (siehe unten). Ohne Admin-Schritt: Code + Builds trotzdem grün; nur Settings-Test schlägt fehl.
+
 ## Kontext
 
 Repo: Office-Monorepo (pnpm), NestJS-API (`apps/api`) und Next.js-Web (`apps/web`).  
@@ -11,9 +14,15 @@ Produktion: `office.vivahome.de` (`/opt/office`), Branch `main`.
 - Drive + Contacts (People API) funktionieren via Domain-Wide Delegation
 - Contacts-Sync ist aktiv (`google_contacts_enabled=true`)
 
-**Vorbild:** `GoogleContactsService` + Settings unter `/settings/contacts` + Sync-Hooks in `customers.service.ts`.
+**Vorbild (1:1 spiegeln):**
+- `apps/api/src/google-drive/google-contacts.service.ts`
+- `apps/api/src/google-drive/contacts-settings.controller.ts`
+- Sync-Hooks in `apps/api/src/customers/customers.service.ts`
+- Web: `apps/web/src/app/(authenticated)/settings/contacts/` (+ Settings-Nav/Texte)
 
-**Ist-Zustand Kalender:** `/projects/calendar` ist nur eine **Projekt-Timeline** (plannedStart/End), keine Termin-Entität, kein Google Calendar.
+**Ist-Zustand Kalender:** `/projects/calendar` ist nur eine **Projekt-Timeline** (plannedStart/End), keine Termin-Entität, kein Google Calendar. Unverändert lassen.
+
+**Nicht Teil dieses Auftrags:** GPS, Baustellenfotos, Kiosk – bereits live; nicht anfassen außer Kollision.
 
 ---
 

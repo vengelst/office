@@ -1,13 +1,14 @@
 # Office App – Projektstatus
 
 **Version:** **1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
-**Stand:** 24. August 2026  
+**Stand:** 26. August 2026  
 **Server:** office.vivahome.de · Kiosk: work.vivahome.de  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
 **Server-Pfad:** `/opt/office`  
 **Handbuch Stammdaten:** [`HANDBUCH.md`](./HANDBUCH.md)  
-**Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`
+**Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`  
+**Nächster Cloud-Auftrag:** `claude-auftraege/claude-arbeitsitems-20-google-calendar.md`
 
 ---
 

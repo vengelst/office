@@ -5,9 +5,9 @@ alwaysApply: false
 
 # Office – Offener Backlog
 
-Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel oder Handbuch anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** lesen.
+Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel, Handbuch oder GPS anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** lesen.
 
-## Session-Übergabe (Stand 2026-08-24 · Version 1.0.0)
+## Session-Übergabe (Stand 2026-08-26 · Version 1.0.0)
 
 **Erledigt & auf Prod:**
 1. Stempel-API-Rollen (`488ad20`)
@@ -15,11 +15,12 @@ Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google
 3. Google Contacts UI + **produktiv**
 4. Kiosk #21a–c (Zuweisung, PIN-Freigabe, Foto-Overlay)
 5. Master-Monteur, Stundenzettel-Bearbeitung, Backup Europe/Berlin, kein Prod-Seed
-6. Release-Tag **v1.0.0**; Doku + **HANDBUCH.md** (Stammdaten)
+6. Release-Tag **v1.0.0**; Doku + **HANDBUCH.md** (+ PDF)
+7. GPS-Übersicht/Filter/Spur; GPS bei Login/Logout/Foto/Aktionen; Baustellenfotos-Tab; Kiosk-Fixes
 
-**Offen:**
+**Offen (Prio):**
 - Google Admin: Calendar API + DWD-Scope `calendar` (gleicher SA)
-- Cloud-Auftrag `#20` Termine + Sync Office → Google
+- Cloud-Auftrag `#20` Termine + Sync Office → Google (**Spec startklar**)
 - Phase 2: Rück-Sync / Kalender pro User
 - UNIT_BASED-Abrechnung
 
