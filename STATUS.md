@@ -1,7 +1,8 @@
 # Office App – Projektstatus
 
-**Version:** **1.0.0 (Production)** · Tag [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0)  
-**Stand:** 24. August 2026  
+**Version:** **1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) (Basis: [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0))  
+**Stand:** 26. August 2026 · Prod-Branch: `main`  
+
 **Server:** office.vivahome.de · Kiosk: work.vivahome.de  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
