@@ -1,0 +1,50 @@
+'use client';
+
+import { texts } from '@/lib/texts';
+
+interface PlAdminPinDialogProps {
+  adminPinInput: string;
+  onAdminPinInputChange: (value: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}
+
+export function PlAdminPinDialog({
+  adminPinInput,
+  onAdminPinInputChange,
+  onConfirm,
+  onCancel,
+}: PlAdminPinDialogProps) {
+  const tTerminal = texts.kiosk.terminal;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="w-full max-w-sm space-y-4 rounded-2xl bg-gray-900 p-6">
+        <h3 className="text-xl font-bold">{tTerminal.adminPinPrompt}</h3>
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          value={adminPinInput}
+          onChange={(e) => onAdminPinInputChange(e.target.value.replace(/\D/g, ''))}
+          className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-center text-2xl tracking-[0.5em] text-white"
+          autoFocus
+        />
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-lg bg-gray-700 py-3 text-gray-300 transition hover:bg-gray-600"
+          >
+            {tTerminal.back}
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 rounded-lg bg-blue-600 py-3 text-white transition hover:bg-blue-500"
+          >
+            {tTerminal.confirm}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
