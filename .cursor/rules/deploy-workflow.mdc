@@ -1,11 +1,21 @@
 ---
-description: Deployment-Workflow für alle Apps
+description: Deployment-Workflow – Agent committed, pusht und deployt immer selbst
 alwaysApply: true
 ---
 
 # Deployment-Workflow
 
-Änderungen werden **immer sofort** auf den Server deployt – ohne Rückfrage.
+Änderungen werden **immer sofort** committed, gepusht und auf den Server deployt – **ohne Rückfrage** und **ohne dass der Benutzer Git/SSH tippt**.
+
+## Wer macht was (verbindlich)
+
+| Aktion | Wer |
+|--------|-----|
+| `git add` / `git commit` / `git push` | **immer der Agent** |
+| SSH + `git pull` + Docker rebuild/restart | **immer der Agent** |
+| Manueller Push/Deploy vom Benutzer | **nicht nötig** |
+
+Gilt, **bis der Benutzer das ausdrücklich widerruft** („Push/Deploy mache ich wieder selbst“ o. Ä.). Andere User-Rules („nicht pushen ohne Auftrag“) gelten hier **nicht** – dieser Workflow hat Vorrang.
 
 1. `git add`, `git commit`, `git push` auf den entsprechenden Branch
 2. SSH auf den Produktionsserver, `git pull`, Docker rebuild und restart
