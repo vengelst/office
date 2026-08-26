@@ -530,6 +530,52 @@ export default function KioskTerminalPage() {
     }
   };
 
+  const handleBreakStart = async () => {
+    if (!worker) return;
+    resetActivity();
+    setProcessing(true);
+    try {
+      const gpsData = gps ?? (await acquireGps());
+      const result = await kioskApi.breakStart({
+        workerId: worker.id,
+        latitude: gpsData?.latitude,
+        longitude: gpsData?.longitude,
+        accuracy: gpsData?.accuracy,
+        occurredAtClient: new Date().toISOString(),
+        sourceDevice: 'kiosk',
+      });
+      setClockStatus(result);
+      tryVibrate();
+    } catch {
+      setPinError(t(KT.error));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBreakEnd = async () => {
+    if (!worker) return;
+    resetActivity();
+    setProcessing(true);
+    try {
+      const gpsData = gps ?? (await acquireGps());
+      const result = await kioskApi.breakEnd({
+        workerId: worker.id,
+        latitude: gpsData?.latitude,
+        longitude: gpsData?.longitude,
+        accuracy: gpsData?.accuracy,
+        occurredAtClient: new Date().toISOString(),
+        sourceDevice: 'kiosk',
+      });
+      setClockStatus(result);
+      tryVibrate();
+    } catch {
+      setPinError(t(KT.error));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   // Photo
   const handlePhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!worker || !config) return;
@@ -714,7 +760,11 @@ export default function KioskTerminalPage() {
   // ── ACTION STATE (after PIN) ──
   if (state === 'action' && worker) {
     const isIn = clockStatus?.clockedIn ?? false;
+    const onBreak = clockStatus?.onBreak ?? false;
     const sinceStr = clockStatus?.since ? formatTime(clockStatus.since) : '';
+    const breakSinceStr = clockStatus?.breakStartedAt
+      ? formatTime(clockStatus.breakStartedAt)
+      : '';
     const durationSec = clockStatus?.since
       ? Math.floor((Date.now() - new Date(clockStatus.since).getTime()) / 1000)
       : 0;
@@ -764,6 +814,11 @@ export default function KioskTerminalPage() {
               ? `${t(KT.clockedInSince)} ${sinceStr}`
               : t(KT.notClockedIn)}
           </p>
+          {isIn && onBreak && (
+            <p className="text-xl text-amber-400">
+              {t(KT.onBreakSince)} {breakSinceStr}
+            </p>
+          )}
           {isIn && (
             <p className="text-3xl font-mono tabular-nums text-green-300">
               {formatDuration(durationSec)}
@@ -918,6 +973,25 @@ export default function KioskTerminalPage() {
             </>
           ) : (
             <>
+              {onBreak ? (
+                <button
+                  onClick={() => void handleBreakEnd()}
+                  disabled={processing}
+                  className="w-full max-w-md rounded-2xl bg-amber-600 px-8 py-6 text-2xl font-bold text-white shadow-lg shadow-amber-900/40 transition hover:bg-amber-500 active:scale-95 disabled:opacity-60"
+                  style={{ minHeight: '88px' }}
+                >
+                  {processing ? t(KT.processing) : t(KT.endBreak)}
+                </button>
+              ) : (
+                <button
+                  onClick={() => void handleBreakStart()}
+                  disabled={processing}
+                  className="w-full max-w-md rounded-xl bg-amber-700/90 px-6 py-4 text-xl font-semibold text-white transition hover:bg-amber-600 active:scale-95 disabled:opacity-60"
+                  style={{ minHeight: '64px' }}
+                >
+                  {processing ? t(KT.processing) : t(KT.startBreak)}
+                </button>
+              )}
               <button
                 onClick={handleClockOut}
                 disabled={processing}

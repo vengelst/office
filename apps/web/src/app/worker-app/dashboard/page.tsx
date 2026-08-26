@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import {
   Camera,
   ChevronRight,
+  Coffee,
   ListChecks,
   LogOut,
   MapPin,
@@ -330,6 +331,64 @@ export default function WorkerDashboardPage(): React.ReactNode {
     }
   };
 
+  const handleBreakStart = async (): Promise<void> => {
+    if (!worker) return;
+    setBusy(true);
+    try {
+      const geo = await getGeo();
+      setGpsOk(geo !== null);
+      const result = await workerApi.breakStart({
+        workerId: worker.id,
+        ...geo,
+        occurredAtClient: new Date().toISOString(),
+        sourceDevice:
+          typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      });
+      setStatus(result);
+      if (result.queued) {
+        toast({ description: t.toast.savedPending });
+      } else {
+        await refresh(worker.id);
+        toast({ description: t.toast.breakStarted });
+      }
+    } catch (err) {
+      toast({
+        description: err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBreakEnd = async (): Promise<void> => {
+    if (!worker) return;
+    setBusy(true);
+    try {
+      const geo = await getGeo();
+      setGpsOk(geo !== null);
+      const result = await workerApi.breakEnd({
+        workerId: worker.id,
+        ...geo,
+        occurredAtClient: new Date().toISOString(),
+        sourceDevice:
+          typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+      });
+      setStatus(result);
+      if (result.queued) {
+        toast({ description: t.toast.savedPending });
+      } else {
+        await refresh(worker.id);
+        toast({ description: t.toast.breakEnded });
+      }
+    } catch (err) {
+      toast({
+        description: err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const handlePhotoUpload = async (opts?: {
     comment: string;
     xNorm?: number | null;
@@ -397,6 +456,7 @@ export default function WorkerDashboardPage(): React.ReactNode {
   }
 
   const clockedIn = status?.clockedIn ?? false;
+  const onBreak = status?.onBreak ?? false;
   const activeProject = clockedIn ? status?.project : null;
 
   /**
@@ -529,6 +589,12 @@ export default function WorkerDashboardPage(): React.ReactNode {
           )}
         </p>
 
+        {clockedIn && onBreak && (
+          <p className="text-center text-sm font-medium text-amber-700">
+            {t.dashboard.onBreakSince} {formatTime(status?.breakStartedAt)}
+          </p>
+        )}
+
         {clockedIn && (
           <p className="font-mono text-3xl font-bold tabular-nums">
             {formatDuration(elapsedSeconds)}
@@ -556,7 +622,7 @@ export default function WorkerDashboardPage(): React.ReactNode {
                   setSelectedActivityTypeId(id);
                 }
               }}
-              disabled={busy}
+              disabled={busy || onBreak}
             >
               <SelectTrigger className="min-h-[48px] w-full">
                 <SelectValue placeholder={t.dashboard.chooseActivity} />
@@ -570,6 +636,21 @@ export default function WorkerDashboardPage(): React.ReactNode {
               </SelectContent>
             </Select>
           </div>
+        )}
+
+        {clockedIn && (
+          <Button
+            type="button"
+            variant="outline"
+            className="min-h-[52px] w-full max-w-sm text-base"
+            disabled={busy}
+            onClick={() =>
+              void (onBreak ? handleBreakEnd() : handleBreakStart())
+            }
+          >
+            <Coffee className="h-5 w-5" />
+            {onBreak ? t.dashboard.endBreak : t.dashboard.startBreak}
+          </Button>
         )}
 
         <button
@@ -729,12 +810,23 @@ export default function WorkerDashboardPage(): React.ReactNode {
                     'rounded px-2 py-0.5 text-xs font-medium',
                     e.entryType === 'CLOCK_IN'
                       ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-red-100 text-red-700',
+                      : e.entryType === 'CLOCK_OUT'
+                        ? 'bg-red-100 text-red-700'
+                        : e.entryType === 'BREAK_START' ||
+                            e.entryType === 'BREAK_END'
+                          ? 'bg-amber-100 text-amber-800'
+                          : 'bg-slate-100 text-slate-700',
                   )}
                 >
                   {e.entryType === 'CLOCK_IN'
                     ? t.dashboard.clockIn
-                    : t.dashboard.clockOut}
+                    : e.entryType === 'CLOCK_OUT'
+                      ? t.dashboard.clockOut
+                      : e.entryType === 'BREAK_START'
+                        ? t.dashboard.startBreak
+                        : e.entryType === 'BREAK_END'
+                          ? t.dashboard.endBreak
+                          : e.entryType}
                 </span>
                 <span className="font-mono">
                   {formatTime(e.occurredAtClient)}

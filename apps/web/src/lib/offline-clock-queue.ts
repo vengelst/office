@@ -29,7 +29,7 @@ const API_BASE =
 /**
  * Typ/Interface `OfflineClockType` für die Web-App.
  */
-export type OfflineClockType = 'CLOCK_IN' | 'CLOCK_OUT';
+export type OfflineClockType = 'CLOCK_IN' | 'CLOCK_OUT' | 'BREAK_START' | 'BREAK_END';
 /**
  * Typ/Interface `OfflineQueueItemStatus` für die Web-App.
  */
@@ -513,6 +513,123 @@ export async function offlineAwareClockOut(
   }
 }
 
+/**
+ * Pause starten mit Offline-Fallback.
+ */
+export async function offlineAwareBreakStart(
+  body: {
+    workerId: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    occurredAtClient?: string;
+    comment?: string;
+    sourceDevice?: string;
+    clientEventId?: string;
+  },
+): Promise<OfflineClockResult & { onBreak?: boolean; breakStartedAt?: string | null }> {
+  ensureListeners();
+  const clientEventId = body.clientEventId ?? createClientEventId();
+  const occurredAtClient = body.occurredAtClient ?? new Date().toISOString();
+  const payload = { ...body, clientEventId, occurredAtClient };
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      throw new TypeError('Offline');
+    }
+    return await clockFetchDirect('/time-entries/break-start', payload);
+  } catch (err) {
+    if (!isNetworkFailure(err)) throw err;
+    const entry: OfflineClockEntry = {
+      id: clientEventId,
+      type: 'BREAK_START',
+      workerId: body.workerId,
+      projectId: '',
+      occurredAtClient,
+      gps: {
+        latitude: body.latitude,
+        longitude: body.longitude,
+        accuracy: body.accuracy,
+      },
+      sourceDevice: body.sourceDevice,
+      comment: body.comment,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+    };
+    await enqueue(entry);
+    return {
+      clockedIn: true,
+      onBreak: true,
+      breakStartedAt: occurredAtClient,
+      since: null,
+      durationMinutes: 0,
+      project: null,
+      timeEntryId: null,
+      pendingSync: true,
+      queued: true,
+    };
+  }
+}
+
+/**
+ * Pause beenden mit Offline-Fallback.
+ */
+export async function offlineAwareBreakEnd(
+  body: {
+    workerId: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    occurredAtClient?: string;
+    comment?: string;
+    sourceDevice?: string;
+    clientEventId?: string;
+  },
+): Promise<OfflineClockResult & { onBreak?: boolean; breakStartedAt?: string | null }> {
+  ensureListeners();
+  const clientEventId = body.clientEventId ?? createClientEventId();
+  const occurredAtClient = body.occurredAtClient ?? new Date().toISOString();
+  const payload = { ...body, clientEventId, occurredAtClient };
+
+  try {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+      throw new TypeError('Offline');
+    }
+    return await clockFetchDirect('/time-entries/break-end', payload);
+  } catch (err) {
+    if (!isNetworkFailure(err)) throw err;
+    const entry: OfflineClockEntry = {
+      id: clientEventId,
+      type: 'BREAK_END',
+      workerId: body.workerId,
+      projectId: '',
+      occurredAtClient,
+      gps: {
+        latitude: body.latitude,
+        longitude: body.longitude,
+        accuracy: body.accuracy,
+      },
+      sourceDevice: body.sourceDevice,
+      comment: body.comment,
+      createdAt: new Date().toISOString(),
+      status: 'pending',
+    };
+    await enqueue(entry);
+    return {
+      clockedIn: true,
+      onBreak: false,
+      breakStartedAt: null,
+      since: null,
+      durationMinutes: 0,
+      project: null,
+      timeEntryId: null,
+      pendingSync: true,
+      queued: true,
+    };
+  }
+}
+
+
 async function inferProjectIdForOut(workerId: string): Promise<string | null> {
   const entries = await getEntriesForWorker(workerId);
   for (let i = entries.length - 1; i >= 0; i--) {
@@ -565,9 +682,15 @@ export async function syncOfflineClockQueue(): Promise<void> {
         };
         if (entry.type === 'CLOCK_IN') {
           await clockFetchDirect('/time-entries/clock-in', body);
-        } else {
+        } else if (entry.type === 'CLOCK_OUT') {
           const { projectId: _p, ...outBody } = body;
           await clockFetchDirect('/time-entries/clock-out', outBody);
+        } else if (entry.type === 'BREAK_START') {
+          const { projectId: _p, ...breakBody } = body;
+          await clockFetchDirect('/time-entries/break-start', breakBody);
+        } else {
+          const { projectId: _p, ...breakBody } = body;
+          await clockFetchDirect('/time-entries/break-end', breakBody);
         }
         await deleteEntry(entry.id);
         needsReauth = false;

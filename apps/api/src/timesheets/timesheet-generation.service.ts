@@ -24,6 +24,7 @@ import {
   isoWeekRange,
   selectBreakRule,
 } from './timesheet.util';
+import { effectiveBreakMinutes, type StempelEvent } from '../time-entries/break-calc.util';
 import {
   EDITABLE_STATUSES,
   detailInclude,
@@ -117,7 +118,14 @@ export class TimesheetGenerationService {
       where: {
         workerId: dto.workerId,
         projectId: dto.projectId,
-        entryType: { in: [TimeEntryType.CLOCK_IN, TimeEntryType.CLOCK_OUT] },
+        entryType: {
+          in: [
+            TimeEntryType.CLOCK_IN,
+            TimeEntryType.CLOCK_OUT,
+            TimeEntryType.BREAK_START,
+            TimeEntryType.BREAK_END,
+          ],
+        },
         occurredAtClient: { gte: start, lte: end },
       },
       orderBy: { occurredAtClient: 'asc' },
@@ -166,7 +174,18 @@ export class TimesheetGenerationService {
       const key = dayKey(localMidnight);
       const a = byKey.get(key);
       if (a) {
-        const breakMinutes = computeBreakMinutes(a.grossMinutes, rule);
+        const dayEvents: StempelEvent[] = entries
+          .filter((e) => dayKey(e.occurredAtClient) === key)
+          .map((e) => ({
+            entryType: e.entryType,
+            occurredAtClient: e.occurredAtClient,
+            projectId: e.projectId,
+          }));
+        const breakMinutes = effectiveBreakMinutes(
+          dayEvents,
+          a.grossMinutes,
+          rule,
+        ).effective;
         days.push({
           workDate: localMidnight,
           firstClockInAt: a.firstClockInAt,

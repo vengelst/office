@@ -101,6 +101,9 @@ export default function TimeClockLivePage(): React.ReactNode {
           <a href="/time-clock/live">{t.tabs.live}</a>
         </Button>
         <Button asChild variant="ghost" className="min-h-[40px]">
+          <a href="/time-clock/period">{t.tabs.period}</a>
+        </Button>
+        <Button asChild variant="ghost" className="min-h-[40px]">
           <a href="/time-clock/gps">{t.tabs.gps}</a>
         </Button>
       </div>

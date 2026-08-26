@@ -54,6 +54,7 @@ import {
   type TodoEntityType,
   type TodoUser,
 } from '@/lib/todos';
+import { TodoTitleHover } from '@/components/todos/todo-title-hover';
 
 const t = texts.todos;
 
@@ -300,12 +301,36 @@ export default function TodosPage(): React.ReactNode {
                           )}
                         </td>
                         <td className="p-3 font-medium">
-                          <div className="flex items-center gap-2">
-                            {todo.title}
+                          <TodoTitleHover
+                            todo={todo}
+                            meta={
+                              <>
+                                <span>
+                                  {t.fields.priority}:{' '}
+                                  {t.priority[todo.priority]}
+                                </span>
+                                <span>
+                                  {t.fields.dueDate}: {formatDate(todo.dueDate)}
+                                </span>
+                                <span>
+                                  {t.fields.status}: {t.status[todo.status]}
+                                </span>
+                                {todo.assignedToId ? (
+                                  <span>
+                                    {t.fields.assignedTo}:{' '}
+                                    {getUserName(todo.assignedToId)}
+                                  </span>
+                                ) : null}
+                              </>
+                            }
+                          >
+                            <span className="truncate underline-offset-2 hover:underline">
+                              {todo.title}
+                            </span>
                             {overdue && (
-                              <AlertCircle className="h-4 w-4 text-red-500" />
+                              <AlertCircle className="h-4 w-4 shrink-0 text-red-500" />
                             )}
-                          </div>
+                          </TodoTitleHover>
                         </td>
                         <td className="p-3">
                           <Badge
