@@ -10,7 +10,7 @@
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog: **`claude-auftraege/offen-backlog.md`**  
 > Nächster Cloud-Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**  
-> Zuletzt: **#24** KI-Kontakt-Import umgesetzt  
+> Zuletzt: **#25** KI-Import-Fixes · **#24** KI-Kontakt-Import  
 > Deployment: **`DEPLOYMENT.md`**
 
 ### Release 1.0.0 – Produktivstart (Ende Beta)
@@ -37,7 +37,7 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 | # | Modul | Beschreibung |
 |---|-------|-------------|
 | 1 | Projektbasis | NestJS API, Next.js Web, PostgreSQL, MinIO, Docker, JWT-Auth |
-| 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, KI-Import (#24), Drucken, Google Contacts Sync |
+| 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, KI-Import (#24/#25), Drucken, Google Contacts Sync |
 | 3 | Projektverwaltung | CRUD, Detail-Tabs, Baustellen, Zuweisungen |
 | 4 | Monteure / Teams / Subs | Workers, Qualifikationen, Subunternehmen, Teams, Master-Monteur, PIN |
 | 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Pause, Tätigkeiten (Master), Zeitraum-Tab, Stundenzettel, PDF, Signaturen, Live, Offline-Queue |

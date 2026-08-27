@@ -3,7 +3,8 @@
 **Status:** umgesetzt (2026-08-27) · Prod = **v1.0.1** · Branch `main`  
 **Umsetzung:** Cloud-Agent · **kein** Stack-Rebuild pro Import (reine Laufzeitfunktion)  
 **Bezug:** Manueller SPIE-Import (`scripts/import-spie-outreach.cjs`) als fachliches Vorbild – gleiche Qualität, aber in der App mit Preview/Freigabe.  
-**Ergänzung 2026-08-27:** Niederlassungen anreichern (Web-Lookup) und Kontakte an `CustomerBranch` hängen.
+**Ergänzung 2026-08-27:** Niederlassungen anreichern (Web-Lookup) und Kontakte an `CustomerBranch` hängen.  
+**Fixes #25 (2026-08-27):** atomarer Commit (`$transaction`), NOT_FOUND ohne Halluzinations-Adressen, COMPANY_EMAIL→CustomerEmail.
 
 ---
 

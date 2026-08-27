@@ -9,7 +9,7 @@
 **Handbuch Stammdaten:** [`HANDBUCH.md`](./HANDBUCH.md)  
 **Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`  
 **Nächster Cloud-Auftrag:** `claude-auftraege/claude-arbeitsitems-20-google-calendar.md`  
-**Zuletzt umgesetzt:** Cloud-Auftrag **#24** KI-Kontakt-/Interessenten-Import (Settings KI + Preview/Commit + NL-Anreicherung)
+**Zuletzt umgesetzt:** Cloud-Auftrag **#25** KI-Import-Fixes (atomarer Commit, NOT_FOUND, COMPANY_EMAIL) · Basis **#24**
 
 ---
 

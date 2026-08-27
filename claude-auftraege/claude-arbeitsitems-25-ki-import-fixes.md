@@ -1,8 +1,9 @@
 # Cloud-Auftrag #25: KI-Import (#24) – harte Korrekturen
 
-**Status:** Spec startklar (2026-08-27) · Folge von **#24** (live auf Prod)  
-**Umsetzung:** Cloud-Agent · Branch von `main` · danach Deploy mit `--env-file .env.production`  
-**Bezug:** Review nach #24 – Architektur ok, aber Commit/NL-Anreicherung/COMPANY_EMAIL fehlerhaft.
+**Status:** umgesetzt (2026-08-27) · Folge-Fixes **#25** live  
+**Umsetzung:** Cloud-Agent · Branch von `main` · Deploy mit `--env-file .env.production`  
+**Bezug:** Review nach #24 – Architektur ok, aber Commit/NL-Anreicherung/COMPANY_EMAIL fehlerhaft.  
+**Ergebnis:** `$transaction`, NOT_FOUND ohne KI-Adressen, COMPANY_EMAIL→CustomerEmail (+ Heuristik), Tests grün.
 
 ---
 
@@ -114,16 +115,16 @@ Wenn Test-DB schwer: reine Unit-Tests der Merge-/Classify-Hilfsfunktionen + Serv
 
 ## Done-When
 
-- [ ] Beide Commit-Pfade in `$transaction`
-- [ ] NOT_FOUND merged keine KI-Adressen
-- [ ] COMPANY_EMAIL → CustomerEmail (+ Heuristik)
-- [ ] Unit-Tests für die drei Kernfälle grün
-- [ ] `api` + `web` Build/`tsc` grün
-- [ ] Auf `main` gemerged
+- [x] Beide Commit-Pfade in `$transaction`
+- [x] NOT_FOUND merged keine KI-Adressen
+- [x] COMPANY_EMAIL → CustomerEmail (+ Heuristik)
+- [x] Unit-Tests für die drei Kernfälle grün
+- [x] `api` + `web` Build/`tsc` grün
+- [x] Auf `main` gemerged
 - [ ] Prod-Deploy mit  
   `docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d`  
   (oder `deploy/server-deploy.sh` – LF-Endings beachten)
-- [ ] Kurz STATUS/Backlog aktualisiert
+- [x] Kurz STATUS/Backlog aktualisiert
 
 ---
 

@@ -4,25 +4,17 @@
 
 import { Injectable, Logger } from '@nestjs/common';
 import { AiAssistantService } from './ai-assistant.service';
+import {
+  mergeEnrichmentIntoBranch,
+  type EnrichmentLlmResult,
+} from './branch-merge.util';
 import { BRANCH_ENRICH_SYSTEM_PROMPT } from './prompt';
-import type { AiImportBranchDraft, EnrichmentStatus } from './types';
+import type { AiImportBranchDraft } from './types';
 
 const MAX_PARALLEL = 6;
 const FETCH_TIMEOUT_MS = 12_000;
 const MAX_PAGE_CHARS = 14_000;
-
-interface EnrichResult {
-  addressLine1?: string;
-  addressLine2?: string;
-  postalCode?: string;
-  city?: string;
-  country?: string;
-  phone?: string;
-  email?: string;
-  mapsUrl?: string;
-  notes?: string;
-  status: EnrichmentStatus;
-}
+const MAX_PAGES_TO_LLM = 3;
 
 @Injectable()
 export class BranchEnrichmentService {
@@ -50,12 +42,14 @@ export class BranchEnrichmentService {
           const i = index++;
           const branch = queue[i];
           try {
-            results[i] = await this.enrichOne(
+            const { branch: enriched, warnings: w } = await this.enrichOne(
               opts.companyName,
               opts.website,
               branch,
             );
-            if (results[i].enrichmentStatus === 'NOT_FOUND') {
+            results[i] = enriched;
+            warnings.push(...w);
+            if (enriched.enrichmentStatus === 'NOT_FOUND') {
               warnings.push(
                 `Niederlassung „${branch.name}“: keine öffentliche Adresse gefunden – manuell nachpflegen.`,
               );
@@ -85,19 +79,30 @@ export class BranchEnrichmentService {
     companyName: string,
     website: string | undefined,
     branch: AiImportBranchDraft,
-  ): Promise<AiImportBranchDraft> {
+  ): Promise<{ branch: AiImportBranchDraft; warnings: string[] }> {
     const candidates = await this.findCandidateUrls(
       companyName,
       website,
       branch,
     );
+    this.logger.debug(
+      `NL „${branch.name}“ (${branch.key}): ${candidates.length} URL-Kandidaten`,
+    );
+
     if (candidates.length === 0) {
-      return { ...branch, enrichmentStatus: 'NOT_FOUND', sourceUrls: [] };
+      return {
+        branch: { ...branch, enrichmentStatus: 'NOT_FOUND', sourceUrls: [] },
+        warnings: [],
+      };
     }
 
     const pageParts: string[] = [];
     const usedUrls: string[] = [];
-    for (const url of candidates.slice(0, 3)) {
+    const tried: string[] = [];
+
+    for (const url of candidates) {
+      if (usedUrls.length >= MAX_PAGES_TO_LLM) break;
+      tried.push(url);
       const text = await this.fetchPageText(url);
       if (text) {
         usedUrls.push(url);
@@ -105,11 +110,18 @@ export class BranchEnrichmentService {
       }
     }
 
+    this.logger.debug(
+      `NL „${branch.name}“: versucht=${tried.length}, geladen=${usedUrls.length}, status-pending`,
+    );
+
     if (pageParts.length === 0) {
       return {
-        ...branch,
-        enrichmentStatus: 'NOT_FOUND',
-        sourceUrls: candidates.slice(0, 3),
+        branch: {
+          ...branch,
+          enrichmentStatus: 'NOT_FOUND',
+          sourceUrls: tried.slice(0, MAX_PAGES_TO_LLM),
+        },
+        warnings: [],
       };
     }
 
@@ -124,49 +136,39 @@ export class BranchEnrichmentService {
       .filter(Boolean)
       .join('\n');
 
-    const parsed = await this.ai.chatJson<EnrichResult>({
-      system: BRANCH_ENRICH_SYSTEM_PROMPT,
-      user,
-      maxTokens: 800,
-    });
+    let parsed: EnrichmentLlmResult;
+    try {
+      parsed = await this.ai.chatJson<EnrichmentLlmResult>({
+        system: BRANCH_ENRICH_SYSTEM_PROMPT,
+        user,
+        maxTokens: 800,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `NL „${branch.name}“: KI-Parse fehlgeschlagen – ${(err as Error).message}`,
+      );
+      return {
+        branch: {
+          ...branch,
+          enrichmentStatus: 'NOT_FOUND',
+          sourceUrls: usedUrls,
+        },
+        warnings: [
+          `Niederlassung „${branch.name}“: KI-Antwort ungültig – keine Adressen übernommen.`,
+        ],
+      };
+    }
 
-    const status: EnrichmentStatus =
-      parsed.status === 'FOUND' ||
-      parsed.status === 'PARTIAL' ||
-      parsed.status === 'NOT_FOUND'
-        ? parsed.status
-        : this.inferStatus(parsed);
-
-    const sourceNote = usedUrls.length
-      ? `Quelle: ${usedUrls.join(', ')}`
-      : undefined;
-
-    return {
-      ...branch,
-      addressLine1: parsed.addressLine1 || branch.addressLine1,
-      addressLine2: parsed.addressLine2 || branch.addressLine2,
-      postalCode: parsed.postalCode || branch.postalCode,
-      city: parsed.city || branch.city,
-      country: parsed.country || branch.country,
-      phone: parsed.phone || branch.phone,
-      email: parsed.email || branch.email,
-      mapsUrl: parsed.mapsUrl || branch.mapsUrl,
-      notes: [branch.notes, parsed.notes, sourceNote].filter(Boolean).join('\n'),
-      enrichmentStatus: status,
-      sourceUrls: usedUrls,
-    };
-  }
-
-  private inferStatus(p: EnrichResult): EnrichmentStatus {
-    const hasStreet = Boolean(p.addressLine1?.trim());
-    const hasCity = Boolean(p.city?.trim() || p.postalCode?.trim());
-    if (hasStreet && hasCity) return 'FOUND';
-    if (hasStreet || hasCity || p.phone || p.email) return 'PARTIAL';
-    return 'NOT_FOUND';
+    const merged = mergeEnrichmentIntoBranch(branch, parsed, usedUrls);
+    this.logger.debug(
+      `NL „${branch.name}“: URLs=${usedUrls.join(' | ') || '—'} → ${merged.branch.enrichmentStatus}`,
+    );
+    return merged;
   }
 
   /**
-   * Kandidaten-URLs: Firmenwebsite-Pfade + DuckDuckGo-HTML-Suche.
+   * Kandidaten-URLs: generische Standort-Pfade aus Website + Stadt/NL-Name,
+   * optional SPIE-Extras, plus DuckDuckGo-HTML-Suche.
    */
   private async findCandidateUrls(
     companyName: string,
@@ -175,8 +177,13 @@ export class BranchEnrichmentService {
   ): Promise<string[]> {
     const urls: string[] = [];
     const base = this.normalizeWebsite(website);
+    const citySlug = this.slugify(
+      branch.city || this.guessCityFromBranchName(branch.name) || '',
+    );
+    const nameSlug = this.slugify(branch.name);
+
     if (base) {
-      const paths = [
+      const staticPaths = [
         '',
         '/kontakt',
         '/contact',
@@ -184,13 +191,38 @@ export class BranchEnrichmentService {
         '/locations',
         '/niederlassungen',
         '/impressum',
+        '/ueber-uns/standorte',
+        '/about/locations',
       ];
-      for (const p of paths) {
+      for (const p of staticPaths) {
         urls.push(`${base}${p}`);
+      }
+
+      // Generische Standort-URL-Kandidaten aus Stadt / NL-Name
+      if (citySlug) {
+        for (const p of [
+          `/standorte/${citySlug}`,
+          `/locations/${citySlug}`,
+          `/niederlassungen/${citySlug}`,
+          `/kontakt/${citySlug}`,
+          `/contact/${citySlug}`,
+          `/${citySlug}`,
+        ]) {
+          urls.push(`${base}${p}`);
+        }
+      }
+      if (nameSlug && nameSlug !== citySlug) {
+        for (const p of [
+          `/standorte/${nameSlug}`,
+          `/locations/${nameSlug}`,
+          `/${nameSlug}`,
+        ]) {
+          urls.push(`${base}${p}`);
+        }
       }
     }
 
-    // Domain-Hints aus Firmenname (z. B. SPIE)
+    // Domain-Hints aus Firmenname (zusätzlich, nicht einzige Strategie)
     const slug = companyName.toLowerCase();
     if (slug.includes('spie')) {
       urls.push(
@@ -198,6 +230,12 @@ export class BranchEnrichmentService {
         'https://www.spie.de/kontakt',
         'https://www.spie.com/en/contact',
       );
+      if (citySlug) {
+        urls.push(
+          `https://www.spie.de/standorte/${citySlug}`,
+          `https://www.spie.de/kontakt/${citySlug}`,
+        );
+      }
     }
 
     const searchQuery = `${companyName} ${branch.name} Adresse Kontakt`;
@@ -214,7 +252,27 @@ export class BranchEnrichmentService {
         out.push(u);
       }
     }
-    return out.slice(0, 8);
+    return out.slice(0, 12);
+  }
+
+  private guessCityFromBranchName(name: string): string | undefined {
+    const m = name.match(/[–-]\s*(.+)$/);
+    if (!m) return undefined;
+    return m[1].replace(/\s*\/\s*.*$/, '').trim() || undefined;
+  }
+
+  private slugify(value: string): string {
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/ä/g, 'ae')
+      .replace(/ö/g, 'oe')
+      .replace(/ü/g, 'ue')
+      .replace(/ß/g, 'ss')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 48);
   }
 
   private normalizeWebsite(website?: string): string | null {
@@ -239,14 +297,16 @@ export class BranchEnrichmentService {
       for (const m of matches) {
         try {
           const decoded = decodeURIComponent(m[1]);
-          if (/^https?:\/\//i.test(decoded) && !/duckduckgo\.com/i.test(decoded)) {
+          if (
+            /^https?:\/\//i.test(decoded) &&
+            !/duckduckgo\.com/i.test(decoded)
+          ) {
             urls.push(decoded);
           }
         } catch {
           /* ignore */
         }
       }
-      // Fallback: hrefs
       if (urls.length === 0) {
         for (const m of html.matchAll(/href="(https?:\/\/[^"]+)"/g)) {
           const href = m[1];

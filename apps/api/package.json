@@ -7,7 +7,8 @@
     "dev": "nest start --watch",
     "start": "node dist/main.js",
     "build": "nest build",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "test": "node --require ts-node/register/transpile-only --test src/ai-import/**/*.spec.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.4",

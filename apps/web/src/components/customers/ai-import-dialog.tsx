@@ -468,8 +468,18 @@ export function AiImportDialog({
 
             <div className="space-y-2">
               <h3 className="text-sm font-medium">
-                {t.contacts} ({preview.contacts.filter((c) => c.include).length}/
-                {preview.contacts.length})
+                {t.contacts} (
+                {
+                  preview.contacts.filter(
+                    (c) => c.include && c.kind !== 'COMPANY_EMAIL',
+                  ).length
+                }
+                /
+                {
+                  preview.contacts.filter((c) => c.kind !== 'COMPANY_EMAIL')
+                    .length
+                }
+                )
               </h3>
               <div className="overflow-x-auto rounded-md border">
                 <Table>
@@ -485,88 +495,90 @@ export function AiImportDialog({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {preview.contacts.map((c, i) => (
-                      <TableRow key={`${c.email || ''}-${i}`}>
-                        <TableCell>
-                          <input
-                            type="checkbox"
-                            checked={c.include}
-                            onChange={(e) =>
-                              updateContact(i, { include: e.target.checked })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            className="min-h-[36px] w-28"
-                            value={c.firstName}
-                            onChange={(e) =>
-                              updateContact(i, { firstName: e.target.value })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            className="min-h-[36px] w-28"
-                            value={c.lastName}
-                            onChange={(e) =>
-                              updateContact(i, { lastName: e.target.value })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            className="min-h-[36px] min-w-[120px]"
-                            value={c.role || ''}
-                            onChange={(e) =>
-                              updateContact(i, { role: e.target.value })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            className="min-h-[36px] min-w-[160px]"
-                            value={c.email || ''}
-                            onChange={(e) =>
-                              updateContact(i, { email: e.target.value })
-                            }
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={c.branchKey || '__none__'}
-                            onValueChange={(v) =>
-                              updateContact(i, {
-                                branchKey: v === '__none__' ? undefined : v,
-                              })
-                            }
-                          >
-                            <SelectTrigger className="min-h-[36px] min-w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="__none__">—</SelectItem>
-                              {preview.branches.map((b) => (
-                                <SelectItem key={b.key} value={b.key}>
-                                  {b.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            className="min-h-[36px] w-12"
-                            value={c.priority || ''}
-                            onChange={(e) =>
-                              updateContact(i, {
-                                priority: e.target.value as 'A' | 'B' | 'C',
-                              })
-                            }
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {preview.contacts.map((c, i) =>
+                      c.kind === 'COMPANY_EMAIL' ? null : (
+                        <TableRow key={`${c.email || ''}-${i}`}>
+                          <TableCell>
+                            <input
+                              type="checkbox"
+                              checked={c.include}
+                              onChange={(e) =>
+                                updateContact(i, { include: e.target.checked })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              className="min-h-[36px] w-28"
+                              value={c.firstName}
+                              onChange={(e) =>
+                                updateContact(i, { firstName: e.target.value })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              className="min-h-[36px] w-28"
+                              value={c.lastName}
+                              onChange={(e) =>
+                                updateContact(i, { lastName: e.target.value })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              className="min-h-[36px] min-w-[120px]"
+                              value={c.role || ''}
+                              onChange={(e) =>
+                                updateContact(i, { role: e.target.value })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              className="min-h-[36px] min-w-[160px]"
+                              value={c.email || ''}
+                              onChange={(e) =>
+                                updateContact(i, { email: e.target.value })
+                              }
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={c.branchKey || '__none__'}
+                              onValueChange={(v) =>
+                                updateContact(i, {
+                                  branchKey: v === '__none__' ? undefined : v,
+                                })
+                              }
+                            >
+                              <SelectTrigger className="min-h-[36px] min-w-[140px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__none__">—</SelectItem>
+                                {preview.branches.map((b) => (
+                                  <SelectItem key={b.key} value={b.key}>
+                                    {b.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              className="min-h-[36px] w-12"
+                              value={c.priority || ''}
+                              onChange={(e) =>
+                                updateContact(i, {
+                                  priority: e.target.value as 'A' | 'B' | 'C',
+                                })
+                              }
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ),
+                    )}
                   </TableBody>
                 </Table>
               </div>
@@ -574,10 +586,20 @@ export function AiImportDialog({
 
             {(preview.companyEmails?.length ?? 0) > 0 && (
               <div className="space-y-2">
-                <h3 className="text-sm font-medium">{t.companyEmails}</h3>
+                <h3 className="text-sm font-medium">
+                  {t.companyEmails} (
+                  {preview.companyEmails!.filter((e) => e.include).length}/
+                  {preview.companyEmails!.length})
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {t.companyEmailHint}
+                </p>
                 <ul className="space-y-1 text-sm">
                   {preview.companyEmails!.map((e, i) => (
-                    <li key={`${e.email}-${i}`} className="flex items-center gap-2">
+                    <li
+                      key={`${e.email}-${i}`}
+                      className="flex items-center gap-2"
+                    >
                       <input
                         type="checkbox"
                         checked={e.include}
@@ -593,9 +615,14 @@ export function AiImportDialog({
                           })
                         }
                       />
-                      <span>
-                        {e.email}
-                        {e.label ? ` (${e.label})` : ''}
+                      <span className="inline-flex items-center gap-2">
+                        <span className="rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          {t.companyEmailBadge}
+                        </span>
+                        <span>
+                          {e.email}
+                          {e.label ? ` (${e.label})` : ''}
+                        </span>
                       </span>
                     </li>
                   ))}

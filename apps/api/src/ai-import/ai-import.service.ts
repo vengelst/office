@@ -8,10 +8,15 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiAssistantService } from './ai-assistant.service';
 import { BranchEnrichmentService } from './branch-enrichment.service';
+import {
+  isCompanyEmailContact,
+  splitAndDedupCompanyEmails,
+} from './company-email.util';
 import { FileExtractService } from './file-extract.service';
 import { PreviewCache } from './preview-cache';
 import {
@@ -28,6 +33,10 @@ import type {
   AiImportPreviewResponse,
   ImportMode,
 } from './types';
+
+type Tx = Prisma.TransactionClient;
+
+const COMMIT_TX_TIMEOUT_MS = 60_000;
 
 @Injectable()
 export class AiImportService {
@@ -129,6 +138,7 @@ export class AiImportService {
 
   /**
    * Schreibt freigegebene Preview-Daten in die DB (Transaction).
+   * Client-Payload ist Source of Truth; Cache-Miss bricht nicht ab.
    */
   async commit(
     dto: AiImportCommitRequest,
@@ -159,8 +169,8 @@ export class AiImportService {
     }
 
     const includedBranches = (dto.branches || []).filter((b) => b.include);
-    const includedContacts = (dto.contacts || []).filter((c) => c.include);
-    const includedEmails = (dto.companyEmails || []).filter((e) => e.include);
+    const { personContacts, companyEmails, skippedContacts } =
+      this.prepareContactsAndEmails(dto);
 
     const sourceFilename =
       dto.sourceFilename ||
@@ -168,264 +178,455 @@ export class AiImportService {
       'import';
     const sourceMarker = `Quelle: KI-Import ${sourceFilename} (${new Date().toISOString().slice(0, 10)}) · User ${userId}`;
 
-    let customerId: string;
-    let customerNumber: string;
-    let createdBranches = 0;
-    let reusedBranches = 0;
-    let createdContacts = 0;
-    let createdEmails = 0;
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        let customerId: string;
+        let customerNumber: string;
+        let createdBranches = 0;
+        let reusedBranches = 0;
+        let createdContacts = 0;
+        let createdEmails = 0;
 
-    if (dto.attachToCustomerId) {
-      const existing = await this.prisma.customer.findFirst({
-        where: { id: dto.attachToCustomerId, deletedAt: null },
-      });
-      if (!existing) {
-        throw new NotFoundException('Zielkunde nicht gefunden');
-      }
-      customerId = existing.id;
-      customerNumber = existing.customerNumber;
-      // Append source note
-      await this.prisma.customer.update({
-        where: { id: customerId },
-        data: {
-          notes: [existing.notes, sourceMarker].filter(Boolean).join('\n\n'),
-        },
-      });
-    } else {
-      // Soft conflict check
-      const matches = await this.findCustomerMatches(companyName!);
-      if (matches.length > 0 && !dto.attachToCustomerId) {
-        // Allow create anyway – UI should have warned; user explicitly chose new
-      }
-      const customerNumberNew = await this.generateCustomerNumber();
-      const notes = [dto.customerDraft?.notes, sourceMarker]
-        .filter(Boolean)
-        .join('\n\n');
-      const created = await this.prisma.customer.create({
-        data: {
-          customerNumber: customerNumberNew,
-          companyName: companyName!,
-          country: dto.customerDraft?.country || undefined,
-          website: dto.customerDraft?.website || undefined,
-          industry: dto.customerDraft?.industry || undefined,
-          rating: dto.customerDraft?.rating?.slice(0, 1) || undefined,
-          notes: notes || undefined,
-        },
-      });
-      customerId = created.id;
-      customerNumber = created.customerNumber;
-    }
+        if (dto.attachToCustomerId) {
+          const existing = await tx.customer.findFirst({
+            where: { id: dto.attachToCustomerId, deletedAt: null },
+          });
+          if (!existing) {
+            throw new NotFoundException('Zielkunde nicht gefunden');
+          }
+          customerId = existing.id;
+          customerNumber = existing.customerNumber;
+          await tx.customer.update({
+            where: { id: customerId },
+            data: {
+              notes: [existing.notes, sourceMarker]
+                .filter(Boolean)
+                .join('\n\n'),
+            },
+          });
+        } else {
+          const notes = [dto.customerDraft?.notes, sourceMarker]
+            .filter(Boolean)
+            .join('\n\n');
+          const created = await this.createCustomerWithNumber(tx, {
+            companyName: companyName!,
+            country: dto.customerDraft?.country || undefined,
+            website: dto.customerDraft?.website || undefined,
+            industry: dto.customerDraft?.industry || undefined,
+            rating: dto.customerDraft?.rating || undefined,
+            notes: notes || undefined,
+          });
+          customerId = created.id;
+          customerNumber = created.customerNumber;
+        }
 
-    // Existing branches for reuse
-    const existingBranches = await this.prisma.customerBranch.findMany({
-      where: { customerId },
-    });
+        const existingBranches = await tx.customerBranch.findMany({
+          where: { customerId },
+        });
 
-    const branchIdByKey = new Map<string, string>();
+        const branchIdByKey = new Map<string, string>();
 
-    for (const b of includedBranches) {
-      const match = existingBranches.find(
-        (eb) =>
-          this.norm(eb.name) === this.norm(b.name) ||
-          (b.city &&
-            eb.city &&
-            this.norm(eb.city) === this.norm(b.city) &&
-            this.norm(eb.name).includes(this.norm(b.city))),
-      );
-      if (match) {
-        branchIdByKey.set(b.key, match.id);
-        reusedBranches += 1;
-        continue;
-      }
-      const created = await this.prisma.customerBranch.create({
-        data: {
+        for (const b of includedBranches) {
+          const match = existingBranches.find(
+            (eb) =>
+              this.norm(eb.name) === this.norm(b.name) ||
+              (b.city &&
+                eb.city &&
+                this.norm(eb.city) === this.norm(b.city) &&
+                this.norm(eb.name).includes(this.norm(b.city))),
+          );
+          if (match) {
+            branchIdByKey.set(b.key, match.id);
+            reusedBranches += 1;
+            continue;
+          }
+          const created = await tx.customerBranch.create({
+            data: {
+              customerId,
+              name: b.name,
+              branchType: b.branchType || 'OFFICE',
+              addressLine1: b.addressLine1 || undefined,
+              addressLine2: b.addressLine2 || undefined,
+              postalCode: b.postalCode || undefined,
+              city: b.city || undefined,
+              country: b.country || undefined,
+              phone: b.phone || undefined,
+              email: b.email || undefined,
+              mapsUrl: b.mapsUrl || undefined,
+              notes:
+                [b.notes, sourceMarker].filter(Boolean).join('\n') || undefined,
+              active: true,
+            },
+          });
+          branchIdByKey.set(b.key, created.id);
+          createdBranches += 1;
+        }
+
+        const companyEmailKeys = new Set(
+          companyEmails.map((e) => e.email.trim().toLowerCase()),
+        );
+
+        for (const c of personContacts) {
+          const branchId = c.branchKey
+            ? branchIdByKey.get(c.branchKey)
+            : undefined;
+          const notes = [
+            c.notes,
+            c.priority ? `Priorität: ${c.priority}` : null,
+            c.department ? `Einheit: ${c.department}` : null,
+            sourceMarker,
+          ]
+            .filter(Boolean)
+            .join('\n');
+
+          const emailKey = c.email?.trim().toLowerCase();
+          const contactEmail =
+            emailKey && companyEmailKeys.has(emailKey)
+              ? undefined
+              : c.email || undefined;
+
+          await tx.customerContact.create({
+            data: {
+              customerId,
+              branchId: branchId || undefined,
+              firstName: c.firstName?.trim() || '-',
+              lastName: c.lastName?.trim() || '-',
+              role: c.role || undefined,
+              department: c.department || undefined,
+              email: contactEmail,
+              phoneLandline: c.phoneLandline || undefined,
+              phoneMobile: c.phoneMobile || undefined,
+              linkedInUrl: c.linkedInUrl || undefined,
+              country: c.country || undefined,
+              notes: notes || undefined,
+              syncToGoogle: false,
+            },
+          });
+          createdContacts += 1;
+        }
+
+        for (const e of companyEmails) {
+          await tx.customerEmail.create({
+            data: {
+              customerId,
+              email: e.email,
+              emailType: e.emailType || 'GENERAL',
+              label: e.label || undefined,
+            },
+          });
+          createdEmails += 1;
+        }
+
+        return {
           customerId,
-          name: b.name,
-          branchType: b.branchType || 'OFFICE',
-          addressLine1: b.addressLine1 || undefined,
-          addressLine2: b.addressLine2 || undefined,
-          postalCode: b.postalCode || undefined,
-          city: b.city || undefined,
-          country: b.country || undefined,
-          phone: b.phone || undefined,
-          email: b.email || undefined,
-          mapsUrl: b.mapsUrl || undefined,
-          notes: [b.notes, sourceMarker].filter(Boolean).join('\n') || undefined,
-          active: true,
-        },
-      });
-      branchIdByKey.set(b.key, created.id);
-      createdBranches += 1;
-    }
+          customerNumber,
+          createdBranches,
+          createdContacts,
+          createdEmails,
+          reusedBranches,
+        };
+      },
+      { timeout: COMMIT_TX_TIMEOUT_MS },
+    );
 
-    for (const c of includedContacts) {
-      const branchId = c.branchKey
-        ? branchIdByKey.get(c.branchKey)
-        : undefined;
-      const notes = [
-        c.notes,
-        c.priority ? `Priorität: ${c.priority}` : null,
-        c.department ? `Einheit: ${c.department}` : null,
-        sourceMarker,
-      ]
-        .filter(Boolean)
-        .join('\n');
-
-      await this.prisma.customerContact.create({
-        data: {
-          customerId,
-          branchId: branchId || undefined,
-          firstName: c.firstName || '-',
-          lastName: c.lastName || '-',
-          role: c.role || undefined,
-          department: c.department || undefined,
-          email: c.email || undefined,
-          phoneLandline: c.phoneLandline || undefined,
-          phoneMobile: c.phoneMobile || undefined,
-          linkedInUrl: c.linkedInUrl || undefined,
-          country: c.country || undefined,
-          notes: notes || undefined,
-          syncToGoogle: false,
-        },
-      });
-      createdContacts += 1;
-    }
-
-    for (const e of includedEmails) {
-      await this.prisma.customerEmail.create({
-        data: {
-          customerId,
-          email: e.email,
-          emailType: e.emailType || 'GENERAL',
-          label: e.label || undefined,
-        },
-      });
-      createdEmails += 1;
-    }
-
+    // Cache erst nach erfolgreicher Transaction löschen
     if (dto.previewId) this.cache.delete(dto.previewId);
 
     return {
-      customerId,
-      customerNumber,
-      createdBranches,
-      createdContacts,
-      createdEmails,
-      reusedBranches,
+      ...result,
       skipped: {
-        contacts: (dto.contacts || []).length - includedContacts.length,
+        contacts: skippedContacts,
         branches: (dto.branches || []).length - includedBranches.length,
-        emails: (dto.companyEmails || []).length - includedEmails.length,
+        emails:
+          (dto.companyEmails || []).filter((e) => !e.include).length +
+          (dto.contacts || []).filter(
+            (c) => c.include && isCompanyEmailContact(c) && !c.email?.trim(),
+          ).length,
       },
     };
   }
 
   /**
-   * Modus B: jeder inkludierte Kontakt → eigener Kunde (mit optionaler NL).
+   * Modus B: jeder inkludierte Personen-Kontakt → eigener Kunde.
+   * COMPANY_EMAIL-Zeilen → Kunde + CustomerEmail ohne Fake-Person.
    */
   private async commitOneRowOneCustomer(
     dto: AiImportCommitRequest,
     userId: string,
   ): Promise<AiImportCommitResponse> {
-    const includedContacts = (dto.contacts || []).filter((c) => c.include);
-    if (includedContacts.length === 0) {
+    const included = (dto.contacts || []).filter((c) => c.include);
+    const includedEmails = (dto.companyEmails || []).filter((e) => e.include);
+
+    if (included.length === 0 && includedEmails.length === 0) {
       throw new BadRequestException('Keine Kontakte zum Import ausgewählt');
     }
 
     const sourceFilename = dto.sourceFilename || 'import';
     const sourceMarker = `Quelle: KI-Import ${sourceFilename} (${new Date().toISOString().slice(0, 10)}) · User ${userId}`;
 
-    let lastCustomerId = '';
-    let lastCustomerNumber = '';
-    let createdContacts = 0;
-    let createdBranches = 0;
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        let lastCustomerId = '';
+        let lastCustomerNumber = '';
+        let createdContacts = 0;
+        let createdBranches = 0;
+        let createdEmails = 0;
 
-    for (const c of includedContacts) {
-      const companyName =
-        c.department?.trim() ||
-        dto.customerDraft?.companyName ||
-        `${c.firstName} ${c.lastName}`.trim() ||
-        'Interessent';
-      const customerNumber = await this.generateCustomerNumber();
-      const customer = await this.prisma.customer.create({
-        data: {
-          customerNumber,
-          companyName,
-          country: c.country || dto.customerDraft?.country || undefined,
-          industry: dto.customerDraft?.industry || undefined,
-          rating: c.priority || dto.customerDraft?.rating || undefined,
-          notes: [dto.customerDraft?.notes, sourceMarker]
-            .filter(Boolean)
-            .join('\n\n'),
-        },
-      });
-      lastCustomerId = customer.id;
-      lastCustomerNumber = customer.customerNumber;
+        for (const c of included) {
+          if (isCompanyEmailContact(c)) {
+            const email = c.email?.trim();
+            if (!email) continue;
+            const companyName =
+              c.department?.trim() ||
+              dto.customerDraft?.companyName ||
+              email ||
+              'Interessent';
+            const customer = await this.createCustomerWithNumber(tx, {
+              companyName,
+              country: c.country || dto.customerDraft?.country || undefined,
+              industry: dto.customerDraft?.industry || undefined,
+              rating: c.priority || dto.customerDraft?.rating || undefined,
+              notes: [dto.customerDraft?.notes, sourceMarker]
+                .filter(Boolean)
+                .join('\n\n'),
+            });
+            lastCustomerId = customer.id;
+            lastCustomerNumber = customer.customerNumber;
 
-      let branchId: string | undefined;
-      if (c.branchKey) {
-        const branchDraft = (dto.branches || []).find(
-          (b) => b.key === c.branchKey && b.include,
-        );
-        if (branchDraft) {
-          const br = await this.prisma.customerBranch.create({
+            let branchId: string | undefined;
+            if (c.branchKey) {
+              branchId = await this.createBranchIfDraft(
+                tx,
+                customer.id,
+                c.branchKey,
+                dto,
+                sourceMarker,
+              );
+              if (branchId) createdBranches += 1;
+            }
+
+            await tx.customerEmail.create({
+              data: {
+                customerId: customer.id,
+                email,
+                emailType: 'GENERAL',
+                label:
+                  c.role ||
+                  c.department ||
+                  [c.firstName, c.lastName].filter(Boolean).join(' ') ||
+                  undefined,
+              },
+            });
+            createdEmails += 1;
+            continue;
+          }
+
+          const companyName =
+            c.department?.trim() ||
+            dto.customerDraft?.companyName ||
+            `${c.firstName} ${c.lastName}`.trim() ||
+            'Interessent';
+          const customer = await this.createCustomerWithNumber(tx, {
+            companyName,
+            country: c.country || dto.customerDraft?.country || undefined,
+            industry: dto.customerDraft?.industry || undefined,
+            rating: c.priority || dto.customerDraft?.rating || undefined,
+            notes: [dto.customerDraft?.notes, sourceMarker]
+              .filter(Boolean)
+              .join('\n\n'),
+          });
+          lastCustomerId = customer.id;
+          lastCustomerNumber = customer.customerNumber;
+
+          let branchId: string | undefined;
+          if (c.branchKey) {
+            branchId = await this.createBranchIfDraft(
+              tx,
+              customer.id,
+              c.branchKey,
+              dto,
+              sourceMarker,
+            );
+            if (branchId) createdBranches += 1;
+          }
+
+          await tx.customerContact.create({
             data: {
               customerId: customer.id,
-              name: branchDraft.name,
-              branchType: branchDraft.branchType || 'OFFICE',
-              addressLine1: branchDraft.addressLine1 || undefined,
-              addressLine2: branchDraft.addressLine2 || undefined,
-              postalCode: branchDraft.postalCode || undefined,
-              city: branchDraft.city || undefined,
-              country: branchDraft.country || undefined,
-              phone: branchDraft.phone || undefined,
-              email: branchDraft.email || undefined,
-              mapsUrl: branchDraft.mapsUrl || undefined,
+              branchId,
+              firstName: c.firstName?.trim() || '-',
+              lastName: c.lastName?.trim() || '-',
+              role: c.role || undefined,
+              department: c.department || undefined,
+              email: c.email || undefined,
+              phoneLandline: c.phoneLandline || undefined,
+              phoneMobile: c.phoneMobile || undefined,
+              linkedInUrl: c.linkedInUrl || undefined,
+              country: c.country || undefined,
               notes:
-                [branchDraft.notes, sourceMarker].filter(Boolean).join('\n') ||
-                undefined,
+                [c.notes, sourceMarker].filter(Boolean).join('\n') || undefined,
+              syncToGoogle: false,
             },
           });
-          branchId = br.id;
-          createdBranches += 1;
+          createdContacts += 1;
         }
-      }
 
-      await this.prisma.customerContact.create({
-        data: {
-          customerId: customer.id,
-          branchId,
-          firstName: c.firstName || '-',
-          lastName: c.lastName || '-',
-          role: c.role || undefined,
-          department: c.department || undefined,
-          email: c.email || undefined,
-          phoneLandline: c.phoneLandline || undefined,
-          phoneMobile: c.phoneMobile || undefined,
-          linkedInUrl: c.linkedInUrl || undefined,
-          country: c.country || undefined,
-          notes: [c.notes, sourceMarker].filter(Boolean).join('\n') || undefined,
-          syncToGoogle: false,
-        },
-      });
-      createdContacts += 1;
-    }
+        // Standalone companyEmails without contact rows
+        for (const e of includedEmails) {
+          const alreadyFromContact = included.some(
+            (c) =>
+              c.include &&
+              c.email?.trim().toLowerCase() === e.email.trim().toLowerCase(),
+          );
+          if (alreadyFromContact) continue;
+
+          const companyName =
+            e.label?.trim() ||
+            dto.customerDraft?.companyName ||
+            e.email ||
+            'Interessent';
+          const customer = await this.createCustomerWithNumber(tx, {
+            companyName,
+            country: dto.customerDraft?.country || undefined,
+            industry: dto.customerDraft?.industry || undefined,
+            rating: dto.customerDraft?.rating || undefined,
+            notes: [dto.customerDraft?.notes, sourceMarker]
+              .filter(Boolean)
+              .join('\n\n'),
+          });
+          lastCustomerId = customer.id;
+          lastCustomerNumber = customer.customerNumber;
+          await tx.customerEmail.create({
+            data: {
+              customerId: customer.id,
+              email: e.email,
+              emailType: e.emailType || 'GENERAL',
+              label: e.label || undefined,
+            },
+          });
+          createdEmails += 1;
+        }
+
+        if (!lastCustomerId) {
+          throw new BadRequestException('Keine Kontakte zum Import ausgewählt');
+        }
+
+        return {
+          customerId: lastCustomerId,
+          customerNumber: lastCustomerNumber,
+          createdBranches,
+          createdContacts,
+          createdEmails,
+          reusedBranches: 0,
+        };
+      },
+      { timeout: COMMIT_TX_TIMEOUT_MS },
+    );
 
     if (dto.previewId) this.cache.delete(dto.previewId);
 
     return {
-      customerId: lastCustomerId,
-      customerNumber: lastCustomerNumber,
-      createdBranches,
-      createdContacts,
-      createdEmails: 0,
-      reusedBranches: 0,
+      ...result,
       skipped: {
-        contacts: (dto.contacts || []).length - includedContacts.length,
+        contacts: (dto.contacts || []).length - included.length,
         branches: 0,
-        emails: 0,
+        emails: (dto.companyEmails || []).length - includedEmails.length,
       },
     };
+  }
+
+  /**
+   * Teilt included Contacts in Personen vs. Firmen-E-Mails und dedupliziert.
+   */
+  private prepareContactsAndEmails(dto: AiImportCommitRequest): {
+    personContacts: AiImportContactDraft[];
+    companyEmails: AiImportCompanyEmailDraft[];
+    skippedContacts: number;
+  } {
+    const includedContacts = (dto.contacts || []).filter((c) => c.include);
+    const includedEmails = (dto.companyEmails || []).filter((e) => e.include);
+    const split = splitAndDedupCompanyEmails(includedContacts, includedEmails);
+    const skippedContacts =
+      (dto.contacts || []).length -
+      includedContacts.length +
+      split.movedCount;
+    return {
+      personContacts: split.contacts,
+      companyEmails: split.companyEmails.filter((e) => e.include),
+      skippedContacts,
+    };
+  }
+
+  private async createBranchIfDraft(
+    tx: Tx,
+    customerId: string,
+    branchKey: string,
+    dto: AiImportCommitRequest,
+    sourceMarker: string,
+  ): Promise<string | undefined> {
+    const branchDraft = (dto.branches || []).find(
+      (b) => b.key === branchKey && b.include,
+    );
+    if (!branchDraft) return undefined;
+    const br = await tx.customerBranch.create({
+      data: {
+        customerId,
+        name: branchDraft.name,
+        branchType: branchDraft.branchType || 'OFFICE',
+        addressLine1: branchDraft.addressLine1 || undefined,
+        addressLine2: branchDraft.addressLine2 || undefined,
+        postalCode: branchDraft.postalCode || undefined,
+        city: branchDraft.city || undefined,
+        country: branchDraft.country || undefined,
+        phone: branchDraft.phone || undefined,
+        email: branchDraft.email || undefined,
+        mapsUrl: branchDraft.mapsUrl || undefined,
+        notes:
+          [branchDraft.notes, sourceMarker].filter(Boolean).join('\n') ||
+          undefined,
+      },
+    });
+    return br.id;
+  }
+
+  private async createCustomerWithNumber(
+    tx: Tx,
+    data: {
+      companyName: string;
+      country?: string;
+      industry?: string;
+      rating?: string;
+      notes?: string;
+      website?: string;
+    },
+  ) {
+    // Unique-Konflikt: kurze Retries innerhalb der Transaction
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const customerNumber = await this.generateCustomerNumber(tx);
+      try {
+        return await tx.customer.create({
+          data: {
+            customerNumber,
+            companyName: data.companyName,
+            country: data.country,
+            industry: data.industry,
+            rating: data.rating?.slice(0, 1),
+            notes: data.notes,
+            website: data.website,
+          },
+        });
+      } catch (err) {
+        if (
+          err instanceof Prisma.PrismaClientKnownRequestError &&
+          err.code === 'P2002' &&
+          attempt < 2
+        ) {
+          continue;
+        }
+        throw err;
+      }
+    }
+    throw new BadRequestException('Kundennummer konnte nicht vergeben werden');
   }
 
   private normalizePayload(
@@ -437,7 +638,10 @@ export class AiImportService {
     const branches: AiImportBranchDraft[] = Array.isArray(raw.branches)
       ? raw.branches.map((b, i) => ({
           include: b.include !== false,
-          key: (b.key || `branch-${i + 1}`).toString().toLowerCase().replace(/\s+/g, '-'),
+          key: (b.key || `branch-${i + 1}`)
+            .toString()
+            .toLowerCase()
+            .replace(/\s+/g, '-'),
           name: b.name || `Niederlassung ${i + 1}`,
           branchType: b.branchType,
           addressLine1: b.addressLine1,
@@ -454,7 +658,7 @@ export class AiImportService {
         }))
       : [];
 
-    const contacts: AiImportContactDraft[] = Array.isArray(raw.contacts)
+    const contactsRaw: AiImportContactDraft[] = Array.isArray(raw.contacts)
       ? raw.contacts.map((c) => ({
           include: c.include !== false,
           firstName: c.firstName || '',
@@ -477,7 +681,7 @@ export class AiImportService {
         }))
       : [];
 
-    const companyEmails: AiImportCompanyEmailDraft[] = Array.isArray(
+    const companyEmailsRaw: AiImportCompanyEmailDraft[] = Array.isArray(
       raw.companyEmails,
     )
       ? raw.companyEmails.map((e) => ({
@@ -488,10 +692,13 @@ export class AiImportService {
         }))
       : [];
 
-    // Dedup contacts by name+email
+    // COMPANY_EMAIL / Heuristik → companyEmails verschieben
+    const split = splitAndDedupCompanyEmails(contactsRaw, companyEmailsRaw);
+
+    // Dedup remaining person contacts by name+email
     const seen = new Set<string>();
     const dedupedContacts: AiImportContactDraft[] = [];
-    for (const c of contacts) {
+    for (const c of split.contacts) {
       const key = `${this.norm(c.firstName)}|${this.norm(c.lastName)}|${this.norm(c.email || '')}`;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -518,8 +725,11 @@ export class AiImportService {
       customerDraft,
       branches,
       contacts: dedupedContacts,
-      companyEmails,
-      warnings: Array.isArray(raw.warnings) ? [...raw.warnings] : [],
+      companyEmails: split.companyEmails,
+      warnings: [
+        ...(Array.isArray(raw.warnings) ? raw.warnings : []),
+        ...split.warnings,
+      ],
     };
   }
 
@@ -579,10 +789,13 @@ export class AiImportService {
     });
   }
 
-  private async generateCustomerNumber(): Promise<string> {
+  /**
+   * Kundennummer race-safe innerhalb der Transaction.
+   */
+  private async generateCustomerNumber(tx: Tx): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `K-${year}-`;
-    const last = await this.prisma.customer.findFirst({
+    const last = await tx.customer.findFirst({
       where: { customerNumber: { startsWith: prefix } },
       orderBy: { customerNumber: 'desc' },
       select: { customerNumber: true },

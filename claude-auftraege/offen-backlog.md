@@ -27,7 +27,7 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 - Cloud-Auftrag **#24** KI-Kontakt-Import **umgesetzt**: Settings → KI, Preview/Commit, NL-Web-Anreicherung, `CustomerBranch` + `branchId`, Bulk ohne Google-Sync
 - Spec: `claude-arbeitsitems-24-ki-kontakt-import.md`
 - Review: Transaktion fehlt, NOT_FOUND merged Adressen, COMPANY_EMAIL ignoriert → Folge **#25**
-- Cloud-Auftrag **#25** Spec: `claude-arbeitsitems-25-ki-import-fixes.md` (in Umsetzung)
+- Cloud-Auftrag **#25** **umgesetzt**: `$transaction`, NOT_FOUND ohne KI-Adressen, COMPANY_EMAIL→CustomerEmail (+ Heuristik), Unit-Tests
 
 ## Session-Notiz Cursor 27.08.2026
 
@@ -61,7 +61,7 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 **Nächste Cloud-Aufträge:**
 - `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`
-- `#24` KI-Kontakt-/Interessenten-Import – **umgesetzt** (2026-08-27)
+- `#24` / `#25` KI-Kontakt-Import – **umgesetzt** (2026-08-27)
 
 ---
 

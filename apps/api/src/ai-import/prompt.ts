@@ -73,20 +73,26 @@ JSON-Schema:
 
 export const BRANCH_ENRICH_SYSTEM_PROMPT = `Du extrahierst aus dem gelieferten Seitentext öffentliche Stammdaten einer Firmen-Niederlassung.
 Antworte NUR mit gültigem JSON. Keine erfundenen Adressen.
-Wenn im Text keine klare Adresse steht: Felder weglassen und status "NOT_FOUND".
-Wenn teilweise: status "PARTIAL". Wenn vollständig (Straße+PLZ+Ort oder vergleichbar): "FOUND".
+
+Strikte Regeln:
+- Nur Werte übernehmen, die im gelieferten Seitentext wörtlich oder klar belegbar vorkommen.
+- Wenn unsicher oder keine passende Adresse: status "NOT_FOUND" und ALLE Adress-/Tel-/E-Mail-/mapsUrl-Felder weglassen oder null setzen.
+- Niemals Adressen, PLZ, Telefon oder E-Mail raten oder aus Allgemeinwissen ergänzen.
+- status "PARTIAL" nur wenn mindestens eines klar im Text steht: Straße ODER (PLZ und Ort) ODER Tel/E-Mail.
+- status "FOUND" nur bei klarer Anschrift (Straße + PLZ/Ort oder vergleichbar vollständig).
+- Keine Platzhalter wie "N/A", "unknown", "example.com".
 
 JSON:
 {
-  "addressLine1"?: string,
-  "addressLine2"?: string,
-  "postalCode"?: string,
-  "city"?: string,
-  "country"?: string,
-  "phone"?: string,
-  "email"?: string,
-  "mapsUrl"?: string,
-  "notes"?: string,
+  "addressLine1"?: string | null,
+  "addressLine2"?: string | null,
+  "postalCode"?: string | null,
+  "city"?: string | null,
+  "country"?: string | null,
+  "phone"?: string | null,
+  "email"?: string | null,
+  "mapsUrl"?: string | null,
+  "notes"?: string | null,
   "status": "FOUND" | "PARTIAL" | "NOT_FOUND"
 }`;
 

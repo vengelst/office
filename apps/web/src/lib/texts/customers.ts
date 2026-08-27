@@ -150,6 +150,9 @@ export const customers = {
       branches: 'Niederlassungen',
       contacts: 'Kontakte',
       companyEmails: 'Firmen-E-Mails',
+      companyEmailBadge: 'Firmen-E-Mail',
+      companyEmailHint:
+        'Sammeladressen (z. B. nl-…@, office-…@) werden als Firmen-E-Mail gespeichert, nicht als Ansprechpartner.',
       warnings: 'Hinweise',
       attachExisting: 'An bestehenden Kunden anhängen',
       createNew: 'Als neuen Kunden anlegen',
@@ -181,6 +184,7 @@ export const customers = {
         email: 'E-Mail',
         branch: 'Niederlassung',
         priority: 'Prio',
+        kind: 'Art',
       },
     },
     empties: {
