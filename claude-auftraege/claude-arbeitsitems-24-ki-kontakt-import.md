@@ -299,7 +299,8 @@ Skript `scripts/import-spie-outreach.cjs` behalten (Dokumentation/Notfall), nich
 - [x] SPIE-ähnliche Liste sinnvoll normalisiert (ohne Blind-Write)
 - [x] Niederlassungen: Web-Anreicherung + `CustomerBranch` + Kontakt-`branchId`
 - [x] Google-Sync aus bei Bulk
-- [x] Builds grün, auf Prod deployt mit `--env-file .env.production`
+- [x] Builds grün; Prod-Deploy ausstehend (SSH-Key Cloud-VM)
+- [ ] auf Prod deployt mit `--env-file .env.production`
 - [x] Kurznotiz in `STATUS.md` / Backlog: Feature live
 
 ---
