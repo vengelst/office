@@ -22,6 +22,12 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 
+## Session-Notiz Cursor 27.08.2026
+
+- SPIE-Outreach manuell auf Prod importiert (`K-2026-0012`); Skript `scripts/import-spie-outreach.cjs`
+- Deploy-Falle behoben: immer `--env-file .env.production` (sonst API/Web „leer“)
+- Cloud-Auftrag **#24** KI-Kontakt-Import Spec startklar
+
 ## Session-Notiz Cursor 26.08.2026 (Übergabe)
 
 - Backlog/Status auf **v1.0.1** nachgezogen; GPS/#22/#23 als erledigt dokumentiert
@@ -46,7 +52,9 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 | UI-Splits (Kiosk/Timesheet/Equipment/Worker), App-Icon, Foto-Feinschliff | `1c4cd51` … `8fd0b49` | live |
 | Release-Tag **v1.0.1** | `27f1f23` … | live |
 
-**Nächster Cloud-Auftrag:** `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`.
+**Nächste Cloud-Aufträge:**
+- `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`
+- `#24` KI-Kontakt-/Interessenten-Import – Spec startklar in `claude-arbeitsitems-24-ki-kontakt-import.md` (2026-08-27; nach manuellem SPIE-Import)
 
 ---
 
