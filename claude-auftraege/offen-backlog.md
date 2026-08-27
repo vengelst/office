@@ -1,6 +1,6 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-08-26** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
+Stand: **2026-08-27** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**
 
@@ -21,6 +21,11 @@ Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kur
 Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
+
+## Session-Notiz Cursor 27.08.2026 (Abend)
+
+- Cloud-Auftrag **#24** KI-Kontakt-Import **umgesetzt**: Settings → KI, Preview/Commit, NL-Web-Anreicherung, `CustomerBranch` + `branchId`, Bulk ohne Google-Sync
+- Spec: `claude-arbeitsitems-24-ki-kontakt-import.md`
 
 ## Session-Notiz Cursor 27.08.2026
 
@@ -54,7 +59,7 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 **Nächste Cloud-Aufträge:**
 - `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`
-- `#24` KI-Kontakt-/Interessenten-Import – Spec startklar in `claude-arbeitsitems-24-ki-kontakt-import.md` (2026-08-27; nach manuellem SPIE-Import)
+- `#24` KI-Kontakt-/Interessenten-Import – **umgesetzt** (2026-08-27)
 
 ---
 

@@ -1,6 +1,6 @@
 # Cloud-Auftrag #24: KI-basierter Import – Interessenten / Kontakte
 
-**Status:** Spec startklar (2026-08-27) · Prod = **v1.0.1** · Branch `main`  
+**Status:** umgesetzt (2026-08-27) · Prod = **v1.0.1** · Branch `main`  
 **Umsetzung:** Cloud-Agent · **kein** Stack-Rebuild pro Import (reine Laufzeitfunktion)  
 **Bezug:** Manueller SPIE-Import (`scripts/import-spie-outreach.cjs`) als fachliches Vorbild – gleiche Qualität, aber in der App mit Preview/Freigabe.  
 **Ergänzung 2026-08-27:** Niederlassungen anreichern (Web-Lookup) und Kontakte an `CustomerBranch` hängen.
@@ -294,13 +294,13 @@ Skript `scripts/import-spie-outreach.cjs` behalten (Dokumentation/Notfall), nich
 
 ## Done-When
 
-- [ ] KI-Settings inkl. Test in der App
-- [ ] Preview + Commit für Kontakt-/Interessenten-Dateien
-- [ ] SPIE-ähnliche Liste sinnvoll normalisiert (ohne Blind-Write)
-- [ ] Niederlassungen: Web-Anreicherung + `CustomerBranch` + Kontakt-`branchId`
-- [ ] Google-Sync aus bei Bulk
-- [ ] Builds grün, auf Prod deployt mit `--env-file .env.production`
-- [ ] Kurznotiz in `STATUS.md` / Backlog: Feature live
+- [x] KI-Settings inkl. Test in der App
+- [x] Preview + Commit für Kontakt-/Interessenten-Dateien
+- [x] SPIE-ähnliche Liste sinnvoll normalisiert (ohne Blind-Write)
+- [x] Niederlassungen: Web-Anreicherung + `CustomerBranch` + Kontakt-`branchId`
+- [x] Google-Sync aus bei Bulk
+- [x] Builds grün, auf Prod deployt mit `--env-file .env.production`
+- [x] Kurznotiz in `STATUS.md` / Backlog: Feature live
 
 ---
 

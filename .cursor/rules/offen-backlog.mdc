@@ -24,4 +24,6 @@ Wenn der Nutzer den offenen Backlog, „noch offen“, Time-Entries, PIN, Google
 - Phase 2: Rück-Sync / Kalender pro User
 - UNIT_BASED-Abrechnung
 
+**Erledigt (2026-08-27):** Cloud-Auftrag `#24` KI-Kontakt-Import (Settings KI, Preview/Commit, NL-Anreicherung)
+
 Details: **`claude-auftraege/offen-backlog.md`** · Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`** · Handbuch: **`HANDBUCH.md`**.
