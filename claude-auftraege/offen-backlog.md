@@ -27,7 +27,8 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 - Cloud-Auftrag **#24** KI-Kontakt-Import **umgesetzt**: Settings → KI, Preview/Commit, NL-Web-Anreicherung, `CustomerBranch` + `branchId`, Bulk ohne Google-Sync
 - Spec: `claude-arbeitsitems-24-ki-kontakt-import.md`
 - Review: Transaktion fehlt, NOT_FOUND merged Adressen, COMPANY_EMAIL ignoriert → Folge **#25**
-- Cloud-Auftrag **#25** **umgesetzt**: `$transaction`, NOT_FOUND ohne KI-Adressen, COMPANY_EMAIL→CustomerEmail (+ Heuristik), Unit-Tests
+- Cloud-Auftrag **#25** **umgesetzt** (Code auf `main`): `$transaction`, NOT_FOUND ohne KI-Adressen, COMPANY_EMAIL→CustomerEmail (+ Heuristik), Unit-Tests
+- **Deploy:** Cloud-SSH-Key fehlt → Prod-Deploy muss vom Mac erfolgen (`deploy/server-deploy.sh` bzw. compose mit `--env-file .env.production`)
 
 ## Session-Notiz Cursor 27.08.2026
 
