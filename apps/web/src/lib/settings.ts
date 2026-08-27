@@ -71,6 +71,30 @@ export const settingsApi = {
       { to },
     ),
 
+  // KI / Assistent
+  getAiConfig: () =>
+    apiClient.get<{
+      enabled: boolean;
+      baseUrl: string;
+      model: string;
+      timeoutMs: number;
+      apiKeyConfigured: boolean;
+      apiKeyMasked: string;
+    }>('/settings/ai'),
+  saveAiConfig: (config: {
+    enabled: boolean;
+    baseUrl: string;
+    model: string;
+    apiKey?: string;
+    timeoutMs?: number;
+  }) =>
+    apiFetch<{ saved: boolean }>('/settings/ai', {
+      method: 'PUT',
+      body: config,
+    }),
+  testAiConnection: () =>
+    apiClient.post<{ success: boolean; error?: string }>('/settings/ai/test'),
+
   // Storage / Google Drive
   getStorageConfig: () =>
     apiClient.get<StorageConfig>('/settings/storage'),

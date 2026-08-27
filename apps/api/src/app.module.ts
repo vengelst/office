@@ -37,6 +37,7 @@ import { WorkCardTemplatesModule } from './work-card-templates/work-card-templat
 import { WorkItemsModule } from './work-items/work-items.module';
 import { BackupsModule } from './backups/backups.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
+import { AiImportModule } from './ai-import/ai-import.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -50,6 +51,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     AuthModule,
     UsersModule,
     CustomersModule,
+    AiImportModule,
     ProjectsModule,
     WorkersModule,
     SubcontractorsModule,

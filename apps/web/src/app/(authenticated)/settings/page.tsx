@@ -11,6 +11,7 @@ import {
   Contact,
   SlidersHorizontal,
   Briefcase,
+  Sparkles,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -34,6 +35,12 @@ const settingsLinks = [
     label: texts.settings.nav.email,
     description: texts.settings.email.subtitle,
     icon: Mail,
+  },
+  {
+    href: '/settings/ai',
+    label: texts.settings.nav.ai,
+    description: texts.settings.ai.subtitle,
+    icon: Sparkles,
   },
   {
     href: '/settings/storage',

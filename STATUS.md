@@ -1,14 +1,15 @@
 # Office App – Projektstatus
 
 **Version:** **1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) (Basis: [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0))  
-**Stand:** 26. August 2026 · Prod-Branch: `main`  
+**Stand:** 27. August 2026 · Prod-Branch: `main`  
 **Server:** office.vivahome.de · Kiosk: work.vivahome.de  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
 **Server-Pfad:** `/opt/office`  
 **Handbuch Stammdaten:** [`HANDBUCH.md`](./HANDBUCH.md)  
 **Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`  
-**Nächster Cloud-Auftrag:** `claude-auftraege/claude-arbeitsitems-20-google-calendar.md`
+**Nächster Cloud-Auftrag:** `claude-auftraege/claude-arbeitsitems-20-google-calendar.md`  
+**Zuletzt umgesetzt:** Cloud-Auftrag **#24** KI-Kontakt-/Interessenten-Import (Settings KI + Preview/Commit + NL-Anreicherung)
 
 ---
 
@@ -74,6 +75,7 @@ office/
 - **Niederlassungen** (Filialen) mit Adressdaten
 - **E-Mail-Adressen** (mehrere pro Kunde, primäre markierbar)
 - **Bankverbindungen** (max. 2 pro Kunde)
+- **KI-Import (#24)** – PDF/Excel/CSV/Text → Preview → Freigabe → Customer/Contacts/Branches; optional Web-Anreicherung der NL; `syncToGoogle: false` beim Bulk
 - **Visitenkarten-Tab** – eigener Bereich für gescannte Visitenkarten (Galerie + Lightbox)
 - **Dokumente-Tab** – Universelle Dokumentenverwaltung (ohne Visitenkarten)
 - **Drucken** – Dropdown mit "Aktuelle Ansicht" oder "Gesamtübersicht" (alle Daten auf einer Seite)
@@ -191,7 +193,8 @@ office/
 - ⚠️ **Repository:** Ausgelagert in eigenes Repository (`address_pull`)
 
 ### 18. Einstellungen (`/settings`)
-- **Struktur**: Pausenregeln, E-Mail, Storage, Cloud und System unter einem Settings-Menüpunkt
+- **Struktur**: Pausenregeln, E-Mail, KI/Assistent, Storage, Cloud und System unter einem Settings-Menüpunkt
+- **KI / Assistent** (`/settings/ai`) – OpenAI-kompatible Base-URL, API-Key (maskiert), Modell, Test; genutzt vom Kontakt-KI-Import
 - **Firmen-Stammdaten** (`/settings/company`) – Logo, Adresse, Steuernummer, Kontaktdaten
 - **Server-Status Dashboard** (`/settings/system`) – System-, DB-, Storage- und Service-Metriken, OS-Updates, Docker-Speicher, Host-Prozesse via SSH
 

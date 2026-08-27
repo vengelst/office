@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpDown, Plus, Search } from 'lucide-react';
+import { ArrowUpDown, Plus, Search, Sparkles } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/table';
 import { RatingBadge } from '@/components/customers/rating-badge';
 import { ConfirmDialog } from '@/components/customers/confirm-dialog';
+import { AiImportDialog } from '@/components/customers/ai-import-dialog';
 import { BulkActionBar } from '@/components/ui/bulk-action-bar';
 import { useToast } from '@/components/ui/use-toast';
 import { useBulkSelection } from '@/hooks/use-bulk-selection';
@@ -50,6 +51,7 @@ export default function CustomersPage(): React.ReactNode {
   const [data, setData] = useState<CustomerListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [aiImportOpen, setAiImportOpen] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -107,6 +109,14 @@ export default function CustomersPage(): React.ReactNode {
   return (
     <div>
       <PageHeader title={t.title} description={t.subtitle}>
+        <Button
+          variant="outline"
+          className="min-h-[44px]"
+          onClick={() => setAiImportOpen(true)}
+        >
+          <Sparkles className="h-4 w-4" />
+          {t.actions.aiImport}
+        </Button>
         <Button asChild className="min-h-[44px]">
           <Link href="/customers/new">
             <Plus className="h-4 w-4" />
@@ -271,6 +281,7 @@ export default function CustomersPage(): React.ReactNode {
         description={t.deleteConfirm}
         onConfirm={handleBulkDelete}
       />
+      <AiImportDialog open={aiImportOpen} onOpenChange={setAiImportOpen} />
     </div>
   );
 }

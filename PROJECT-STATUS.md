@@ -1,7 +1,7 @@
 # Office App – Projekt-Status
 
 **Version:** **1.0.1 (Production)**  
-**Stand:** 26. August 2026  
+**Stand:** 27. August 2026  
 **Repository:** github.com/vengelst/office · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1)  
 **Branch:** `main`  
 **Produktion:** https://office.vivahome.de · Kiosk: https://work.vivahome.de (`/opt/office`)
@@ -10,6 +10,7 @@
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog: **`claude-auftraege/offen-backlog.md`**  
 > Nächster Cloud-Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**  
+> Zuletzt: **#24** KI-Kontakt-Import umgesetzt  
 > Deployment: **`DEPLOYMENT.md`**
 
 ### Release 1.0.0 – Produktivstart (Ende Beta)
@@ -36,7 +37,7 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 | # | Modul | Beschreibung |
 |---|-------|-------------|
 | 1 | Projektbasis | NestJS API, Next.js Web, PostgreSQL, MinIO, Docker, JWT-Auth |
-| 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, Drucken, Google Contacts Sync |
+| 2 | Kundenverwaltung | CRUD, Filialen, Kontakte, Bank, OCR-Visitenkarten, KI-Import (#24), Drucken, Google Contacts Sync |
 | 3 | Projektverwaltung | CRUD, Detail-Tabs, Baustellen, Zuweisungen |
 | 4 | Monteure / Teams / Subs | Workers, Qualifikationen, Subunternehmen, Teams, Master-Monteur, PIN |
 | 5 | Zeiterfassung | PIN-Login, Clock-In/Out, Pause, Tätigkeiten (Master), Zeitraum-Tab, Stundenzettel, PDF, Signaturen, Live, Offline-Queue |
