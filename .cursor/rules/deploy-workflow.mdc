@@ -25,19 +25,24 @@ Das gilt für **alle Apps** (MailPilot, Office, etc.) als grundsätzliches Vorge
 
 ## Office — SSH-Details
 
-- Host: `vivahome.de` / `109.199.112.176` (`vmd200614`)
-- User: `root`
-- **Port: `2805`** (nicht 22)
+- Host: `vivahome.de` (SSH-Config: User `ve`, Port `2805`)
+- Admin: `sudo -n` / `sudo bash -lc "..."` (nicht root-login)
 - Pfad: `/opt/office`
-- Doku: `DEPLOYMENT.md` → Abschnitt „SSH-Zugang (Produktion)“
+- Doku: `DEPLOYMENT.md`
+
+### Pflicht: immer `--env-file .env.production`
+
+Ohne dieses Flag sind `POSTGRES_*` / `DATABASE_URL` **leer** → API crasht im Restart-Loop, UI wirkt „leer“. Datenvolumen bleibt, aber nichts ist erreichbar.
+
+**Nie** `docker compose down -v` (löscht Postgres/MinIO-Volumes).
+
+Korrekter Einzeiler:
 
 ```bash
-ssh -p 2805 root@109.199.112.176
-# Cloud-Agent mit Deploy-Key:
-ssh office   # wenn ~/.ssh/config Host office gesetzt ist
+ssh vivahome.de 'sudo bash -lc "cd /opt/office && git pull && docker compose -f docker-compose.prod.yml --env-file .env.production down && docker compose -f docker-compose.prod.yml --env-file .env.production up --build -d"'
 ```
 
-Deploy-Skript auf dem Server:
+Bevorzugt Deploy-Skript (setzt `--env-file` selbst):
 
 ```bash
 cd /opt/office && bash deploy/server-deploy.sh \
