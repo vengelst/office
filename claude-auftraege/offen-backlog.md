@@ -1,8 +1,32 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-08-27** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
+Stand: **2026-09-01** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
 
-Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**
+Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**  
+**Letzte Übergabe:** [`session-uebergabe-2026-09-01-spie-ki-import.md`](./session-uebergabe-2026-09-01-spie-ki-import.md)
+
+---
+
+## Session-Übergabe 01.09.2026 (Projektwechsel)
+
+Projekt wird gewechselt – Stand SPIE/KI:
+
+- Manueller SPIE-Import: Kunde `K-2026-0012`
+- **#24** + **#25** KI-Import **auf Prod** (Settings → KI, Kunden → KI-Import)
+- KI-Anbindung Prod: aktiv, Test grün (OpenAI `gpt-4.1-mini`)
+- Deploy-Regel: immer `--env-file .env.production`
+- **Noch offen fachlich:** SPIE-PDF einmal per KI-Import E2E abnehmen
+- **Nächster großer Cloud-Auftrag:** `#20` Google Calendar
+
+Details: **`session-uebergabe-2026-09-01-spie-ki-import.md`**
+
+## Session-Notiz Cursor 27.08.2026 (Abend)
+
+- Cloud-Auftrag **#24** KI-Kontakt-Import **umgesetzt**: Settings → KI, Preview/Commit, NL-Web-Anreicherung, `CustomerBranch` + `branchId`, Bulk ohne Google-Sync
+- Spec: `claude-arbeitsitems-24-ki-kontakt-import.md`
+- Review: Transaktion fehlt, NOT_FOUND merged Adressen, COMPANY_EMAIL ignoriert → Folge **#25**
+- Cloud-Auftrag **#25** **umgesetzt** (PR #22): `$transaction`, NOT_FOUND ohne KI-Adressen, COMPANY_EMAIL→CustomerEmail (+ Heuristik), Unit-Tests
+- **Deploy:** vom Mac mit `--env-file .env.production` (Cloud-SSH fehlte)
 
 ---
 
@@ -22,13 +46,11 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 ---
 
-## Session-Notiz Cursor 27.08.2026 (Abend)
+## Session-Notiz Cursor 27.08.2026 (Abend, Detail)
 
 - Cloud-Auftrag **#24** KI-Kontakt-Import **umgesetzt**: Settings → KI, Preview/Commit, NL-Web-Anreicherung, `CustomerBranch` + `branchId`, Bulk ohne Google-Sync
 - Spec: `claude-arbeitsitems-24-ki-kontakt-import.md`
-- Review: Transaktion fehlt, NOT_FOUND merged Adressen, COMPANY_EMAIL ignoriert → Folge **#25**
-- Cloud-Auftrag **#25** **umgesetzt** (Code auf `main`): `$transaction`, NOT_FOUND ohne KI-Adressen, COMPANY_EMAIL→CustomerEmail (+ Heuristik), Unit-Tests
-- **Deploy:** Cloud-SSH-Key fehlt → Prod-Deploy muss vom Mac erfolgen (`deploy/server-deploy.sh` bzw. compose mit `--env-file .env.production`)
+- Review → Folge **#25** (PR #22), Prod-Deploy vom Mac
 
 ## Session-Notiz Cursor 27.08.2026
 

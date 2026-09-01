@@ -1,15 +1,15 @@
 # Office App – Projektstatus
 
 **Version:** **1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) (Basis: [`v1.0.0`](https://github.com/vengelst/office/releases/tag/v1.0.0))  
-**Stand:** 27. August 2026 · Prod-Branch: `main`  
+**Stand:** 1. September 2026 · Prod-Branch: `main`  
 **Server:** office.vivahome.de · Kiosk: work.vivahome.de  
 **Technologie:** Next.js 14 (Frontend) + NestJS (Backend) + PostgreSQL + MinIO + Docker  
 **Repository:** github.com/vengelst/office  
 **Server-Pfad:** `/opt/office`  
 **Handbuch Stammdaten:** [`HANDBUCH.md`](./HANDBUCH.md)  
-**Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` und `claude-auftraege/offen-backlog.md`  
+**Kurzstatus / Session-Übergabe:** `PROJECT-STATUS.md` · `claude-auftraege/offen-backlog.md` · **`claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`**  
 **Nächster Cloud-Auftrag:** `claude-auftraege/claude-arbeitsitems-20-google-calendar.md`  
-**Zuletzt umgesetzt:** Cloud-Auftrag **#25** KI-Import-Fixes (atomarer Commit, NOT_FOUND, COMPANY_EMAIL) · Basis **#24**
+**Zuletzt umgesetzt:** **#24/#25** KI-Kontakt-Import (live) · SPIE manuell `K-2026-0012` · KI-Settings aktiv  
 
 ---
 

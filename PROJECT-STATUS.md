@@ -1,7 +1,7 @@
 # Office App – Projekt-Status
 
 **Version:** **1.0.1 (Production)**  
-**Stand:** 27. August 2026  
+**Stand:** 1. September 2026  
 **Repository:** github.com/vengelst/office · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1)  
 **Branch:** `main`  
 **Produktion:** https://office.vivahome.de · Kiosk: https://work.vivahome.de (`/opt/office`)
@@ -9,9 +9,10 @@
 > Handbuch Stammdaten: **`HANDBUCH.md`** · **`HANDBUCH.pdf`**  
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog: **`claude-auftraege/offen-backlog.md`**  
+> **Übergabe 01.09.2026:** **`claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`**  
 > Nächster Cloud-Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**  
-> Zuletzt: **#25** KI-Import-Fixes · **#24** KI-Kontakt-Import  
-> Deployment: **`DEPLOYMENT.md`**
+> Zuletzt: **#24/#25** KI-Import live · SPIE `K-2026-0012` · KI-Settings aktiv  
+> Deployment: **`DEPLOYMENT.md`** (immer `--env-file .env.production`)  
 
 ### Release 1.0.0 – Produktivstart (Ende Beta)
 
