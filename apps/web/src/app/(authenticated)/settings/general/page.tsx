@@ -11,7 +11,9 @@ import {
   ArrowLeft,
   Clock,
   KeyRound,
+  Mail,
   MapPin,
+  Play,
   SlidersHorizontal,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -46,6 +48,8 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [overtimeAlertHours, setOvertimeAlertHours] = useState(
     DEFAULT_OVERTIME_ALERT_HOURS,
   );
+  const [overtimeTesting, setOvertimeTesting] = useState(false);
+  const [overtimeRunning, setOvertimeRunning] = useState(false);
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -66,6 +70,77 @@ export default function GeneralSettingsPage(): React.ReactNode {
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
+
+  const handleOvertimeTest = async (): Promise<void> => {
+    if (!canEdit) return;
+    setOvertimeTesting(true);
+    try {
+      const result = await kioskSettingsApi.sendOvertimeAlertTest(
+        overtimeAlertEmail.trim() || undefined,
+      );
+      if (result.success) {
+        toast({
+          description: `${t.toast.overtimeTestSent} (${result.to})`,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          description: result.error ?? t.toast.overtimeTestFailed,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError ? err.message : t.toast.overtimeTestFailed,
+      });
+    } finally {
+      setOvertimeTesting(false);
+    }
+  };
+
+  const handleOvertimeRun = async (): Promise<void> => {
+    if (!canEdit) return;
+    setOvertimeRunning(true);
+    try {
+      // Zuerst speichern, damit Test die aktuellen Werte nutzt
+      const hours = Math.min(
+        MAX_OVERTIME_ALERT_HOURS,
+        Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
+      );
+      await kioskSettingsApi.putGeneral({
+        debugLogEnabled,
+        gpsIntervalMinutes: Math.min(
+          240,
+          Math.max(1, Math.round(gpsIntervalMinutes)),
+        ),
+        pinLength: Math.min(
+          MAX_PIN_LENGTH,
+          Math.max(MIN_PIN_LENGTH, Math.round(pinLength)),
+        ),
+        overtimeAlertEmail: overtimeAlertEmail.trim(),
+        overtimeAlertHours: hours,
+      });
+      const result = await kioskSettingsApi.runOvertimeAlertCheck();
+      if (result.sent > 0) {
+        toast({
+          description: `${t.toast.overtimeRunDone} ${result.sent} Mail(s) an ${result.to}.`,
+        });
+      } else {
+        toast({
+          description: `${t.toast.overtimeRunNone} (${result.checked} offen, Schwelle ${result.alertHours}h).`,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setOvertimeRunning(false);
+    }
+  };
 
   const handleSave = async (): Promise<void> => {
     if (!canEdit) return;
@@ -260,6 +335,45 @@ export default function GeneralSettingsPage(): React.ReactNode {
               <p className="text-xs text-muted-foreground">
                 {t.overtimeAlertHoursHint}
               </p>
+              <p className="text-xs text-muted-foreground">
+                {t.overtimeAlertOnceHint}
+              </p>
+              {canEdit && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px]"
+                    disabled={
+                      overtimeTesting ||
+                      overtimeRunning ||
+                      !overtimeAlertEmail.trim()
+                    }
+                    onClick={() => void handleOvertimeTest()}
+                  >
+                    <Mail className="h-4 w-4" />
+                    {overtimeTesting
+                      ? t.overtimeAlertTesting
+                      : t.overtimeAlertTestButton}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px]"
+                    disabled={
+                      overtimeTesting ||
+                      overtimeRunning ||
+                      !overtimeAlertEmail.trim()
+                    }
+                    onClick={() => void handleOvertimeRun()}
+                  >
+                    <Play className="h-4 w-4" />
+                    {overtimeRunning
+                      ? t.overtimeAlertRunning
+                      : t.overtimeAlertRunButton}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         </CardContent>

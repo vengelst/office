@@ -33,6 +33,7 @@ import {
   MIN_OVERTIME_ALERT_HOURS,
   OVERTIME_ALERT_EMAIL_KEY,
   OVERTIME_ALERT_HOURS_KEY,
+  OVERTIME_ALERT_SENT_KEY,
   parseOvertimeAlertHours,
 } from './overtime-alert';
 
@@ -154,7 +155,13 @@ export class KioskSettingsController {
     const overtimeAlertHours = parseOvertimeAlertHours(
       String(dto.overtimeAlertHours),
     );
-    await this.settings.setMany({
+
+    const previous = await this.readAll();
+    const overtimeChanged =
+      previous.overtimeAlertEmail !== overtimeAlertEmail ||
+      previous.overtimeAlertHours !== overtimeAlertHours;
+
+    const updates: Record<string, string> = {
       [KIOSK_DEBUG_ENABLED_KEY]: dto.debugLogEnabled ? 'true' : 'false',
       [GPS_INTERVAL_MINUTES_KEY]: String(dto.gpsIntervalMinutes),
       [PIN_LENGTH_KEY]: String(pinLength || DEFAULT_PIN_LENGTH),
@@ -162,7 +169,13 @@ export class KioskSettingsController {
       [OVERTIME_ALERT_HOURS_KEY]: String(
         overtimeAlertHours || DEFAULT_OVERTIME_ALERT_HOURS,
       ),
-    });
+    };
+    // Bei geänderter Schwelle/Adresse erneut alarmieren dürfen (Dedup zurücksetzen).
+    if (overtimeChanged) {
+      updates[OVERTIME_ALERT_SENT_KEY] = '{}';
+    }
+
+    await this.settings.setMany(updates);
     return {
       debugLogEnabled: dto.debugLogEnabled,
       gpsIntervalMinutes: dto.gpsIntervalMinutes,

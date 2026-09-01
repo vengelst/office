@@ -104,4 +104,27 @@ export const kioskSettingsApi = {
         overtimeAlertHours: body.overtimeAlertHours,
       }),
     ),
+
+  /** Test-Mail für Arbeitszeit-Alarm (ohne Stempeldaten). */
+  sendOvertimeAlertTest: async (
+    to?: string,
+  ): Promise<{ success: boolean; to: string; error?: string }> =>
+    apiClient.post<{ success: boolean; to: string; error?: string }>(
+      '/kiosk-settings/overtime-alert/test',
+      to ? { to } : {},
+    ),
+
+  /** Sofort-Prüfung: offene Stempelungen gegen Schwelle, ggf. erneut senden. */
+  runOvertimeAlertCheck: async (): Promise<{
+    checked: number;
+    sent: number;
+    to: string;
+    alertHours: number;
+  }> =>
+    apiClient.post<{
+      checked: number;
+      sent: number;
+      to: string;
+      alertHours: number;
+    }>('/kiosk-settings/overtime-alert/run', {}),
 };

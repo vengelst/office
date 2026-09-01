@@ -49,14 +49,69 @@ export class OvertimeAlertService {
   }
 
   /**
+   * Sendet eine Test-Mail an die konfigurierte (oder übergebene) Adresse,
+   * ohne Stempeldaten – nur SMTP + Empfänger prüfen.
+   */
+  async sendTestMail(
+    toOverride?: string,
+  ): Promise<{ success: boolean; to: string; error?: string }> {
+    const configured =
+      (await this.settings.get(OVERTIME_ALERT_EMAIL_KEY))?.trim() ?? '';
+    const to = (toOverride?.trim() || configured).trim();
+    if (!to || !to.includes('@')) {
+      return {
+        success: false,
+        to: '',
+        error: 'Keine Empfänger-E-Mail hinterlegt.',
+      };
+    }
+    const alertHours = parseOvertimeAlertHours(
+      await this.settings.get(OVERTIME_ALERT_HOURS_KEY),
+    );
+    const subject = 'Arbeitszeit-Alarm – Test';
+    const html = `<div style="font-family:sans-serif;padding:20px;color:#222">
+  <h2 style="margin:0 0 12px">Arbeitszeit-Alarm – Test</h2>
+  <p>Diese Test-Mail bestätigt, dass der Arbeitszeit-Alarm E-Mails zustellen kann.</p>
+  <table style="border-collapse:collapse;margin:16px 0">
+    <tr><td style="padding:4px 12px 4px 0;color:#666">Empfänger</td><td>${escapeHtml(to)}</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#666">Aktuelle Schwelle</td><td><strong>${alertHours} Stunden</strong> durchgehend</td></tr>
+  </table>
+  <p style="color:#666;font-size:12px">Test aus Office · Einstellungen → Allgemein</p>
+</div>`;
+    const result = await this.email.send(to, subject, html);
+    if (result.success) {
+      this.logger.log(`Overtime-Alert-Test gesendet → ${to}`);
+      return { success: true, to };
+    }
+    this.logger.warn(
+      `Overtime-Alert-Test fehlgeschlagen: ${result.error ?? 'unbekannt'}`,
+    );
+    return {
+      success: false,
+      to,
+      error: result.error ?? 'Versand fehlgeschlagen',
+    };
+  }
+
+  /**
    * Prüft alle aktuell eingestempelten Monteure und sendet bei Bedarf
    * genau eine Alarm-Mail pro offenem CLOCK_IN.
+   *
+   * @param forceResend - wenn true, Dedup-Map ignorieren (für manuellen Check)
    */
-  async checkAndNotify(): Promise<{ checked: number; sent: number }> {
+  async checkAndNotify(
+    forceResend = false,
+  ): Promise<{
+    checked: number;
+    sent: number;
+    to: string;
+    alertHours: number;
+  }> {
     const to =
       (await this.settings.get(OVERTIME_ALERT_EMAIL_KEY))?.trim() ?? '';
     if (!to || !to.includes('@')) {
-      return { checked: 0, sent: 0 };
+      this.logger.debug('Overtime-Alert übersprungen: keine Empfänger-E-Mail');
+      return { checked: 0, sent: 0, to: '', alertHours: 0 };
     }
 
     const alertHours = parseOvertimeAlertHours(
@@ -122,7 +177,7 @@ export class OvertimeAlertService {
         Math.round((now.getTime() - e.occurredAtClient.getTime()) / 60000),
       );
       if (durationMinutes < thresholdMinutes) continue;
-      if (sentMap[e.id]) continue;
+      if (!forceResend && sentMap[e.id]) continue;
 
       const workerName = `${e.worker.firstName} ${e.worker.lastName}`.trim();
       const projectLabel = e.project
@@ -172,7 +227,10 @@ export class OvertimeAlertService {
       );
     }
 
-    return { checked: open.length, sent: sentCount };
+    this.logger.log(
+      `Overtime-Alert-Check: ${open.length} offen, Schwelle ${alertHours}h, gesendet ${sentCount}${forceResend ? ' (force)' : ''}`,
+    );
+    return { checked: open.length, sent: sentCount, to, alertHours };
   }
 
   private async readSentMap(): Promise<SentMap> {
