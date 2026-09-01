@@ -25,6 +25,7 @@ Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Con
 - KI-Import SPIE-PDF einmal E2E fachlich abnehmen
 - Google Admin: Calendar API + DWD-Scope `calendar`
 - Cloud-Auftrag `#20` Termine + Sync Office → Google
+- Cloud-Auftrag `#26` Projektpläne + Kiosk-Download (nur aktuell) – Spec startklar
 - Phase 2 Calendar / UNIT_BASED
 
 **Übergabe-Datei:** `claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`  

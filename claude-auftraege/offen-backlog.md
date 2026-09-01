@@ -84,6 +84,7 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 
 **Nächste Cloud-Aufträge:**
 - `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`
+- `#26` Projektpläne (Versionen) + Kiosk-Download nur aktuell – Spec: `claude-arbeitsitems-26-projektplaene-kiosk.md`
 - `#24` / `#25` KI-Kontakt-Import – **umgesetzt** (2026-08-27)
 
 ---
