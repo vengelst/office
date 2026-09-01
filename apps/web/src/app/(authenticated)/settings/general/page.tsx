@@ -26,10 +26,16 @@ import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 import {
   DEFAULT_OVERTIME_ALERT_HOURS,
+  DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+  DEFAULT_OVERTIME_ALERT_REMINDERS,
   DEFAULT_PIN_LENGTH,
   MAX_OVERTIME_ALERT_HOURS,
+  MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+  MAX_OVERTIME_ALERT_REMINDERS,
   MAX_PIN_LENGTH,
   MIN_OVERTIME_ALERT_HOURS,
+  MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+  MIN_OVERTIME_ALERT_REMINDERS,
   MIN_PIN_LENGTH,
   kioskSettingsApi,
 } from '@/lib/kiosk-settings';
@@ -48,6 +54,11 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [overtimeAlertHours, setOvertimeAlertHours] = useState(
     DEFAULT_OVERTIME_ALERT_HOURS,
   );
+  const [overtimeAlertReminders, setOvertimeAlertReminders] = useState(
+    DEFAULT_OVERTIME_ALERT_REMINDERS,
+  );
+  const [overtimeAlertReminderIntervalMinutes, setOvertimeAlertReminderIntervalMinutes] =
+    useState(DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES);
   const [overtimeTesting, setOvertimeTesting] = useState(false);
   const [overtimeRunning, setOvertimeRunning] = useState(false);
 
@@ -65,6 +76,13 @@ export default function GeneralSettingsPage(): React.ReactNode {
         setOvertimeAlertEmail(data.overtimeAlertEmail ?? '');
         setOvertimeAlertHours(
           data.overtimeAlertHours ?? DEFAULT_OVERTIME_ALERT_HOURS,
+        );
+        setOvertimeAlertReminders(
+          data.overtimeAlertReminders ?? DEFAULT_OVERTIME_ALERT_REMINDERS,
+        );
+        setOvertimeAlertReminderIntervalMinutes(
+          data.overtimeAlertReminderIntervalMinutes ??
+            DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
         );
       })
       .catch(() => undefined)
@@ -108,6 +126,20 @@ export default function GeneralSettingsPage(): React.ReactNode {
         MAX_OVERTIME_ALERT_HOURS,
         Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
       );
+      const reminders = Math.min(
+        MAX_OVERTIME_ALERT_REMINDERS,
+        Math.max(
+          MIN_OVERTIME_ALERT_REMINDERS,
+          Math.round(overtimeAlertReminders),
+        ),
+      );
+      const reminderInterval = Math.min(
+        MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+        Math.max(
+          MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+          Math.round(overtimeAlertReminderIntervalMinutes),
+        ),
+      );
       await kioskSettingsApi.putGeneral({
         debugLogEnabled,
         gpsIntervalMinutes: Math.min(
@@ -120,6 +152,8 @@ export default function GeneralSettingsPage(): React.ReactNode {
         ),
         overtimeAlertEmail: overtimeAlertEmail.trim(),
         overtimeAlertHours: hours,
+        overtimeAlertReminders: reminders,
+        overtimeAlertReminderIntervalMinutes: reminderInterval,
       });
       const result = await kioskSettingsApi.runOvertimeAlertCheck();
       if (result.sent > 0) {
@@ -153,6 +187,20 @@ export default function GeneralSettingsPage(): React.ReactNode {
       MAX_OVERTIME_ALERT_HOURS,
       Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
     );
+    const reminders = Math.min(
+      MAX_OVERTIME_ALERT_REMINDERS,
+      Math.max(
+        MIN_OVERTIME_ALERT_REMINDERS,
+        Math.round(overtimeAlertReminders),
+      ),
+    );
+    const reminderInterval = Math.min(
+      MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+      Math.max(
+        MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+        Math.round(overtimeAlertReminderIntervalMinutes),
+      ),
+    );
     setSaving(true);
     try {
       const saved = await kioskSettingsApi.putGeneral({
@@ -161,12 +209,18 @@ export default function GeneralSettingsPage(): React.ReactNode {
         pinLength: length,
         overtimeAlertEmail: overtimeAlertEmail.trim(),
         overtimeAlertHours: hours,
+        overtimeAlertReminders: reminders,
+        overtimeAlertReminderIntervalMinutes: reminderInterval,
       });
       setDebugLogEnabled(saved.debugLogEnabled);
       setGpsIntervalMinutes(saved.gpsIntervalMinutes);
       setPinLength(saved.pinLength);
       setOvertimeAlertEmail(saved.overtimeAlertEmail);
       setOvertimeAlertHours(saved.overtimeAlertHours);
+      setOvertimeAlertReminders(saved.overtimeAlertReminders);
+      setOvertimeAlertReminderIntervalMinutes(
+        saved.overtimeAlertReminderIntervalMinutes,
+      );
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -334,6 +388,61 @@ export default function GeneralSettingsPage(): React.ReactNode {
               </div>
               <p className="text-xs text-muted-foreground">
                 {t.overtimeAlertHoursHint}
+              </p>
+              <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="w-full space-y-1.5 sm:w-40">
+                  <label className="text-xs text-muted-foreground">
+                    {t.overtimeAlertRemindersLabel}
+                  </label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_OVERTIME_ALERT_REMINDERS}
+                    max={MAX_OVERTIME_ALERT_REMINDERS}
+                    step={1}
+                    disabled={!canEdit}
+                    value={overtimeAlertReminders}
+                    onChange={(e) =>
+                      setOvertimeAlertReminders(
+                        Number.parseInt(e.target.value, 10) ||
+                          DEFAULT_OVERTIME_ALERT_REMINDERS,
+                      )
+                    }
+                    className="min-h-[44px]"
+                  />
+                </div>
+                <div className="w-full space-y-1.5 sm:w-44">
+                  <label className="text-xs text-muted-foreground">
+                    {t.overtimeAlertReminderIntervalLabel}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES}
+                      max={MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES}
+                      step={1}
+                      disabled={!canEdit}
+                      value={overtimeAlertReminderIntervalMinutes}
+                      onChange={(e) =>
+                        setOvertimeAlertReminderIntervalMinutes(
+                          Number.parseInt(e.target.value, 10) ||
+                            DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+                        )
+                      }
+                      className="min-h-[44px]"
+                    />
+                    <span className="shrink-0 text-sm text-muted-foreground">
+                      {t.overtimeAlertReminderIntervalUnit}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t.overtimeAlertRemindersHint}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t.overtimeAlertReminderIntervalHint}
               </p>
               <p className="text-xs text-muted-foreground">
                 {t.overtimeAlertOnceHint}

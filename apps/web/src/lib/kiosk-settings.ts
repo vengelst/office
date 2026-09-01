@@ -13,6 +13,12 @@ export const MAX_PIN_LENGTH = 8;
 export const DEFAULT_OVERTIME_ALERT_HOURS = 10;
 export const MIN_OVERTIME_ALERT_HOURS = 1;
 export const MAX_OVERTIME_ALERT_HOURS = 24;
+export const DEFAULT_OVERTIME_ALERT_REMINDERS = 1;
+export const MIN_OVERTIME_ALERT_REMINDERS = 1;
+export const MAX_OVERTIME_ALERT_REMINDERS = 10;
+export const DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES = 30;
+export const MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES = 5;
+export const MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES = 240;
 
 export interface KioskPublicSettings {
   debugLogEnabled: boolean;
@@ -26,6 +32,10 @@ export interface KioskGeneralSettings extends KioskPublicSettings {
   overtimeAlertEmail: string;
   /** Schwelle in Stunden (durchgehend eingestempelt). */
   overtimeAlertHours: number;
+  /** Anzahl Alarme inkl. erster Meldung (1–10). */
+  overtimeAlertReminders: number;
+  /** Minuten zwischen Erinnerungen (5–240). */
+  overtimeAlertReminderIntervalMinutes: number;
 }
 
 function withPublicDefaults(
@@ -61,6 +71,30 @@ function clampOvertimeHours(raw: number | undefined): number {
   return DEFAULT_OVERTIME_ALERT_HOURS;
 }
 
+function clampReminders(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_OVERTIME_ALERT_REMINDERS &&
+    raw <= MAX_OVERTIME_ALERT_REMINDERS
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_OVERTIME_ALERT_REMINDERS;
+}
+
+function clampReminderInterval(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES &&
+    raw <= MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES;
+}
+
 function withGeneralDefaults(
   partial: Partial<KioskGeneralSettings> | null | undefined,
 ): KioskGeneralSettings {
@@ -68,6 +102,10 @@ function withGeneralDefaults(
     ...withPublicDefaults(partial),
     overtimeAlertEmail: (partial?.overtimeAlertEmail ?? '').trim(),
     overtimeAlertHours: clampOvertimeHours(partial?.overtimeAlertHours),
+    overtimeAlertReminders: clampReminders(partial?.overtimeAlertReminders),
+    overtimeAlertReminderIntervalMinutes: clampReminderInterval(
+      partial?.overtimeAlertReminderIntervalMinutes,
+    ),
   };
 }
 
@@ -102,6 +140,9 @@ export const kioskSettingsApi = {
         pinLength: body.pinLength,
         overtimeAlertEmail: body.overtimeAlertEmail,
         overtimeAlertHours: body.overtimeAlertHours,
+        overtimeAlertReminders: body.overtimeAlertReminders,
+        overtimeAlertReminderIntervalMinutes:
+          body.overtimeAlertReminderIntervalMinutes,
       }),
     ),
 
@@ -120,11 +161,15 @@ export const kioskSettingsApi = {
     sent: number;
     to: string;
     alertHours: number;
+    reminders: number;
+    intervalMinutes: number;
   }> =>
     apiClient.post<{
       checked: number;
       sent: number;
       to: string;
       alertHours: number;
+      reminders: number;
+      intervalMinutes: number;
     }>('/kiosk-settings/overtime-alert/run', {}),
 };

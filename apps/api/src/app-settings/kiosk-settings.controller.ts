@@ -29,12 +29,22 @@ import {
 } from './pin-length';
 import {
   DEFAULT_OVERTIME_ALERT_HOURS,
+  DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+  DEFAULT_OVERTIME_ALERT_REMINDERS,
   MAX_OVERTIME_ALERT_HOURS,
+  MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+  MAX_OVERTIME_ALERT_REMINDERS,
   MIN_OVERTIME_ALERT_HOURS,
+  MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+  MIN_OVERTIME_ALERT_REMINDERS,
   OVERTIME_ALERT_EMAIL_KEY,
   OVERTIME_ALERT_HOURS_KEY,
+  OVERTIME_ALERT_REMINDER_INTERVAL_KEY,
+  OVERTIME_ALERT_REMINDERS_KEY,
   OVERTIME_ALERT_SENT_KEY,
   parseOvertimeAlertHours,
+  parseOvertimeAlertReminderIntervalMinutes,
+  parseOvertimeAlertReminders,
 } from './overtime-alert';
 
 export const KIOSK_DEBUG_ENABLED_KEY = 'kiosk_debug_enabled';
@@ -75,6 +85,20 @@ class KioskGeneralSettingsDto {
   @Min(MIN_OVERTIME_ALERT_HOURS)
   @Max(MAX_OVERTIME_ALERT_HOURS)
   overtimeAlertHours!: number;
+
+  /** Anzahl Alarme pro offener Stempelung inkl. erster Meldung (1–10). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_OVERTIME_ALERT_REMINDERS)
+  @Max(MAX_OVERTIME_ALERT_REMINDERS)
+  overtimeAlertReminders!: number;
+
+  /** Minuten zwischen zwei Alarmen derselben Stempelung (5–240). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES)
+  @Max(MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES)
+  overtimeAlertReminderIntervalMinutes!: number;
 }
 
 export type KioskGeneralSettings = {
@@ -83,6 +107,8 @@ export type KioskGeneralSettings = {
   pinLength: number;
   overtimeAlertEmail: string;
   overtimeAlertHours: number;
+  overtimeAlertReminders: number;
+  overtimeAlertReminderIntervalMinutes: number;
 };
 
 @ApiTags('kiosk-settings')
@@ -97,6 +123,8 @@ export class KioskSettingsController {
       PIN_LENGTH_KEY,
       OVERTIME_ALERT_EMAIL_KEY,
       OVERTIME_ALERT_HOURS_KEY,
+      OVERTIME_ALERT_REMINDERS_KEY,
+      OVERTIME_ALERT_REMINDER_INTERVAL_KEY,
     ]);
     const rawInterval = map[GPS_INTERVAL_MINUTES_KEY];
     const parsed = rawInterval ? Number.parseInt(rawInterval, 10) : NaN;
@@ -111,6 +139,13 @@ export class KioskSettingsController {
       overtimeAlertHours: parseOvertimeAlertHours(
         map[OVERTIME_ALERT_HOURS_KEY],
       ),
+      overtimeAlertReminders: parseOvertimeAlertReminders(
+        map[OVERTIME_ALERT_REMINDERS_KEY],
+      ),
+      overtimeAlertReminderIntervalMinutes:
+        parseOvertimeAlertReminderIntervalMinutes(
+          map[OVERTIME_ALERT_REMINDER_INTERVAL_KEY],
+        ),
     };
   }
 
@@ -155,11 +190,21 @@ export class KioskSettingsController {
     const overtimeAlertHours = parseOvertimeAlertHours(
       String(dto.overtimeAlertHours),
     );
+    const overtimeAlertReminders = parseOvertimeAlertReminders(
+      String(dto.overtimeAlertReminders),
+    );
+    const overtimeAlertReminderIntervalMinutes =
+      parseOvertimeAlertReminderIntervalMinutes(
+        String(dto.overtimeAlertReminderIntervalMinutes),
+      );
 
     const previous = await this.readAll();
     const overtimeChanged =
       previous.overtimeAlertEmail !== overtimeAlertEmail ||
-      previous.overtimeAlertHours !== overtimeAlertHours;
+      previous.overtimeAlertHours !== overtimeAlertHours ||
+      previous.overtimeAlertReminders !== overtimeAlertReminders ||
+      previous.overtimeAlertReminderIntervalMinutes !==
+        overtimeAlertReminderIntervalMinutes;
 
     const updates: Record<string, string> = {
       [KIOSK_DEBUG_ENABLED_KEY]: dto.debugLogEnabled ? 'true' : 'false',
@@ -168,6 +213,13 @@ export class KioskSettingsController {
       [OVERTIME_ALERT_EMAIL_KEY]: overtimeAlertEmail,
       [OVERTIME_ALERT_HOURS_KEY]: String(
         overtimeAlertHours || DEFAULT_OVERTIME_ALERT_HOURS,
+      ),
+      [OVERTIME_ALERT_REMINDERS_KEY]: String(
+        overtimeAlertReminders || DEFAULT_OVERTIME_ALERT_REMINDERS,
+      ),
+      [OVERTIME_ALERT_REMINDER_INTERVAL_KEY]: String(
+        overtimeAlertReminderIntervalMinutes ||
+          DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
       ),
     };
     // Bei geänderter Schwelle/Adresse erneut alarmieren dürfen (Dedup zurücksetzen).
@@ -182,6 +234,8 @@ export class KioskSettingsController {
       pinLength,
       overtimeAlertEmail,
       overtimeAlertHours,
+      overtimeAlertReminders,
+      overtimeAlertReminderIntervalMinutes,
     };
   }
 }

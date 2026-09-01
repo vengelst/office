@@ -48,7 +48,10 @@ export class OvertimeAlertController {
     sent: number;
     to: string;
     alertHours: number;
+    reminders: number;
+    intervalMinutes: number;
   }> {
-    return this.overtimeAlert.checkAndNotify(true);
+    // Ohne Force: Intervall und Max-Anzahl wie Cron – Speichern setzt Dedup zurück.
+    return this.overtimeAlert.checkAndNotify(false);
   }
 }

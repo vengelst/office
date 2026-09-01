@@ -136,8 +136,15 @@ export const settings = {
       overtimeAlertHoursLabel: 'Alarm nach Stunden',
       overtimeAlertHoursHint: 'Durchgehend eingestempelt (1–24). Standard: 10.',
       overtimeAlertHoursUnit: 'Stunden',
+      overtimeAlertRemindersLabel: 'Anzahl Erinnerungen',
+      overtimeAlertRemindersHint:
+        'Wie oft insgesamt gemeldet wird (inkl. erster Alarm), solange die Stempelung offen ist (1–10).',
+      overtimeAlertReminderIntervalLabel: 'Abstand',
+      overtimeAlertReminderIntervalUnit: 'Minuten',
+      overtimeAlertReminderIntervalHint:
+        'Minuten zwischen zwei Meldungen derselben Stempelung (5–240). Cron prüft alle 5 Minuten.',
       overtimeAlertOnceHint:
-        'Pro offener Stempelung wird nur einmal gemeldet. Nach Speichern von E-Mail/Stunden darf erneut gemeldet werden. Cron prüft alle 5 Minuten.',
+        'Nach Speichern der Alarm-Einstellungen darf erneut gemeldet werden. Cron prüft alle 5 Minuten.',
       overtimeAlertTestButton: 'Test-Mail senden',
       overtimeAlertRunButton: 'Jetzt prüfen',
       overtimeAlertTesting: 'Test-Mail wird gesendet …',
