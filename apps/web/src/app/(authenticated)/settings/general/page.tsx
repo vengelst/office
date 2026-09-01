@@ -23,8 +23,11 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 import {
+  DEFAULT_OVERTIME_ALERT_HOURS,
   DEFAULT_PIN_LENGTH,
+  MAX_OVERTIME_ALERT_HOURS,
   MAX_PIN_LENGTH,
+  MIN_OVERTIME_ALERT_HOURS,
   MIN_PIN_LENGTH,
   kioskSettingsApi,
 } from '@/lib/kiosk-settings';
@@ -40,6 +43,9 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [gpsIntervalMinutes, setGpsIntervalMinutes] = useState(20);
   const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
   const [overtimeAlertEmail, setOvertimeAlertEmail] = useState('');
+  const [overtimeAlertHours, setOvertimeAlertHours] = useState(
+    DEFAULT_OVERTIME_ALERT_HOURS,
+  );
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -53,6 +59,9 @@ export default function GeneralSettingsPage(): React.ReactNode {
         setGpsIntervalMinutes(data.gpsIntervalMinutes ?? 20);
         setPinLength(data.pinLength ?? DEFAULT_PIN_LENGTH);
         setOvertimeAlertEmail(data.overtimeAlertEmail ?? '');
+        setOvertimeAlertHours(
+          data.overtimeAlertHours ?? DEFAULT_OVERTIME_ALERT_HOURS,
+        );
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -65,6 +74,10 @@ export default function GeneralSettingsPage(): React.ReactNode {
       MAX_PIN_LENGTH,
       Math.max(MIN_PIN_LENGTH, Math.round(pinLength)),
     );
+    const hours = Math.min(
+      MAX_OVERTIME_ALERT_HOURS,
+      Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
+    );
     setSaving(true);
     try {
       const saved = await kioskSettingsApi.putGeneral({
@@ -72,11 +85,13 @@ export default function GeneralSettingsPage(): React.ReactNode {
         gpsIntervalMinutes: interval,
         pinLength: length,
         overtimeAlertEmail: overtimeAlertEmail.trim(),
+        overtimeAlertHours: hours,
       });
       setDebugLogEnabled(saved.debugLogEnabled);
       setGpsIntervalMinutes(saved.gpsIntervalMinutes);
       setPinLength(saved.pinLength);
       setOvertimeAlertEmail(saved.overtimeAlertEmail);
+      setOvertimeAlertHours(saved.overtimeAlertHours);
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -200,20 +215,51 @@ export default function GeneralSettingsPage(): React.ReactNode {
               <p className="text-xs text-muted-foreground">
                 {t.overtimeAlertHint}
               </p>
-              <div className="max-w-md space-y-1.5">
-                <label className="text-xs text-muted-foreground">
-                  {t.overtimeAlertEmailLabel}
-                </label>
-                <Input
-                  type="email"
-                  disabled={!canEdit}
-                  value={overtimeAlertEmail}
-                  onChange={(e) => setOvertimeAlertEmail(e.target.value)}
-                  placeholder={t.overtimeAlertEmailPlaceholder}
-                  className="min-h-[44px]"
-                  autoComplete="off"
-                />
+              <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="min-w-0 flex-1 space-y-1.5">
+                  <label className="text-xs text-muted-foreground">
+                    {t.overtimeAlertEmailLabel}
+                  </label>
+                  <Input
+                    type="email"
+                    disabled={!canEdit}
+                    value={overtimeAlertEmail}
+                    onChange={(e) => setOvertimeAlertEmail(e.target.value)}
+                    placeholder={t.overtimeAlertEmailPlaceholder}
+                    className="min-h-[44px]"
+                    autoComplete="off"
+                  />
+                </div>
+                <div className="w-full space-y-1.5 sm:w-36">
+                  <label className="text-xs text-muted-foreground">
+                    {t.overtimeAlertHoursLabel}
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={MIN_OVERTIME_ALERT_HOURS}
+                      max={MAX_OVERTIME_ALERT_HOURS}
+                      step={1}
+                      disabled={!canEdit}
+                      value={overtimeAlertHours}
+                      onChange={(e) =>
+                        setOvertimeAlertHours(
+                          Number.parseInt(e.target.value, 10) ||
+                            DEFAULT_OVERTIME_ALERT_HOURS,
+                        )
+                      }
+                      className="min-h-[44px]"
+                    />
+                    <span className="shrink-0 text-sm text-muted-foreground">
+                      {t.overtimeAlertHoursUnit}
+                    </span>
+                  </div>
+                </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                {t.overtimeAlertHoursHint}
+              </p>
             </div>
           </div>
         </CardContent>

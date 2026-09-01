@@ -8,8 +8,9 @@ import { TimeEntryType } from '@prisma/client';
 import { AppSettingsService } from '../app-settings/app-settings.service';
 import {
   OVERTIME_ALERT_EMAIL_KEY,
-  OVERTIME_ALERT_HOURS,
+  OVERTIME_ALERT_HOURS_KEY,
   OVERTIME_ALERT_SENT_KEY,
+  parseOvertimeAlertHours,
 } from '../app-settings/overtime-alert';
 import { EmailService } from '../email/email.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -58,7 +59,10 @@ export class OvertimeAlertService {
       return { checked: 0, sent: 0 };
     }
 
-    const thresholdMinutes = OVERTIME_ALERT_HOURS * 60;
+    const alertHours = parseOvertimeAlertHours(
+      await this.settings.get(OVERTIME_ALERT_HOURS_KEY),
+    );
+    const thresholdMinutes = alertHours * 60;
     const since = new Date(Date.now() - 48 * 60 * 60 * 1000);
     const entries = await this.prisma.timeEntry.findMany({
       where: {
@@ -135,7 +139,7 @@ export class OvertimeAlertService {
       const subject = `Arbeitszeit überschritten: ${workerName}`;
       const html = `<div style="font-family:sans-serif;padding:20px;color:#222">
   <h2 style="margin:0 0 12px">Arbeitszeit überschritten</h2>
-  <p>Ein Monteur ist durchgehend länger als ${OVERTIME_ALERT_HOURS} Stunden eingestempelt.</p>
+  <p>Ein Monteur ist durchgehend länger als ${alertHours} Stunden eingestempelt.</p>
   <table style="border-collapse:collapse;margin:16px 0">
     <tr><td style="padding:4px 12px 4px 0;color:#666">Monteur</td><td><strong>${escapeHtml(workerName)}</strong> (${escapeHtml(e.worker.workerNumber)})</td></tr>
     <tr><td style="padding:4px 12px 4px 0;color:#666">Projekt</td><td>${escapeHtml(projectLabel)}</td></tr>
@@ -143,7 +147,7 @@ export class OvertimeAlertService {
     <tr><td style="padding:4px 12px 4px 0;color:#666">Eingestempelt seit</td><td>${escapeHtml(sinceLabel)}</td></tr>
     <tr><td style="padding:4px 12px 4px 0;color:#666">Dauer</td><td><strong>${escapeHtml(durationLabel)}</strong></td></tr>
   </table>
-  <p style="color:#666;font-size:12px">Automatische Meldung aus Office · Schwelle ${OVERTIME_ALERT_HOURS} Stunden durchgehend</p>
+  <p style="color:#666;font-size:12px">Automatische Meldung aus Office · Schwelle ${alertHours} Stunden durchgehend</p>
 </div>`;
 
       const result = await this.email.send(to, subject, html);

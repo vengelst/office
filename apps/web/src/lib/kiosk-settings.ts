@@ -11,6 +11,8 @@ export const DEFAULT_PIN_LENGTH = 6;
 export const MIN_PIN_LENGTH = 4;
 export const MAX_PIN_LENGTH = 8;
 export const DEFAULT_OVERTIME_ALERT_HOURS = 10;
+export const MIN_OVERTIME_ALERT_HOURS = 1;
+export const MAX_OVERTIME_ALERT_HOURS = 24;
 
 export interface KioskPublicSettings {
   debugLogEnabled: boolean;
@@ -20,8 +22,9 @@ export interface KioskPublicSettings {
 }
 
 export interface KioskGeneralSettings extends KioskPublicSettings {
-  /** Empfänger für >10h-Alarm; leer = deaktiviert. */
+  /** Empfänger für Arbeitszeit-Alarm; leer = deaktiviert. */
   overtimeAlertEmail: string;
+  /** Schwelle in Stunden (durchgehend eingestempelt). */
   overtimeAlertHours: number;
 }
 
@@ -46,22 +49,30 @@ function withPublicDefaults(
   };
 }
 
+function clampOvertimeHours(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_OVERTIME_ALERT_HOURS &&
+    raw <= MAX_OVERTIME_ALERT_HOURS
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_OVERTIME_ALERT_HOURS;
+}
+
 function withGeneralDefaults(
   partial: Partial<KioskGeneralSettings> | null | undefined,
 ): KioskGeneralSettings {
   return {
     ...withPublicDefaults(partial),
     overtimeAlertEmail: (partial?.overtimeAlertEmail ?? '').trim(),
-    overtimeAlertHours:
-      typeof partial?.overtimeAlertHours === 'number' &&
-      partial.overtimeAlertHours >= 1
-        ? partial.overtimeAlertHours
-        : DEFAULT_OVERTIME_ALERT_HOURS,
+    overtimeAlertHours: clampOvertimeHours(partial?.overtimeAlertHours),
   };
 }
 
 export const kioskSettingsApi = {
-  /** Öffentlich – Kiosk / Monteur-App (ohne Alarm-E-Mail). */
+  /** Öffentlich – Kiosk / Monteur-App (ohne Alarm-Felder). */
   getPublic: async (): Promise<KioskPublicSettings> => {
     try {
       const res = await fetch(`${API_BASE}/kiosk-settings/public`, {
@@ -82,9 +93,7 @@ export const kioskSettingsApi = {
       await apiClient.get<KioskGeneralSettings>('/kiosk-settings/general'),
     ),
   putGeneral: async (
-    body: Omit<KioskGeneralSettings, 'overtimeAlertHours'> & {
-      overtimeAlertHours?: number;
-    },
+    body: KioskGeneralSettings,
   ): Promise<KioskGeneralSettings> =>
     withGeneralDefaults(
       await apiClient.put<KioskGeneralSettings>('/kiosk-settings/general', {
@@ -92,6 +101,7 @@ export const kioskSettingsApi = {
         gpsIntervalMinutes: body.gpsIntervalMinutes,
         pinLength: body.pinLength,
         overtimeAlertEmail: body.overtimeAlertEmail,
+        overtimeAlertHours: body.overtimeAlertHours,
       }),
     ),
 };

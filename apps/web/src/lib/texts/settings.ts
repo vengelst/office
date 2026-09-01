@@ -130,9 +130,12 @@ export const settings = {
       pinLengthUnit: 'Ziffern',
       overtimeAlertTitle: 'Arbeitszeit-Alarm',
       overtimeAlertHint:
-        'Wenn ein Monteur durchgehend länger als 10 Stunden eingestempelt ist, geht eine kurze E-Mail an diese Adresse (Name, Projekt, Dauer). Leer = Alarm aus. SMTP muss unter E-Mail konfiguriert sein.',
+        'Wenn ein Monteur durchgehend länger als die eingestellte Stundenzahl eingestempelt ist, geht eine kurze E-Mail an die Empfänger-Adresse (Name, Projekt, Dauer). Ohne E-Mail = Alarm aus. SMTP muss unter E-Mail konfiguriert sein.',
       overtimeAlertEmailLabel: 'Empfänger-E-Mail',
       overtimeAlertEmailPlaceholder: 'leitung@firma.de',
+      overtimeAlertHoursLabel: 'Alarm nach Stunden',
+      overtimeAlertHoursHint: 'Durchgehend eingestempelt (1–24). Standard: 10.',
+      overtimeAlertHoursUnit: 'Stunden',
       on: 'An',
       off: 'Aus',
       save: 'Speichern',
