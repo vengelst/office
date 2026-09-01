@@ -23,6 +23,10 @@ import { TimesheetWorkflowService } from './timesheet-workflow.service';
     TimesheetGenerationService,
     TimesheetWorkflowService,
   ],
-  exports: [TimesheetsService, TimesheetPdfService],
+  exports: [
+    TimesheetsService,
+    TimesheetPdfService,
+    TimesheetGenerationService,
+  ],
 })
 export class TimesheetsModule {}

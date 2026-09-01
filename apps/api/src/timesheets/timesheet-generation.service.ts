@@ -6,6 +6,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -21,10 +22,16 @@ import {
   computeBreakMinutes,
   dayKey,
   diffMinutes,
+  isoWeekOf,
   isoWeekRange,
   selectBreakRule,
 } from './timesheet.util';
-import { effectiveBreakMinutes, type StempelEvent } from '../time-entries/break-calc.util';
+import {
+  berlinDateKey,
+  berlinDayRange,
+  effectiveBreakMinutes,
+  type StempelEvent,
+} from '../time-entries/break-calc.util';
 import {
   EDITABLE_STATUSES,
   detailInclude,
@@ -35,7 +42,44 @@ import {
 
 @Injectable()
 export class TimesheetGenerationService {
+  private readonly logger = new Logger(TimesheetGenerationService.name);
+
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Stellt sicher, dass für Monteur+Projekt+ISO-KW (Mo–So, Europe/Berlin)
+   * ein editierbarer Stundenzettel existiert und aus Stempelungen aktuell ist.
+   * Gesperrte/freigegebene Sheets bleiben unberührt. Fehler werden geloggt,
+   * nicht geworfen – Stempelvorgänge dürfen deshalb nicht scheitern.
+   */
+  async ensureForStamp(params: {
+    workerId: string;
+    projectId: string;
+    at: Date;
+  }): Promise<void> {
+    try {
+      const dateKey = berlinDateKey(params.at);
+      const day = berlinDayRange(dateKey).from;
+      const { weekYear, weekNumber } = isoWeekOf(day);
+      await this.generateOneWeek({
+        workerId: params.workerId,
+        projectId: params.projectId,
+        weekYear,
+        weekNumber,
+      });
+    } catch (err) {
+      if (err instanceof ConflictException) {
+        this.logger.warn(
+          `Stundenzettel auto-sync übersprungen (gesperrt): worker=${params.workerId} project=${params.projectId}`,
+        );
+        return;
+      }
+      const msg = err instanceof Error ? err.message : String(err);
+      this.logger.error(
+        `Stundenzettel auto-sync fehlgeschlagen: worker=${params.workerId} project=${params.projectId}: ${msg}`,
+      );
+    }
+  }
 
 
   private async findOne(id: string) {
@@ -86,7 +130,7 @@ export class TimesheetGenerationService {
   /**
    * Eine Kalenderwoche: Upsert DRAFT, 7 Tageszeilen (Stempel + leere Tage).
    */
-  private async generateOneWeek(dto: {
+  async generateOneWeek(dto: {
     workerId: string;
     projectId: string;
     weekYear: number;

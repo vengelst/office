@@ -36,6 +36,7 @@ import {
   isoWeekOf,
 } from '../timesheets/timesheet.util';
 import { FINAL_STATUSES } from '../timesheets/timesheet-shared';
+import { TimesheetGenerationService } from '../timesheets/timesheet-generation.service';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -108,10 +109,35 @@ export class TimeEntriesService {
     private readonly storagePathService: StoragePathService,
     private readonly driveService: GoogleDriveService,
     private readonly workItemWorkflow: WorkItemWorkflowService,
+    private readonly timesheetGeneration: TimesheetGenerationService,
   ) {}
 
   // ── Stempeln ─────────────────────────────────────────────────
 
+  /**
+   * Stellt sicher, dass für die ISO-KW(en) der Stempelzeit(en) ein Stundenzettel existiert.
+   * Mehrere Zeitpunkte (z. B. In Sonntag / Out Montag) → alle betroffenen KW.
+   */
+  private async syncTimesheetsForStamp(
+    workerId: string,
+    projectId: string,
+    ...ats: Date[]
+  ): Promise<void> {
+    const seen = new Set<string>();
+    for (const at of ats) {
+      const dateKey = berlinDateKey(at);
+      const day = berlinDayRange(dateKey).from;
+      const { weekYear, weekNumber } = isoWeekOf(day);
+      const key = `${weekYear}-W${weekNumber}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      await this.timesheetGeneration.ensureForStamp({
+        workerId,
+        projectId,
+        at,
+      });
+    }
+  }
   /**
    * Stempelt einen Monteur auf einem Projekt ein.
    * Prüft, dass der Monteur nicht bereits eingestempelt ist.
@@ -198,6 +224,12 @@ export class TimeEntriesService {
           },
         });
       }
+
+      await this.syncTimesheetsForStamp(
+        dto.workerId,
+        dto.projectId,
+        occurredAtClient,
+      );
 
       return this.getStatus(dto.workerId);
     } catch (err) {
@@ -291,6 +323,13 @@ export class TimeEntriesService {
         );
 
       const grossMinutes = diffMinutes(
+        open.occurredAtClient,
+        occurredAtClient,
+      );
+
+      await this.syncTimesheetsForStamp(
+        dto.workerId,
+        open.projectId,
         open.occurredAtClient,
         occurredAtClient,
       );
@@ -1462,7 +1501,7 @@ export class TimeEntriesService {
       throw new BadRequestException('Ungültiger entryType');
     }
 
-    return this.prisma.timeEntry.create({
+    const created = await this.prisma.timeEntry.create({
       data: {
         workerId: dto.workerId,
         projectId: dto.projectId,
@@ -1476,6 +1515,21 @@ export class TimeEntriesService {
         createdByUserId: actor.id,
       },
     });
+
+    if (
+      dto.entryType === TimeEntryType.CLOCK_IN ||
+      dto.entryType === TimeEntryType.CLOCK_OUT ||
+      dto.entryType === TimeEntryType.BREAK_START ||
+      dto.entryType === TimeEntryType.BREAK_END
+    ) {
+      await this.syncTimesheetsForStamp(
+        dto.workerId,
+        dto.projectId,
+        occurredAtClient,
+      );
+    }
+
+    return created;
   }
 
   async updateEntry(id: string, dto: UpdateEntryDto, actor: AuthUser) {
@@ -1498,7 +1552,7 @@ export class TimeEntriesService {
       throw new BadRequestException('Keine Änderung');
     }
 
-    return this.prisma.timeEntry.update({
+    const updated = await this.prisma.timeEntry.update({
       where: { id },
       data: {
         ...(dto.occurredAtClient
@@ -1508,6 +1562,15 @@ export class TimeEntriesService {
         createdByUserId: actor.id,
       },
     });
+
+    await this.syncTimesheetsForStamp(
+      entry.workerId,
+      entry.projectId,
+      entry.occurredAtClient,
+      updated.occurredAtClient,
+    );
+
+    return updated;
   }
 
   async deleteEntry(id: string, actor: AuthUser, comment: string) {
@@ -1535,6 +1598,13 @@ export class TimeEntriesService {
       },
     });
     await this.prisma.timeEntry.delete({ where: { id } });
+
+    await this.syncTimesheetsForStamp(
+      entry.workerId,
+      entry.projectId,
+      entry.occurredAtClient,
+    );
+
     return { ok: true };
   }
 

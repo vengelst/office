@@ -5,12 +5,12 @@
 
 export const timesheets = {
     title: 'Stundenzettel',
-    subtitle: 'Wochenstundenzettel prüfen, freigeben und exportieren',
+    subtitle: 'Entstehen automatisch beim Stempeln (KW Mo–So). Prüfen, freigeben, exportieren.',
     searchPlaceholder: 'Suche …',
-    empty: 'Noch keine Stundenzettel vorhanden.',
+    empty: 'Noch keine Stundenzettel. Nach dem Stempeln erscheinen sie automatisch.',
     noResults: 'Keine Stundenzettel gefunden.',
     backToList: 'Zurück zur Übersicht',
-    generate: 'Stundenzettel anlegen / öffnen',
+    generate: 'Manuell nachziehen',
     pagination: {
       showing: 'Einträge',
       page: 'Seite',
@@ -78,9 +78,9 @@ export const timesheets = {
       regenerate: 'Aus Stempelungen neu laden',
     },
     generateDialog: {
-      title: 'Stundenzettel anlegen',
+      title: 'Stundenzettel manuell nachziehen',
       description:
-        'Legt die Kalenderwoche an (Mo–So). Vorhandene Stempelungen werden übernommen; fehlende Tage können Sie manuell bearbeiten – auch ohne Handy des Monteurs. Existiert der Zettel schon als Entwurf, wird er aktualisiert und geöffnet.',
+        'Nur nötig, wenn noch kein Zettel aus dem Kiosk/Stempeln da ist (ältere Wochen o. Ä.). KW ist Mo–So (ISO). Stempelungen werden übernommen; Entwurf wird aktualisiert und geöffnet.',
       worker: 'Monteur',
       project: 'Projekt',
       year: 'Jahr',
