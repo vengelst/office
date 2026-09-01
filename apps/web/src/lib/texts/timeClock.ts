@@ -138,6 +138,15 @@ export const timeClock = {
     customer: 'Kunde',
     since: 'Eingestempelt seit',
     duration: 'Dauer',
+    actions: 'Aktion',
   },
+  clockOut: 'Ausstempeln',
+  clockOutConfirmTitle: 'Arbeitszeit beenden?',
+  clockOutConfirm: (name: string): string =>
+    `${name} jetzt ausstempeln? Offene Pause und Tätigkeit werden mit beendet.`,
+  clockOutConfirmAction: 'Ausstempeln',
+  clockOutCancel: 'Abbrechen',
+  clockOutSuccess: (name: string): string => `${name} wurde ausgestempelt.`,
+  clockOutError: 'Ausstempeln fehlgeschlagen.',
   openWorkerApp: 'Monteur-App öffnen',
 } as const;

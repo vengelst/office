@@ -6,7 +6,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ExternalLink, RefreshCw } from 'lucide-react';
+import { ExternalLink, LogOut, RefreshCw } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -26,8 +26,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useToast } from '@/components/ui/use-toast';
 import { WorkerAvatar } from '@/components/workers/worker-avatar';
 import { workerFullName } from '@/lib/workers';
+import { ApiError } from '@/lib/api-client';
 import {
   formatDuration,
   formatTime,
@@ -41,9 +53,12 @@ const ALL = '__all__';
 
 export default function TimeClockLivePage(): React.ReactNode {
   const t = texts.timeClock;
+  const { toast } = useToast();
   const [entries, setEntries] = useState<LiveEntry[] | null>(null);
   const [projectFilter, setProjectFilter] = useState(ALL);
   const [, setTick] = useState(0);
+  const [pendingOut, setPendingOut] = useState<LiveEntry | null>(null);
+  const [clockingOutId, setClockingOutId] = useState<string | null>(null);
 
   const load = useCallback(() => {
     timeEntriesApi
@@ -80,6 +95,46 @@ export default function TimeClockLivePage(): React.ReactNode {
 
   const elapsed = (since: string): number =>
     Math.floor((Date.now() - new Date(since).getTime()) / 1000);
+
+  const confirmClockOut = async (): Promise<void> => {
+    if (!pendingOut) return;
+    const entry = pendingOut;
+    const name = workerFullName(entry.worker);
+    setClockingOutId(entry.worker.id);
+    try {
+      await timeEntriesApi.clockOut({
+        workerId: entry.worker.id,
+        comment: 'Ausgestempelt durch Büro (Stempeluhr Live)',
+        sourceDevice: 'office-live',
+      });
+      setPendingOut(null);
+      toast({ description: t.clockOutSuccess(name) });
+      load();
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError ? err.message : t.clockOutError,
+      });
+    } finally {
+      setClockingOutId(null);
+    }
+  };
+
+  const clockOutButton = (e: LiveEntry): React.ReactNode => (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      className="min-h-[40px] shrink-0"
+      disabled={clockingOutId === e.worker.id}
+      onClick={() => setPendingOut(e)}
+      aria-label={`${t.clockOut}: ${workerFullName(e.worker)}`}
+    >
+      <LogOut className="h-4 w-4" />
+      {t.clockOut}
+    </Button>
+  );
 
   return (
     <div>
@@ -158,6 +213,9 @@ export default function TimeClockLivePage(): React.ReactNode {
                   </TableHead>
                   <TableHead>{t.columns.since}</TableHead>
                   <TableHead>{t.columns.duration}</TableHead>
+                  <TableHead className="w-px text-right">
+                    {t.columns.actions}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -188,6 +246,9 @@ export default function TimeClockLivePage(): React.ReactNode {
                     <TableCell className="font-mono tabular-nums">
                       {formatDuration(elapsed(e.since))}
                     </TableCell>
+                    <TableCell className="text-right">
+                      {clockOutButton(e)}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -216,15 +277,50 @@ export default function TimeClockLivePage(): React.ReactNode {
                       {t.columns.since} {formatTime(e.since)}
                     </p>
                   </div>
-                  <span className="font-mono text-sm tabular-nums text-emerald-600">
-                    {formatDuration(elapsed(e.since))}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <span className="font-mono text-sm tabular-nums text-emerald-600">
+                      {formatDuration(elapsed(e.since))}
+                    </span>
+                    {clockOutButton(e)}
+                  </div>
                 </CardContent>
               </Card>
             ))}
           </div>
         </>
       )}
+
+      <AlertDialog
+        open={pendingOut !== null}
+        onOpenChange={(open) => {
+          if (!open && !clockingOutId) setPendingOut(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.clockOutConfirmTitle}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingOut
+                ? t.clockOutConfirm(workerFullName(pendingOut.worker))
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!clockingOutId}>
+              {t.clockOutCancel}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!!clockingOutId}
+              onClick={(ev) => {
+                ev.preventDefault();
+                void confirmClockOut();
+              }}
+            >
+              {t.clockOutConfirmAction}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

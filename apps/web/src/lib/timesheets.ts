@@ -685,6 +685,12 @@ export const timeEntriesApi = {
    */
   live: () => apiClient.get<LiveEntry[]>('/time-entries/live'),
   /**
+   * POST /time-entries/clock-out – Stempelt einen Monteur aus (Office/Admin).
+   * Nutzt den normalen Office-JWT (nicht die Offline-Worker-Queue).
+   */
+  clockOut: (body: ClockOutBody) =>
+    apiClient.post<ClockStatus>('/time-entries/clock-out', body),
+  /**
    * GET /time-entries/gps-events – GPS-Historie (Ein-/Ausstempeln).
    */
   gpsEvents: (params?: {
