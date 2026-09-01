@@ -5,7 +5,16 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, Max, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsEmail,
+  IsInt,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
@@ -18,6 +27,10 @@ import {
   parsePinLength,
   PIN_LENGTH_KEY,
 } from './pin-length';
+import {
+  OVERTIME_ALERT_EMAIL_KEY,
+  OVERTIME_ALERT_HOURS,
+} from './overtime-alert';
 
 export const KIOSK_DEBUG_ENABLED_KEY = 'kiosk_debug_enabled';
 export const GPS_INTERVAL_MINUTES_KEY = 'gps_interval_minutes';
@@ -40,12 +53,24 @@ class KioskGeneralSettingsDto {
   @Min(MIN_PIN_LENGTH)
   @Max(MAX_PIN_LENGTH)
   pinLength!: number;
+
+  /**
+   * Empfänger für Alarm bei >10h durchgehend eingestempelt.
+   * Leer = Alarm deaktiviert.
+   */
+  @IsString()
+  @MaxLength(200)
+  @ValidateIf((_, v) => typeof v === 'string' && v.trim() !== '')
+  @IsEmail({}, { message: 'Ungültige E-Mail-Adresse für Arbeitszeit-Alarm' })
+  overtimeAlertEmail!: string;
 }
 
 export type KioskGeneralSettings = {
   debugLogEnabled: boolean;
   gpsIntervalMinutes: number;
   pinLength: number;
+  overtimeAlertEmail: string;
+  overtimeAlertHours: number;
 };
 
 @ApiTags('kiosk-settings')
@@ -58,6 +83,7 @@ export class KioskSettingsController {
       KIOSK_DEBUG_ENABLED_KEY,
       GPS_INTERVAL_MINUTES_KEY,
       PIN_LENGTH_KEY,
+      OVERTIME_ALERT_EMAIL_KEY,
     ]);
     const rawInterval = map[GPS_INTERVAL_MINUTES_KEY];
     const parsed = rawInterval ? Number.parseInt(rawInterval, 10) : NaN;
@@ -68,16 +94,28 @@ export class KioskSettingsController {
           ? parsed
           : DEFAULT_GPS_INTERVAL_MINUTES,
       pinLength: parsePinLength(map[PIN_LENGTH_KEY]),
+      overtimeAlertEmail: (map[OVERTIME_ALERT_EMAIL_KEY] ?? '').trim(),
+      overtimeAlertHours: OVERTIME_ALERT_HOURS,
     };
   }
 
-  /** Öffentlich für Kiosk / Monteur-App – Debug-Log, GPS-Intervall, PIN-Länge. */
+  /** Öffentlich für Kiosk / Monteur-App – ohne Alarm-E-Mail. */
   @Public()
   @SkipThrottle()
   @Get('public')
   @ApiOperation({ summary: 'Öffentliche Kiosk-/GPS-/PIN-Einstellungen' })
-  async getPublic(): Promise<KioskGeneralSettings> {
-    return this.readAll();
+  async getPublic(): Promise<
+    Pick<
+      KioskGeneralSettings,
+      'debugLogEnabled' | 'gpsIntervalMinutes' | 'pinLength'
+    >
+  > {
+    const all = await this.readAll();
+    return {
+      debugLogEnabled: all.debugLogEnabled,
+      gpsIntervalMinutes: all.gpsIntervalMinutes,
+      pinLength: all.pinLength,
+    };
   }
 
   @ApiBearerAuth()
@@ -98,15 +136,19 @@ export class KioskSettingsController {
     @Body() dto: KioskGeneralSettingsDto,
   ): Promise<KioskGeneralSettings> {
     const pinLength = parsePinLength(String(dto.pinLength));
+    const overtimeAlertEmail = (dto.overtimeAlertEmail ?? '').trim();
     await this.settings.setMany({
       [KIOSK_DEBUG_ENABLED_KEY]: dto.debugLogEnabled ? 'true' : 'false',
       [GPS_INTERVAL_MINUTES_KEY]: String(dto.gpsIntervalMinutes),
       [PIN_LENGTH_KEY]: String(pinLength || DEFAULT_PIN_LENGTH),
+      [OVERTIME_ALERT_EMAIL_KEY]: overtimeAlertEmail,
     });
     return {
       debugLogEnabled: dto.debugLogEnabled,
       gpsIntervalMinutes: dto.gpsIntervalMinutes,
       pinLength,
+      overtimeAlertEmail,
+      overtimeAlertHours: OVERTIME_ALERT_HOURS,
     };
   }
 }

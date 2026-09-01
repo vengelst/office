@@ -128,6 +128,11 @@ export const settings = {
       pinLengthHint:
         'Anzahl der Ziffern für Stempeluhr-, Kiosk- und Kunden-PL-PINs (4–8). Nach Änderung müssen bestehende PINs neu gesetzt werden.',
       pinLengthUnit: 'Ziffern',
+      overtimeAlertTitle: 'Arbeitszeit-Alarm',
+      overtimeAlertHint:
+        'Wenn ein Monteur durchgehend länger als 10 Stunden eingestempelt ist, geht eine kurze E-Mail an diese Adresse (Name, Projekt, Dauer). Leer = Alarm aus. SMTP muss unter E-Mail konfiguriert sein.',
+      overtimeAlertEmailLabel: 'Empfänger-E-Mail',
+      overtimeAlertEmailPlaceholder: 'leitung@firma.de',
       on: 'An',
       off: 'Aus',
       save: 'Speichern',

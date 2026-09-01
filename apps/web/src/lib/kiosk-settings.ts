@@ -1,5 +1,5 @@
 /**
- * Client für allgemeine Kiosk-/GPS-/PIN-Einstellungen.
+ * Client für allgemeine Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-Einstellungen.
  */
 
 import { apiClient } from './api-client';
@@ -10,17 +10,24 @@ const API_BASE =
 export const DEFAULT_PIN_LENGTH = 6;
 export const MIN_PIN_LENGTH = 4;
 export const MAX_PIN_LENGTH = 8;
+export const DEFAULT_OVERTIME_ALERT_HOURS = 10;
 
-export interface KioskGeneralSettings {
+export interface KioskPublicSettings {
   debugLogEnabled: boolean;
   gpsIntervalMinutes: number;
   /** Stempel-/Kiosk-PIN-Länge (4–8). */
   pinLength: number;
 }
 
-function withDefaults(
-  partial: Partial<KioskGeneralSettings> | null | undefined,
-): KioskGeneralSettings {
+export interface KioskGeneralSettings extends KioskPublicSettings {
+  /** Empfänger für >10h-Alarm; leer = deaktiviert. */
+  overtimeAlertEmail: string;
+  overtimeAlertHours: number;
+}
+
+function withPublicDefaults(
+  partial: Partial<KioskPublicSettings> | null | undefined,
+): KioskPublicSettings {
   const rawLen = partial?.pinLength;
   const pinLength =
     typeof rawLen === 'number' &&
@@ -39,29 +46,52 @@ function withDefaults(
   };
 }
 
+function withGeneralDefaults(
+  partial: Partial<KioskGeneralSettings> | null | undefined,
+): KioskGeneralSettings {
+  return {
+    ...withPublicDefaults(partial),
+    overtimeAlertEmail: (partial?.overtimeAlertEmail ?? '').trim(),
+    overtimeAlertHours:
+      typeof partial?.overtimeAlertHours === 'number' &&
+      partial.overtimeAlertHours >= 1
+        ? partial.overtimeAlertHours
+        : DEFAULT_OVERTIME_ALERT_HOURS,
+  };
+}
+
 export const kioskSettingsApi = {
-  /** Öffentlich – Kiosk / Monteur-App. */
-  getPublic: async (): Promise<KioskGeneralSettings> => {
+  /** Öffentlich – Kiosk / Monteur-App (ohne Alarm-E-Mail). */
+  getPublic: async (): Promise<KioskPublicSettings> => {
     try {
       const res = await fetch(`${API_BASE}/kiosk-settings/public`, {
         cache: 'no-store',
       });
       if (!res.ok) {
-        return withDefaults(null);
+        return withPublicDefaults(null);
       }
-      return withDefaults(
-        (await res.json()) as Partial<KioskGeneralSettings>,
+      return withPublicDefaults(
+        (await res.json()) as Partial<KioskPublicSettings>,
       );
     } catch {
-      return withDefaults(null);
+      return withPublicDefaults(null);
     }
   },
   getGeneral: async (): Promise<KioskGeneralSettings> =>
-    withDefaults(await apiClient.get<KioskGeneralSettings>('/kiosk-settings/general')),
+    withGeneralDefaults(
+      await apiClient.get<KioskGeneralSettings>('/kiosk-settings/general'),
+    ),
   putGeneral: async (
-    body: KioskGeneralSettings,
+    body: Omit<KioskGeneralSettings, 'overtimeAlertHours'> & {
+      overtimeAlertHours?: number;
+    },
   ): Promise<KioskGeneralSettings> =>
-    withDefaults(
-      await apiClient.put<KioskGeneralSettings>('/kiosk-settings/general', body),
+    withGeneralDefaults(
+      await apiClient.put<KioskGeneralSettings>('/kiosk-settings/general', {
+        debugLogEnabled: body.debugLogEnabled,
+        gpsIntervalMinutes: body.gpsIntervalMinutes,
+        pinLength: body.pinLength,
+        overtimeAlertEmail: body.overtimeAlertEmail,
+      }),
     ),
 };

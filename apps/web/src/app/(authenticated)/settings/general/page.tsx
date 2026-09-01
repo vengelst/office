@@ -1,13 +1,19 @@
 /**
  * Seite: settings / general (Office-Web).
- * Allgemeine Schalter – Kiosk-Debug-Log, GPS-Intervall, PIN-Länge.
+ * Allgemeine Schalter – Kiosk-Debug, GPS, PIN-Länge, Arbeitszeit-Alarm.
  */
 
 'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, KeyRound, MapPin, SlidersHorizontal } from 'lucide-react';
+import {
+  ArrowLeft,
+  Clock,
+  KeyRound,
+  MapPin,
+  SlidersHorizontal,
+} from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +39,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [debugLogEnabled, setDebugLogEnabled] = useState(false);
   const [gpsIntervalMinutes, setGpsIntervalMinutes] = useState(20);
   const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
+  const [overtimeAlertEmail, setOvertimeAlertEmail] = useState('');
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -45,6 +52,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
         setDebugLogEnabled(data.debugLogEnabled);
         setGpsIntervalMinutes(data.gpsIntervalMinutes ?? 20);
         setPinLength(data.pinLength ?? DEFAULT_PIN_LENGTH);
+        setOvertimeAlertEmail(data.overtimeAlertEmail ?? '');
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -63,10 +71,12 @@ export default function GeneralSettingsPage(): React.ReactNode {
         debugLogEnabled,
         gpsIntervalMinutes: interval,
         pinLength: length,
+        overtimeAlertEmail: overtimeAlertEmail.trim(),
       });
       setDebugLogEnabled(saved.debugLogEnabled);
       setGpsIntervalMinutes(saved.gpsIntervalMinutes);
       setPinLength(saved.pinLength);
+      setOvertimeAlertEmail(saved.overtimeAlertEmail);
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -179,6 +189,30 @@ export default function GeneralSettingsPage(): React.ReactNode {
                 <span className="text-sm text-muted-foreground">
                   {t.pinLengthUnit}
                 </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 border-t pt-5">
+            <Clock className="mt-0.5 h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 space-y-2">
+              <p className="font-medium text-sm">{t.overtimeAlertTitle}</p>
+              <p className="text-xs text-muted-foreground">
+                {t.overtimeAlertHint}
+              </p>
+              <div className="max-w-md space-y-1.5">
+                <label className="text-xs text-muted-foreground">
+                  {t.overtimeAlertEmailLabel}
+                </label>
+                <Input
+                  type="email"
+                  disabled={!canEdit}
+                  value={overtimeAlertEmail}
+                  onChange={(e) => setOvertimeAlertEmail(e.target.value)}
+                  placeholder={t.overtimeAlertEmailPlaceholder}
+                  className="min-h-[44px]"
+                  autoComplete="off"
+                />
               </div>
             </div>
           </div>
