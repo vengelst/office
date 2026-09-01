@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpDown, CalendarRange, Plus, Search } from 'lucide-react';
+import { ArrowUpDown, CalendarRange, Plus, Printer, Search } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +43,11 @@ import {
   type ProjectStatus,
 } from '@/lib/projects';
 import { formatDate } from '@/lib/format';
+import { fetchAllPages, printLandscapeList } from '@/lib/print-list';
 import { texts } from '@/lib/texts';
+
+/** Ohne Statusfilter: aktuelle Projekte für den Listendruck. */
+const PRINT_CURRENT_STATUSES = 'PLANNED,ACTIVE,PAUSED';
 
 const LIMIT = 25;
 const ALL = '__all__';
@@ -73,6 +77,7 @@ export default function ProjectsPage(): React.ReactNode {
   const [data, setData] = useState<ProjectListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [printing, setPrinting] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -123,12 +128,79 @@ export default function ProjectsPage(): React.ReactNode {
       toast({ variant: 'destructive', description: err instanceof ApiError ? err.message : t.toast.error });
     }
   };
+
+
+
+  const handlePrintList = async (): Promise<void> => {
+    setPrinting(true);
+    try {
+      const printStatus = status === ALL ? PRINT_CURRENT_STATUSES : status;
+      const subtitle =
+        status === ALL
+          ? t.printListSubtitleCurrent
+          : t.printListSubtitleFiltered;
+      const all = await fetchAllPages((pageNum, limit) =>
+        projectsApi.list({
+          page: pageNum,
+          limit,
+          search: debounced || undefined,
+          status: printStatus,
+          sortBy,
+          sortDir,
+        }),
+      );
+      printLandscapeList({
+        title: t.printListTitle,
+        subtitle,
+        columns: [
+          { header: t.columns.projectNumber, width: '9%' },
+          { header: t.columns.title, width: '20%' },
+          { header: t.columns.customer, width: '16%' },
+          { header: t.columns.serviceType, width: '10%' },
+          { header: t.columns.priority, width: '8%' },
+          { header: t.columns.status, width: '9%' },
+          { header: t.columns.plannedStart, width: '9%' },
+          { header: 'Ende', width: '9%' },
+          { header: 'Monteure', width: '6%' },
+        ],
+        rows: all.map((proj) => [
+          proj.projectNumber,
+          proj.title,
+          proj.customer.companyName,
+          t.serviceType[proj.serviceType],
+          t.priority[proj.priority],
+          t.status[proj.status],
+          formatDate(proj.plannedStartDate) || '–',
+          formatDate(proj.plannedEndDate) || '–',
+          String(proj._count.assignments),
+        ]),
+      });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const isEmpty = !loading && items.length === 0;
   const noFilter = debounced.trim() === '' && status === ALL;
 
   return (
     <div>
       <PageHeader title={t.title} description={t.subtitle}>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-[44px]"
+          disabled={printing}
+          onClick={() => void handlePrintList()}
+        >
+          <Printer className="h-4 w-4" />
+          {printing ? t.actions.printing : t.actions.printList}
+        </Button>
         <Button asChild variant="outline" className="min-h-[44px]">
           <Link href="/projects/calendar">
             <CalendarRange className="h-4 w-4" />

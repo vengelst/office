@@ -172,6 +172,8 @@ export const workers = {
       reactivate: 'Aktivieren',
       delete: 'Löschen',
       print: 'Drucken',
+      printList: 'Liste drucken',
+      printing: 'Wird vorbereitet …',
       add: 'Hinzufügen',
       addLanguage: 'Sprache hinzufügen',
       addCertification: 'Zertifikat hinzufügen',
@@ -188,6 +190,8 @@ export const workers = {
       returnEquipment: 'Rückgabe',
       openSubcontractor: 'Subunternehmen öffnen',
     },
+    printListTitle: 'Monteurliste',
+    printListSubtitle: 'Monteure (aktueller Filter)',
     empties: {
       languages: 'Noch keine Sprachkenntnisse erfasst.',
       certifications: 'Noch keine Zertifikate erfasst.',

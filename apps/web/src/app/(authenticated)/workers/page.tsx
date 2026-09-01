@@ -8,7 +8,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpDown, Plus, Search } from 'lucide-react';
+import { ArrowUpDown, Plus, Printer, Search } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -51,6 +51,7 @@ import {
   type WorkerListResponse,
   type WorkerType,
 } from '@/lib/workers';
+import { fetchAllPages, printLandscapeList } from '@/lib/print-list';
 import { texts } from '@/lib/texts';
 
 const LIMIT = 25;
@@ -90,6 +91,7 @@ export default function WorkersPage(): React.ReactNode {
   const [data, setData] = useState<WorkerListResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [printing, setPrinting] = useState(false);
   const [subs, setSubs] = useState<SubcontractorListItem[]>([]);
   const [teams, setTeams] = useState<TeamListItem[]>([]);
 
@@ -161,6 +163,59 @@ export default function WorkersPage(): React.ReactNode {
       toast({ variant: 'destructive', description: err instanceof ApiError ? err.message : t.toast.error });
     }
   };
+
+
+
+  const handlePrintList = async (): Promise<void> => {
+    setPrinting(true);
+    try {
+      const all = await fetchAllPages((pageNum, limit) =>
+        workersApi.list({
+          page: pageNum,
+          limit,
+          search: debounced || undefined,
+          sortBy,
+          sortDir,
+          type: type === ALL ? undefined : type,
+          availability: availability === ALL ? undefined : availability,
+          subcontractorId: subcontractorId === ALL ? undefined : subcontractorId,
+          teamId: teamId === ALL ? undefined : teamId,
+        }),
+      );
+      printLandscapeList({
+        title: t.printListTitle,
+        subtitle: t.printListSubtitle,
+        columns: [
+          { header: t.columns.workerNumber, width: '8%' },
+          { header: t.columns.name, width: '16%' },
+          { header: t.columns.type, width: '10%' },
+          { header: t.columns.availability, width: '10%' },
+          { header: 'Telefon', width: '11%' },
+          { header: t.columns.subcontractor, width: '14%' },
+          { header: t.columns.project, width: '18%' },
+          { header: t.columns.hourlyRate, width: '9%' },
+        ],
+        rows: all.map((worker) => [
+          worker.workerNumber,
+          workerFullName(worker),
+          t.type[worker.workerType],
+          t.availability[worker.availability],
+          worker.phone?.trim() || '–',
+          worker.subcontractor?.name ?? '–',
+          worker.assignments[0]?.project.title ?? '–',
+          rate(worker.hourlyRate),
+        ]),
+      });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description: err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const isEmpty = !loading && items.length === 0;
   const noFilters =
     debounced.trim() === '' &&
@@ -172,6 +227,16 @@ export default function WorkersPage(): React.ReactNode {
   return (
     <div>
       <PageHeader title={t.title} description={t.subtitle}>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-[44px]"
+          disabled={printing}
+          onClick={() => void handlePrintList()}
+        >
+          <Printer className="h-4 w-4" />
+          {printing ? t.actions.printing : t.actions.printList}
+        </Button>
         <Button asChild className="min-h-[44px]">
           <Link href="/workers/new">
             <Plus className="h-4 w-4" />
