@@ -118,9 +118,10 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 **Noch zu tun (Priorität):**
 1. **Google Admin (manuell, Voraussetzung für #20-Test):** Calendar API aktivieren + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
 2. **Cloud-Auftrag `#20`** – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`) – Spec startklar
-3. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
-4. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
-5. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
+3. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk nur aktuelle Version (`claude-arbeitsitems-26-projektplaene-kiosk.md`) – Spec startklar
+4. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
+5. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
+6. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
 
 ~~#22 Master-Tätigkeitsbereiche~~ ✅ · ~~#23 Stempeluhr Zeitraum / Pause / Korrekturen~~ ✅ (in v1.0.1)
 
