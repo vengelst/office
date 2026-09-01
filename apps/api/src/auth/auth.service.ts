@@ -17,6 +17,7 @@ import {
   JwtPayload,
   LoginResponse,
 } from '@office/types';
+import { PinLengthService } from '../app-settings/pin-length.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly pinLength: PinLengthService,
   ) {}
 
   /**
@@ -77,6 +79,9 @@ export class AuthService {
     pin: string,
     source: 'kiosk' | 'app' = 'app',
   ): Promise<LoginResponse> {
+    if (!(await this.pinLength.matchesConfiguredLength(pin))) {
+      throw new UnauthorizedException('Ungültige PIN');
+    }
     const now = new Date();
     const activePins = await this.prisma.workerPin.findMany({
       where: {
@@ -119,6 +124,9 @@ export class AuthService {
    * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
    */
   async userPinLogin(pin: string): Promise<LoginResponse> {
+    if (!(await this.pinLength.matchesConfiguredLength(pin))) {
+      throw new UnauthorizedException('Ungültige PIN');
+    }
     const now = new Date();
     const activePins = await this.prisma.userPin.findMany({
       where: {

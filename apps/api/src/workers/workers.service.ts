@@ -19,6 +19,7 @@ import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { EmailService } from '../email/email.service';
+import { PinLengthService } from '../app-settings/pin-length.service';
 import { CreateWorkerDto } from './dto/create-worker.dto';
 import { UpdateWorkerDto } from './dto/update-worker.dto';
 import { CreateLanguageDto } from './dto/create-language.dto';
@@ -123,6 +124,7 @@ export class WorkersService {
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
     private readonly emailService: EmailService,
+    private readonly pinLength: PinLengthService,
   ) {}
 
   // ── Nationalitäten ───────────────────────────────────────────
@@ -787,11 +789,11 @@ export class WorkersService {
   // ── PIN-Verwaltung ────────────────────────────────────────────
 
   /**
-   * Setzt eine neue 6-stellige PIN für die Stempeluhr-Anmeldung.
+   * Setzt eine neue PIN für die Stempeluhr-Anmeldung (Länge laut App-Einstellung).
    * Deaktiviert alle vorherigen PINs des Monteurs.
    *
    * @param workerId - UUID des Monteurs
-   * @param pin - Neue 6-stellige PIN
+   * @param pin - Neue PIN (konfigurierte Ziffernanzahl)
    * @returns Erfolgsmeldung
    */
   async setPin(
@@ -804,9 +806,7 @@ export class WorkersService {
     },
   ): Promise<{ success: true }> {
     await this.ensureWorker(workerId);
-    if (!/^\d{6}$/.test(pin)) {
-      throw new BadRequestException('PIN muss genau 6 Ziffern sein.');
-    }
+    await this.pinLength.assertPin(pin);
 
     const now = new Date();
     const validFrom = options?.validFrom

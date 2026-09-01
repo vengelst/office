@@ -13,7 +13,7 @@ export const workerApp = {
       submit: 'Anmelden',
       submitting: 'Wird geprüft …',
       error: 'Falsche PIN. Bitte erneut versuchen.',
-      hint: '6-stellige PIN',
+      hint: 'PIN eingeben',
     },
     dashboard: {
       greeting: 'Hallo',

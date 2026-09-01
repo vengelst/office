@@ -99,6 +99,7 @@ export default function KioskTerminalPage() {
       pin={terminal.pin}
       pinError={terminal.pinError}
       pinLoading={terminal.pinLoading}
+      pinLength={terminal.pinLength}
       lang={terminal.lang}
       timeStr={terminal.timeStr}
       dateStr={terminal.dateStr}

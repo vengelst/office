@@ -1,5 +1,5 @@
 /**
- * Kiosk-/GPS-bezogene App-Einstellungen.
+ * Kiosk-/GPS-/PIN-bezogene App-Einstellungen.
  */
 
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
@@ -11,6 +11,13 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { Public } from '../auth/decorators/public.decorator';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AppSettingsService } from './app-settings.service';
+import {
+  DEFAULT_PIN_LENGTH,
+  MAX_PIN_LENGTH,
+  MIN_PIN_LENGTH,
+  parsePinLength,
+  PIN_LENGTH_KEY,
+} from './pin-length';
 
 export const KIOSK_DEBUG_ENABLED_KEY = 'kiosk_debug_enabled';
 export const GPS_INTERVAL_MINUTES_KEY = 'gps_interval_minutes';
@@ -26,11 +33,19 @@ class KioskGeneralSettingsDto {
   @Min(1)
   @Max(240)
   gpsIntervalMinutes!: number;
+
+  /** Länge der Stempel-/Kiosk-PIN (4–8 Ziffern). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_PIN_LENGTH)
+  @Max(MAX_PIN_LENGTH)
+  pinLength!: number;
 }
 
 export type KioskGeneralSettings = {
   debugLogEnabled: boolean;
   gpsIntervalMinutes: number;
+  pinLength: number;
 };
 
 @ApiTags('kiosk-settings')
@@ -42,6 +57,7 @@ export class KioskSettingsController {
     const map = await this.settings.getMany([
       KIOSK_DEBUG_ENABLED_KEY,
       GPS_INTERVAL_MINUTES_KEY,
+      PIN_LENGTH_KEY,
     ]);
     const rawInterval = map[GPS_INTERVAL_MINUTES_KEY];
     const parsed = rawInterval ? Number.parseInt(rawInterval, 10) : NaN;
@@ -51,14 +67,15 @@ export class KioskSettingsController {
         Number.isFinite(parsed) && parsed >= 1 && parsed <= 240
           ? parsed
           : DEFAULT_GPS_INTERVAL_MINUTES,
+      pinLength: parsePinLength(map[PIN_LENGTH_KEY]),
     };
   }
 
-  /** Öffentlich für Kiosk / Monteur-App – Debug-Log + GPS-Intervall. */
+  /** Öffentlich für Kiosk / Monteur-App – Debug-Log, GPS-Intervall, PIN-Länge. */
   @Public()
   @SkipThrottle()
   @Get('public')
-  @ApiOperation({ summary: 'Öffentliche Kiosk-/GPS-Einstellungen' })
+  @ApiOperation({ summary: 'Öffentliche Kiosk-/GPS-/PIN-Einstellungen' })
   async getPublic(): Promise<KioskGeneralSettings> {
     return this.readAll();
   }
@@ -80,13 +97,16 @@ export class KioskSettingsController {
   async putGeneral(
     @Body() dto: KioskGeneralSettingsDto,
   ): Promise<KioskGeneralSettings> {
+    const pinLength = parsePinLength(String(dto.pinLength));
     await this.settings.setMany({
       [KIOSK_DEBUG_ENABLED_KEY]: dto.debugLogEnabled ? 'true' : 'false',
       [GPS_INTERVAL_MINUTES_KEY]: String(dto.gpsIntervalMinutes),
+      [PIN_LENGTH_KEY]: String(pinLength || DEFAULT_PIN_LENGTH),
     });
     return {
       debugLogEnabled: dto.debugLogEnabled,
       gpsIntervalMinutes: dto.gpsIntervalMinutes,
+      pinLength,
     };
   }
 }

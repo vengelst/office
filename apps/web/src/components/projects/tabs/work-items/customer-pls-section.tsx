@@ -38,6 +38,10 @@ import { EmptyState } from '@/components/customers/empty-state';
 import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
 import { ApiError, apiClient } from '@/lib/api-client';
+import {
+  DEFAULT_PIN_LENGTH,
+  kioskSettingsApi,
+} from '@/lib/kiosk-settings';
 import { texts } from '@/lib/texts';
 import {
   workItemsApi,
@@ -76,6 +80,7 @@ export function CustomerPlsSection({
   const [pinTarget, setPinTarget] = useState<CustomerPlAssignment | null>(null);
   const [pinValue, setPinValue] = useState('');
   const [pinSaving, setPinSaving] = useState(false);
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
   const [emailTarget, setEmailTarget] = useState<CustomerPlAssignment | null>(
     null,
   );
@@ -88,6 +93,12 @@ export function CustomerPlsSection({
       .then(setCandidates)
       .catch(() => setCandidates([]));
   }, [projectId]);
+
+  useEffect(() => {
+    void kioskSettingsApi.getPublic().then((cfg) => {
+      setPinLength(cfg.pinLength);
+    });
+  }, []);
 
   const fail = (err: unknown): void => {
     toast({
@@ -128,7 +139,8 @@ export function CustomerPlsSection({
   };
 
   const savePin = (): void => {
-    if (!pinTarget || !/^\d{6}$/.test(pinValue)) return;
+    const pinPattern = new RegExp(`^\\d{${pinLength}}$`);
+    if (!pinTarget || !pinPattern.test(pinValue)) return;
     setPinSaving(true);
     apiClient
       .put<{ success: true }>(`/users/${pinTarget.userId}/pin`, { pin: pinValue })
@@ -382,14 +394,21 @@ export function CustomerPlsSection({
               {pinTarget.user.displayName} · {pinTarget.user.email}
             </p>
           )}
-          <Field label={t.customerPls.pinLabel} required>
+          <Field
+            label={t.customerPls.pinLabel.replace('{n}', String(pinLength))}
+            required
+          >
             <Input
               type="text"
               inputMode="numeric"
-              maxLength={6}
+              maxLength={pinLength}
               value={pinValue}
-              onChange={(e) => setPinValue(e.target.value.replace(/\D/g, ''))}
-              placeholder={t.customerPls.pinPlaceholder}
+              onChange={(e) =>
+                setPinValue(
+                  e.target.value.replace(/\D/g, '').slice(0, pinLength),
+                )
+              }
+              placeholder={'0'.repeat(pinLength)}
               className="min-h-[44px] text-center text-2xl tracking-[0.5em]"
             />
           </Field>
@@ -403,7 +422,9 @@ export function CustomerPlsSection({
             </Button>
             <Button
               onClick={savePin}
-              disabled={pinSaving || !/^\d{6}$/.test(pinValue)}
+              disabled={
+                pinSaving || !new RegExp(`^\\d{${pinLength}}$`).test(pinValue)
+              }
               className="min-h-[44px]"
             >
               {pinSaving ? a.saving : t.customerPls.setPin}

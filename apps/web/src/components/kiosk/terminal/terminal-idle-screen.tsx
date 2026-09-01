@@ -13,6 +13,7 @@ interface TerminalIdleScreenProps {
   pin: string;
   pinError: string;
   pinLoading: boolean;
+  pinLength: number;
   lang: KioskLang;
   timeStr: string;
   dateStr: string;
@@ -34,6 +35,7 @@ export function TerminalIdleScreen({
   pin,
   pinError,
   pinLoading,
+  pinLength,
   lang,
   timeStr,
   dateStr,
@@ -96,7 +98,7 @@ export function TerminalIdleScreen({
         <p className="mb-4 text-center text-lg text-gray-400">{t(KT.pinTitle)}</p>
 
         <div className="mb-6 flex justify-center gap-3">
-          {Array.from({ length: 6 }).map((_, i) => (
+          {Array.from({ length: pinLength }).map((_, i) => (
             <div
               key={i}
               className={`h-5 w-5 rounded-full border-2 transition-colors ${
@@ -141,8 +143,8 @@ export function TerminalIdleScreen({
             0
           </button>
           <button
-            onClick={() => pin.length === 6 && void submitPin(pin)}
-            disabled={pin.length < 6 || pinLoading}
+            onClick={() => pin.length === pinLength && void submitPin(pin)}
+            disabled={pin.length < pinLength || pinLoading}
             className="flex h-20 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white transition hover:bg-blue-500 active:scale-95 disabled:opacity-40 lg:h-24"
           >
             {t(KT.confirm)}

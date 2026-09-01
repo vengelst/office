@@ -43,6 +43,10 @@ import {
   type WorkerDetail,
 } from '@/lib/workers';
 import { ApiError } from '@/lib/api-client';
+import {
+  DEFAULT_PIN_LENGTH,
+  kioskSettingsApi,
+} from '@/lib/kiosk-settings';
 import { texts } from '@/lib/texts';
 
 const tabFallback = (
@@ -474,15 +478,23 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
   const [kioskAccess, setKioskAccess] = useState(true);
   const [validFrom, setValidFrom] = useState('');
   const [validTo, setValidTo] = useState('');
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
 
-  const isValid = /^\d{6}$/.test(pin);
+  const pinPattern = new RegExp(`^\\d{${pinLength}}$`);
+  const isValid = pinPattern.test(pin);
   const pinForActions = isValid ? pin : currentPin;
-  const canUseStored = Boolean(pinForActions && /^\d{6}$/.test(pinForActions));
+  const canUseStored = Boolean(pinForActions && pinPattern.test(pinForActions));
 
   const toDateInput = (iso: string | null): string => {
     if (!iso) return '';
     return iso.slice(0, 10);
   };
+
+  useEffect(() => {
+    void kioskSettingsApi.getPublic().then((cfg) => {
+      setPinLength(cfg.pinLength);
+    });
+  }, []);
 
   const loadPin = useCallback(() => {
     setLoadingPin(true);
@@ -618,17 +630,17 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
 
       <div className="flex flex-wrap items-end gap-2">
         <div className="space-y-1.5">
-          <Label>{t.label}</Label>
+          <Label>{t.label.replace('{n}', String(pinLength))}</Label>
           <Input
             type="text"
             autoComplete="off"
             value={pin}
             onChange={(e) => {
-              const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+              const v = e.target.value.replace(/\D/g, '').slice(0, pinLength);
               setPin(v);
             }}
-            placeholder={t.placeholder}
-            maxLength={6}
+            placeholder={'0'.repeat(pinLength)}
+            maxLength={pinLength}
             inputMode="numeric"
             className="min-h-[44px] w-36 font-mono text-lg tracking-widest"
           />
@@ -650,7 +662,9 @@ function WorkerPinSection({ worker }: { worker: WorkerDetail }): React.ReactNode
         </Button>
       </div>
       {pin.length > 0 && !isValid && (
-        <p className="text-xs text-destructive">{t.validation}</p>
+        <p className="text-xs text-destructive">
+          {t.validation.replace('{n}', String(pinLength))}
+        </p>
       )}
     </div>
   );

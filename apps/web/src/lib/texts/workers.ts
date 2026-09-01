@@ -238,19 +238,19 @@ export const workers = {
     },
     pin: {
       title: 'Stempeluhr-PIN',
-      label: 'PIN (6 Ziffern)',
+      label: 'PIN ({n} Ziffern)',
       placeholder: '000000',
       set: 'PIN setzen',
       sendEmail: 'PIN per E-Mail senden',
       setting: 'Wird gesetzt …',
       sending: 'Wird gesendet …',
-      hint: 'Die PIN wird für die Monteur-Stempeluhr und den Kiosk benötigt. Sie bleibt hier sichtbar hinterlegt.',
+      hint: 'Die PIN wird für die Monteur-Stempeluhr und den Kiosk benötigt. Länge laut Einstellungen → Allgemein. Sie bleibt hier sichtbar hinterlegt.',
       current: 'Aktuelle PIN',
       none: 'Noch keine PIN gesetzt.',
       legacy:
         'Es ist eine PIN hinterlegt, die vor dem Update gesetzt wurde – bitte neu setzen, damit sie hier angezeigt werden kann.',
       noEmail: 'Monteur hat keine E-Mail-Adresse hinterlegt.',
-      validation: 'PIN muss genau 6 Ziffern sein.',
+      validation: 'PIN muss genau {n} Ziffern sein.',
       kioskAccess: 'Kiosk (work.vivahome.de) nutzen',
       kioskAccessHint:
         'Wenn aus: Anmeldung am Baustellen-Kiosk mit dieser PIN ist gesperrt (Monteur-App bleibt möglich).',

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,15 +9,40 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { useAuth } from '../../lib/auth-context';
-import { ApiError } from '../../lib/api';
+import { ApiError, API_BASE_URL } from '../../lib/api';
 
-const PIN_LENGTH = 6;
+const DEFAULT_PIN_LENGTH = 6;
 
 export default function LoginScreen() {
   const { login } = useAuth();
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/kiosk-settings/public`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { pinLength?: number };
+        if (
+          !cancelled &&
+          typeof data.pinLength === 'number' &&
+          data.pinLength >= 4 &&
+          data.pinLength <= 8
+        ) {
+          setPinLength(data.pinLength);
+        }
+      } catch {
+        // Default belassen
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handlePress = useCallback(
     async (digit: string) => {
@@ -28,7 +53,7 @@ export default function LoginScreen() {
       const newPin = pin + digit;
       setPin(newPin);
 
-      if (newPin.length === PIN_LENGTH) {
+      if (newPin.length === pinLength) {
         setIsLoading(true);
         try {
           await login(newPin);
@@ -49,7 +74,7 @@ export default function LoginScreen() {
         }
       }
     },
-    [pin, isLoading, login],
+    [pin, isLoading, login, pinLength],
   );
 
   const handleDelete = useCallback(() => {
@@ -69,7 +94,7 @@ export default function LoginScreen() {
       <View style={styles.pinSection}>
         <Text style={styles.instruction}>PIN eingeben</Text>
         <View style={styles.dotsRow}>
-          {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+          {Array.from({ length: pinLength }).map((_, i) => (
             <View
               key={i}
               style={[styles.dot, i < pin.length && styles.dotFilled]}
@@ -117,7 +142,7 @@ export default function LoginScreen() {
                   style={styles.key}
                   onPress={() => handlePress(key)}
                   activeOpacity={0.6}
-                  disabled={isLoading || pin.length >= PIN_LENGTH}
+                  disabled={isLoading || pin.length >= pinLength}
                 >
                   <Text style={styles.keyText}>{key}</Text>
                 </TouchableOpacity>

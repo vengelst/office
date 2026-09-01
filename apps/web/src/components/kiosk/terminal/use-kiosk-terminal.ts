@@ -22,6 +22,10 @@ import { kioskDebugLog } from '@/lib/kiosk-debug';
 import { usePeriodicGpsPing } from '@/lib/use-periodic-gps-ping';
 import { recordWorkerGps, appendGpsToFormData } from '@/lib/record-worker-gps';
 import {
+  DEFAULT_PIN_LENGTH,
+  kioskSettingsApi,
+} from '@/lib/kiosk-settings';
+import {
   activityTypesApi,
   type ActivityTypeItem,
 } from '@/lib/activity-types';
@@ -45,6 +49,7 @@ export function useKioskTerminal() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
   const [worker, setWorker] = useState<WorkerMe | null>(null);
   const [clockStatus, setClockStatus] = useState<ClockStatus | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -77,6 +82,12 @@ export function useKioskTerminal() {
     workerId: worker?.id,
     projectId: clockStatus?.project?.id ?? selectedProjectId,
   });
+
+  useEffect(() => {
+    void kioskSettingsApi.getPublic().then((cfg) => {
+      setPinLength(cfg.pinLength);
+    });
+  }, []);
 
   useEffect(() => {
     kioskDebugLog('mount', 'Terminal mount');
@@ -248,11 +259,11 @@ export function useKioskTerminal() {
   }, [state, config, endSession]);
 
   const handlePinDigit = (digit: string) => {
-    if (pin.length >= 6) return;
+    if (pin.length >= pinLength) return;
     const newPin = pin + digit;
     setPin(newPin);
     setPinError('');
-    if (newPin.length === 6) {
+    if (newPin.length === pinLength) {
       void submitPin(newPin);
     }
   };
@@ -618,6 +629,7 @@ export function useKioskTerminal() {
     pin,
     pinError,
     pinLoading,
+    pinLength,
     worker,
     clockStatus,
     setClockStatus,

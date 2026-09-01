@@ -503,7 +503,7 @@ export async function workerUpload<T>(path: string, form: FormData): Promise<T> 
 export const workerApi = {
   /**
    * POST /worker-auth/pin-login – Authentifiziert einen Monteur per PIN.
-   * @param pin - 4–6-stellige PIN
+   * @param pin - numerische PIN (Länge laut Einstellungen, 4–8)
    * @returns JWT-Token und Monteur-Profil
    */
   async pinLogin(
@@ -879,7 +879,7 @@ export interface KioskWorkerStatus {
 export const kioskApi = {
   /**
    * POST /worker-auth/pin-login – PIN-Login im Kiosk-Modus.
-   * @param pin - 4–6-stellige Monteur-PIN
+   * @param pin - numerische Monteur-PIN (Länge laut Einstellungen, 4–8)
    */
   pinLogin: (pin: string) => workerApi.pinLogin(pin, 'kiosk'),
   /** GET /worker-auth/me – Lädt das Monteur-Profil im Kiosk-Kontext. */

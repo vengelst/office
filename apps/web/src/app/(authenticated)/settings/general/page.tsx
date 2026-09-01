@@ -1,13 +1,13 @@
 /**
  * Seite: settings / general (Office-Web).
- * Allgemeine Schalter – Kiosk-Debug-Log + GPS-Intervall.
+ * Allgemeine Schalter – Kiosk-Debug-Log, GPS-Intervall, PIN-Länge.
  */
 
 'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, MapPin, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, KeyRound, MapPin, SlidersHorizontal } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,7 +16,12 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
-import { kioskSettingsApi } from '@/lib/kiosk-settings';
+import {
+  DEFAULT_PIN_LENGTH,
+  MAX_PIN_LENGTH,
+  MIN_PIN_LENGTH,
+  kioskSettingsApi,
+} from '@/lib/kiosk-settings';
 import { texts } from '@/lib/texts';
 
 export default function GeneralSettingsPage(): React.ReactNode {
@@ -27,6 +32,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [saving, setSaving] = useState(false);
   const [debugLogEnabled, setDebugLogEnabled] = useState(false);
   const [gpsIntervalMinutes, setGpsIntervalMinutes] = useState(20);
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -38,6 +44,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
       .then((data) => {
         setDebugLogEnabled(data.debugLogEnabled);
         setGpsIntervalMinutes(data.gpsIntervalMinutes ?? 20);
+        setPinLength(data.pinLength ?? DEFAULT_PIN_LENGTH);
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -46,14 +53,20 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const handleSave = async (): Promise<void> => {
     if (!canEdit) return;
     const interval = Math.min(240, Math.max(1, Math.round(gpsIntervalMinutes)));
+    const length = Math.min(
+      MAX_PIN_LENGTH,
+      Math.max(MIN_PIN_LENGTH, Math.round(pinLength)),
+    );
     setSaving(true);
     try {
       const saved = await kioskSettingsApi.putGeneral({
         debugLogEnabled,
         gpsIntervalMinutes: interval,
+        pinLength: length,
       });
       setDebugLogEnabled(saved.debugLogEnabled);
       setGpsIntervalMinutes(saved.gpsIntervalMinutes);
+      setPinLength(saved.pinLength);
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -137,6 +150,34 @@ export default function GeneralSettingsPage(): React.ReactNode {
                 />
                 <span className="text-sm text-muted-foreground">
                   {t.gpsIntervalUnit}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 border-t pt-5">
+            <KeyRound className="mt-0.5 h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 space-y-2">
+              <p className="font-medium text-sm">{t.pinLengthTitle}</p>
+              <p className="text-xs text-muted-foreground">{t.pinLengthHint}</p>
+              <div className="flex max-w-xs items-center gap-2">
+                <select
+                  disabled={!canEdit}
+                  value={pinLength}
+                  onChange={(e) => setPinLength(Number(e.target.value))}
+                  className="min-h-[44px] w-28 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {Array.from(
+                    { length: MAX_PIN_LENGTH - MIN_PIN_LENGTH + 1 },
+                    (_, i) => MIN_PIN_LENGTH + i,
+                  ).map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <span className="text-sm text-muted-foreground">
+                  {t.pinLengthUnit}
                 </span>
               </div>
             </div>

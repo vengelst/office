@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { DocumentsModule } from '../documents/documents.module';
 import { EmailModule } from '../email/email.module';
+import { AppSettingsModule } from '../app-settings/app-settings.module';
 import { WorkersController } from './workers.controller';
 import { WorkersService } from './workers.service';
 
 @Module({
-  imports: [DocumentsModule, EmailModule],
+  imports: [DocumentsModule, EmailModule, AppSettingsModule],
   controllers: [WorkersController],
   providers: [WorkersService],
   exports: [WorkersService],

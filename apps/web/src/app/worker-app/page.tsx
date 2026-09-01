@@ -10,10 +10,12 @@ import {
   workerApi,
 } from '@/lib/timesheets';
 import { recordWorkerGps } from '@/lib/record-worker-gps';
+import {
+  DEFAULT_PIN_LENGTH,
+  kioskSettingsApi,
+} from '@/lib/kiosk-settings';
 import { texts } from '@/lib/texts';
 import { cn } from '@/lib/utils';
-
-const PIN_LENGTH = 6;
 
 export default function WorkerPinPage(): React.ReactNode {
   const router = useRouter();
@@ -21,6 +23,13 @@ export default function WorkerPinPage(): React.ReactNode {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
+
+  useEffect(() => {
+    void kioskSettingsApi.getPublic().then((cfg) => {
+      setPinLength(cfg.pinLength);
+    });
+  }, []);
 
   // Bereits angemeldet? → direkt zum Dashboard.
   useEffect(() => {
@@ -60,9 +69,9 @@ export default function WorkerPinPage(): React.ReactNode {
     if (submitting) return;
     setError(false);
     setPin((prev) => {
-      if (prev.length >= PIN_LENGTH) return prev;
+      if (prev.length >= pinLength) return prev;
       const next = prev + digit;
-      if (next.length === PIN_LENGTH) {
+      if (next.length === pinLength) {
         void submit(next);
       }
       return next;
@@ -95,7 +104,7 @@ export default function WorkerPinPage(): React.ReactNode {
 
       {/* PIN-Punkte */}
       <div className="flex items-center gap-3" aria-label={t.hint}>
-        {Array.from({ length: PIN_LENGTH }).map((_, i) => (
+        {Array.from({ length: pinLength }).map((_, i) => (
           <span
             key={i}
             className={cn(

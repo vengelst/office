@@ -12,6 +12,7 @@ import {
 import { Prisma, RoleCode } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { PinLengthService } from '../app-settings/pin-length.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 
@@ -36,7 +37,10 @@ const userSelect = {
  */
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly pinLength: PinLengthService,
+  ) {}
 
   /**
    * Liefert alle Benutzer (ohne Passwort-Hash), sortiert nach Erstellungsdatum.
@@ -163,7 +167,8 @@ export class UsersService {
   }
 
   /**
-   * Setzt eine 6-stellige PIN für einen CUSTOMER_PL-Benutzer. PINs müssen global eindeutig sein (über WorkerPin und UserPin).
+   * Setzt eine PIN für einen CUSTOMER_PL-Benutzer (Länge laut App-Einstellung).
+   * PINs müssen global eindeutig sein (über WorkerPin und UserPin).
    *
    * @param userId - ID (userId) (string)
    * @param pin - PIN-Code (Klartext, Abgleich gegen Hash) (string)
@@ -173,9 +178,7 @@ export class UsersService {
    * @throws {ConflictException} Bei Konflikten (z. B. Duplikate)
    */
   async setPin(userId: string, pin: string): Promise<{ success: true }> {
-    if (!/^\d{6}$/.test(pin)) {
-      throw new BadRequestException('PIN muss genau 6 Ziffern sein.');
-    }
+    await this.pinLength.assertPin(pin);
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

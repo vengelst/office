@@ -12,9 +12,9 @@ export const KT = {
     sl: 'Vnesite PIN',
   },
   pinHint: {
-    de: '6-stellige Monteur-PIN',
-    sk: '6-miestny PIN montéra',
-    sl: '6-mestni PIN monterja',
+    de: 'Monteur-PIN',
+    sk: 'PIN montéra',
+    sl: 'PIN monterja',
   },
   pinError: {
     de: 'Ungültige PIN. Bitte erneut versuchen.',

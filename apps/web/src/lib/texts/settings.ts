@@ -124,6 +124,10 @@ export const settings = {
       gpsIntervalHint:
         'Während einer aktiven Schicht (Monteur-App) wird der Standort in diesem Abstand zusätzlich gespeichert. Ein- und Ausstempeln speichern immer einen Punkt. Standard: 20 Minuten.',
       gpsIntervalUnit: 'Minuten',
+      pinLengthTitle: 'PIN-Länge',
+      pinLengthHint:
+        'Anzahl der Ziffern für Stempeluhr-, Kiosk- und Kunden-PL-PINs (4–8). Nach Änderung müssen bestehende PINs neu gesetzt werden.',
+      pinLengthUnit: 'Ziffern',
       on: 'An',
       off: 'Aus',
       save: 'Speichern',

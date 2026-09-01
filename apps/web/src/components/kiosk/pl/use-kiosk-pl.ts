@@ -24,6 +24,10 @@ import {
   type MainTab,
   type PlState,
 } from './types';
+import {
+  DEFAULT_PIN_LENGTH,
+  kioskSettingsApi,
+} from '@/lib/kiosk-settings';
 
 export function useKioskPl() {
   const router = useRouter();
@@ -38,6 +42,7 @@ export function useKioskPl() {
   const [pin, setPin] = useState('');
   const [pinError, setPinError] = useState('');
   const [pinLoading, setPinLoading] = useState(false);
+  const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
 
   const [user, setUser] = useState<AuthUser | null>(null);
 
@@ -59,6 +64,12 @@ export function useKioskPl() {
 
   const [showAdminDialog, setShowAdminDialog] = useState(false);
   const [adminPinInput, setAdminPinInput] = useState('');
+
+  useEffect(() => {
+    void kioskSettingsApi.getPublic().then((cfg) => {
+      setPinLength(cfg.pinLength);
+    });
+  }, []);
 
   useEffect(() => {
     kioskDebugLog('mount', 'PL mount');
@@ -181,11 +192,11 @@ export function useKioskPl() {
   };
 
   const handlePinDigit = (digit: string) => {
-    if (pin.length >= 6) return;
+    if (pin.length >= pinLength) return;
     const newPin = pin + digit;
     setPin(newPin);
     setPinError('');
-    if (newPin.length === 6) void submitPin(newPin);
+    if (newPin.length === pinLength) void submitPin(newPin);
   };
 
   const handlePinClear = () => {
@@ -280,6 +291,7 @@ export function useKioskPl() {
     pin,
     pinError,
     pinLoading,
+    pinLength,
     user,
     sheets,
     sheetsLoading,

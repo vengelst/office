@@ -36,7 +36,7 @@ export const kiosk = {
     terminal: {
       welcome: 'Willkommen',
       pinTitle: 'PIN eingeben',
-      pinHint: '6-stellige Monteur-PIN',
+      pinHint: 'Monteur-PIN',
       pinError: 'Ungültige PIN. Bitte erneut versuchen.',
       pinChecking: 'Wird geprüft …',
       clear: 'Löschen',
@@ -73,7 +73,7 @@ export const kiosk = {
     pl: {
       modeLabel: 'Kunden-PL',
       pinTitle: 'Kunden-PL PIN eingeben',
-      pinHint: '6-stellige Kunden-PL PIN',
+      pinHint: 'Kunden-PL PIN',
       pinError: 'Ungültige PIN oder kein Kunden-PL. Bitte erneut versuchen.',
       listTitle: 'Eingereichte Stundenzettel',
       listEmpty: 'Keine eingereichten Stundenzettel für dieses Projekt.',

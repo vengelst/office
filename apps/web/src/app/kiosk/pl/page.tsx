@@ -77,6 +77,7 @@ export default function KioskPlPage() {
       pin={pl.pin}
       pinError={pl.pinError}
       pinLoading={pl.pinLoading}
+      pinLength={pl.pinLength}
       timeStr={pl.timeStr}
       dateStr={pl.dateStr}
       showAdminDialog={pl.showAdminDialog}
