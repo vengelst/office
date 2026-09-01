@@ -15,10 +15,21 @@ export type TerminalSetLang = (lang: KioskLang) => void;
  */
 export const ITEMS_IDLE_SECONDS = 180;
 
-export type KioskState = 'idle' | 'action' | 'confirmation' | 'items' | 'itemDetail';
+export type KioskState =
+  | 'idle'
+  | 'action'
+  | 'confirmation'
+  | 'items'
+  | 'itemDetail'
+  | 'plans';
 
 /** Screens, auf denen die Monteur-Session weiterläuft (Auto-Logout aktiv). */
-export const SESSION_STATES: KioskState[] = ['action', 'items', 'itemDetail'];
+export const SESSION_STATES: KioskState[] = [
+  'action',
+  'items',
+  'itemDetail',
+  'plans',
+];
 
 export interface GpsData {
   latitude: number;

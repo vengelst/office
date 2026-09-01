@@ -115,6 +115,17 @@ export function ActionButtonsPanel({
         </>
       )}
 
+      <button
+        onClick={() => {
+          resetActivity();
+          setState('plans');
+        }}
+        className="w-full max-w-md rounded-xl bg-slate-700 px-6 py-4 text-center text-xl font-semibold text-white transition hover:bg-slate-600 active:scale-95"
+        style={{ minHeight: '44px' }}
+      >
+        📐 {t(KT.plans)}
+      </button>
+
       {!isIn && worker.assignments.length > 1 && (
         <div className="mt-4 w-full max-w-md rounded-xl bg-gray-800/50 p-4">
           <h4 className="mb-2 text-sm font-medium text-gray-500">{t(KT.upcomingProjects)}</h4>

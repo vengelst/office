@@ -117,7 +117,7 @@ export const documents = {
       LOGO: 'Logo',
       CERTIFICATE: 'Zertifikat',
       NOTE_DOCUMENT: 'Notiz-Dokument',
-      DRAWING: 'Zeichnung',
+      DRAWING: 'Plan',
       WORK_CONTRACT: 'Werkvertrag',
       SPECIFICATION: 'Leistungsverzeichnis',
       SITE_PHOTO: 'Baustellenfoto',

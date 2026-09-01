@@ -11,6 +11,7 @@ import { TerminalConfirmationScreen } from '@/components/kiosk/terminal/terminal
 import { TerminalWorkItemsScreen } from '@/components/kiosk/terminal/terminal-work-items-screen';
 import { TerminalActionScreen } from '@/components/kiosk/terminal/terminal-action-screen';
 import { TerminalIdleScreen } from '@/components/kiosk/terminal/terminal-idle-screen';
+import { TerminalPlansScreen } from '@/components/kiosk/terminal/terminal-plans-screen';
 
 /**
  * UI-Komponente `KioskTerminalPage`.
@@ -50,6 +51,20 @@ export default function KioskTerminalPage() {
         resetActivity={terminal.resetActivity}
         setState={terminal.setState}
         setSelectedItemId={terminal.setSelectedItemId}
+      />
+    );
+  }
+
+
+  if (terminal.state === 'plans' && terminal.worker) {
+    return (
+      <TerminalPlansScreen
+        projectId={terminal.config.projectId}
+        countdown={terminal.countdown}
+        t={terminal.t}
+        onPointerDown={terminal.tryEnterFullscreen}
+        resetActivity={terminal.resetActivity}
+        setState={terminal.setState}
       />
     );
   }

@@ -478,16 +478,28 @@ export class DocumentsService {
       select: {
         ...documentSelect,
         replacedBy: { select: documentSelect },
-        previousVersions: {
-          select: documentSelect,
-          orderBy: { version: 'desc' },
-        },
       },
     });
     if (!doc) {
       throw new NotFoundException('Dokument nicht gefunden');
     }
-    return doc;
+
+    // Ältere Revisionen entlang replacesId (Vorgänger), neueste zuerst nach dem aktuellen Doc.
+    const previousVersions: Array<
+      Prisma.DocumentGetPayload<{ select: typeof documentSelect }>
+    > = [];
+    let cursorId = doc.replacesId;
+    while (cursorId) {
+      const prev = await this.prisma.document.findUnique({
+        where: { id: cursorId },
+        select: documentSelect,
+      });
+      if (!prev) break;
+      previousVersions.push(prev);
+      cursorId = prev.replacesId;
+    }
+
+    return { ...doc, previousVersions };
   }
 
   /**
@@ -760,6 +772,76 @@ export class DocumentsService {
         },
       });
     }
+  }
+
+  /**
+   * Kiosk: aktuelle Projektpläne (DRAWING + isLatest) eines Projekts.
+   * Liefert nur Metadaten – keine alten Revisionen.
+   */
+  async listKioskPlans(projectId: string) {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Projekt nicht gefunden');
+    }
+
+    const docs = await this.prisma.document.findMany({
+      where: {
+        isLatest: true,
+        documentType: DocumentType.DRAWING,
+        links: { some: { entityType: 'PROJECT', entityId: projectId } },
+      },
+      select: {
+        id: true,
+        title: true,
+        originalFilename: true,
+        mimeType: true,
+        fileSize: true,
+        version: true,
+        createdAt: true,
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    return docs.map((d) => ({
+      id: d.id,
+      title: d.title,
+      originalFilename: d.originalFilename,
+      mimeType: d.mimeType,
+      fileSize: d.fileSize,
+      version: d.version,
+      updatedAt: d.createdAt,
+    }));
+  }
+
+  /**
+   * Kiosk: Dateistream nur wenn Dokument DRAWING + isLatest + zum Projekt gehört.
+   * Sonst 404 (keine Info-Leaks zu fremden/alten Dokumenten).
+   */
+  async getKioskPlanDownload(
+    projectId: string,
+    documentId: string,
+  ): Promise<{ stream: Readable; filename: string; mimeType: string }> {
+    const doc = await this.prisma.document.findFirst({
+      where: {
+        id: documentId,
+        isLatest: true,
+        documentType: DocumentType.DRAWING,
+        links: { some: { entityType: 'PROJECT', entityId: projectId } },
+      },
+      select: { storageKey: true, originalFilename: true, mimeType: true },
+    });
+    if (!doc) {
+      throw new NotFoundException('Plan nicht gefunden');
+    }
+    const stream = await this.storage.getStream(doc.storageKey);
+    return {
+      stream,
+      filename: doc.originalFilename,
+      mimeType: doc.mimeType,
+    };
   }
 
   /**

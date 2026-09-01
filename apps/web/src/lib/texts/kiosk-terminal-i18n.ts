@@ -233,4 +233,29 @@ export const KT = {
     sk: 'Bez komentára',
     sl: 'Brez komentarja',
   },
+  plans: {
+    de: 'Pläne',
+    sk: 'Plány',
+    sl: 'Načrti',
+  },
+  plansEmpty: {
+    de: 'Keine Pläne für dieses Projekt.',
+    sk: 'Žiadne plány pre tento projekt.',
+    sl: 'Ni načrtov za ta projekt.',
+  },
+  plansError: {
+    de: 'Pläne konnten nicht geladen werden.',
+    sk: 'Plány sa nepodarilo načítať.',
+    sl: 'Načrtov ni bilo mogoče naložiti.',
+  },
+  plansOpenError: {
+    de: 'Plan konnte nicht geöffnet werden.',
+    sk: 'Plán sa nepodarilo otvoriť.',
+    sl: 'Načrta ni bilo mogoče odpreti.',
+  },
+  plansRev: {
+    de: 'Rev. {n}',
+    sk: 'Rev. {n}',
+    sl: 'Rev. {n}',
+  },
 } as const;

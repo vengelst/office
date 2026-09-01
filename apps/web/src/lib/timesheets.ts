@@ -875,6 +875,17 @@ export interface KioskWorkerStatus {
   since: string | null;
 }
 
+/** Aktueller Projektplan für den Kiosk (nur isLatest). */
+export interface KioskPlan {
+  id: string;
+  title: string | null;
+  originalFilename: string;
+  mimeType: string;
+  fileSize: number;
+  version: number;
+  updatedAt: string;
+}
+
 /** API-Client für den Kiosk-Modus (Projekt-Tablet für Ein-/Ausstempeln aller Monteure). */
 export const kioskApi = {
   /**
@@ -942,6 +953,29 @@ export const kioskApi = {
       method: 'POST',
       body,
     }),
+
+  /**
+   * GET /kiosk/projects/:projectId/plans – aktuelle Pläne (DRAWING + isLatest).
+   */
+  listPlans: (projectId: string) =>
+    workerFetch<KioskPlan[]>(`/kiosk/projects/${projectId}/plans`),
+
+  /**
+   * Lädt eine Plan-Datei mit Worker-Token und liefert eine Object-URL.
+   * Aufrufer sollte URL später mit URL.revokeObjectURL freigeben.
+   */
+  async planFileObjectUrl(projectId: string, documentId: string): Promise<string> {
+    const token = getWorkerToken();
+    const res = await fetch(
+      `${API_BASE_URL}/kiosk/projects/${projectId}/plans/${documentId}/file`,
+      { headers: token ? { Authorization: `Bearer ${token}` } : undefined },
+    );
+    if (!res.ok) {
+      throw new ApiError(`Plan-Download fehlgeschlagen (${res.status})`, res.status);
+    }
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  },
 };
 
 // ── Helfer ─────────────────────────────────────────────────────

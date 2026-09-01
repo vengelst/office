@@ -77,7 +77,10 @@ export function useKioskTerminal() {
     active: Boolean(
       clockStatus?.clockedIn &&
         worker?.id &&
-        (state === 'action' || state === 'items' || state === 'itemDetail'),
+        (state === 'action' ||
+          state === 'items' ||
+          state === 'itemDetail' ||
+          state === 'plans'),
     ),
     workerId: worker?.id,
     projectId: clockStatus?.project?.id ?? selectedProjectId,
