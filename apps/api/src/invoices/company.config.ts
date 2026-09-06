@@ -11,6 +11,7 @@ export interface CompanyInfo {
   phone: string;
   email: string;
   taxNumber: string;
+  vatId: string;
   bankName: string;
   bankIban: string;
   bankBic: string;
@@ -21,7 +22,8 @@ const DEV_DEFAULTS: CompanyInfo = {
   address: 'Industriestr. 42, 40625 Düsseldorf',
   phone: '0211 12345678',
   email: 'info@muster-elektro.de',
-  taxNumber: 'DE123456789',
+  taxNumber: '123/456/78901',
+  vatId: 'DE123456789',
   bankName: 'Deutsche Bank',
   bankIban: 'DE89 3704 0044 0532 0130 00',
   bankBic: 'COBADEFFXXX',
@@ -29,9 +31,6 @@ const DEV_DEFAULTS: CompanyInfo = {
 
 /**
  * Lädt Firmendaten: zuerst aus der DB (AppSettings), dann aus ENV, zuletzt Dev-Defaults.
- *
- * @param prisma - Parameter `prisma` (PrismaService)
- * @returns CompanyInfo
  */
 export async function loadCompanyInfoFromDb(
   prisma: PrismaService,
@@ -60,9 +59,9 @@ export async function loadCompanyInfoFromDb(
         email: db.email || process.env.COMPANY_EMAIL || DEV_DEFAULTS.email,
         taxNumber:
           db.taxNumber ||
-          db.vatId ||
           process.env.COMPANY_TAX_NUMBER ||
           DEV_DEFAULTS.taxNumber,
+        vatId: db.vatId || process.env.COMPANY_VAT_ID || DEV_DEFAULTS.vatId,
         bankName:
           db.bankName ||
           process.env.COMPANY_BANK_NAME ||
@@ -76,7 +75,9 @@ export async function loadCompanyInfoFromDb(
       };
     }
   } catch (err) {
-    logger.warn(`Firmeninfo aus DB laden fehlgeschlagen: ${(err as Error).message}`);
+    logger.warn(
+      `Firmeninfo aus DB laden fehlgeschlagen: ${(err as Error).message}`,
+    );
   }
 
   return loadCompanyInfo();
@@ -84,8 +85,6 @@ export async function loadCompanyInfoFromDb(
 
 /**
  * Fallback: Lädt Firmendaten nur aus Umgebungsvariablen.
- *
- * @returns CompanyInfo
  */
 export function loadCompanyInfo(): CompanyInfo {
   const logger = new Logger('CompanyConfig');
@@ -97,6 +96,7 @@ export function loadCompanyInfo(): CompanyInfo {
     phone: process.env.COMPANY_PHONE || DEV_DEFAULTS.phone,
     email: process.env.COMPANY_EMAIL || DEV_DEFAULTS.email,
     taxNumber: process.env.COMPANY_TAX_NUMBER || DEV_DEFAULTS.taxNumber,
+    vatId: process.env.COMPANY_VAT_ID || DEV_DEFAULTS.vatId,
     bankName: process.env.COMPANY_BANK_NAME || DEV_DEFAULTS.bankName,
     bankIban: process.env.COMPANY_BANK_IBAN || DEV_DEFAULTS.bankIban,
     bankBic: process.env.COMPANY_BANK_BIC || DEV_DEFAULTS.bankBic,

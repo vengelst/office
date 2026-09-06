@@ -6,15 +6,18 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import {
+  InvoiceSeriesCode,
   InvoiceStatus,
   InvoiceType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { BillingSettingsService } from '../app-settings/billing-settings.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { CreateInvoiceLineDto } from './dto/create-invoice-line.dto';
@@ -41,8 +44,8 @@ export type { ListInvoicesParams } from './invoice-shared';
 
 /**
  * Service für die Rechnungsverwaltung.
- * Behandelt Erstellung, Bearbeitung, Status-Workflow (DRAFT → SENT → PAID),
- * Zahlungserfassung; PDF-Export und Stundenzettel-Generierung delegiert.
+ * Behandelt Erstellung, Bearbeitung, Finalisierung (DRAFT → SENT),
+ * Gutschrift/Storno, Zahlungserfassung; PDF und Generierung delegiert.
  */
 @Injectable()
 export class InvoicesService {
@@ -50,6 +53,7 @@ export class InvoicesService {
     private readonly prisma: PrismaService,
     private readonly exportService: InvoiceExportService,
     private readonly generationService: InvoiceGenerationService,
+    private readonly billingSettings: BillingSettingsService,
   ) {}
 
   // ── Liste / Detail ───────────────────────────────────────────
@@ -72,10 +76,11 @@ export class InvoicesService {
 
     const where: Prisma.InvoiceWhereInput = {};
     if (params.search?.trim()) {
-      where.invoiceNumber = {
-        contains: params.search.trim(),
-        mode: 'insensitive',
-      };
+      const q = params.search.trim();
+      where.OR = [
+        { invoiceNumber: { contains: q, mode: 'insensitive' } },
+        { customer: { companyName: { contains: q, mode: 'insensitive' } } },
+      ];
     }
     if (params.type) {
       const types = params.type
@@ -149,13 +154,20 @@ export class InvoicesService {
 
   /**
    * Erstellt eine neue Rechnung manuell im Status DRAFT.
-   * Generiert automatisch eine fortlaufende Rechnungsnummer.
-   *
-   * @param dto - Rechnungsdaten (Typ, Projekt, Positionen, etc.)
-   * @param userId - ID des erstellenden Benutzers (null bei Worker-Token)
-   * @returns Die erstellte Rechnung mit allen Details
+   * Keine Geschäftsnummer – die wird erst beim Finalisieren vergeben.
    */
   async create(dto: CreateInvoiceDto, userId: string | null) {
+    if (dto.invoiceType === InvoiceType.INCOMING) {
+      throw new ForbiddenException(
+        'Eingangsrechnungen werden nicht mehr angelegt (DATEV)',
+      );
+    }
+    if (dto.invoiceType === InvoiceType.CREDIT_NOTE) {
+      throw new BadRequestException(
+        'Gutschriften entstehen nur über Storno einer finalisierten Rechnung',
+      );
+    }
+
     await this.validateRelations(
       dto.invoiceType,
       dto.projectId,
@@ -163,14 +175,16 @@ export class InvoicesService {
       dto.subcontractorId,
     );
 
-    const taxRate = dto.taxRate ?? 19;
-    const invoiceNumber = await this.generateInvoiceNumber(dto.invoiceType);
+    const taxRate = await this.resolveTaxRate(
+      dto.taxRate,
+      dto.performanceCountryCode,
+    );
     const lines = buildLineData(dto.lines ?? []);
     const totals = computeTotals(lines, taxRate);
 
     const invoice = await this.prisma.invoice.create({
       data: {
-        invoiceNumber,
+        invoiceNumber: null,
         invoiceType: dto.invoiceType,
         status: InvoiceStatus.DRAFT,
         projectId: dto.projectId ?? null,
@@ -178,6 +192,7 @@ export class InvoicesService {
         subcontractorId: dto.subcontractorId ?? null,
         periodFrom: coerceDate(dto.periodFrom) ?? undefined,
         periodTo: coerceDate(dto.periodTo) ?? undefined,
+        performanceCountryCode: dto.performanceCountryCode?.trim().toUpperCase() || null,
         taxRate,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
@@ -219,18 +234,39 @@ export class InvoicesService {
   // ── Bearbeiten / Löschen (nur DRAFT) ─────────────────────────
 
   /**
-   * Aktualisiert eine Rechnung (nur im Status DRAFT erlaubt).
-   * Bei Steuersatz-Änderung werden die Summen automatisch neu berechnet.
-   *
-   * @param id - UUID der Rechnung
-   * @param dto - Zu aktualisierende Felder
-   * @returns Die aktualisierte Rechnung
-   * @throws ConflictException wenn die Rechnung nicht im DRAFT-Status ist
+   * Aktualisiert eine Rechnung.
+   * DRAFT: alle Header-Felder; finalisiert: nur internalNotes.
    */
   async update(id: string, dto: UpdateInvoiceDto) {
-    const invoice = await this.ensureDraft(id);
+    const invoice = await this.ensureInvoice(id);
 
-    const taxRate = dto.taxRate ?? invoice.taxRate;
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      // Nach Finalisierung: nur interner Kommentar
+      if (dto.internalNotes === undefined) {
+        throw new ConflictException(
+          'Finalisierte Rechnungen können nicht mehr bearbeitet werden (außer interner Kommentar)',
+        );
+      }
+      const forbiddenKeys = Object.keys(dto).filter((k) => k !== 'internalNotes');
+      if (forbiddenKeys.length > 0) {
+        throw new ConflictException(
+          'Finalisierte Rechnungen können nicht mehr bearbeitet werden (außer interner Kommentar)',
+        );
+      }
+      await this.prisma.invoice.update({
+        where: { id },
+        data: { internalNotes: dto.internalNotes },
+      });
+      return this.findOne(id);
+    }
+
+    const taxRate =
+      dto.taxRate !== undefined
+        ? await this.resolveTaxRate(dto.taxRate, dto.performanceCountryCode)
+        : dto.performanceCountryCode
+          ? await this.resolveTaxRate(undefined, dto.performanceCountryCode)
+          : invoice.taxRate;
+
     await this.prisma.invoice.update({
       where: { id },
       data: {
@@ -243,7 +279,14 @@ export class InvoicesService {
             : dto.subcontractorId || null,
         periodFrom: coerceDate(dto.periodFrom),
         periodTo: coerceDate(dto.periodTo),
-        taxRate: dto.taxRate ?? undefined,
+        performanceCountryCode:
+          dto.performanceCountryCode === undefined
+            ? undefined
+            : dto.performanceCountryCode?.trim().toUpperCase() || null,
+        taxRate:
+          dto.taxRate !== undefined || dto.performanceCountryCode !== undefined
+            ? taxRate
+            : undefined,
         isPartialInvoice: dto.isPartialInvoice ?? undefined,
         partialNumber:
           dto.partialNumber === undefined ? undefined : dto.partialNumber,
@@ -259,8 +302,11 @@ export class InvoicesService {
       },
     });
 
-    // Steuersatz-Änderung schlägt auf die Summen durch.
-    if (dto.taxRate !== undefined && dto.taxRate !== invoice.taxRate) {
+    if (
+      (dto.taxRate !== undefined && dto.taxRate !== invoice.taxRate) ||
+      (dto.performanceCountryCode !== undefined &&
+        taxRate !== invoice.taxRate)
+    ) {
       await this.recomputeTotals(id, taxRate);
     }
     return this.findOne(id);
@@ -282,75 +328,191 @@ export class InvoicesService {
   // ── Status-Workflow ──────────────────────────────────────────
 
   /**
-   * Versendet eine Rechnung: setzt Status auf SENT, berechnet Fälligkeitsdatum
-   * und löst asynchron den PDF-Export aus.
-   *
-   * @param id - UUID der Rechnung
-   * @returns Die aktualisierte Rechnung mit Fälligkeitsdatum
-   * @throws ConflictException wenn die Rechnung nicht im DRAFT-Status ist
+   * Finalisiert eine Ausgangsrechnung (nur SUPERADMIN): vergibt RE-Nummer,
+   * setzt Status SENT, issueDate/dueDate und archiviert PDF.
    */
-  async send(id: string) {
+  async finalize(id: string, userId: string | null) {
     const invoice = await this.findOne(id);
     if (invoice.status !== InvoiceStatus.DRAFT) {
-      throw new ConflictException(
-        'Nur Entwürfe können versendet werden',
+      throw new ConflictException('Nur Entwürfe können finalisiert werden');
+    }
+    if (invoice.invoiceType !== InvoiceType.OUTGOING) {
+      throw new BadRequestException(
+        'Nur Ausgangsrechnungen können finalisiert werden',
       );
     }
+    if (!invoice.lines.length) {
+      throw new BadRequestException('Mindestens eine Position erforderlich');
+    }
+    if (!invoice.customerId) {
+      throw new BadRequestException('Kunde ist erforderlich');
+    }
+    if (!invoice.periodFrom || !invoice.periodTo) {
+      throw new BadRequestException('Leistungszeitraum ist erforderlich');
+    }
+    if (invoice.taxRate == null) {
+      throw new BadRequestException('MwSt-Satz ist erforderlich');
+    }
+
+    const billing = await this.billingSettings.getSettingsOnly();
     const termDays =
       invoice.paymentTermDays ??
       invoice.customer?.paymentTermDays ??
+      billing.defaultPaymentTermDays ??
       DEFAULT_PAYMENT_TERM_DAYS;
-    const dueDate = new Date(invoice.issueDate);
+
+    const issueDate = new Date();
+    const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + termDays);
 
-    await this.prisma.invoice.update({
-      where: { id },
-      data: {
-        status: InvoiceStatus.SENT,
-        paymentTermDays: termDays,
-        dueDate,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      const invoiceNumber = await this.billingSettings.allocateNumber(
+        InvoiceSeriesCode.OUTGOING,
+        tx,
+      );
+      await tx.invoice.update({
+        where: { id },
+        data: {
+          invoiceNumber,
+          status: InvoiceStatus.SENT,
+          issueDate,
+          paymentTermDays: termDays,
+          dueDate,
+          finalizedAt: issueDate,
+          finalizedByUserId: userId,
+        },
+      });
     });
 
-    // PDF-Export (async, non-blocking).
-    this.exportService.exportInvoicePdfAsync(invoice);
-
-    return this.findOne(id);
+    const finalized = await this.findOne(id);
+    this.exportService.exportInvoicePdfAsync(finalized);
+    return finalized;
   }
 
   /**
-   * Storniert eine Rechnung: Status → CANCELLED, alle Beträge auf 0.
-   * Die Rechnung wird nicht gelöscht, sondern bleibt für die Buchhaltung erhalten.
-   *
-   * @param id - UUID der Rechnung
-   * @returns Die stornierte Rechnung
-   * @throws ConflictException wenn die Rechnung bereits storniert ist
+   * @deprecated Durch finalize ersetzt – Alias für Kompatibilität.
+   */
+  async send(id: string, userId: string | null = null) {
+    return this.finalize(id, userId);
+  }
+
+  /**
+   * Storno einer finalisierten Ausgangsrechnung über Gutschrift.
+   * Erzeugt CREDIT_NOTE (GS-…), Original → CANCELLED (Beträge/PDF bleiben).
+   */
+  async createCreditNote(id: string, userId: string | null) {
+    const source = await this.findOne(id);
+    if (source.invoiceType !== InvoiceType.OUTGOING) {
+      throw new BadRequestException(
+        'Gutschriften sind nur für Ausgangsrechnungen möglich',
+      );
+    }
+    if (source.status === InvoiceStatus.DRAFT) {
+      throw new BadRequestException(
+        'Entwürfe bitte löschen statt stornieren',
+      );
+    }
+    if (source.status === InvoiceStatus.CANCELLED) {
+      throw new ConflictException('Rechnung ist bereits storniert');
+    }
+    if (!source.invoiceNumber || !source.finalizedAt) {
+      throw new ConflictException(
+        'Nur finalisierte Rechnungen können storniert werden',
+      );
+    }
+    if (source.creditNotes?.length) {
+      throw new ConflictException(
+        'Zu dieser Rechnung existiert bereits eine Gutschrift',
+      );
+    }
+
+    const issueDate = new Date();
+    const creditId = await this.prisma.$transaction(async (tx) => {
+      const invoiceNumber = await this.billingSettings.allocateNumber(
+        InvoiceSeriesCode.CREDIT_NOTE,
+        tx,
+      );
+
+      const credit = await tx.invoice.create({
+        data: {
+          invoiceNumber,
+          invoiceType: InvoiceType.CREDIT_NOTE,
+          status: InvoiceStatus.SENT,
+          projectId: source.projectId,
+          customerId: source.customerId,
+          creditedInvoiceId: source.id,
+          periodFrom: source.periodFrom,
+          periodTo: source.periodTo,
+          performanceCountryCode: source.performanceCountryCode,
+          taxRate: source.taxRate,
+          subtotal: source.subtotal,
+          taxAmount: source.taxAmount,
+          total: source.total,
+          isPartialInvoice: source.isPartialInvoice,
+          partialNumber: source.partialNumber,
+          partialPercentage: source.partialPercentage,
+          paymentTermDays: source.paymentTermDays,
+          issueDate,
+          dueDate: issueDate,
+          notes: source.notes
+            ? `Gutschrift zu ${source.invoiceNumber}\n${source.notes}`
+            : `Gutschrift zu ${source.invoiceNumber}`,
+          internalNotes: source.internalNotes,
+          finalizedAt: issueDate,
+          finalizedByUserId: userId,
+          createdByUserId: userId,
+          lines: {
+            create: source.lines.map((l) => ({
+              lineType: l.lineType,
+              position: l.position,
+              description: l.description,
+              quantity: l.quantity,
+              unit: l.unit,
+              unitPrice: l.unitPrice,
+              total: l.total,
+              weeklyTimesheetId: l.weeklyTimesheetId,
+            })),
+          },
+        },
+        select: { id: true },
+      });
+
+      // Original stornieren – Beträge und PDF bleiben nachvollziehbar
+      await tx.invoice.update({
+        where: { id: source.id },
+        data: { status: InvoiceStatus.CANCELLED },
+      });
+
+      return credit.id;
+    });
+
+    const creditNote = await this.findOne(creditId);
+    this.exportService.exportInvoicePdfAsync(creditNote);
+    return creditNote;
+  }
+
+  /**
+   * Storniert nur Entwürfe (ohne Gutschrift). Finalisierte RE → createCreditNote.
    */
   async cancel(id: string) {
     const invoice = await this.findOne(id);
     if (invoice.status === InvoiceStatus.CANCELLED) {
       throw new ConflictException('Rechnung ist bereits storniert');
     }
-    // Stornierung: Status CANCELLED, Beträge auf 0 – keine Löschung.
+    if (invoice.status !== InvoiceStatus.DRAFT) {
+      throw new BadRequestException(
+        'Finalisierte Rechnungen bitte über Gutschrift stornieren',
+      );
+    }
     await this.prisma.invoice.update({
       where: { id },
-      data: {
-        status: InvoiceStatus.CANCELLED,
-        subtotal: 0,
-        taxAmount: 0,
-        total: 0,
-      },
+      data: { status: InvoiceStatus.CANCELLED },
     });
     return this.findOne(id);
   }
 
   /**
-   * Dupliziert eine bestehende Rechnung als neuen Entwurf.
-   * Kopiert alle Positionen, vergibt eine neue Rechnungsnummer.
-   *
-   * @param id - UUID der zu duplizierenden Rechnung
-   * @param userId - ID des erstellenden Benutzers
-   * @returns Die neue Kopie im Status DRAFT
+   * Dupliziert eine Rechnung als neuen Entwurf ohne Geschäftsnummer.
    */
   async duplicate(id: string, userId: string | null) {
     const source = await this.prisma.invoice.findUnique({
@@ -360,8 +522,17 @@ export class InvoicesService {
     if (!source) {
       throw new NotFoundException('Rechnung nicht gefunden');
     }
+    if (source.invoiceType === InvoiceType.INCOMING) {
+      throw new ForbiddenException(
+        'Eingangsrechnungen werden nicht mehr angelegt (DATEV)',
+      );
+    }
 
-    const invoiceNumber = await this.generateInvoiceNumber(source.invoiceType);
+    const invoiceType =
+      source.invoiceType === InvoiceType.CREDIT_NOTE
+        ? InvoiceType.OUTGOING
+        : source.invoiceType;
+
     const lines: Prisma.InvoiceLineCreateWithoutInvoiceInput[] = source.lines.map(
       (l) => ({
         lineType: l.lineType,
@@ -379,14 +550,15 @@ export class InvoicesService {
 
     const copy = await this.prisma.invoice.create({
       data: {
-        invoiceNumber,
-        invoiceType: source.invoiceType,
+        invoiceNumber: null,
+        invoiceType,
         status: InvoiceStatus.DRAFT,
         projectId: source.projectId,
         customerId: source.customerId,
-        subcontractorId: source.subcontractorId,
+        subcontractorId: null,
         periodFrom: source.periodFrom,
         periodTo: source.periodTo,
+        performanceCountryCode: source.performanceCountryCode,
         taxRate: source.taxRate,
         subtotal: source.subtotal,
         taxAmount: source.taxAmount,
@@ -629,11 +801,11 @@ export class InvoicesService {
       }),
       this.prisma.invoice.findMany({
         where: {
-          invoiceType: InvoiceType.OUTGOING,
+          invoiceType: { in: [InvoiceType.OUTGOING, InvoiceType.CREDIT_NOTE] },
           status: { not: InvoiceStatus.CANCELLED },
           issueDate: { gte: startOfYear },
         },
-        select: { subtotal: true, issueDate: true },
+        select: { subtotal: true, issueDate: true, invoiceType: true },
       }),
     ]);
 
@@ -645,10 +817,21 @@ export class InvoicesService {
     const countOf = (rows: typeof open, type: InvoiceType) =>
       rows.filter((r) => r.invoiceType === type).length;
 
+    // Umsatz: Ausgang positiv, Gutschriften abziehen
     const revenueMonth = revenueRows
       .filter((r) => r.issueDate >= startOfMonth)
-      .reduce((sum, r) => sum + r.subtotal, 0);
-    const revenueYear = revenueRows.reduce((sum, r) => sum + r.subtotal, 0);
+      .reduce(
+        (sum, r) =>
+          sum +
+          (r.invoiceType === InvoiceType.CREDIT_NOTE ? -r.subtotal : r.subtotal),
+        0,
+      );
+    const revenueYear = revenueRows.reduce(
+      (sum, r) =>
+        sum +
+        (r.invoiceType === InvoiceType.CREDIT_NOTE ? -r.subtotal : r.subtotal),
+      0,
+    );
 
     return {
       outgoing: {
@@ -673,32 +856,28 @@ export class InvoicesService {
   // ── Hilfsfunktionen ──────────────────────────────────────────
 
   /**
-   * Erzeugt die nächste Rechnungsnummer: RE-YYYY-NNNN (Ausgang) bzw. ER-YYYY-NNNN (Eingang).
-   *
-   * @param type - Parameter `type` (InvoiceType)
-   * @returns string
+   * MwSt aus DTO oder Leistungsort-Land ableiten.
    */
-  private async generateInvoiceNumber(type: InvoiceType): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `${type === InvoiceType.OUTGOING ? 'RE' : 'ER'}-${year}-`;
-    const last = await this.prisma.invoice.findFirst({
-      where: { invoiceNumber: { startsWith: prefix } },
-      orderBy: { invoiceNumber: 'desc' },
-      select: { invoiceNumber: true },
-    });
-    const lastSeq = last
-      ? Number.parseInt(last.invoiceNumber.slice(prefix.length), 10) || 0
-      : 0;
-    const next = (lastSeq + 1).toString().padStart(4, '0');
-    return `${prefix}${next}`;
+  private async resolveTaxRate(
+    taxRate?: number,
+    performanceCountryCode?: string,
+  ): Promise<number> {
+    if (taxRate != null && !Number.isNaN(taxRate)) {
+      return taxRate;
+    }
+    if (performanceCountryCode?.trim()) {
+      const settings = await this.billingSettings.getSettingsOnly();
+      const code = performanceCountryCode.trim().toUpperCase();
+      const country = settings.performanceCountries.find(
+        (c) => c.countryCode.toUpperCase() === code,
+      );
+      if (country) return country.standardRate;
+    }
+    return 19;
   }
 
   /**
    * Summen anhand der gespeicherten Positionen neu berechnen.
-   *
-   * @param invoiceId - ID (invoiceId) (string)
-   * @param taxRateOverride - Parameter `taxRateOverride` (number)
-   * @returns void
    */
   private async recomputeTotals(
     invoiceId: string,
@@ -862,7 +1041,13 @@ export class InvoicesService {
   private async ensureInvoice(id: string) {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id },
-      select: { id: true, status: true, taxRate: true },
+      select: {
+        id: true,
+        status: true,
+        taxRate: true,
+        invoiceType: true,
+        invoiceNumber: true,
+      },
     });
     if (!invoice) {
       throw new NotFoundException('Rechnung nicht gefunden');

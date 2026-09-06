@@ -169,7 +169,13 @@ enum EquipmentCondition {
 
 enum InvoiceType {
   OUTGOING // Ausgangsrechnung (an Kunde)
-  INCOMING // Eingangsrechnung (von Sub)
+  INCOMING // Eingangsrechnung (von Sub) – Phase 1: nicht weiter pflegen
+  CREDIT_NOTE // Gutschrift (Storno-Gegenbeleg zu RE)
+}
+
+enum InvoiceSeriesCode {
+  OUTGOING // RE-Nummernkreis
+  CREDIT_NOTE // GS-Nummernkreis
 }
 
 enum InvoiceStatus {
@@ -252,6 +258,7 @@ model User {
   reviewedTimesheets   WeeklyTimesheet[]      @relation("TimesheetReviewer")
   approvedTimesheets   WeeklyTimesheet[]      @relation("TimesheetApprover")
   createdInvoices      Invoice[]              @relation("InvoiceCreator")
+  finalizedInvoices    Invoice[]              @relation("InvoiceFinalizer")
 
   customerPlProjects ProjectCustomerPlAssignment[]
   workItemReviews    WorkItemReview[]
@@ -1431,18 +1438,25 @@ model EmailLog {
 
 model Invoice {
   id            String        @id @default(cuid())
-  invoiceNumber String        @unique // RE-YYYY-NNNN (Ausgang) / ER-YYYY-NNNN (Eingang)
+  // Geschäftsnummer erst beim Finalisieren (Format {prefix}-{number}, z. B. RE-40000113)
+  invoiceNumber String?       @unique
   invoiceType   InvoiceType
   status        InvoiceStatus @default(DRAFT)
 
   // Bezug
   projectId       String?
-  customerId      String? // Bei OUTGOING: Rechnungsempfänger
+  customerId      String? // Bei OUTGOING/CREDIT_NOTE: Rechnungsempfänger
   subcontractorId String? // Bei INCOMING: Rechnungssteller
+
+  // Gutschrift → Original-RE
+  creditedInvoiceId String?
 
   // Zeitraum
   periodFrom DateTime?
   periodTo   DateTime?
+
+  // Leistungsort (ISO-3166-1 alpha-2) → Default-MwSt aus Verrechnung-Settings
+  performanceCountryCode String?
 
   // Beträge
   subtotal  Float @default(0) // Netto-Summe
@@ -1462,6 +1476,10 @@ model Invoice {
   paidDate        DateTime?
   paidAmount      Float? // Bei Teilzahlung
 
+  // Finalisierung
+  finalizedAt       DateTime?
+  finalizedByUserId String?
+
   // Metadaten
   notes           String?
   internalNotes   String?
@@ -1471,12 +1489,15 @@ model Invoice {
   createdByUserId String?
 
   // Relations
-  project       Project?         @relation(fields: [projectId], references: [id])
-  customer      Customer?        @relation(fields: [customerId], references: [id])
-  subcontractor Subcontractor?   @relation(fields: [subcontractorId], references: [id])
-  createdBy     User?            @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
-  lines         InvoiceLine[]
-  payments      InvoicePayment[]
+  project         Project?         @relation(fields: [projectId], references: [id])
+  customer        Customer?        @relation(fields: [customerId], references: [id])
+  subcontractor   Subcontractor?   @relation(fields: [subcontractorId], references: [id])
+  createdBy       User?            @relation("InvoiceCreator", fields: [createdByUserId], references: [id])
+  finalizedBy     User?            @relation("InvoiceFinalizer", fields: [finalizedByUserId], references: [id])
+  creditedInvoice Invoice?         @relation("InvoiceCreditNote", fields: [creditedInvoiceId], references: [id])
+  creditNotes     Invoice[]        @relation("InvoiceCreditNote")
+  lines           InvoiceLine[]
+  payments        InvoicePayment[]
 
   @@index([status])
   @@index([customerId])
@@ -1485,6 +1506,16 @@ model Invoice {
   @@index([invoiceType, status])
   @@index([issueDate])
   @@index([dueDate])
+  @@index([creditedInvoiceId])
+}
+
+/// Nummernkreise für Ausgangsrechnungen (RE) und Gutschriften (GS).
+model InvoiceNumberSeries {
+  id         String            @id @default(cuid())
+  code       InvoiceSeriesCode @unique
+  prefix     String
+  nextNumber Int
+  updatedAt  DateTime          @updatedAt
 }
 
 model InvoiceLine {

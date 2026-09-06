@@ -12,6 +12,7 @@ import {
   SlidersHorizontal,
   Briefcase,
   Sparkles,
+  Receipt,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -29,6 +30,12 @@ const settingsLinks = [
     label: 'Firmeninformationen',
     description: 'Logo, Adresse, Steuernummer, Kontaktdaten',
     icon: Building2,
+  },
+  {
+    href: '/settings/billing',
+    label: texts.settings.nav.billing,
+    description: texts.settings.billing.subtitle,
+    icon: Receipt,
   },
   {
     href: '/settings/email',

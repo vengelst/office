@@ -1,6 +1,5 @@
 /**
  * Seite: invoices / detail (Office-Web).
- * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
  */
 
 'use client';
@@ -10,10 +9,10 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
+  CheckCircle2,
   Copy,
   Download,
   Plus,
-  Send,
   Trash2,
   XCircle,
 } from 'lucide-react';
@@ -22,6 +21,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -45,42 +46,49 @@ import { InvoiceStatusBadge } from '@/components/invoices/status-badge';
 import { LineEditor } from '@/components/invoices/line-editor';
 import { PaymentDialog } from '@/components/invoices/payment-dialog';
 import { ApiError } from '@/lib/api-client';
+import { useAuth } from '@/lib/auth-context';
 import { formatDate } from '@/lib/format';
 import {
   downloadInvoicePdf,
   formatCurrency,
+  invoiceNumberLabel,
   invoicePartyName,
   invoicesApi,
   openAmount,
   paidTotal,
   type InvoiceDetail,
 } from '@/lib/invoices';
+import { settingsApi } from '@/lib/settings';
 import { texts } from '@/lib/texts';
 
-/**
- * Detail-Seite einer einzelnen Rechnung.
- * Zeigt Positionen (mit Inline-Editor), Zahlungen (mit Fortschrittsbalken)
- * und Rechnungsdetails in einem Tab-Layout.
- * Bietet Aktionen: Versenden, PDF-Download, Duplizieren, Stornieren und Löschen.
- */
 export default function InvoiceDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const router = useRouter();
   const t = texts.invoices;
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isSuperadmin = Boolean(user?.roles?.includes('SUPERADMIN'));
 
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [payOpen, setPayOpen] = useState(false);
+  const [finalizeOpen, setFinalizeOpen] = useState(false);
+  const [creditOpen, setCreditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [nextPreview, setNextPreview] = useState('RE-…');
+  const [internalNotes, setInternalNotes] = useState('');
+  const [savingNotes, setSavingNotes] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
     invoicesApi
       .get(id)
-      .then(setInvoice)
+      .then((inv) => {
+        setInvoice(inv);
+        setInternalNotes(inv.internalNotes ?? '');
+      })
       .catch(() => setInvoice(null))
       .finally(() => setLoading(false));
   }, [id]);
@@ -89,7 +97,6 @@ export default function InvoiceDetailPage(): React.ReactNode {
     load();
   }, [load]);
 
-  /** Führt eine API-Aktion aus und aktualisiert die Rechnung bei Erfolg. */
   const runAction = async (
     fn: () => Promise<InvoiceDetail>,
     successMsg: string,
@@ -97,12 +104,23 @@ export default function InvoiceDetailPage(): React.ReactNode {
     try {
       const updated = await fn();
       setInvoice(updated);
+      setInternalNotes(updated.internalNotes ?? '');
       toast({ description: successMsg });
     } catch (err) {
       toast({
         description: err instanceof ApiError ? err.message : t.toast.error,
       });
     }
+  };
+
+  const openFinalize = async (): Promise<void> => {
+    try {
+      const billing = await settingsApi.getBilling();
+      setNextPreview(billing.series.re.preview);
+    } catch {
+      setNextPreview('RE-…');
+    }
+    setFinalizeOpen(true);
   };
 
   if (loading) {
@@ -126,6 +144,14 @@ export default function InvoiceDetailPage(): React.ReactNode {
 
   const isDraft = invoice.status === 'DRAFT';
   const isCancelled = invoice.status === 'CANCELLED';
+  const canCredit =
+    isSuperadmin &&
+    invoice.invoiceType === 'OUTGOING' &&
+    !isDraft &&
+    !isCancelled &&
+    !!invoice.finalizedAt &&
+    (invoice.creditNotes?.length ?? 0) === 0;
+  const numberLabel = invoiceNumberLabel(invoice, t.draftNumber);
 
   return (
     <div>
@@ -138,30 +164,30 @@ export default function InvoiceDetailPage(): React.ReactNode {
       </Link>
 
       <PageHeader
-        title={invoice.invoiceNumber}
+        title={numberLabel}
         description={`${t.type[invoice.invoiceType]} · ${invoicePartyName(invoice)}`}
       >
         <InvoiceStatusBadge status={invoice.status} />
       </PageHeader>
 
-      {/* Aktionen */}
       <div className="mb-4 flex flex-wrap gap-2">
-        {isDraft && (
+        {isDraft && isSuperadmin && (
           <Button
             className="min-h-[44px]"
-            onClick={() =>
-              runAction(() => invoicesApi.send(invoice.id), t.toast.sent)
-            }
+            onClick={() => void openFinalize()}
           >
-            <Send className="h-4 w-4" />
-            {t.actions.send}
+            <CheckCircle2 className="h-4 w-4" />
+            {t.actions.finalize}
           </Button>
         )}
         <Button
           variant="outline"
           className="min-h-[44px]"
           onClick={() => {
-            downloadInvoicePdf(invoice.id, `${invoice.invoiceNumber}.pdf`)
+            downloadInvoicePdf(
+              invoice.id,
+              `${invoice.invoiceNumber ?? `Entwurf-${invoice.id.slice(-6)}`}.pdf`,
+            )
               .then(() => toast({ description: t.toast.pdf }))
               .catch(() => toast({ description: t.toast.error }));
           }}
@@ -176,31 +202,41 @@ export default function InvoiceDetailPage(): React.ReactNode {
             runAction(
               () => invoicesApi.duplicate(invoice.id),
               t.toast.duplicated,
-            )
+            ).then((_) => undefined)
           }
         >
           <Copy className="h-4 w-4" />
           {t.actions.duplicate}
         </Button>
-        {!isCancelled && (
+        {canCredit && (
           <Button
             variant="outline"
             className="min-h-[44px] text-destructive"
-            onClick={() => setCancelOpen(true)}
+            onClick={() => setCreditOpen(true)}
           >
             <XCircle className="h-4 w-4" />
-            {t.actions.cancel}
+            {t.actions.creditNote}
           </Button>
         )}
         {isDraft && (
-          <Button
-            variant="ghost"
-            className="min-h-[44px] text-destructive"
-            onClick={() => setDeleteOpen(true)}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t.actions.delete}
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              className="min-h-[44px] text-destructive"
+              onClick={() => setCancelOpen(true)}
+            >
+              <XCircle className="h-4 w-4" />
+              {t.actions.cancel}
+            </Button>
+            <Button
+              variant="ghost"
+              className="min-h-[44px] text-destructive"
+              onClick={() => setDeleteOpen(true)}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t.actions.delete}
+            </Button>
+          </>
         )}
       </div>
 
@@ -211,7 +247,6 @@ export default function InvoiceDetailPage(): React.ReactNode {
           <TabsTrigger value="details">{t.tabs.details}</TabsTrigger>
         </TabsList>
 
-        {/* Tab 1: Positionen */}
         <TabsContent value="lines">
           <LineEditor
             invoice={invoice}
@@ -220,7 +255,6 @@ export default function InvoiceDetailPage(): React.ReactNode {
           />
         </TabsContent>
 
-        {/* Tab 2: Zahlungen */}
         <TabsContent value="payments">
           <PaymentsTab
             invoice={invoice}
@@ -234,9 +268,27 @@ export default function InvoiceDetailPage(): React.ReactNode {
           />
         </TabsContent>
 
-        {/* Tab 3: Details */}
         <TabsContent value="details">
-          <DetailsTab invoice={invoice} />
+          <DetailsTab
+            invoice={invoice}
+            internalNotes={internalNotes}
+            onInternalNotesChange={setInternalNotes}
+            savingNotes={savingNotes}
+            onSaveNotes={async () => {
+              setSavingNotes(true);
+              try {
+                await runAction(
+                  () =>
+                    invoicesApi.update(invoice.id, {
+                      internalNotes: internalNotes,
+                    }),
+                  t.toast.updated,
+                );
+              } finally {
+                setSavingNotes(false);
+              }
+            }}
+          />
         </TabsContent>
       </Tabs>
 
@@ -253,6 +305,57 @@ export default function InvoiceDetailPage(): React.ReactNode {
           }}
         />
       )}
+
+      <AlertDialog open={finalizeOpen} onOpenChange={setFinalizeOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.finalizeDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.finalizeDialog.description(nextPreview)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.finalizeDialog.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setFinalizeOpen(false);
+                void runAction(
+                  () => invoicesApi.finalize(invoice.id),
+                  t.toast.finalized,
+                );
+              }}
+            >
+              {t.finalizeDialog.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={creditOpen} onOpenChange={setCreditOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.creditNoteDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.creditNoteDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.creditNoteDialog.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setCreditOpen(false);
+                void runAction(async () => {
+                  const gs = await invoicesApi.creditNote(invoice.id);
+                  router.push(`/invoices/${gs.id}`);
+                  return gs;
+                }, t.toast.creditNote);
+              }}
+            >
+              {t.creditNoteDialog.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={cancelOpen} onOpenChange={setCancelOpen}>
         <AlertDialogContent>
@@ -313,13 +416,6 @@ export default function InvoiceDetailPage(): React.ReactNode {
   );
 }
 
-// ── Tab 2: Zahlungen ───────────────────────────────────────────
-
-/**
- * Zahlungs-Tab mit Fortschrittsanzeige (bezahlt/offen) und Zahlungstabelle.
- * Zeigt den Zahlungsstand als Prozentbalken und ermöglicht das Erfassen
- * und Löschen einzelner Zahlungseingänge.
- */
 function PaymentsTab({
   invoice,
   onAdd,
@@ -340,7 +436,6 @@ function PaymentsTab({
 
   return (
     <div className="space-y-4">
-      {/* Fortschrittsbalken */}
       <Card>
         <CardContent className="space-y-2 py-4">
           <div className="flex items-center justify-between text-sm">
@@ -418,14 +513,19 @@ function PaymentsTab({
   );
 }
 
-// ── Tab 3: Details ─────────────────────────────────────────────
-
-/**
- * Detail-Tab mit allen Rechnungsmetadaten in zwei Spalten.
- * Zeigt Rechnungsnummer, Typ, Status, Daten, Verknüpfungen zu
- * Projekt/Kunde/Subunternehmer, Teilrechnungsdaten und Notizen.
- */
-function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
+function DetailsTab({
+  invoice,
+  internalNotes,
+  onInternalNotesChange,
+  savingNotes,
+  onSaveNotes,
+}: {
+  invoice: InvoiceDetail;
+  internalNotes: string;
+  onInternalNotesChange: (v: string) => void;
+  savingNotes: boolean;
+  onSaveNotes: () => Promise<void>;
+}): React.ReactNode {
   const t = texts.invoices.details;
 
   return (
@@ -435,7 +535,10 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
           <CardTitle className="text-base">{t.title}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Field label={t.invoiceNumber} value={invoice.invoiceNumber} />
+          <Field
+            label={t.invoiceNumber}
+            value={invoiceNumberLabel(invoice, texts.invoices.draftNumber)}
+          />
           <Field
             label={t.type}
             value={texts.invoices.type[invoice.invoiceType]}
@@ -449,6 +552,18 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
             label={t.dueDate}
             value={invoice.dueDate ? formatDate(invoice.dueDate) : t.none}
           />
+          {invoice.finalizedAt && (
+            <Field
+              label={t.finalizedAt}
+              value={formatDate(invoice.finalizedAt)}
+            />
+          )}
+          {invoice.finalizedBy && (
+            <Field
+              label={t.finalizedBy}
+              value={invoice.finalizedBy.displayName}
+            />
+          )}
           {invoice.paidDate && (
             <Field label={t.paidDate} value={formatDate(invoice.paidDate)} />
           )}
@@ -461,6 +576,10 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
             }
           />
           <Field
+            label={t.performanceCountry}
+            value={invoice.performanceCountryCode ?? t.none}
+          />
+          <Field
             label={t.period}
             value={
               invoice.periodFrom || invoice.periodTo
@@ -469,14 +588,13 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
             }
           />
 
-          {/* Verknüpfungen */}
           <div className="border-t pt-3">
             <FieldLink
               label={t.project}
               href={invoice.project ? `/projects/${invoice.project.id}` : null}
               value={invoice.project?.title ?? t.none}
             />
-            {invoice.invoiceType === 'OUTGOING' ? (
+            {invoice.invoiceType !== 'INCOMING' ? (
               <FieldLink
                 label={t.customer}
                 href={
@@ -497,6 +615,25 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
                 value={invoice.subcontractor?.name ?? t.none}
               />
             )}
+            {invoice.creditedInvoice && (
+              <FieldLink
+                label={t.creditedInvoice}
+                href={`/invoices/${invoice.creditedInvoice.id}`}
+                value={
+                  invoice.creditedInvoice.invoiceNumber ??
+                  texts.invoices.draftNumber
+                }
+              />
+            )}
+            {(invoice.creditNotes?.length ?? 0) > 0 &&
+              invoice.creditNotes.map((gs) => (
+                <FieldLink
+                  key={gs.id}
+                  label={t.creditNotes}
+                  href={`/invoices/${gs.id}`}
+                  value={gs.invoiceNumber ?? texts.invoices.draftNumber}
+                />
+              ))}
           </div>
 
           {invoice.createdBy && (
@@ -543,11 +680,25 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
                 {invoice.notes || t.none}
               </p>
             </div>
-            <div className="border-t pt-3">
-              <p className="text-xs text-muted-foreground">{t.internalNotes}</p>
-              <p className="whitespace-pre-wrap text-sm">
-                {invoice.internalNotes || t.none}
-              </p>
+            <div className="border-t space-y-2 pt-3">
+              <Label className="text-xs text-muted-foreground">
+                {t.internalNotes}
+              </Label>
+              <Textarea
+                value={internalNotes}
+                onChange={(e) => onInternalNotesChange(e.target.value)}
+                rows={4}
+              />
+              <Button
+                variant="outline"
+                className="min-h-[44px]"
+                disabled={savingNotes}
+                onClick={() => void onSaveNotes()}
+              >
+                {savingNotes
+                  ? texts.invoices.actions.saving
+                  : texts.invoices.actions.saveInternalNotes}
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -556,7 +707,6 @@ function DetailsTab({ invoice }: { invoice: InvoiceDetail }): React.ReactNode {
   );
 }
 
-/** Einfaches Label-Wert-Paar in der Rechnungsdetail-Ansicht. */
 function Field({
   label,
   value,
@@ -572,7 +722,6 @@ function Field({
   );
 }
 
-/** Label-Wert-Paar mit optionalem Link (z.B. zum verknüpften Kunden oder Projekt). */
 function FieldLink({
   label,
   href,

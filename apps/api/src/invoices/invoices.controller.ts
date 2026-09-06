@@ -197,28 +197,53 @@ export class InvoicesController {
   }
 
   /**
-   * Versendet die Ressource (z. B. E-Mail/Rechnung).
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @returns Versandergebnis
+   * Finalisiert die Rechnung (Nummernvergabe, Status SENT).
    */
-
-  @Post(':id/send')
+  @Post(':id/finalize')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Rechnung versenden (Status SENT, Fälligkeit setzen)' })
-  send(@Param('id') id: string) {
-    return this.invoices.send(id);
+  @Roles(RoleCode.SUPERADMIN)
+  @ApiOperation({
+    summary: 'Rechnung finalisieren (SUPERADMIN, vergibt RE-Nummer)',
+  })
+  finalize(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.invoices.finalize(id, userIdOf(user));
   }
 
   /**
-   * Storniert die Rechnung.
-   *
-   * @param id - Primärschlüssel der Entität (string)
+   * Alias: früher „Versenden“ – gleiches Verhalten wie Finalisieren.
    */
+  @Post(':id/send')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleCode.SUPERADMIN)
+  @ApiOperation({
+    summary: 'Alias für Finalisieren (Legacy)',
+    deprecated: true,
+  })
+  send(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.invoices.finalize(id, userIdOf(user));
+  }
 
+  /**
+   * Storno finalisierter RE über Gutschrift.
+   */
+  @Post(':id/credit-note')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleCode.SUPERADMIN)
+  @ApiOperation({
+    summary: 'Storno → Gutschrift (SUPERADMIN, vergibt GS-Nummer)',
+  })
+  creditNote(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.invoices.createCreditNote(id, userIdOf(user));
+  }
+
+  /**
+   * Storniert einen Entwurf (ohne Gutschrift).
+   */
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Rechnung stornieren (Status CANCELLED, Beträge 0)' })
+  @ApiOperation({
+    summary: 'Entwurf stornieren (finalisierte RE → credit-note nutzen)',
+  })
   cancel(@Param('id') id: string) {
     return this.invoices.cancel(id);
   }

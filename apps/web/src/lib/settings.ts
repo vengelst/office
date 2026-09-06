@@ -145,4 +145,54 @@ export const settingsApi = {
   },
   getCompanyLogoDarkKey: () =>
     apiClient.get<{ logoKey: string | null }>('/company/logo-dark'),
+
+  // Verrechnung
+  getBilling: () => apiClient.get<BillingSettingsResponse>('/settings/billing'),
+  saveBilling: (body: UpdateBillingBody) =>
+    apiFetch<BillingSettingsResponse>('/settings/billing', {
+      method: 'PUT',
+      body,
+    }),
 };
+
+/** Nummernkreis-Vorschau (RE/GS). */
+export interface InvoiceSeriesView {
+  code: 'OUTGOING' | 'CREDIT_NOTE';
+  prefix: string;
+  nextNumber: number;
+  preview: string;
+}
+
+export interface PerformanceCountry {
+  countryCode: string;
+  name: string;
+  standardRate: number;
+  reducedRate: number;
+}
+
+export interface BillingSettingsData {
+  defaultPaymentTermDays: number;
+  paymentTermOptions: number[];
+  skonto: {
+    percent: number | null;
+    days: number | null;
+    pdfHintTemplate: string | null;
+  };
+  performanceCountries: PerformanceCountry[];
+}
+
+export interface BillingSettingsResponse {
+  series: {
+    re: InvoiceSeriesView;
+    gs: InvoiceSeriesView;
+  };
+  settings: BillingSettingsData;
+}
+
+export interface UpdateBillingBody {
+  series?: {
+    re?: { prefix?: string; nextNumber?: number };
+    gs?: { prefix?: string; nextNumber?: number };
+  };
+  settings?: Partial<BillingSettingsData>;
+}

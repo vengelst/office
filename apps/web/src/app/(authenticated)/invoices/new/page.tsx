@@ -1,6 +1,5 @@
 /**
- * Seite: app/(authenticated)/invoices/new/page.tsx (Office-Web).
- * Domänen-UI – ausführliche Handler-JSDocs nur bei nicht-trivialer Logik.
+ * Seite: Neue Ausgangsrechnung anlegen.
  */
 
 'use client';
@@ -24,14 +23,13 @@ import {
 } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiError } from '@/lib/api-client';
-import {
-  invoicesApi,
-  type CreateInvoiceBody,
-  type InvoiceType,
-} from '@/lib/invoices';
+import { invoicesApi, type CreateInvoiceBody } from '@/lib/invoices';
 import { projectsApi, type ProjectListItem } from '@/lib/projects';
 import { customersApi, type CustomerListItem } from '@/lib/customers';
-import { subcontractorsApi, type SubcontractorListItem } from '@/lib/workers';
+import {
+  settingsApi,
+  type PerformanceCountry,
+} from '@/lib/settings';
 import { texts } from '@/lib/texts';
 
 const NONE = '__none__';
@@ -41,10 +39,9 @@ export default function NewInvoicePage(): React.ReactNode {
   const t = texts.invoices.create;
   const { toast } = useToast();
 
-  const [invoiceType, setInvoiceType] = useState<InvoiceType>('OUTGOING');
   const [projectId, setProjectId] = useState(NONE);
   const [customerId, setCustomerId] = useState('');
-  const [subcontractorId, setSubcontractorId] = useState('');
+  const [countryCode, setCountryCode] = useState('DE');
   const [taxRate, setTaxRate] = useState(19);
   const [periodFrom, setPeriodFrom] = useState('');
   const [periodTo, setPeriodTo] = useState('');
@@ -57,9 +54,7 @@ export default function NewInvoicePage(): React.ReactNode {
 
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [customers, setCustomers] = useState<CustomerListItem[]>([]);
-  const [subcontractors, setSubcontractors] = useState<SubcontractorListItem[]>(
-    [],
-  );
+  const [countries, setCountries] = useState<PerformanceCountry[]>([]);
 
   useEffect(() => {
     projectsApi
@@ -70,23 +65,37 @@ export default function NewInvoicePage(): React.ReactNode {
       .list({ limit: 100 })
       .then((r) => setCustomers(r.data))
       .catch(() => setCustomers([]));
-    subcontractorsApi
-      .list({ limit: 100 })
-      .then((r) => setSubcontractors(r.data))
-      .catch(() => setSubcontractors([]));
+    settingsApi
+      .getBilling()
+      .then((b) => {
+        setCountries(b.settings.performanceCountries);
+        const de = b.settings.performanceCountries.find(
+          (c) => c.countryCode === 'DE',
+        );
+        if (de) {
+          setCountryCode(de.countryCode);
+          setTaxRate(de.standardRate);
+        }
+      })
+      .catch(() => undefined);
   }, []);
 
-  const incoming = invoiceType === 'INCOMING';
-  const canSubmit = incoming ? !!subcontractorId : true;
+  const onCountryChange = (code: string): void => {
+    setCountryCode(code);
+    const country = countries.find((c) => c.countryCode === code);
+    if (country) setTaxRate(country.standardRate);
+  };
+
+  const canSubmit = !!customerId;
 
   const submit = async (): Promise<void> => {
     if (!canSubmit) return;
     setBusy(true);
     const body: CreateInvoiceBody = {
-      invoiceType,
+      invoiceType: 'OUTGOING',
       projectId: projectId === NONE ? undefined : projectId,
-      customerId: !incoming && customerId ? customerId : undefined,
-      subcontractorId: incoming && subcontractorId ? subcontractorId : undefined,
+      customerId,
+      performanceCountryCode: countryCode || undefined,
       taxRate: Number(taxRate),
       periodFrom: periodFrom ? new Date(periodFrom).toISOString() : undefined,
       periodTo: periodTo ? new Date(periodTo).toISOString() : undefined,
@@ -123,29 +132,9 @@ export default function NewInvoicePage(): React.ReactNode {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{texts.invoices.title}</CardTitle>
+          <CardTitle className="text-base">{texts.invoices.type.OUTGOING}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>{t.type}</Label>
-            <Select
-              value={invoiceType}
-              onValueChange={(v) => setInvoiceType(v as InvoiceType)}
-            >
-              <SelectTrigger className="min-h-[44px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="OUTGOING">
-                  {texts.invoices.type.OUTGOING}
-                </SelectItem>
-                <SelectItem value="INCOMING">
-                  {texts.invoices.type.INCOMING}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
           <div className="space-y-1.5">
             <Label>{t.project}</Label>
             <Select value={projectId} onValueChange={setProjectId}>
@@ -163,44 +152,38 @@ export default function NewInvoicePage(): React.ReactNode {
             </Select>
           </div>
 
-          {incoming ? (
-            <div className="space-y-1.5">
-              <Label>{t.subcontractor}</Label>
-              <Select
-                value={subcontractorId}
-                onValueChange={setSubcontractorId}
-              >
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue placeholder={t.selectSubcontractor} />
-                </SelectTrigger>
-                <SelectContent>
-                  {subcontractors.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          ) : (
-            <div className="space-y-1.5">
-              <Label>{t.customer}</Label>
-              <Select value={customerId} onValueChange={setCustomerId}>
-                <SelectTrigger className="min-h-[44px]">
-                  <SelectValue placeholder={t.selectCustomer} />
-                </SelectTrigger>
-                <SelectContent>
-                  {customers.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.companyName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-1.5">
+            <Label>{t.customer}</Label>
+            <Select value={customerId} onValueChange={setCustomerId}>
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue placeholder={t.selectCustomer} />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.companyName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>{t.performanceCountry}</Label>
+              <Select value={countryCode} onValueChange={onCountryChange}>
+                <SelectTrigger className="min-h-[44px]">
+                  <SelectValue placeholder={t.selectCountry} />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.countryCode} value={c.countryCode}>
+                      {c.name} ({c.countryCode})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <Label>{t.taxRate}</Label>
               <Input
@@ -211,6 +194,9 @@ export default function NewInvoicePage(): React.ReactNode {
                 className="min-h-[44px]"
               />
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>{t.periodFrom}</Label>
               <Input
@@ -231,7 +217,6 @@ export default function NewInvoicePage(): React.ReactNode {
             </div>
           </div>
 
-          {/* Teilrechnung */}
           <div className="space-y-3 rounded-md border p-3">
             <label className="flex min-h-[44px] cursor-pointer items-center gap-3">
               <input
@@ -296,7 +281,7 @@ export default function NewInvoicePage(): React.ReactNode {
             </Button>
             <Button
               className="min-h-[44px]"
-              onClick={submit}
+              onClick={() => void submit()}
               disabled={busy || !canSubmit}
             >
               {busy ? t.submitting : t.submit}

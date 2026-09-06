@@ -11,7 +11,7 @@ import { InvoicePdfService } from './invoice-pdf.service';
 
 export type InvoiceExportPayload = {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: InvoiceType;
   projectId: string | null;
   customerId: string | null;
@@ -46,10 +46,14 @@ export class InvoiceExportService {
     );
     void pdfFilename;
 
-    if (invoice.invoiceType === InvoiceType.OUTGOING) {
+    if (
+      invoice.invoiceType === InvoiceType.OUTGOING ||
+      invoice.invoiceType === InvoiceType.CREDIT_NOTE
+    ) {
       const partnerName = invoice.customer?.companyName ?? 'Unbekannt';
+      const numberLabel = invoice.invoiceNumber ?? `Entwurf-${invoice.id.slice(-6)}`;
       const readableFilename = this.storagePathService.buildInvoiceFilename(
-        invoice.invoiceNumber,
+        numberLabel,
         partnerName,
       );
 
@@ -77,7 +81,7 @@ export class InvoiceExportService {
           entityType: 'PROJECT',
           entityId: invoice.projectId,
           storagePath: projectPath,
-          title: `${invoice.invoiceNumber} ${partnerName}`,
+          title: `${numberLabel} ${partnerName}`,
           userId: invoice.createdBy?.id ?? null,
           additionalLinks,
         });
@@ -98,14 +102,15 @@ export class InvoiceExportService {
           entityType: 'CUSTOMER',
           entityId: invoice.customerId,
           storagePath: customerPath,
-          title: `${invoice.invoiceNumber} ${partnerName}`,
+          title: `${numberLabel} ${partnerName}`,
           userId: invoice.createdBy?.id ?? null,
         });
       }
     } else if (invoice.subcontractorId) {
       const subName = invoice.subcontractor?.name ?? 'Unbekannt';
+      const numberLabel = invoice.invoiceNumber ?? `Entwurf-${invoice.id.slice(-6)}`;
       const readableFilename = this.storagePathService.buildInvoiceFilename(
-        invoice.invoiceNumber,
+        numberLabel,
         subName,
       );
       const subPath = await this.storagePathService.generatePath(
@@ -122,12 +127,16 @@ export class InvoiceExportService {
         entityType: 'SUBCONTRACTOR',
         entityId: invoice.subcontractorId,
         storagePath: subPath,
-        title: `${invoice.invoiceNumber} ${subName}`,
+        title: `${numberLabel} ${subName}`,
         userId: invoice.createdBy?.id ?? null,
       });
     }
 
-    const pdfStorageKey = `invoices/${invoice.invoiceNumber.replace(/[^a-zA-Z0-9-]/g, '')}.pdf`;
+    const numberKey = (invoice.invoiceNumber ?? invoice.id).replace(
+      /[^a-zA-Z0-9-]/g,
+      '',
+    );
+    const pdfStorageKey = `invoices/${numberKey}.pdf`;
     await this.prisma.invoice.update({
       where: { id: invoice.id },
       data: { pdfPath: pdfStorageKey },

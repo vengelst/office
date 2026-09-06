@@ -4,6 +4,7 @@
 
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -26,7 +27,7 @@ import {
 } from './invoice-shared';
 
 /**
- * Erzeugt Entwurfsrechnungen (OUTGOING/INCOMING) aus APPROVED-Stundenzetteln.
+ * Erzeugt Entwurfsrechnungen (OUTGOING) aus APPROVED-Stundenzetteln.
  */
 @Injectable()
 export class InvoiceGenerationService {
@@ -39,6 +40,17 @@ export class InvoiceGenerationService {
     dto: GenerateFromTimesheetsDto,
     userId: string | null,
   ) {
+    if (dto.invoiceType === InvoiceType.INCOMING) {
+      throw new ForbiddenException(
+        'Eingangsrechnungen werden nicht mehr angelegt (DATEV)',
+      );
+    }
+    if (dto.invoiceType === InvoiceType.CREDIT_NOTE) {
+      throw new BadRequestException(
+        'Gutschriften entstehen nur über Storno einer finalisierten Rechnung',
+      );
+    }
+
     const project = await this.prisma.project.findFirst({
       where: { id: dto.projectId, deletedAt: null },
       select: {
@@ -60,9 +72,6 @@ export class InvoiceGenerationService {
       throw new BadRequestException('Ungültiger Zeitraum');
     }
 
-    if (dto.invoiceType === InvoiceType.INCOMING) {
-      return this.generateIncoming(dto, project.id, from, to, userId);
-    }
     return this.generateOutgoing(dto, project, from, to, userId);
   }
 
@@ -250,12 +259,16 @@ export class InvoiceGenerationService {
     lines: Prisma.InvoiceLineCreateWithoutInvoiceInput[];
     userId: string | null;
   }) {
+    if (input.invoiceType === InvoiceType.INCOMING) {
+      throw new BadRequestException(
+        'Eingangsrechnungen werden nicht mehr angelegt (DATEV)',
+      );
+    }
     const totals = computeTotals(input.lines, input.taxRate);
-    const invoiceNumber = await this.generateInvoiceNumber(input.invoiceType);
 
     const invoice = await this.prisma.invoice.create({
       data: {
-        invoiceNumber,
+        invoiceNumber: null,
         invoiceType: input.invoiceType,
         status: InvoiceStatus.DRAFT,
         projectId: input.projectId,
@@ -282,21 +295,6 @@ export class InvoiceGenerationService {
       throw new NotFoundException('Rechnung nicht gefunden');
     }
     return full;
-  }
-
-  private async generateInvoiceNumber(type: InvoiceType): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `${type === InvoiceType.OUTGOING ? 'RE' : 'ER'}-${year}-`;
-    const last = await this.prisma.invoice.findFirst({
-      where: { invoiceNumber: { startsWith: prefix } },
-      orderBy: { invoiceNumber: 'desc' },
-      select: { invoiceNumber: true },
-    });
-    const lastSeq = last
-      ? Number.parseInt(last.invoiceNumber.slice(prefix.length), 10) || 0
-      : 0;
-    const next = (lastSeq + 1).toString().padStart(4, '0');
-    return `${prefix}${next}`;
   }
 
   private async customerPaymentTerm(

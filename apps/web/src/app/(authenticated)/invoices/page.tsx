@@ -34,6 +34,7 @@ import { GenerateDialog } from '@/components/invoices/generate-dialog';
 import { formatDate } from '@/lib/format';
 import {
   formatCurrency,
+  invoiceNumberLabel,
   invoicePartyName,
   invoicesApi,
   isOverdue,
@@ -42,7 +43,6 @@ import {
   type InvoiceType,
 } from '@/lib/invoices';
 import { projectsApi, type ProjectListItem } from '@/lib/projects';
-import { subcontractorsApi, type SubcontractorListItem } from '@/lib/workers';
 import { texts } from '@/lib/texts';
 
 const LIMIT = 25;
@@ -74,9 +74,6 @@ export default function InvoicesPage(): React.ReactNode {
   const [periodTo, setPeriodTo] = useState('');
 
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
-  const [subcontractors, setSubcontractors] = useState<SubcontractorListItem[]>(
-    [],
-  );
   const [genOpen, setGenOpen] = useState(false);
 
   useEffect(() => {
@@ -84,10 +81,6 @@ export default function InvoicesPage(): React.ReactNode {
       .list({ limit: 100 })
       .then((r) => setProjects(r.data))
       .catch(() => setProjects([]));
-    subcontractorsApi
-      .list({ limit: 100 })
-      .then((r) => setSubcontractors(r.data))
-      .catch(() => setSubcontractors([]));
   }, []);
 
   const load = useCallback(() => {
@@ -148,11 +141,10 @@ export default function InvoicesPage(): React.ReactNode {
       >
         <TabsList className="mb-4">
           <TabsTrigger value="OUTGOING">{t.tabsType.outgoing}</TabsTrigger>
-          <TabsTrigger value="INCOMING">{t.tabsType.incoming}</TabsTrigger>
+          <TabsTrigger value="CREDIT_NOTE">{t.tabsType.creditNotes}</TabsTrigger>
         </TabsList>
       </Tabs>
 
-      {/* Filter */}
       <div className="mb-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <Select value={status} onValueChange={setStatus}>
           <SelectTrigger className="min-h-[44px]">
@@ -237,7 +229,7 @@ export default function InvoicesPage(): React.ReactNode {
                     onClick={() => router.push(`/invoices/${inv.id}`)}
                   >
                     <TableCell className="font-medium">
-                      {inv.invoiceNumber}
+                      {invoiceNumberLabel(inv, t.draftNumber)}
                       {inv.isPartialInvoice && inv.partialNumber != null && (
                         <span className="ml-2 text-xs text-muted-foreground">
                           {t.partialLabel(
@@ -315,9 +307,7 @@ export default function InvoicesPage(): React.ReactNode {
       <GenerateDialog
         open={genOpen}
         onOpenChange={setGenOpen}
-        defaultType={invoiceType}
         projects={projects}
-        subcontractors={subcontractors}
         onGenerated={(id) => router.push(`/invoices/${id}`)}
       />
     </div>

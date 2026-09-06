@@ -50,6 +50,13 @@ export class CreateInvoiceDto {
   @IsNumber()
   taxRate?: number;
 
+  @ApiPropertyOptional({
+    description: 'Leistungsort (ISO-3166-1 alpha-2), z. B. DE',
+  })
+  @IsOptional()
+  @IsString()
+  performanceCountryCode?: string;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsBoolean()
