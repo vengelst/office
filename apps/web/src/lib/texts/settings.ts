@@ -104,6 +104,10 @@ export const settings = {
         nextNumber: 'Nächste Nummer',
         preview: 'Vorschau',
         previewLabel: (v: string): string => `Nächste: ${v}`,
+        gsHint:
+          'Die Gutschrift übernimmt die Nummer der stornierten Rechnung (z. B. RE-40000114 → GS-40000114). Nur das Prefix ist einstellbar.',
+        gsPreviewLabel: (prefix: string): string =>
+          `Beispiel: ${prefix}-40000114 zu RE-40000114`,
       },
       paymentTerms: {
         title: 'Zahlungsziele',

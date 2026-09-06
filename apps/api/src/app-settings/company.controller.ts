@@ -18,7 +18,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsObject, IsOptional, IsString } from 'class-validator';
 import type { Response } from 'express';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -39,7 +39,10 @@ export class CompanyInfoDto {
   @IsOptional() @IsString() email?: string;
   @IsOptional() @IsString() website?: string;
   @IsOptional() @IsString() taxNumber?: string;
+  /** Standard-/DE-USt-IdNr. */
   @IsOptional() @IsString() vatId?: string;
+  /** USt-IdNr. je Land (ISO-Code → Id), z. B. { DE, LU, NL, FR }. */
+  @IsOptional() @IsObject() vatIdsByCountry?: Record<string, string>;
   @IsOptional() @IsString() registerCourt?: string;
   @IsOptional() @IsString() registerNumber?: string;
   @IsOptional() @IsString() managingDirector?: string;
@@ -72,6 +75,32 @@ function logoMimeFromKey(key: string): string {
         : 'image/jpeg';
 }
 
+/** Normalisiert vatIdsByCountry und hält vatId (DE) synchron. */
+function normalizeCompanyPayload(
+  raw: Record<string, unknown>,
+): Record<string, unknown> {
+  const vatIdsByCountry: Record<string, string> = {};
+  const incoming = raw.vatIdsByCountry;
+  if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+    for (const [k, v] of Object.entries(incoming as Record<string, unknown>)) {
+      const code = String(k).trim().toUpperCase();
+      if (!code || typeof v !== 'string') continue;
+      const id = v.trim();
+      if (id) vatIdsByCountry[code] = id;
+    }
+  }
+  const vatId =
+    typeof raw.vatId === 'string' && raw.vatId.trim()
+      ? raw.vatId.trim()
+      : vatIdsByCountry.DE ?? '';
+  if (vatId && !vatIdsByCountry.DE) vatIdsByCountry.DE = vatId;
+  return {
+    ...raw,
+    vatId: vatIdsByCountry.DE ?? vatId,
+    vatIdsByCountry,
+  };
+}
+
 @ApiTags('company')
 @ApiBearerAuth()
 @UseGuards(RolesGuard)
@@ -92,13 +121,14 @@ export class CompanyController {
 
   @Get()
   @ApiOperation({ summary: 'Firmeninformationen abrufen' })
-  async get(): Promise<Record<string, string>> {
+  async get(): Promise<Record<string, unknown>> {
     const setting = await this.prisma.appSetting.findUnique({
       where: { key: COMPANY_SETTINGS_KEY },
     });
     if (!setting) return {};
     try {
-      return JSON.parse(setting.value);
+      const parsed = JSON.parse(setting.value) as Record<string, unknown>;
+      return normalizeCompanyPayload(parsed);
     } catch {
       return {};
     }
@@ -115,10 +145,11 @@ export class CompanyController {
   @Post()
   @ApiOperation({ summary: 'Firmeninformationen speichern' })
   async save(@Body() dto: CompanyInfoDto): Promise<{ success: true }> {
+    const payload = normalizeCompanyPayload(dto as Record<string, unknown>);
     await this.prisma.appSetting.upsert({
       where: { key: COMPANY_SETTINGS_KEY },
-      update: { value: JSON.stringify(dto) },
-      create: { key: COMPANY_SETTINGS_KEY, value: JSON.stringify(dto) },
+      update: { value: JSON.stringify(payload) },
+      create: { key: COMPANY_SETTINGS_KEY, value: JSON.stringify(payload) },
     });
     return { success: true };
   }

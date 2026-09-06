@@ -40,7 +40,11 @@ export class BillingSettingsService {
     return {
       series: {
         re: toSeriesView(re),
-        gs: toSeriesView(gs),
+        gs: {
+          ...toSeriesView(gs),
+          // Gutschrift-Nummer folgt der RE – Vorschau nur erklärend
+          preview: `${gs.prefix}-{RE-Nummer}`,
+        },
       },
       settings,
     };
@@ -58,7 +62,10 @@ export class BillingSettingsService {
       await this.updateSeries(InvoiceSeriesCode.OUTGOING, input.series.re);
     }
     if (input.series?.gs) {
-      await this.updateSeries(InvoiceSeriesCode.CREDIT_NOTE, input.series.gs);
+      // GS-Nummern folgen der RE – nur Prefix pflegen, nextNumber ignorieren
+      await this.updateSeries(InvoiceSeriesCode.CREDIT_NOTE, {
+        prefix: input.series.gs.prefix,
+      });
     }
     if (input.settings) {
       const current = await this.loadSettings();
@@ -85,6 +92,11 @@ export class BillingSettingsService {
     code: InvoiceSeriesCode,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
+    if (code === InvoiceSeriesCode.CREDIT_NOTE) {
+      throw new BadRequestException(
+        'Gutschriften erhalten die Nummer der zugehörigen Rechnung (kein eigener Zähler)',
+      );
+    }
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
@@ -133,6 +145,42 @@ export class BillingSettingsService {
     throw lastError instanceof Error
       ? lastError
       : new ConflictException('Nummernvergabe fehlgeschlagen');
+  }
+
+  /**
+   * Baut die GS-Nummer aus der RE-Nummer: gleiche Ziffern, Prefix aus GS-Serie.
+   * Beispiel: RE-40000114 → GS-40000114.
+   */
+  async allocateCreditNoteNumber(
+    sourceInvoiceNumber: string,
+    tx: Prisma.TransactionClient,
+  ): Promise<string> {
+    const rows = await tx.$queryRaw<Array<{ prefix: string }>>`
+      SELECT prefix
+      FROM "InvoiceNumberSeries"
+      WHERE code = ${InvoiceSeriesCode.CREDIT_NOTE}::"InvoiceSeriesCode"
+      FOR UPDATE
+    `;
+    const prefix = (rows[0]?.prefix || 'GS').trim().toUpperCase() || 'GS';
+    const dash = sourceInvoiceNumber.lastIndexOf('-');
+    const suffix =
+      dash >= 0 ? sourceInvoiceNumber.slice(dash + 1).trim() : '';
+    if (!/^\d+$/.test(suffix)) {
+      throw new BadRequestException(
+        `Ungültige Rechnungsnummer für Gutschrift: ${sourceInvoiceNumber}`,
+      );
+    }
+    const invoiceNumber = `${prefix}-${suffix}`;
+    const existing = await tx.invoice.findUnique({
+      where: { invoiceNumber },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException(
+        `Gutschrift-Nummer ${invoiceNumber} ist bereits vergeben`,
+      );
+    }
+    return invoiceNumber;
   }
 
   /** Vorschau der nächsten Nummer ohne Verbrauch. */

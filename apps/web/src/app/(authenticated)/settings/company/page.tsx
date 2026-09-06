@@ -40,7 +40,6 @@ const FIELDS = {
   ],
   rechtliches: [
     { key: 'taxNumber', label: 'Steuernummer' },
-    { key: 'vatId', label: 'USt-IdNr.' },
     { key: 'registerCourt', label: 'Registergericht' },
     { key: 'registerNumber', label: 'Registernummer' },
     { key: 'managingDirector', label: 'Geschäftsführer' },
@@ -52,12 +51,20 @@ const FIELDS = {
   ],
 } as const;
 
+const VAT_COUNTRY_FIELDS: readonly { code: string; label: string }[] = [
+  { code: 'DE', label: 'USt-IdNr. Deutschland (DE)' },
+  { code: 'LU', label: 'USt-IdNr. Luxemburg (LU)' },
+  { code: 'NL', label: 'USt-IdNr. Niederlande (NL)' },
+  { code: 'FR', label: 'USt-IdNr. Frankreich (FR)' },
+];
+
 export default function CompanySettingsPage(): React.ReactNode {
   const { toast } = useToast();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [data, setData] = useState<Record<string, string>>({});
+  const [vatByCountry, setVatByCountry] = useState<Record<string, string>>({});
   const [logoKey, setLogoKey] = useState<string | null>(null);
   const [logoTick, setLogoTick] = useState(0);
   const [logoBroken, setLogoBroken] = useState(false);
@@ -76,7 +83,28 @@ export default function CompanySettingsPage(): React.ReactNode {
       settingsApi.getCompanyLogoDarkKey(),
     ])
       .then(([info, logo, logoDark]) => {
-        setData(info);
+        const raw = info as Record<string, unknown>;
+        const nextData: Record<string, string> = {};
+        for (const [k, v] of Object.entries(raw)) {
+          if (k === 'vatIdsByCountry') continue;
+          if (typeof v === 'string') nextData[k] = v;
+        }
+        const byCountry: Record<string, string> = {};
+        const incoming = raw.vatIdsByCountry;
+        if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
+          for (const [code, id] of Object.entries(
+            incoming as Record<string, unknown>,
+          )) {
+            if (typeof id === 'string' && id.trim()) {
+              byCountry[code.toUpperCase()] = id.trim();
+            }
+          }
+        }
+        if (typeof raw.vatId === 'string' && raw.vatId.trim() && !byCountry.DE) {
+          byCountry.DE = raw.vatId.trim();
+        }
+        setData(nextData);
+        setVatByCountry(byCountry);
         setLogoKey(logo.logoKey);
         setLogoDarkKey(logoDark.logoKey);
       })
@@ -91,7 +119,16 @@ export default function CompanySettingsPage(): React.ReactNode {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await settingsApi.saveCompanyInfo(data);
+      const vatIdsByCountry: Record<string, string> = {};
+      for (const [code, id] of Object.entries(vatByCountry)) {
+        const trimmed = id.trim();
+        if (trimmed) vatIdsByCountry[code.toUpperCase()] = trimmed;
+      }
+      await settingsApi.saveCompanyInfo({
+        ...data,
+        vatId: vatIdsByCountry.DE ?? data.vatId ?? '',
+        vatIdsByCountry,
+      });
       toast({ description: 'Firmeninformationen gespeichert' });
     } catch (err) {
       toast({
@@ -193,6 +230,35 @@ export default function CompanySettingsPage(): React.ReactNode {
           {renderSection('Adresse', FIELDS.adresse)}
           {renderSection('Kontakt', FIELDS.kontakt)}
           {renderSection('Rechtliches', FIELDS.rechtliches)}
+
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground">
+              USt-IdNr. je Leistungsort
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Auf Rechnungen wird die USt-IdNr. des Leistungsorts verwendet
+              (z.&nbsp;B. LU oder NL). Fehlt sie, gilt die deutsche Id.
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {VAT_COUNTRY_FIELDS.map((f) => (
+                <div key={f.code} className="space-y-1.5">
+                  <Label>{f.label}</Label>
+                  <Input
+                    value={vatByCountry[f.code] ?? ''}
+                    onChange={(e) =>
+                      setVatByCountry((prev) => ({
+                        ...prev,
+                        [f.code]: e.target.value,
+                      }))
+                    }
+                    className="min-h-[44px]"
+                    placeholder={`${f.code}…`}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+
           {renderSection('Bankverbindung', FIELDS.bank)}
 
           <div className="space-y-4">

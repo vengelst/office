@@ -440,7 +440,8 @@ export class InvoicesService {
 
   /**
    * Storno einer finalisierten Ausgangsrechnung über Gutschrift.
-   * Erzeugt CREDIT_NOTE (GS-…), Original → CANCELLED (Beträge/PDF bleiben).
+   * Erzeugt CREDIT_NOTE mit gleicher Nummer wie die RE (GS-114 zu RE-114),
+   * Original → CANCELLED (Beträge/PDF bleiben).
    */
   async createCreditNote(id: string, userId: string | null) {
     const source = await this.findOne(id);
@@ -470,8 +471,8 @@ export class InvoicesService {
 
     const issueDate = new Date();
     const creditId = await this.prisma.$transaction(async (tx) => {
-      const invoiceNumber = await this.billingSettings.allocateNumber(
-        InvoiceSeriesCode.CREDIT_NOTE,
+      const invoiceNumber = await this.billingSettings.allocateCreditNoteNumber(
+        source.invoiceNumber!,
         tx,
       );
 

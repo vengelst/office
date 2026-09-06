@@ -9,7 +9,7 @@ import PDFDocument from 'pdfkit';
 import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
-import { CompanyInfo, loadCompanyInfoFromDb } from './company.config';
+import { CompanyInfo, loadCompanyInfoFromDb, resolveCompanyVatId } from './company.config';
 import { BillingSettingsService } from '../app-settings/billing-settings.service';
 import {
   applySkontoTemplate,
@@ -71,7 +71,12 @@ export class InvoicePdfService {
       throw new NotFoundException('Rechnung nicht gefunden');
     }
 
-    const company = await loadCompanyInfoFromDb(this.prisma);
+    const companyBase = await loadCompanyInfoFromDb(this.prisma);
+    const companyVatId = resolveCompanyVatId(
+      companyBase,
+      invoice.performanceCountryCode,
+    );
+    const company: CompanyInfo = { ...companyBase, vatId: companyVatId };
     const logo = await this.loadCompanyLogo();
     const billing = await this.billingSettings.getSettingsOnly();
 
@@ -133,6 +138,7 @@ export class InvoicePdfService {
       invoiceType: InvoiceType;
       invoiceNumber: string | null;
       issueDate: Date;
+      performanceCountryCode?: string | null;
       creditedInvoice: { invoiceNumber: string | null } | null;
     },
     logo: Buffer | null,
@@ -154,7 +160,12 @@ export class InvoicePdfService {
       doc.text(`Steuernr.: ${company.taxNumber}`, { width: 245, align: 'right' });
     }
     if (company.vatId) {
-      doc.text(`USt-IdNr.: ${company.vatId}`, { width: 245, align: 'right' });
+      const country = (invoice.performanceCountryCode || 'DE').toUpperCase();
+      const vatLabel =
+        country && country !== 'DE'
+          ? `USt-IdNr. (${country}): ${company.vatId}`
+          : `USt-IdNr.: ${company.vatId}`;
+      doc.text(vatLabel, { width: 245, align: 'right' });
     }
 
     let titleY = 50;

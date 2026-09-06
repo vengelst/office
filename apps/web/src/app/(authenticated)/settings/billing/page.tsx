@@ -36,7 +36,6 @@ export default function BillingSettingsPage(): React.ReactNode {
   const [rePrefix, setRePrefix] = useState('RE');
   const [reNext, setReNext] = useState(40000113);
   const [gsPrefix, setGsPrefix] = useState('GS');
-  const [gsNext, setGsNext] = useState(40000001);
   const [settings, setSettings] = useState<BillingSettingsData | null>(null);
   const [optionsText, setOptionsText] = useState('7, 14, 30, 60');
 
@@ -47,7 +46,6 @@ export default function BillingSettingsPage(): React.ReactNode {
         setRePrefix(data.series.re.prefix);
         setReNext(data.series.re.nextNumber);
         setGsPrefix(data.series.gs.prefix);
-        setGsNext(data.series.gs.nextNumber);
         setSettings(data.settings);
         setOptionsText(data.settings.paymentTermOptions.join(', '));
       })
@@ -56,7 +54,6 @@ export default function BillingSettingsPage(): React.ReactNode {
   }, []);
 
   const rePreview = `${rePrefix}-${reNext}`;
-  const gsPreview = `${gsPrefix}-${gsNext}`;
 
   const handleSave = async (): Promise<void> => {
     if (!isSuperadmin || !settings) return;
@@ -69,7 +66,7 @@ export default function BillingSettingsPage(): React.ReactNode {
       const saved = await settingsApi.saveBilling({
         series: {
           re: { prefix: rePrefix, nextNumber: Number(reNext) },
-          gs: { prefix: gsPrefix, nextNumber: Number(gsNext) },
+          gs: { prefix: gsPrefix },
         },
         settings: {
           ...settings,
@@ -79,7 +76,6 @@ export default function BillingSettingsPage(): React.ReactNode {
       setRePrefix(saved.series.re.prefix);
       setReNext(saved.series.re.nextNumber);
       setGsPrefix(saved.series.gs.prefix);
-      setGsNext(saved.series.gs.nextNumber);
       setSettings(saved.settings);
       setOptionsText(saved.settings.paymentTermOptions.join(', '));
       toast({ description: t.toast.saved });
@@ -175,16 +171,22 @@ export default function BillingSettingsPage(): React.ReactNode {
             onNext={setReNext}
             labels={t.series}
           />
-          <SeriesFields
-            title={t.series.gsTitle}
-            prefix={gsPrefix}
-            next={gsNext}
-            preview={gsPreview}
-            disabled={!isSuperadmin}
-            onPrefix={setGsPrefix}
-            onNext={setGsNext}
-            labels={t.series}
-          />
+          <div className="space-y-3">
+            <p className="text-sm font-medium">{t.series.gsTitle}</p>
+            <div className="space-y-1.5">
+              <Label>{t.series.prefix}</Label>
+              <Input
+                className="min-h-[44px]"
+                disabled={!isSuperadmin}
+                value={gsPrefix}
+                onChange={(e) => setGsPrefix(e.target.value.toUpperCase())}
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">{t.series.gsHint}</p>
+            <p className="text-sm text-muted-foreground">
+              {t.series.gsPreviewLabel(gsPrefix)}
+            </p>
+          </div>
         </CardContent>
       </Card>
 

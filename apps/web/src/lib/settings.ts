@@ -122,8 +122,9 @@ export const settingsApi = {
     ),
 
   // Firmeninformationen
-  getCompanyInfo: () => apiClient.get<Record<string, string>>('/company'),
-  saveCompanyInfo: (data: Record<string, string>) =>
+  getCompanyInfo: () =>
+    apiClient.get<Record<string, unknown>>('/company'),
+  saveCompanyInfo: (data: Record<string, unknown>) =>
     apiClient.post<{ success: true }>('/company', data),
   uploadCompanyLogo: async (file: File) => {
     const formData = new FormData();

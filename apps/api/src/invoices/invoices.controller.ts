@@ -249,7 +249,7 @@ export class InvoicesController {
   @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.SUPERADMIN)
   @ApiOperation({
-    summary: 'Storno → Gutschrift (SUPERADMIN, vergibt GS-Nummer)',
+    summary: 'Storno → Gutschrift (SUPERADMIN, GS mit gleicher Nummer wie RE)',
   })
   creditNote(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.invoices.createCreditNote(id, userIdOf(user));
