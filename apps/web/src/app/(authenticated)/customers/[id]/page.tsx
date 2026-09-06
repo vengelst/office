@@ -83,6 +83,13 @@ const DocumentsTabV2 = dynamic(
     ),
   { loading: () => tabFallback },
 );
+const ProductPricesTab = dynamic(
+  () =>
+    import('@/components/customers/tabs/product-prices-tab').then(
+      (m) => m.ProductPricesTab,
+    ),
+  { loading: () => tabFallback },
+);
 const CommunicationTab = dynamic(
   () =>
     import('@/components/communication/communication-tab').then(
@@ -287,6 +294,9 @@ export default function CustomerDetailPage(): React.ReactNode {
           <TabsTrigger value="documents" className="min-h-[44px]">
             {t.tabs.documents}
           </TabsTrigger>
+          <TabsTrigger value="productPrices" className="min-h-[44px]">
+            {t.tabs.productPrices}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="master">
@@ -296,6 +306,7 @@ export default function CustomerDetailPage(): React.ReactNode {
                 customer={customer}
                 submitting={saving}
                 onSubmit={handleSave}
+                onCustomerRefresh={setCustomer}
               />
             </CardContent>
           </Card>
@@ -369,6 +380,9 @@ export default function CustomerDetailPage(): React.ReactNode {
 
         <TabsContent value="documents">
           <DocumentsTabV2 entityType="CUSTOMER" entityId={id} excludeTypes={['BUSINESS_CARD']} />
+        </TabsContent>
+        <TabsContent value="productPrices">
+          <ProductPricesTab customerId={id} />
         </TabsContent>
       </Tabs>
 

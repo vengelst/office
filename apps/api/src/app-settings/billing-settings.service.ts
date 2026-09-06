@@ -291,6 +291,10 @@ function mergeSettings(
     paymentTermOptions: patch.paymentTermOptions ?? base.paymentTermOptions,
     skonto,
     performanceCountries,
+    reverseChargePdfText:
+      patch.reverseChargePdfText !== undefined
+        ? patch.reverseChargePdfText
+        : base.reverseChargePdfText,
   };
 }
 
@@ -323,5 +327,11 @@ function validateSettings(settings: BillingSettings): void {
     if (c.standardRate < 0 || c.reducedRate < 0) {
       throw new BadRequestException('MwSt-Sätze müssen ≥ 0 sein');
     }
+  }
+  if (
+    typeof settings.reverseChargePdfText !== 'string' ||
+    !settings.reverseChargePdfText.trim()
+  ) {
+    throw new BadRequestException('Reverse-Charge-PDF-Text darf nicht leer sein');
   }
 }

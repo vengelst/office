@@ -179,6 +179,7 @@ export interface BillingSettingsData {
     pdfHintTemplate: string | null;
   };
   performanceCountries: PerformanceCountry[];
+  reverseChargePdfText: string;
 }
 
 export interface BillingSettingsResponse {

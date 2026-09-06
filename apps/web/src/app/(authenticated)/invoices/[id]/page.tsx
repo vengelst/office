@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Copy,
   Download,
+  Mail,
   Plus,
   Trash2,
   XCircle,
@@ -23,6 +24,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -45,6 +53,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { InvoiceStatusBadge } from '@/components/invoices/status-badge';
 import { LineEditor } from '@/components/invoices/line-editor';
 import { PaymentDialog } from '@/components/invoices/payment-dialog';
+import { SendEmailDialog } from '@/components/invoices/send-email-dialog';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { formatDate } from '@/lib/format';
@@ -57,9 +66,17 @@ import {
   openAmount,
   paidTotal,
   type InvoiceDetail,
+  type InvoiceTaxKind,
 } from '@/lib/invoices';
 import { settingsApi } from '@/lib/settings';
 import { texts } from '@/lib/texts';
+
+const TAX_KINDS: InvoiceTaxKind[] = [
+  'STANDARD',
+  'REDUCED',
+  'REVERSE_CHARGE',
+  'TAX_EXEMPT',
+];
 
 export default function InvoiceDetailPage(): React.ReactNode {
   const params = useParams<{ id: string }>();
@@ -73,6 +90,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [payOpen, setPayOpen] = useState(false);
+  const [emailOpen, setEmailOpen] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
   const [creditOpen, setCreditOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -144,6 +162,12 @@ export default function InvoiceDetailPage(): React.ReactNode {
 
   const isDraft = invoice.status === 'DRAFT';
   const isCancelled = invoice.status === 'CANCELLED';
+  const canEmail =
+    (isSuperadmin || Boolean(user?.roles?.includes('OFFICE'))) &&
+    !isDraft &&
+    !isCancelled &&
+    !!invoice.finalizedAt &&
+    (invoice.invoiceType === 'OUTGOING' || invoice.invoiceType === 'CREDIT_NOTE');
   const canCredit =
     isSuperadmin &&
     invoice.invoiceType === 'OUTGOING' &&
@@ -195,6 +219,16 @@ export default function InvoiceDetailPage(): React.ReactNode {
           <Download className="h-4 w-4" />
           {t.actions.pdf}
         </Button>
+        {canEmail && (
+          <Button
+            variant="outline"
+            className="min-h-[44px]"
+            onClick={() => setEmailOpen(true)}
+          >
+            <Mail className="h-4 w-4" />
+            {t.actions.sendEmail}
+          </Button>
+        )}
         <Button
           variant="outline"
           className="min-h-[44px]"
@@ -274,6 +308,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
             internalNotes={internalNotes}
             onInternalNotesChange={setInternalNotes}
             savingNotes={savingNotes}
+            onChanged={setInvoice}
             onSaveNotes={async () => {
               setSavingNotes(true);
               try {
@@ -303,6 +338,14 @@ export default function InvoiceDetailPage(): React.ReactNode {
             setInvoice(updated);
             toast({ description: t.toast.paymentSaved });
           }}
+        />
+      )}
+
+      {emailOpen && (
+        <SendEmailDialog
+          invoiceId={invoice.id}
+          onClose={() => setEmailOpen(false)}
+          onSent={() => setEmailOpen(false)}
         />
       )}
 
@@ -475,6 +518,7 @@ function PaymentsTab({
               <TableRow>
                 <TableHead>{t.date}</TableHead>
                 <TableHead className="text-right">{t.amount}</TableHead>
+                <TableHead className="text-right">{t.skonto}</TableHead>
                 <TableHead>{t.method}</TableHead>
                 <TableHead>{t.reference}</TableHead>
                 <TableHead className="w-px" />
@@ -486,6 +530,11 @@ function PaymentsTab({
                   <TableCell>{formatDate(p.paidDate)}</TableCell>
                   <TableCell className="text-right font-mono font-medium">
                     {formatCurrency(p.amount)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground">
+                    {p.skontoApplied
+                      ? formatCurrency(p.skontoAmount)
+                      : '–'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {p.method ?? '–'}
@@ -519,14 +568,17 @@ function DetailsTab({
   onInternalNotesChange,
   savingNotes,
   onSaveNotes,
+  onChanged,
 }: {
   invoice: InvoiceDetail;
   internalNotes: string;
   onInternalNotesChange: (v: string) => void;
   savingNotes: boolean;
   onSaveNotes: () => Promise<void>;
+  onChanged: (inv: InvoiceDetail) => void;
 }): React.ReactNode {
   const t = texts.invoices.details;
+  const { toast } = useToast();
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -579,6 +631,48 @@ function DetailsTab({
             label={t.performanceCountry}
             value={invoice.performanceCountryCode ?? t.none}
           />
+          {invoice.status === 'DRAFT' ? (
+            <div className="space-y-1.5">
+              <Label>{t.taxKind}</Label>
+              <Select
+                value={invoice.taxKind ?? 'STANDARD'}
+                onValueChange={(v) => {
+                  void invoicesApi
+                    .update(invoice.id, { taxKind: v as InvoiceTaxKind })
+                    .then((updated) => {
+                      onChanged(updated);
+                      toast({ description: texts.invoices.toast.updated });
+                    })
+                    .catch((err) =>
+                      toast({
+                        description:
+                          err instanceof ApiError
+                            ? err.message
+                            : texts.invoices.toast.error,
+                      }),
+                    );
+                }}
+              >
+                <SelectTrigger className="min-h-[44px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TAX_KINDS.map((k) => (
+                    <SelectItem key={k} value={k}>
+                      {texts.invoices.taxKind[k]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <Field
+              label={t.taxKind}
+              value={
+                texts.invoices.taxKind[invoice.taxKind ?? 'STANDARD']
+              }
+            />
+          )}
           <Field
             label={t.period}
             value={

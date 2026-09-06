@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,6 +43,7 @@ import {
   type InvoiceLine,
   type InvoiceLineType,
 } from '@/lib/invoices';
+import { invoiceProductsApi, type InvoiceProduct } from '@/lib/invoice-products';
 import { texts } from '@/lib/texts';
 
 const LINE_TYPES: InvoiceLineType[] = [
@@ -124,6 +125,7 @@ export function LineEditor({
                 <TableHead className="text-right">{t.quantity}</TableHead>
                 <TableHead>{t.unit}</TableHead>
                 <TableHead className="text-right">{t.unitPrice}</TableHead>
+                <TableHead className="text-right">{t.discount}</TableHead>
                 <TableHead className="text-right">{t.total}</TableHead>
                 {editable && <TableHead className="w-px" />}
               </TableRow>
@@ -150,6 +152,13 @@ export function LineEditor({
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(line.unitPrice)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-muted-foreground text-xs">
+                    {line.discountAmount != null
+                      ? formatCurrency(line.discountAmount)
+                      : line.discountPercent != null
+                        ? `${line.discountPercent} %`
+                        : '–'}
                   </TableCell>
                   <TableCell className="text-right font-mono font-medium">
                     {formatCurrency(line.total)}
@@ -248,6 +257,7 @@ export function LineEditor({
       {(addOpen || editLine) && (
         <LineDialog
           invoiceId={invoice.id}
+          customerId={invoice.customerId}
           line={editLine}
           onClose={() => {
             setAddOpen(false);
@@ -292,11 +302,13 @@ function SummaryRow({
 
 function LineDialog({
   invoiceId,
+  customerId,
   line,
   onClose,
   onSaved,
 }: {
   invoiceId: string;
+  customerId: string | null;
   line: InvoiceLine | null;
   onClose: () => void;
   onSaved: () => void;
@@ -310,9 +322,51 @@ function LineDialog({
   const [quantity, setQuantity] = useState(line?.quantity ?? 1);
   const [unit, setUnit] = useState(line?.unit ?? '');
   const [unitPrice, setUnitPrice] = useState(line?.unitPrice ?? 0);
+  const [productId, setProductId] = useState(line?.productId ?? '');
+  const [discountPercent, setDiscountPercent] = useState<number | ''>(
+    line?.discountPercent ?? '',
+  );
+  const [discountAmount, setDiscountAmount] = useState<number | ''>(
+    line?.discountAmount ?? '',
+  );
+  const [products, setProducts] = useState<InvoiceProduct[]>([]);
   const [busy, setBusy] = useState(false);
 
-  const preview = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+  useEffect(() => {
+    invoiceProductsApi
+      .list({ activeOnly: true })
+      .then(setProducts)
+      .catch(() => undefined);
+  }, []);
+
+  const gross = (Number(quantity) || 0) * (Number(unitPrice) || 0);
+  const discount =
+    discountAmount !== '' && discountAmount != null
+      ? Number(discountAmount)
+      : discountPercent !== '' && discountPercent != null
+        ? (gross * Number(discountPercent)) / 100
+        : 0;
+  const preview = Math.max(0, gross - discount);
+
+  const onProductChange = async (id: string): Promise<void> => {
+    setProductId(id);
+    if (!id || id === '__none') {
+      setProductId('');
+      return;
+    }
+    try {
+      const resolved = await invoiceProductsApi.resolvePrice(
+        id,
+        customerId ?? undefined,
+      );
+      setDescription(resolved.product.name);
+      setUnit(resolved.product.unit ?? '');
+      setUnitPrice(resolved.unitPrice);
+      setLineType('CUSTOM');
+    } catch {
+      /* ignore */
+    }
+  };
 
   const save = async (): Promise<void> => {
     if (!description.trim()) return;
@@ -323,6 +377,10 @@ function LineDialog({
       quantity: Number(quantity),
       unit: unit.trim() || undefined,
       unitPrice: Number(unitPrice),
+      productId: productId || undefined,
+      discountPercent:
+        discountPercent === '' ? null : Number(discountPercent),
+      discountAmount: discountAmount === '' ? null : Number(discountAmount),
     };
     try {
       if (line) {
@@ -342,11 +400,31 @@ function LineDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{line ? t.editTitle : t.addTitle}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>{t.product}</Label>
+            <Select
+              value={productId || '__none'}
+              onValueChange={(v) => void onProductChange(v)}
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue placeholder={t.selectProduct} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none">{t.selectProduct}</SelectItem>
+                {products.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                    {p.code ? ` (${p.code})` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-1.5">
             <Label>{t.type}</Label>
             <Select
@@ -400,6 +478,39 @@ function LineDialog({
                 step="0.01"
                 value={unitPrice}
                 onChange={(e) => setUnitPrice(Number(e.target.value))}
+                className="min-h-[44px]"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t.discountPercent}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                max={100}
+                value={discountPercent}
+                onChange={(e) =>
+                  setDiscountPercent(
+                    e.target.value === '' ? '' : Number(e.target.value),
+                  )
+                }
+                className="min-h-[44px]"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t.discountAmount}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0}
+                value={discountAmount}
+                onChange={(e) =>
+                  setDiscountAmount(
+                    e.target.value === '' ? '' : Number(e.target.value),
+                  )
+                }
                 className="min-h-[44px]"
               />
             </div>

@@ -13,19 +13,27 @@ import {
 import {
   InvoiceSeriesCode,
   InvoiceStatus,
+  InvoiceTaxKind,
   InvoiceType,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { BillingSettingsService } from '../app-settings/billing-settings.service';
+import { VAT_VALIDATION_MAX_AGE_DAYS } from '../app-settings/billing-settings.types';
+import { EmailService, EmailAttachment } from '../email/email.service';
+import { DocumentsService } from '../documents/documents.service';
+import { TimesheetPdfService } from '../timesheets/pdf.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { CreateInvoiceLineDto } from './dto/create-invoice-line.dto';
 import { UpdateInvoiceLineDto } from './dto/update-invoice-line.dto';
 import { GenerateFromTimesheetsDto } from './dto/generate-from-timesheets.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { SendInvoiceEmailDto } from './dto/send-invoice-email.dto';
 import { InvoiceExportService } from './invoice-export.service';
 import { InvoiceGenerationService } from './invoice-generation.service';
+import { InvoicePdfService } from './invoice-pdf.service';
+import { computeLineNet } from './line-totals';
 import {
   DEFAULT_PAYMENT_TERM_DAYS,
   ListInvoicesParams,
@@ -36,6 +44,7 @@ import {
   coerceDate,
   computeTotals,
   detailInclude,
+  effectiveTaxRateForKind,
   listSelect,
   round2,
 } from './invoice-shared';
@@ -54,6 +63,10 @@ export class InvoicesService {
     private readonly exportService: InvoiceExportService,
     private readonly generationService: InvoiceGenerationService,
     private readonly billingSettings: BillingSettingsService,
+    private readonly emailService: EmailService,
+    private readonly documentsService: DocumentsService,
+    private readonly timesheetPdf: TimesheetPdfService,
+    private readonly pdfService: InvoicePdfService,
   ) {}
 
   // ── Liste / Detail ───────────────────────────────────────────
@@ -175,9 +188,14 @@ export class InvoicesService {
       dto.subcontractorId,
     );
 
+    const taxKind = dto.taxKind ?? InvoiceTaxKind.STANDARD;
+    if (taxKind === InvoiceTaxKind.REVERSE_CHARGE) {
+      await this.assertReverseChargeAllowed(dto.customerId ?? null);
+    }
     const taxRate = await this.resolveTaxRate(
       dto.taxRate,
       dto.performanceCountryCode,
+      taxKind,
     );
     const lines = buildLineData(dto.lines ?? []);
     const totals = computeTotals(lines, taxRate);
@@ -193,6 +211,7 @@ export class InvoicesService {
         periodFrom: coerceDate(dto.periodFrom) ?? undefined,
         periodTo: coerceDate(dto.periodTo) ?? undefined,
         performanceCountryCode: dto.performanceCountryCode?.trim().toUpperCase() || null,
+        taxKind,
         taxRate,
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
@@ -260,12 +279,29 @@ export class InvoicesService {
       return this.findOne(id);
     }
 
+    const taxKind = dto.taxKind ?? invoice.taxKind;
+    if (
+      dto.taxKind === InvoiceTaxKind.REVERSE_CHARGE ||
+      (taxKind === InvoiceTaxKind.REVERSE_CHARGE &&
+        (dto.customerId !== undefined || dto.taxKind !== undefined))
+    ) {
+      await this.assertReverseChargeAllowed(
+        dto.customerId !== undefined
+          ? dto.customerId || null
+          : invoice.customerId,
+      );
+    }
+
     const taxRate =
-      dto.taxRate !== undefined
-        ? await this.resolveTaxRate(dto.taxRate, dto.performanceCountryCode)
-        : dto.performanceCountryCode
-          ? await this.resolveTaxRate(undefined, dto.performanceCountryCode)
-          : invoice.taxRate;
+      dto.taxRate !== undefined ||
+      dto.performanceCountryCode !== undefined ||
+      dto.taxKind !== undefined
+        ? await this.resolveTaxRate(
+            dto.taxRate,
+            dto.performanceCountryCode ?? invoice.performanceCountryCode ?? undefined,
+            taxKind,
+          )
+        : invoice.taxRate;
 
     await this.prisma.invoice.update({
       where: { id },
@@ -283,8 +319,11 @@ export class InvoicesService {
           dto.performanceCountryCode === undefined
             ? undefined
             : dto.performanceCountryCode?.trim().toUpperCase() || null,
+        taxKind: dto.taxKind ?? undefined,
         taxRate:
-          dto.taxRate !== undefined || dto.performanceCountryCode !== undefined
+          dto.taxRate !== undefined ||
+          dto.performanceCountryCode !== undefined ||
+          dto.taxKind !== undefined
             ? taxRate
             : undefined,
         isPartialInvoice: dto.isPartialInvoice ?? undefined,
@@ -304,8 +343,8 @@ export class InvoicesService {
 
     if (
       (dto.taxRate !== undefined && dto.taxRate !== invoice.taxRate) ||
-      (dto.performanceCountryCode !== undefined &&
-        taxRate !== invoice.taxRate)
+      dto.performanceCountryCode !== undefined ||
+      dto.taxKind !== undefined
     ) {
       await this.recomputeTotals(id, taxRate);
     }
@@ -352,6 +391,9 @@ export class InvoicesService {
     }
     if (invoice.taxRate == null) {
       throw new BadRequestException('MwSt-Satz ist erforderlich');
+    }
+    if (invoice.taxKind === InvoiceTaxKind.REVERSE_CHARGE) {
+      await this.assertReverseChargeAllowed(invoice.customerId);
     }
 
     const billing = await this.billingSettings.getSettingsOnly();
@@ -444,6 +486,7 @@ export class InvoicesService {
           periodFrom: source.periodFrom,
           periodTo: source.periodTo,
           performanceCountryCode: source.performanceCountryCode,
+          taxKind: source.taxKind,
           taxRate: source.taxRate,
           subtotal: source.subtotal,
           taxAmount: source.taxAmount,
@@ -469,6 +512,9 @@ export class InvoicesService {
               quantity: l.quantity,
               unit: l.unit,
               unitPrice: l.unitPrice,
+              discountPercent: l.discountPercent,
+              discountAmount: l.discountAmount,
+              productId: l.productId,
               total: l.total,
               weeklyTimesheetId: l.weeklyTimesheetId,
             })),
@@ -541,6 +587,9 @@ export class InvoicesService {
         quantity: l.quantity,
         unit: l.unit,
         unitPrice: l.unitPrice,
+        discountPercent: l.discountPercent,
+        discountAmount: l.discountAmount,
+        product: l.productId ? { connect: { id: l.productId } } : undefined,
         total: l.total,
         weeklyTimesheet: l.weeklyTimesheetId
           ? { connect: { id: l.weeklyTimesheetId } }
@@ -559,6 +608,7 @@ export class InvoicesService {
         periodFrom: source.periodFrom,
         periodTo: source.periodTo,
         performanceCountryCode: source.performanceCountryCode,
+        taxKind: source.taxKind,
         taxRate: source.taxRate,
         subtotal: source.subtotal,
         taxAmount: source.taxAmount,
@@ -605,6 +655,8 @@ export class InvoicesService {
     const position = dto.position ?? (await this.nextLinePosition(invoiceId));
     const quantity = dto.quantity ?? 1;
     const unitPrice = dto.unitPrice ?? 0;
+    const discountPercent = dto.discountPercent ?? null;
+    const discountAmount = dto.discountAmount ?? null;
 
     const line = await this.prisma.invoiceLine.create({
       data: {
@@ -615,7 +667,15 @@ export class InvoicesService {
         quantity,
         unit: dto.unit,
         unitPrice,
-        total: round2(quantity * unitPrice),
+        discountPercent,
+        discountAmount,
+        productId: dto.productId ?? null,
+        total: computeLineNet({
+          quantity,
+          unitPrice,
+          discountPercent,
+          discountAmount,
+        }),
         weeklyTimesheetId: dto.weeklyTimesheetId ?? null,
       },
     });
@@ -637,6 +697,14 @@ export class InvoicesService {
 
     const quantity = dto.quantity ?? line.quantity;
     const unitPrice = dto.unitPrice ?? line.unitPrice;
+    const discountPercent =
+      dto.discountPercent === undefined
+        ? line.discountPercent
+        : dto.discountPercent;
+    const discountAmount =
+      dto.discountAmount === undefined
+        ? line.discountAmount
+        : dto.discountAmount;
 
     const updated = await this.prisma.invoiceLine.update({
       where: { id: lineId },
@@ -647,11 +715,22 @@ export class InvoicesService {
         unit: dto.unit === undefined ? undefined : dto.unit,
         unitPrice: dto.unitPrice ?? undefined,
         position: dto.position ?? undefined,
+        productId:
+          dto.productId === undefined ? undefined : dto.productId || null,
+        discountPercent:
+          dto.discountPercent === undefined ? undefined : dto.discountPercent,
+        discountAmount:
+          dto.discountAmount === undefined ? undefined : dto.discountAmount,
         weeklyTimesheetId:
           dto.weeklyTimesheetId === undefined
             ? undefined
             : dto.weeklyTimesheetId || null,
-        total: round2(quantity * unitPrice),
+        total: computeLineNet({
+          quantity,
+          unitPrice,
+          discountPercent,
+          discountAmount,
+        }),
       },
     });
     await this.recomputeTotals(invoiceId);
@@ -739,6 +818,14 @@ export class InvoicesService {
         'Für stornierte Rechnungen können keine Zahlungen erfasst werden',
       );
     }
+    const skontoApplied = dto.skontoApplied === true;
+    if (skontoApplied) {
+      if (dto.skontoAmount == null || !(dto.skontoAmount > 0)) {
+        throw new BadRequestException(
+          'Bei „Skonto gezogen“ muss ein Skontobetrag > 0 angegeben werden',
+        );
+      }
+    }
     const payment = await this.prisma.invoicePayment.create({
       data: {
         invoiceId,
@@ -747,6 +834,8 @@ export class InvoicesService {
         method: dto.method,
         reference: dto.reference,
         notes: dto.notes,
+        skontoApplied,
+        skontoAmount: skontoApplied ? dto.skontoAmount! : null,
       },
     });
     await this.recomputePaymentStatus(invoiceId);
@@ -856,24 +945,338 @@ export class InvoicesService {
   // ── Hilfsfunktionen ──────────────────────────────────────────
 
   /**
-   * MwSt aus DTO oder Leistungsort-Land ableiten.
+   * MwSt aus taxKind, DTO oder Leistungsort-Land ableiten.
    */
   private async resolveTaxRate(
     taxRate?: number,
-    performanceCountryCode?: string,
+    performanceCountryCode?: string | null,
+    taxKind: InvoiceTaxKind = InvoiceTaxKind.STANDARD,
   ): Promise<number> {
-    if (taxRate != null && !Number.isNaN(taxRate)) {
-      return taxRate;
-    }
+    let countryRates: { standardRate: number; reducedRate: number } | null =
+      null;
     if (performanceCountryCode?.trim()) {
       const settings = await this.billingSettings.getSettingsOnly();
       const code = performanceCountryCode.trim().toUpperCase();
       const country = settings.performanceCountries.find(
         (c) => c.countryCode.toUpperCase() === code,
       );
-      if (country) return country.standardRate;
+      if (country) {
+        countryRates = {
+          standardRate: country.standardRate,
+          reducedRate: country.reducedRate,
+        };
+      }
     }
-    return 19;
+    return effectiveTaxRateForKind(taxKind, taxRate, countryRates);
+  }
+
+  /**
+   * Reverse Charge nur mit gültiger, nicht zu alter VIES-Prüfung.
+   */
+  private async assertReverseChargeAllowed(
+    customerId: string | null | undefined,
+  ): Promise<void> {
+    if (!customerId) {
+      throw new BadRequestException(
+        'Reverse Charge erfordert einen Kunden mit gültiger USt-IdNr.',
+      );
+    }
+    const customer = await this.prisma.customer.findFirst({
+      where: { id: customerId, deletedAt: null },
+      select: {
+        vatId: true,
+        vatIdValid: true,
+        vatIdValidatedAt: true,
+      },
+    });
+    if (!customer?.vatId?.trim()) {
+      throw new BadRequestException(
+        'Kunde hat keine USt-IdNr. – Reverse Charge nicht möglich',
+      );
+    }
+    if (customer.vatIdValid !== true || !customer.vatIdValidatedAt) {
+      throw new BadRequestException(
+        'USt-IdNr. des Kunden ist nicht gültig geprüft (VIES). Bitte zuerst prüfen.',
+      );
+    }
+    const ageMs = Date.now() - customer.vatIdValidatedAt.getTime();
+    const maxAgeMs = VAT_VALIDATION_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+    if (ageMs > maxAgeMs) {
+      throw new BadRequestException(
+        `VIES-Prüfung ist älter als ${VAT_VALIDATION_MAX_AGE_DAYS} Tage. Bitte erneut prüfen.`,
+      );
+    }
+  }
+
+  /**
+   * Skonto-Auswertung: Zahlungen mit skontoApplied.
+   */
+  async listSkontoPayments(params?: {
+    page?: number;
+    limit?: number;
+    periodFrom?: string;
+    periodTo?: string;
+    customerId?: string;
+  }) {
+    const page = Math.max(1, Number(params?.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(params?.limit) || 50));
+    const skip = (page - 1) * limit;
+    const where: Prisma.InvoicePaymentWhereInput = {
+      skontoApplied: true,
+    };
+    const from = coerceDate(params?.periodFrom) ?? undefined;
+    const to = coerceDate(params?.periodTo) ?? undefined;
+    if (from || to) {
+      where.paidDate = {};
+      if (from) where.paidDate.gte = from;
+      if (to) where.paidDate.lte = to;
+    }
+    if (params?.customerId) {
+      where.invoice = { customerId: params.customerId };
+    }
+
+    const [data, total, sumAgg] = await this.prisma.$transaction([
+      this.prisma.invoicePayment.findMany({
+        where,
+        include: {
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              invoiceType: true,
+              total: true,
+              customer: {
+                select: { id: true, companyName: true, customerNumber: true },
+              },
+            },
+          },
+        },
+        orderBy: { paidDate: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.invoicePayment.count({ where }),
+      this.prisma.invoicePayment.aggregate({
+        where,
+        _sum: { skontoAmount: true, amount: true },
+      }),
+    ]);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+      sums: {
+        skontoAmount: round2(sumAgg._sum.skontoAmount ?? 0),
+        paymentAmount: round2(sumAgg._sum.amount ?? 0),
+      },
+    };
+  }
+
+  /**
+   * Vorschläge für E-Mail-Anhänge (Kundendokumente + verknüpfte Stundenzettel).
+   */
+  async getEmailAttachmentOptions(id: string) {
+    const invoice = await this.findOne(id);
+    if (!invoice.customerId) {
+      throw new BadRequestException('Rechnung hat keinen Kunden');
+    }
+    const customerDocs = await this.documentsService.findByEntity(
+      'CUSTOMER',
+      invoice.customerId,
+    );
+    const timesheetIds = [
+      ...new Set(
+        invoice.lines
+          .map((l) => l.weeklyTimesheetId)
+          .filter((x): x is string => Boolean(x)),
+      ),
+    ];
+    const timesheets = timesheetIds.length
+      ? await this.prisma.weeklyTimesheet.findMany({
+          where: { id: { in: timesheetIds } },
+          select: {
+            id: true,
+            weekNumber: true,
+            weekYear: true,
+            worker: { select: { firstName: true, lastName: true } },
+          },
+        })
+      : [];
+
+    const billingEmail =
+      invoice.customer?.emails?.find(
+        (e) => e.emailType === 'BILLING' && e.isPrimary,
+      ) ??
+      invoice.customer?.emails?.find((e) => e.emailType === 'BILLING') ??
+      null;
+
+    return {
+      recipient: billingEmail
+        ? {
+            email: billingEmail.email,
+            label: billingEmail.label,
+            emailType: billingEmail.emailType,
+          }
+        : null,
+      customerDocuments: customerDocs.map((d) => ({
+        id: d.id,
+        title: d.title,
+        originalFilename: d.originalFilename,
+        mimeType: d.mimeType,
+        documentType: d.documentType,
+        createdAt: d.createdAt,
+      })),
+      timesheets: timesheets.map((t) => ({
+        id: t.id,
+        label: `Stundenzettel KW${t.weekNumber}/${t.weekYear} – ${t.worker.lastName}, ${t.worker.firstName}`,
+        weekNumber: t.weekNumber,
+        weekYear: t.weekYear,
+      })),
+    };
+  }
+
+  /**
+   * Finalisierte RE/GS per E-Mail an Billing-Adresse senden.
+   */
+  async sendEmail(id: string, dto: SendInvoiceEmailDto) {
+    const invoice = await this.findOne(id);
+    if (
+      invoice.invoiceType !== InvoiceType.OUTGOING &&
+      invoice.invoiceType !== InvoiceType.CREDIT_NOTE
+    ) {
+      throw new BadRequestException(
+        'Nur Ausgangsrechnungen und Gutschriften können per E-Mail versendet werden',
+      );
+    }
+    if (
+      invoice.status === InvoiceStatus.DRAFT ||
+      !invoice.invoiceNumber ||
+      !invoice.finalizedAt
+    ) {
+      throw new BadRequestException(
+        'Nur finalisierte Rechnungen können per E-Mail versendet werden',
+      );
+    }
+    if (!invoice.customerId) {
+      throw new BadRequestException('Rechnung hat keinen Kunden');
+    }
+
+    const emails = invoice.customer?.emails ?? [];
+    const billing =
+      emails.find((e) => e.emailType === 'BILLING' && e.isPrimary) ??
+      emails.find((e) => e.emailType === 'BILLING');
+    if (!billing?.email) {
+      throw new BadRequestException(
+        'Kunde hat keine Billing-E-Mail (Typ BILLING). Bitte unter Kunden → E-Mails hinterlegen.',
+      );
+    }
+
+    const attachments: EmailAttachment[] = [];
+
+    // Rechnungs-PDF
+    const { buffer: pdfBuffer, filename: pdfFilename } =
+      await this.pdfService.generate(id);
+    attachments.push({
+      filename: pdfFilename,
+      content: pdfBuffer,
+      contentType: 'application/pdf',
+    });
+
+    // Kundendokumente
+    const docIds = [...new Set(dto.documentIds ?? [])];
+    for (const docId of docIds) {
+      const link = await this.prisma.documentLink.findFirst({
+        where: {
+          documentId: docId,
+          entityType: 'CUSTOMER',
+          entityId: invoice.customerId,
+        },
+        select: { id: true },
+      });
+      if (!link) {
+        throw new BadRequestException(
+          `Dokument ${docId} gehört nicht zu diesem Kunden`,
+        );
+      }
+      const { stream, filename, mimeType } =
+        await this.documentsService.getDownload(docId);
+      const chunks: Buffer[] = [];
+      for await (const chunk of stream) {
+        chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      }
+      attachments.push({
+        filename,
+        content: Buffer.concat(chunks),
+        contentType: mimeType,
+      });
+    }
+
+    // Stundenzettel-PDFs (nur wenn an Rechnung verknüpft)
+    const allowedTs = new Set(
+      invoice.lines
+        .map((l) => l.weeklyTimesheetId)
+        .filter((x): x is string => Boolean(x)),
+    );
+    const tsIds = [...new Set(dto.weeklyTimesheetIds ?? [])];
+    for (const tsId of tsIds) {
+      if (!allowedTs.has(tsId)) {
+        throw new BadRequestException(
+          `Stundenzettel ${tsId} ist nicht mit dieser Rechnung verknüpft`,
+        );
+      }
+      const { buffer, filename } = await this.timesheetPdf.generate(tsId);
+      attachments.push({
+        filename,
+        content: buffer,
+        contentType: 'application/pdf',
+      });
+    }
+
+    const docTitle =
+      invoice.invoiceType === InvoiceType.CREDIT_NOTE ? 'Gutschrift' : 'Rechnung';
+    const subject = `${docTitle} ${invoice.invoiceNumber} – ${invoice.customer?.companyName ?? ''}`;
+    const html = `<div style="font-family: sans-serif; padding: 20px; max-width: 560px;">
+  <h2 style="color: #333;">${docTitle} ${invoice.invoiceNumber}</h2>
+  <p>anbei erhalten Sie ${docTitle === 'Gutschrift' ? 'die Gutschrift' : 'die Rechnung'} als PDF.</p>
+  <p style="color: #666; font-size: 12px; margin-top: 24px;">Diese E-Mail wurde aus Office versendet.</p>
+</div>`;
+
+    const result = await this.emailService.send(
+      billing.email,
+      subject,
+      html,
+      attachments,
+    );
+
+    await this.prisma.emailLog.create({
+      data: {
+        recipientEmail: billing.email,
+        subject,
+        body: html,
+        attachmentPath: pdfFilename,
+        sentAt: result.success ? new Date() : null,
+        status: result.success ? 'SENT' : 'FAILED',
+        errorMessage: result.error ?? null,
+        relatedEntityType: 'INVOICE',
+        relatedEntityId: id,
+      },
+    });
+
+    if (!result.success) {
+      throw new BadRequestException(
+        result.error ?? 'E-Mail-Versand fehlgeschlagen',
+      );
+    }
+
+    return {
+      success: true,
+      recipient: billing.email,
+      messageId: result.messageId,
+      attachmentCount: attachments.length,
+    };
   }
 
   /**
@@ -1045,6 +1448,9 @@ export class InvoicesService {
         id: true,
         status: true,
         taxRate: true,
+        taxKind: true,
+        customerId: true,
+        performanceCountryCode: true,
         invoiceType: true,
         invoiceNumber: true,
       },

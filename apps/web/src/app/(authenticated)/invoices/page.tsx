@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileSpreadsheet, Plus } from 'lucide-react';
+import { FileSpreadsheet, Percent, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -118,6 +118,14 @@ export default function InvoicesPage(): React.ReactNode {
   return (
     <div>
       <PageHeader title={t.title} description={t.subtitle}>
+        <Button
+          variant="outline"
+          className="min-h-[44px]"
+          onClick={() => router.push('/invoices/skonto')}
+        >
+          <Percent className="h-4 w-4" />
+          {t.actions.skontoReport}
+        </Button>
         <Button
           variant="outline"
           className="min-h-[44px]"

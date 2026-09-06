@@ -23,6 +23,8 @@ export interface BillingSettings {
   paymentTermOptions: number[];
   skonto: SkontoSettings;
   performanceCountries: PerformanceCountry[];
+  /** PDF-Hinweis bei Reverse Charge (§13b); editierbar unter Verrechnung. */
+  reverseChargePdfText: string;
 }
 
 export interface InvoiceSeriesView {
@@ -42,6 +44,12 @@ export interface BillingSettingsResponse {
 
 export const BILLING_SETTINGS_KEY = 'billing_settings';
 
+export const DEFAULT_REVERSE_CHARGE_PDF_TEXT =
+  'Steuerschuldnerschaft des Leistungsempfängers gemäß § 13b UStG (Reverse Charge). Die Umsatzsteuer ist vom Leistungsempfänger zu entrichten.';
+
+/** Max. Alter einer VIES-Prüfung in Tagen, bevor RC erneut prüfen muss. */
+export const VAT_VALIDATION_MAX_AGE_DAYS = 90;
+
 export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
   defaultPaymentTermDays: 14,
   paymentTermOptions: [7, 14, 30, 60],
@@ -51,6 +59,7 @@ export const DEFAULT_BILLING_SETTINGS: BillingSettings = {
     pdfHintTemplate:
       'Bei Zahlung innerhalb von {{skontoDays}} Tagen gewähren wir {{skontoPercent}} % Skonto ({{skontoAmount}}). Zahlungsziel ohne Abzug: {{dueDate}}. Rechnungs-Nr. {{invoiceNumber}} – {{companyName}}.',
   },
+  reverseChargePdfText: DEFAULT_REVERSE_CHARGE_PDF_TEXT,
   performanceCountries: [
     {
       countryCode: 'DE',
