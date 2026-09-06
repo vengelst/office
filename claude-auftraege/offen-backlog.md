@@ -1,9 +1,18 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-09-01** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
+Stand: **2026-09-06** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**  
 **Letzte Übergabe:** [`session-uebergabe-2026-09-01-spie-ki-import.md`](./session-uebergabe-2026-09-01-spie-ki-import.md)
+
+---
+
+## Session-Notiz Cursor 06.09.2026 – Rechnungswesen
+
+- Konzept Ausgangsrechnungen (GoBD): Nummer erst Finalisieren, Format **`RE-40000113`**, Gutschrift **`GS-…`**, Finalisieren nur SUPERADMIN
+- Nummernkreise + Verrechnung in Settings durch Admin pflegbar
+- **Cloud-Auftrag `#27` Phase 1** Spec: [`claude-arbeitsitems-27-rechnungswesen-phase1.md`](./claude-arbeitsitems-27-rechnungswesen-phase1.md)
+- Folge: VIES/RC, Produkte/Kundenpreise, E-Mail+Anhänge, Skonto-Auswertung
 
 ---
 
@@ -118,7 +127,8 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 **Noch zu tun (Priorität):**
 1. **Google Admin (manuell, Voraussetzung für #20-Test):** Calendar API aktivieren + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
 2. **Cloud-Auftrag `#20`** – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`) – Spec startklar
-3. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk nur aktuelle Version (`claude-arbeitsitems-26-projektplaene-kiosk.md`) – Spec startklar
+3. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk nur aktuelle Version (`claude-arbeitsitems-26-projektplaene-kiosk.md`) – Spec startklar (ggf. bereits umgesetzt prüfen)
+4. **Cloud-Auftrag `#27`** – Rechnungswesen Phase 1: Finalisieren, RE/GS-Nummernkreise, Settings Verrechnung (`claude-arbeitsitems-27-rechnungswesen-phase1.md`) – Spec startklar
 4. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
 5. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
 6. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
