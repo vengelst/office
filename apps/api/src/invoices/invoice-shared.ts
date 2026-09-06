@@ -61,14 +61,20 @@ export const listSelect = {
   isPartialInvoice: true,
   partialNumber: true,
   partialPercentage: true,
+  performanceCountryCode: true,
   issueDate: true,
   dueDate: true,
   paidDate: true,
+  finalizedAt: true,
+  creditedInvoiceId: true,
   createdAt: true,
   project: { select: { id: true, projectNumber: true, title: true } },
   customer: { select: { id: true, companyName: true } },
   subcontractor: { select: { id: true, name: true } },
-  _count: { select: { lines: true, payments: true } },
+  creditedInvoice: {
+    select: { id: true, invoiceNumber: true, status: true },
+  },
+  _count: { select: { lines: true, payments: true, creditNotes: true } },
 } satisfies Prisma.InvoiceSelect;
 
 /** Vollständige Projektion für die Detailansicht. */
@@ -90,12 +96,37 @@ export const detailInclude = {
       customerNumber: true,
       companyName: true,
       paymentTermDays: true,
+      addressLine1: true,
+      addressLine2: true,
+      postalCode: true,
+      city: true,
+      country: true,
     },
   },
   subcontractor: { select: { id: true, name: true } },
   createdBy: { select: { id: true, displayName: true } },
-  lines: { orderBy: { position: 'asc' } },
-  payments: { orderBy: { paidDate: 'asc' } },
+  finalizedBy: { select: { id: true, displayName: true } },
+  creditedInvoice: {
+    select: {
+      id: true,
+      invoiceNumber: true,
+      status: true,
+      total: true,
+      issueDate: true,
+    },
+  },
+  creditNotes: {
+    select: {
+      id: true,
+      invoiceNumber: true,
+      status: true,
+      total: true,
+      issueDate: true,
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
+  lines: { orderBy: { position: 'asc' as const } },
+  payments: { orderBy: { paidDate: 'asc' as const } },
 } satisfies Prisma.InvoiceInclude;
 
 /** Datumsfelder von ISO-Strings nach Date konvertieren. */

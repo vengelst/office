@@ -10,6 +10,9 @@ import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { CompanyInfo, loadCompanyInfoFromDb } from './company.config';
+import { BillingSettingsService } from '../app-settings/billing-settings.service';
+import { applySkontoTemplate } from '../app-settings/billing-settings.types';
+import { round2 } from './invoice-shared';
 
 const COMPANY_LOGO_SETTING = 'company_logo_key';
 
@@ -23,14 +26,11 @@ export class InvoicePdfService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly billingSettings: BillingSettingsService,
   ) {}
 
   /**
    * Erzeugt die Rechnung als PDF-Buffer (Standard-Layout).
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @returns Generiertes Ergebnis
-   * @throws {NotFoundException} Wenn der Datensatz nicht gefunden wird
    */
   async generate(id: string): Promise<{ buffer: Buffer; filename: string }> {
     const invoice = await this.prisma.invoice.findUnique({
@@ -57,6 +57,9 @@ export class InvoicePdfService {
             country: true,
           },
         },
+        creditedInvoice: {
+          select: { invoiceNumber: true },
+        },
         lines: { orderBy: { position: 'asc' } },
       },
     });
@@ -66,6 +69,7 @@ export class InvoicePdfService {
 
     const company = await loadCompanyInfoFromDb(this.prisma);
     const logo = await this.loadCompanyLogo();
+    const billing = await this.billingSettings.getSettingsOnly();
 
     const doc = new PDFDocument({ size: 'A4', margin: 50 });
     const chunks: Buffer[] = [];
@@ -80,12 +84,12 @@ export class InvoicePdfService {
     this.drawMeta(doc, invoice);
     this.drawLineTable(doc, invoice.lines);
     this.drawTotals(doc, invoice);
-    this.drawPaymentNote(doc, company, invoice);
+    this.drawPaymentNote(doc, company, invoice, billing.skonto);
     this.drawFooter(doc, company);
 
     doc.end();
     const buffer = await done;
-    const filename = `${invoice.invoiceNumber}.pdf`;
+    const filename = `${invoice.invoiceNumber ?? `Entwurf-${invoice.id.slice(-6)}`}.pdf`;
     return { buffer, filename };
   }
 
@@ -117,13 +121,20 @@ export class InvoicePdfService {
   private drawHeader(
     doc: PDFKit.PDFDocument,
     company: CompanyInfo,
-    invoice: { invoiceType: InvoiceType; invoiceNumber: string; issueDate: Date },
+    invoice: {
+      invoiceType: InvoiceType;
+      invoiceNumber: string | null;
+      issueDate: Date;
+      creditedInvoice: { invoiceNumber: string | null } | null;
+    },
     logo: Buffer | null,
   ): void {
     const title =
-      invoice.invoiceType === InvoiceType.OUTGOING
-        ? 'Rechnung'
-        : 'Eingangsrechnung';
+      invoice.invoiceType === InvoiceType.CREDIT_NOTE
+        ? 'Gutschrift'
+        : invoice.invoiceType === InvoiceType.OUTGOING
+          ? 'Rechnung'
+          : 'Eingangsrechnung';
 
     // Firmenzeile oben rechts
     doc.fontSize(9).fillColor('#444');
@@ -131,6 +142,12 @@ export class InvoicePdfService {
     doc.text(company.address, { width: 245, align: 'right' });
     doc.text(`Tel: ${company.phone}`, { width: 245, align: 'right' });
     doc.text(company.email, { width: 245, align: 'right' });
+    if (company.taxNumber) {
+      doc.text(`Steuernr.: ${company.taxNumber}`, { width: 245, align: 'right' });
+    }
+    if (company.vatId) {
+      doc.text(`USt-IdNr.: ${company.vatId}`, { width: 245, align: 'right' });
+    }
 
     let titleY = 50;
     if (logo) {
@@ -145,8 +162,25 @@ export class InvoicePdfService {
     doc.fillColor('#000').fontSize(20);
     doc.text(title, 50, titleY);
     doc.fontSize(10).fillColor('#444');
-    doc.text(`Rechnungs-Nr.: ${invoice.invoiceNumber}`, 50, titleY + 30);
+    const numberLabel = invoice.invoiceNumber ?? 'Entwurf (ohne Nummer)';
+    doc.text(
+      invoice.invoiceType === InvoiceType.CREDIT_NOTE
+        ? `Gutschrift-Nr.: ${numberLabel}`
+        : `Rechnungs-Nr.: ${numberLabel}`,
+      50,
+      titleY + 30,
+    );
     doc.text(`Datum: ${formatDate(invoice.issueDate)}`, 50, titleY + 45);
+    if (
+      invoice.invoiceType === InvoiceType.CREDIT_NOTE &&
+      invoice.creditedInvoice?.invoiceNumber
+    ) {
+      doc.text(
+        `zu Rechnung ${invoice.creditedInvoice.invoiceNumber}`,
+        50,
+        titleY + 60,
+      );
+    }
     doc.fillColor('#000');
   }
 
@@ -182,14 +216,14 @@ export class InvoicePdfService {
     doc.fontSize(11).fillColor('#000');
 
     const recipient =
-      invoice.invoiceType === InvoiceType.OUTGOING
-        ? invoice.customer
+      invoice.invoiceType === InvoiceType.INCOMING
+        ? invoice.subcontractor
+        : invoice.customer
           ? {
               name: invoice.customer.companyName,
               ...invoice.customer,
             }
-          : null
-        : invoice.subcontractor;
+          : null;
 
     if (!recipient) {
       doc.text('—', 50, y + 14);
@@ -378,15 +412,27 @@ export class InvoicePdfService {
     company: CompanyInfo,
     invoice: {
       invoiceType: InvoiceType;
+      invoiceNumber: string | null;
       paymentTermDays: number | null;
       dueDate: Date | null;
       notes: string | null;
+      total: number;
+      taxRate: number;
+    },
+    skonto: {
+      percent: number | null;
+      days: number | null;
+      pdfHintTemplate: string | null;
     },
   ): void {
     let y = doc.y + 6;
     doc.fontSize(10).fillColor('#000');
 
-    if (invoice.invoiceType === InvoiceType.OUTGOING) {
+    const isOutgoingLike =
+      invoice.invoiceType === InvoiceType.OUTGOING ||
+      invoice.invoiceType === InvoiceType.CREDIT_NOTE;
+
+    if (isOutgoingLike && invoice.invoiceType === InvoiceType.OUTGOING) {
       const term = invoice.paymentTermDays;
       const due = invoice.dueDate ? ` bis zum ${formatDate(invoice.dueDate)}` : '';
       const termText =
@@ -395,6 +441,29 @@ export class InvoicePdfService {
           : `Zahlbar${due} ohne Abzug.`;
       doc.text(termText, 50, y);
       y += 16;
+
+      // Skonto-Hinweis aus Vorlage
+      if (
+        skonto.pdfHintTemplate?.trim() &&
+        skonto.percent != null &&
+        skonto.percent > 0
+      ) {
+        const skontoAmount = formatCurrency(
+          round2((invoice.total * skonto.percent) / 100),
+        );
+        const hint = applySkontoTemplate(skonto.pdfHintTemplate, {
+          skontoPercent: String(skonto.percent),
+          skontoDays: String(skonto.days ?? ''),
+          skontoAmount,
+          dueDate: invoice.dueDate ? formatDate(invoice.dueDate) : '',
+          invoiceNumber: invoice.invoiceNumber ?? '',
+          companyName: company.name,
+        });
+        doc.fontSize(9).fillColor('#333').text(hint, 50, y, { width: 495 });
+        y = doc.y + 8;
+        doc.fontSize(10).fillColor('#000');
+      }
+
       doc.fontSize(9).fillColor('#444');
       doc.text(
         `Bankverbindung: ${company.bankName} · IBAN ${company.bankIban} · BIC ${company.bankBic}`,
@@ -413,18 +482,17 @@ export class InvoicePdfService {
     doc.y = y + 10;
   }
 
-  /**
-   * Zeichnet die Fußzeile mit Firmenname, Adresse und Steuernummer.
-   *
-   * @param doc - Parameter `doc` (PDFKit.PDFDocument)
-   * @param company - Parameter `company` (CompanyInfo)
-   * @returns void
-   */
   private drawFooter(doc: PDFKit.PDFDocument, company: CompanyInfo): void {
     const y = 790;
     doc.fontSize(8).fillColor('#888');
+    const taxParts = [
+      company.taxNumber ? `Steuernr. ${company.taxNumber}` : null,
+      company.vatId ? `USt-IdNr. ${company.vatId}` : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
     doc.text(
-      `${company.name} · ${company.address} · Steuernummer: ${company.taxNumber}`,
+      `${company.name} · ${company.address}${taxParts ? ` · ${taxParts}` : ''}`,
       50,
       y,
       { width: 495, align: 'center' },

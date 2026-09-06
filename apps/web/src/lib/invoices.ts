@@ -9,8 +9,8 @@ const API_BASE_URL =
 
 // ── Enums (spiegeln Prisma) ────────────────────────────────────
 
-/** Rechnungsrichtung: Ausgangsrechnung an Kunde oder Eingangsrechnung von Subunternehmer. */
-export type InvoiceType = 'OUTGOING' | 'INCOMING';
+/** Rechnungsrichtung: Ausgang, Eingang (legacy) oder Gutschrift. */
+export type InvoiceType = 'OUTGOING' | 'INCOMING' | 'CREDIT_NOTE';
 
 /** Lebenszyklus-Status einer Rechnung (Entwurf → Versendet → Bezahlt/Storniert). */
 export type InvoiceStatus =
@@ -61,7 +61,7 @@ export interface InvoicePayment {
 /** Kompakte Darstellung einer Rechnung für Listenansichten (inkl. Projekt/Kunde/Sub). */
 export interface InvoiceListItem {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: InvoiceType;
   status: InvoiceStatus;
   periodFrom: string | null;
@@ -74,14 +74,22 @@ export interface InvoiceListItem {
   isPartialInvoice: boolean;
   partialNumber: number | null;
   partialPercentage: number | null;
+  performanceCountryCode: string | null;
   issueDate: string;
   dueDate: string | null;
   paidDate: string | null;
+  finalizedAt: string | null;
+  creditedInvoiceId: string | null;
   createdAt: string;
   project: { id: string; projectNumber: string; title: string } | null;
   customer: { id: string; companyName: string } | null;
   subcontractor: { id: string; name: string } | null;
-  _count: { lines: number; payments: number };
+  creditedInvoice: {
+    id: string;
+    invoiceNumber: string | null;
+    status: InvoiceStatus;
+  } | null;
+  _count: { lines: number; payments: number; creditNotes: number };
 }
 
 /** Paginierte Antwort der Rechnungsliste. */
@@ -98,14 +106,16 @@ export interface InvoiceListResponse {
 /** Vollständiger Rechnungsdatensatz inkl. Positionen, Zahlungen und verknüpftem Projekt/Kunde. */
 export interface InvoiceDetail {
   id: string;
-  invoiceNumber: string;
+  invoiceNumber: string | null;
   invoiceType: InvoiceType;
   status: InvoiceStatus;
   projectId: string | null;
   customerId: string | null;
   subcontractorId: string | null;
+  creditedInvoiceId: string | null;
   periodFrom: string | null;
   periodTo: string | null;
+  performanceCountryCode: string | null;
   subtotal: number;
   taxRate: number;
   taxAmount: number;
@@ -121,6 +131,8 @@ export interface InvoiceDetail {
   notes: string | null;
   internalNotes: string | null;
   pdfPath: string | null;
+  finalizedAt: string | null;
+  finalizedByUserId: string | null;
   createdAt: string;
   updatedAt: string;
   createdByUserId: string | null;
@@ -138,9 +150,29 @@ export interface InvoiceDetail {
     customerNumber: string;
     companyName: string;
     paymentTermDays: number | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    country?: string | null;
   } | null;
   subcontractor: { id: string; name: string } | null;
   createdBy: { id: string; displayName: string } | null;
+  finalizedBy: { id: string; displayName: string } | null;
+  creditedInvoice: {
+    id: string;
+    invoiceNumber: string | null;
+    status: InvoiceStatus;
+    total: number;
+    issueDate: string;
+  } | null;
+  creditNotes: Array<{
+    id: string;
+    invoiceNumber: string | null;
+    status: InvoiceStatus;
+    total: number;
+    issueDate: string;
+  }>;
   lines: InvoiceLine[];
   payments: InvoicePayment[];
 }
@@ -200,6 +232,7 @@ export interface CreateInvoiceBody {
   periodFrom?: string;
   periodTo?: string;
   taxRate?: number;
+  performanceCountryCode?: string;
   isPartialInvoice?: boolean;
   partialNumber?: number;
   partialPercentage?: number;
@@ -288,13 +321,17 @@ export const invoicesApi = {
   generate: (body: GenerateInvoiceBody) =>
     apiClient.post<InvoiceDetail>('/invoices/generate-from-timesheets', body),
   /**
-   * POST /invoices/:id/send – Markiert die Rechnung als versendet.
-   * @param id - Rechnungs-ID
+   * POST /invoices/:id/finalize – Finalisiert die Rechnung (SUPERADMIN).
    */
-  send: (id: string) => apiClient.post<InvoiceDetail>(`/invoices/${id}/send`),
+  finalize: (id: string) =>
+    apiClient.post<InvoiceDetail>(`/invoices/${id}/finalize`),
   /**
-   * POST /invoices/:id/cancel – Storniert eine Rechnung.
-   * @param id - Rechnungs-ID
+   * POST /invoices/:id/credit-note – Storno über Gutschrift (SUPERADMIN).
+   */
+  creditNote: (id: string) =>
+    apiClient.post<InvoiceDetail>(`/invoices/${id}/credit-note`),
+  /**
+   * POST /invoices/:id/cancel – Storniert einen Entwurf.
    */
   cancel: (id: string) =>
     apiClient.post<InvoiceDetail>(`/invoices/${id}/cancel`),
@@ -426,10 +463,18 @@ export function invoicePartyName(invoice: {
   customer: { companyName: string } | null;
   subcontractor: { name: string } | null;
 }): string {
-  if (invoice.invoiceType === 'OUTGOING') {
-    return invoice.customer?.companyName ?? '–';
+  if (invoice.invoiceType === 'INCOMING') {
+    return invoice.subcontractor?.name ?? '–';
   }
-  return invoice.subcontractor?.name ?? '–';
+  return invoice.customer?.companyName ?? '–';
+}
+
+/** Anzeige der Geschäftsnummer oder „Entwurf“. */
+export function invoiceNumberLabel(
+  invoice: { invoiceNumber: string | null },
+  draftLabel = 'Entwurf',
+): string {
+  return invoice.invoiceNumber?.trim() || draftLabel;
 }
 
 /**
