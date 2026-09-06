@@ -295,6 +295,29 @@ export default function BillingSettingsPage(): React.ReactNode {
       </Card>
 
       <Card>
+        <CardHeader>
+          <CardTitle className="text-base">{t.reverseCharge.title}</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1.5">
+          <Label>{t.reverseCharge.pdfText}</Label>
+          <Textarea
+            rows={3}
+            disabled={!isSuperadmin}
+            value={settings.reverseChargePdfText ?? ''}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                reverseChargePdfText: e.target.value,
+              })
+            }
+          />
+          <p className="text-xs text-muted-foreground">
+            {t.reverseCharge.pdfTextHint}
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-base">{t.countries.title}</CardTitle>
           {isSuperadmin && (

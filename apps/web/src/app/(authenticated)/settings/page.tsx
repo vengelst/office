@@ -38,6 +38,12 @@ const settingsLinks = [
     icon: Receipt,
   },
   {
+    href: '/settings/products',
+    label: texts.settings.nav.products,
+    description: texts.settings.products.subtitle,
+    icon: Briefcase,
+  },
+  {
     href: '/settings/email',
     label: texts.settings.nav.email,
     description: texts.settings.email.subtitle,

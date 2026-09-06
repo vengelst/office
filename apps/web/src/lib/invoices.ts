@@ -30,6 +30,13 @@ export type InvoiceLineType =
 
 // ── Sub-Entities ───────────────────────────────────────────────
 
+/** Steuerart der Rechnung. */
+export type InvoiceTaxKind =
+  | 'STANDARD'
+  | 'REDUCED'
+  | 'REVERSE_CHARGE'
+  | 'TAX_EXEMPT';
+
 /** Einzelne Rechnungsposition mit Menge, Einzelpreis und Gesamtbetrag. */
 export interface InvoiceLine {
   id: string;
@@ -41,7 +48,22 @@ export interface InvoiceLine {
   unit: string | null;
   unitPrice: number;
   total: number;
+  productId: string | null;
+  discountPercent: number | null;
+  discountAmount: number | null;
   weeklyTimesheetId: string | null;
+  product?: {
+    id: string;
+    code: string | null;
+    name: string;
+    unit: string | null;
+  } | null;
+  weeklyTimesheet?: {
+    id: string;
+    weekNumber: number;
+    weekYear: number;
+    worker: { firstName: string; lastName: string };
+  } | null;
 }
 
 /** Zahlungseingang zu einer Rechnung (Betrag, Datum, Methode). */
@@ -53,6 +75,8 @@ export interface InvoicePayment {
   method: string | null;
   reference: string | null;
   notes: string | null;
+  skontoApplied: boolean;
+  skontoAmount: number | null;
   createdAt: string;
 }
 
@@ -75,6 +99,7 @@ export interface InvoiceListItem {
   partialNumber: number | null;
   partialPercentage: number | null;
   performanceCountryCode: string | null;
+  taxKind: InvoiceTaxKind;
   issueDate: string;
   dueDate: string | null;
   paidDate: string | null;
@@ -116,6 +141,7 @@ export interface InvoiceDetail {
   periodFrom: string | null;
   periodTo: string | null;
   performanceCountryCode: string | null;
+  taxKind: InvoiceTaxKind;
   subtotal: number;
   taxRate: number;
   taxAmount: number;
@@ -155,6 +181,17 @@ export interface InvoiceDetail {
     postalCode?: string | null;
     city?: string | null;
     country?: string | null;
+    vatId?: string | null;
+    vatIdValid?: boolean | null;
+    vatIdValidatedAt?: string | null;
+    vatIdViesName?: string | null;
+    emails?: Array<{
+      id: string;
+      email: string;
+      emailType: string;
+      isPrimary: boolean;
+      label: string | null;
+    }>;
   } | null;
   subcontractor: { id: string; name: string } | null;
   createdBy: { id: string; displayName: string } | null;
@@ -221,6 +258,9 @@ export interface CreateInvoiceLineBody {
   unitPrice?: number;
   position?: number;
   weeklyTimesheetId?: string;
+  productId?: string;
+  discountPercent?: number | null;
+  discountAmount?: number | null;
 }
 
 /** Request-Body zum Anlegen einer neuen Rechnung (inkl. optionaler Positionen). */
@@ -232,6 +272,7 @@ export interface CreateInvoiceBody {
   periodFrom?: string;
   periodTo?: string;
   taxRate?: number;
+  taxKind?: InvoiceTaxKind;
   performanceCountryCode?: string;
   isPartialInvoice?: boolean;
   partialNumber?: number;
@@ -263,6 +304,8 @@ export interface CreatePaymentBody {
   method?: string;
   reference?: string;
   notes?: string;
+  skontoApplied?: boolean;
+  skontoAmount?: number;
 }
 
 // ── API ────────────────────────────────────────────────────────
@@ -393,6 +436,77 @@ export const invoicesApi = {
    */
   removePayment: (id: string, paymentId: string) =>
     apiClient.delete<unknown>(`/invoices/${id}/payments/${paymentId}`),
+
+  listSkonto: (params?: {
+    page?: number;
+    limit?: number;
+    periodFrom?: string;
+    periodTo?: string;
+    customerId?: string;
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.periodFrom) q.set('periodFrom', params.periodFrom);
+    if (params?.periodTo) q.set('periodTo', params.periodTo);
+    if (params?.customerId) q.set('customerId', params.customerId);
+    return apiClient.get<{
+      data: Array<
+        InvoicePayment & {
+          invoice: {
+            id: string;
+            invoiceNumber: string | null;
+            invoiceType: InvoiceType;
+            total: number;
+            customer: {
+              id: string;
+              companyName: string;
+              customerNumber: string;
+            } | null;
+          };
+        }
+      >;
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+      sums: { skontoAmount: number; paymentAmount: number };
+    }>(`/invoices/skonto?${q.toString()}`);
+  },
+
+  getEmailAttachments: (id: string) =>
+    apiClient.get<{
+      recipient: {
+        email: string;
+        label: string | null;
+        emailType: string;
+      } | null;
+      customerDocuments: Array<{
+        id: string;
+        title: string | null;
+        originalFilename: string;
+        mimeType: string;
+        documentType: string;
+        createdAt: string;
+      }>;
+      timesheets: Array<{
+        id: string;
+        label: string;
+        weekNumber: number;
+        weekYear: number;
+      }>;
+    }>(`/invoices/${id}/email-attachments`),
+
+  sendEmail: (
+    id: string,
+    body: { documentIds?: string[]; weeklyTimesheetIds?: string[] },
+  ) =>
+    apiClient.post<{
+      success: boolean;
+      recipient: string;
+      messageId?: string;
+      attachmentCount: number;
+    }>(`/invoices/${id}/send-email`, body),
 
   /**
    * Erzeugt die URL zum Rechnungs-PDF (für direkten Download).

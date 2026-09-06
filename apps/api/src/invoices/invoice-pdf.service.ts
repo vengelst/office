@@ -4,14 +4,17 @@
  */
 
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { InvoiceType } from '@prisma/client';
+import { InvoiceTaxKind, InvoiceType } from '@prisma/client';
 import PDFDocument from 'pdfkit';
 import type { Readable } from 'node:stream';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { CompanyInfo, loadCompanyInfoFromDb } from './company.config';
 import { BillingSettingsService } from '../app-settings/billing-settings.service';
-import { applySkontoTemplate } from '../app-settings/billing-settings.types';
+import {
+  applySkontoTemplate,
+  DEFAULT_REVERSE_CHARGE_PDF_TEXT,
+} from '../app-settings/billing-settings.types';
 import { round2 } from './invoice-shared';
 
 const COMPANY_LOGO_SETTING = 'company_logo_key';
@@ -45,6 +48,7 @@ export class InvoicePdfService {
             postalCode: true,
             city: true,
             country: true,
+            vatId: true,
           },
         },
         subcontractor: {
@@ -84,7 +88,11 @@ export class InvoicePdfService {
     this.drawMeta(doc, invoice);
     this.drawLineTable(doc, invoice.lines);
     this.drawTotals(doc, invoice);
-    this.drawPaymentNote(doc, company, invoice, billing.skonto);
+    this.drawPaymentNote(doc, company, invoice, billing.skonto, {
+      reverseChargePdfText:
+        billing.reverseChargePdfText || DEFAULT_REVERSE_CHARGE_PDF_TEXT,
+      customerVatId: invoice.customer?.vatId ?? null,
+    });
     this.drawFooter(doc, company);
 
     doc.end();
@@ -193,6 +201,7 @@ export class InvoicePdfService {
     doc: PDFKit.PDFDocument,
     invoice: {
       invoiceType: InvoiceType;
+      taxKind?: InvoiceTaxKind;
       customer: {
         companyName: string;
         addressLine1: string | null;
@@ -200,6 +209,7 @@ export class InvoicePdfService {
         postalCode: string | null;
         city: string | null;
         country: string | null;
+        vatId?: string | null;
       } | null;
       subcontractor: {
         name: string;
@@ -242,6 +252,14 @@ export class InvoicePdfService {
     for (const line of lines) {
       doc.text(line, 50, ly);
       ly += 14;
+    }
+
+    const vatId =
+      invoice.invoiceType !== InvoiceType.INCOMING
+        ? invoice.customer?.vatId
+        : null;
+    if (vatId?.trim()) {
+      doc.fontSize(10).text(`USt-IdNr.: ${vatId.trim()}`, 50, ly);
     }
   }
 
@@ -375,12 +393,21 @@ export class InvoicePdfService {
    */
   private drawTotals(
     doc: PDFKit.PDFDocument,
-    invoice: { subtotal: number; taxRate: number; taxAmount: number; total: number },
+    invoice: {
+      subtotal: number;
+      taxRate: number;
+      taxAmount: number;
+      total: number;
+      taxKind?: InvoiceTaxKind;
+    },
   ): void {
     const labelX = 350;
     const valueX = 440;
     const valueWidth = 105;
     let y = doc.y + 4;
+    const isRc =
+      invoice.taxKind === InvoiceTaxKind.REVERSE_CHARGE ||
+      invoice.taxKind === InvoiceTaxKind.TAX_EXEMPT;
 
     const row = (label: string, value: string, bold = false) => {
       doc.font(bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(10);
@@ -390,7 +417,14 @@ export class InvoicePdfService {
     };
 
     row('Netto', formatCurrency(invoice.subtotal));
-    row(`zzgl. MwSt ${formatNumber(invoice.taxRate)} %`, formatCurrency(invoice.taxAmount));
+    if (isRc) {
+      row('MwSt (0 % / Reverse Charge)', formatCurrency(0));
+    } else {
+      row(
+        `zzgl. MwSt ${formatNumber(invoice.taxRate)} %`,
+        formatCurrency(invoice.taxAmount),
+      );
+    }
     doc
       .moveTo(labelX, y)
       .lineTo(valueX + valueWidth, y)
@@ -418,11 +452,16 @@ export class InvoicePdfService {
       notes: string | null;
       total: number;
       taxRate: number;
+      taxKind?: InvoiceTaxKind;
     },
     skonto: {
       percent: number | null;
       days: number | null;
       pdfHintTemplate: string | null;
+    },
+    extras?: {
+      reverseChargePdfText: string;
+      customerVatId: string | null;
     },
   ): void {
     let y = doc.y + 6;
@@ -431,6 +470,25 @@ export class InvoicePdfService {
     const isOutgoingLike =
       invoice.invoiceType === InvoiceType.OUTGOING ||
       invoice.invoiceType === InvoiceType.CREDIT_NOTE;
+
+    if (
+      invoice.taxKind === InvoiceTaxKind.REVERSE_CHARGE &&
+      extras?.reverseChargePdfText
+    ) {
+      doc.fontSize(9).fillColor('#333');
+      doc.text(extras.reverseChargePdfText, 50, y, { width: 495 });
+      y = doc.y + 6;
+      if (extras.customerVatId?.trim()) {
+        doc.text(
+          `USt-IdNr. des Leistungsempfängers: ${extras.customerVatId.trim()}`,
+          50,
+          y,
+          { width: 495 },
+        );
+        y = doc.y + 8;
+      }
+      doc.fontSize(10).fillColor('#000');
+    }
 
     if (isOutgoingLike && invoice.invoiceType === InvoiceType.OUTGOING) {
       const term = invoice.paymentTermDays;
@@ -442,8 +500,9 @@ export class InvoicePdfService {
       doc.text(termText, 50, y);
       y += 16;
 
-      // Skonto-Hinweis aus Vorlage
+      // Skonto-Hinweis aus Vorlage (nicht bei RC)
       if (
+        invoice.taxKind !== InvoiceTaxKind.REVERSE_CHARGE &&
         skonto.pdfHintTemplate?.trim() &&
         skonto.percent != null &&
         skonto.percent > 0

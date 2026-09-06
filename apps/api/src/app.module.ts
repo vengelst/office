@@ -22,6 +22,7 @@ import { TimesheetsModule } from './timesheets/timesheets.module';
 import { BreakRulesModule } from './break-rules/break-rules.module';
 import { ActivityTypesModule } from './activity-types/activity-types.module';
 import { InvoicesModule } from './invoices/invoices.module';
+import { InvoiceProductsModule } from './invoice-products/invoice-products.module';
 import { VehiclesModule } from './vehicles/vehicles.module';
 import { AppSettingsModule } from './app-settings/app-settings.module';
 import { EmailModule } from './email/email.module';
@@ -67,6 +68,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     BreakRulesModule,
     ActivityTypesModule,
     InvoicesModule,
+    InvoiceProductsModule,
     VehiclesModule,
     AppSettingsModule,
     EmailModule,

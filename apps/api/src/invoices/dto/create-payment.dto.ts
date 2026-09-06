@@ -1,5 +1,13 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsISO8601, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsISO8601,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 export class CreatePaymentDto {
   @ApiProperty({ description: 'Betrag der Zahlung' })
@@ -25,4 +33,17 @@ export class CreatePaymentDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Skonto gezogen' })
+  @IsOptional()
+  @IsBoolean()
+  skontoApplied?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Skontobetrag – Pflicht und > 0 wenn skontoApplied',
+  })
+  @ValidateIf((o: CreatePaymentDto) => o.skontoApplied === true)
+  @IsNumber()
+  @Min(0.01)
+  skontoAmount?: number;
 }

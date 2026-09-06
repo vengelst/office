@@ -36,6 +36,7 @@ import { CreateInvoiceLineDto } from './dto/create-invoice-line.dto';
 import { UpdateInvoiceLineDto } from './dto/update-invoice-line.dto';
 import { ReorderLinesDto } from './dto/reorder-lines.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
+import { SendInvoiceEmailDto } from './dto/send-invoice-email.dto';
 
 /** Hilfsfunktion: AuthUser → userId (nur echte Benutzer, keine Worker). */
 function userIdOf(user: AuthUser): string | null {
@@ -71,6 +72,24 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Kennzahlen: offene/überfällige Beträge, Umsatz' })
   stats() {
     return this.invoices.stats();
+  }
+
+  @Get('skonto')
+  @ApiOperation({ summary: 'Skonto-Auswertung: Zahlungen mit Skonto' })
+  listSkonto(
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+    @Query('periodFrom') periodFrom?: string,
+    @Query('periodTo') periodTo?: string,
+    @Query('customerId') customerId?: string,
+  ) {
+    return this.invoices.listSkontoPayments({
+      page: page ? Number(page) : undefined,
+      limit: limit ? Number(limit) : undefined,
+      periodFrom,
+      periodTo,
+      customerId,
+    });
   }
 
   /**
@@ -259,6 +278,25 @@ export class InvoicesController {
   @ApiOperation({ summary: 'Rechnung als neuen Entwurf duplizieren' })
   duplicate(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.invoices.duplicate(id, userIdOf(user));
+  }
+
+  @Get(':id/email-attachments')
+  @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
+  @ApiOperation({
+    summary: 'E-Mail-Anhang-Vorschläge (Kundendokumente + Stundenzettel)',
+  })
+  emailAttachments(@Param('id') id: string) {
+    return this.invoices.getEmailAttachmentOptions(id);
+  }
+
+  @Post(':id/send-email')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
+  @ApiOperation({
+    summary: 'Finalisierte RE/GS per E-Mail an Billing-Adresse senden',
+  })
+  sendEmail(@Param('id') id: string, @Body() dto: SendInvoiceEmailDto) {
+    return this.invoices.sendEmail(id, dto);
   }
 
   /**

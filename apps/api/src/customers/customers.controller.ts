@@ -119,6 +119,13 @@ export class CustomersController {
     return this.customers.update(id, dto);
   }
 
+  @Post(':id/validate-vat')
+  @ApiOperation({ summary: 'USt-IdNr. über VIES prüfen und speichern' })
+  @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
+  validateVat(@Param('id') id: string) {
+    return this.customers.validateVat(id);
+  }
+
   /**
    * Markiert einen Kunden als gelöscht (Soft-Delete via deletedAt).
    * DELETE /api/customers/:id

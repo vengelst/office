@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { InvoiceType } from '@prisma/client';
+import { InvoiceTaxKind, InvoiceType } from '@prisma/client';
 import { Type } from 'class-transformer';
 import {
   IsArray,
@@ -49,6 +49,14 @@ export class CreateInvoiceDto {
   @IsOptional()
   @IsNumber()
   taxRate?: number;
+
+  @ApiPropertyOptional({
+    enum: InvoiceTaxKind,
+    description: 'Steuerart (STANDARD, REDUCED, REVERSE_CHARGE, TAX_EXEMPT)',
+  })
+  @IsOptional()
+  @IsEnum(InvoiceTaxKind)
+  taxKind?: InvoiceTaxKind;
 
   @ApiPropertyOptional({
     description: 'Leistungsort (ISO-3166-1 alpha-2), z. B. DE',

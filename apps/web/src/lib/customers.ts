@@ -110,6 +110,10 @@ export interface CustomerDetail {
   phone: string | null;
   website: string | null;
   vatId: string | null;
+  vatIdValidatedAt: string | null;
+  vatIdValid: boolean | null;
+  vatIdViesName: string | null;
+  vatIdViesRequestId: string | null;
   taxNumber: string | null;
   industry: string | null;
   rating: string | null;
@@ -189,6 +193,19 @@ export const customersApi = {
    */
   update: (id: string, body: unknown) =>
     apiClient.patch<CustomerDetail>(`/customers/${id}`, body),
+  /**
+   * POST /customers/:id/validate-vat – VIES-Prüfung der USt-IdNr.
+   */
+  validateVat: (id: string) =>
+    apiClient.post<{
+      customer: CustomerDetail;
+      vies: {
+        valid: boolean;
+        name: string | null;
+        countryCode: string;
+        vatNumber: string;
+      };
+    }>(`/customers/${id}/validate-vat`),
   /**
    * DELETE /customers/:id – Löscht einen Kunden.
    * @param id - Kunden-ID

@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   MinLength,
 } from 'class-validator';
@@ -45,4 +46,24 @@ export class CreateInvoiceLineDto {
   @IsOptional()
   @IsString()
   weeklyTimesheetId?: string;
+
+  @ApiPropertyOptional({ description: 'Produkt aus Katalog' })
+  @IsOptional()
+  @IsString()
+  productId?: string;
+
+  @ApiPropertyOptional({ description: 'Positionsrabatt in %' })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  discountPercent?: number;
+
+  @ApiPropertyOptional({
+    description: 'Positionsrabatt als Betrag (hat Vorrang vor %)',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  discountAmount?: number;
 }

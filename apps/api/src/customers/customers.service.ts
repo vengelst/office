@@ -22,6 +22,7 @@ import { CreateEmailDto } from './dto/create-email.dto';
 import { UpdateEmailDto } from './dto/update-email.dto';
 import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
+import { ViesService } from './vies.service';
 
 const MAX_BANK_ACCOUNTS = 2;
 
@@ -74,6 +75,7 @@ export class CustomersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly googleContacts: GoogleContactsService,
+    private readonly vies: ViesService,
   ) {}
 
   // ── Customer CRUD ────────────────────────────────────────────
@@ -167,11 +169,58 @@ export class CustomersService {
    */
   async update(id: string, dto: UpdateCustomerDto) {
     await this.ensureCustomer(id);
+    // USt-IdNr. geändert → VIES-Status zurücksetzen
+    const data: Prisma.CustomerUpdateInput = { ...dto };
+    if (dto.vatId !== undefined) {
+      const existing = await this.prisma.customer.findUnique({
+        where: { id },
+        select: { vatId: true },
+      });
+      const next = dto.vatId?.trim() || null;
+      const prev = existing?.vatId?.trim() || null;
+      if (next !== prev) {
+        data.vatIdValidatedAt = null;
+        data.vatIdValid = null;
+        data.vatIdViesName = null;
+        data.vatIdViesRequestId = null;
+      }
+    }
     return this.prisma.customer.update({
       where: { id },
-      data: dto,
+      data,
       include: detailInclude,
     });
+  }
+
+  /**
+   * Prüft die USt-IdNr. des Kunden über VIES und speichert das Ergebnis.
+   */
+  async validateVat(id: string) {
+    const customer = await this.prisma.customer.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true, vatId: true },
+    });
+    if (!customer) {
+      throw new NotFoundException('Kunde nicht gefunden');
+    }
+    if (!customer.vatId?.trim()) {
+      throw new BadRequestException('Keine USt-IdNr. hinterlegt');
+    }
+    const result = await this.vies.checkVat(customer.vatId);
+    const updated = await this.prisma.customer.update({
+      where: { id },
+      data: {
+        vatIdValid: result.valid,
+        vatIdValidatedAt: new Date(),
+        vatIdViesName: result.name,
+        vatIdViesRequestId: result.requestIdentifier,
+      },
+      include: detailInclude,
+    });
+    return {
+      customer: updated,
+      vies: result,
+    };
   }
 
   /**

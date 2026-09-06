@@ -87,6 +87,7 @@ export const settings = {
       features: 'Feature-Flags',
       general: 'Allgemein',
       billing: 'Verrechnung',
+      products: 'Produkte',
     },
     billing: {
       title: 'Verrechnung',
@@ -118,6 +119,12 @@ export const settings = {
         templateHint:
           'Platzhalter: {{skontoPercent}}, {{skontoDays}}, {{skontoAmount}}, {{dueDate}}, {{invoiceNumber}}, {{companyName}}',
       },
+      reverseCharge: {
+        title: 'Reverse Charge',
+        pdfText: 'PDF-Hinweistext (§13b)',
+        pdfTextHint:
+          'Wird auf Rechnungen mit Steuerart Reverse Charge ausgegeben.',
+      },
       countries: {
         title: 'Leistungsort / MwSt',
         code: 'Land-Code',
@@ -130,6 +137,30 @@ export const settings = {
       toast: {
         saved: 'Verrechnung-Einstellungen gespeichert.',
         error: 'Speichern fehlgeschlagen.',
+      },
+    },
+    products: {
+      title: 'Produkte',
+      subtitle: 'Produktkatalog für Rechnungspositionen',
+      back: 'Zurück zu Einstellungen',
+      add: 'Produkt anlegen',
+      edit: 'Bearbeiten',
+      deactivate: 'Deaktivieren',
+      activate: 'Aktivieren',
+      empty: 'Noch keine Produkte vorhanden.',
+      code: 'Code',
+      name: 'Name',
+      unit: 'Einheit',
+      defaultUnitPrice: 'Standardpreis (€)',
+      defaultTaxRate: 'Standard-MwSt (%)',
+      active: 'Aktiv',
+      save: 'Speichern',
+      saving: 'Wird gespeichert …',
+      cancel: 'Abbrechen',
+      toast: {
+        saved: 'Produkt gespeichert.',
+        deleted: 'Produkt entfernt bzw. deaktiviert.',
+        error: 'Aktion fehlgeschlagen.',
       },
     },
     ai: {

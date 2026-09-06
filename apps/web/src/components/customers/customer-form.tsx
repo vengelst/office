@@ -28,7 +28,7 @@ import {
   type PendingContact,
 } from '@/components/customers/research-preview-dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { geocodeApi, type CustomerDetail } from '@/lib/customers';
+import { geocodeApi, customersApi, type CustomerDetail } from '@/lib/customers';
 import { researchApi, type ResearchResult } from '@/lib/research';
 import { ApiError } from '@/lib/api-client';
 import { texts } from '@/lib/texts';
@@ -114,6 +114,7 @@ interface CustomerFormProps {
   onSubmit: (payload: Record<string, unknown>) => void;
   onCancel?: () => void;
   onPendingContacts?: (contacts: PendingContact[]) => void;
+  onCustomerRefresh?: (customer: CustomerDetail) => void;
 }
 
 /**
@@ -133,6 +134,7 @@ export function CustomerForm({
   onSubmit,
   onCancel,
   onPendingContacts,
+  onCustomerRefresh,
 }: CustomerFormProps): ReactNode {
   const f = texts.customers.fields;
   const s = texts.customers.sections;
@@ -143,6 +145,7 @@ export function CustomerForm({
   const [researchLoading, setResearchLoading] = useState(false);
   const [researchResult, setResearchResult] = useState<ResearchResult | null>(null);
   const [showResearchDialog, setShowResearchDialog] = useState(false);
+  const [vatValidating, setVatValidating] = useState(false);
 
   const {
     register,
@@ -236,6 +239,31 @@ export function CustomerForm({
         }),
       )
       .finally(() => setResearchLoading(false));
+  };
+
+  /** Prüft die USt-IdNr. über VIES und aktualisiert den Kundenstatus. */
+  const handleValidateVat = async (): Promise<void> => {
+    if (!customer?.id) return;
+    setVatValidating(true);
+    try {
+      const result = await customersApi.validateVat(customer.id);
+      onCustomerRefresh?.(result.customer);
+      toast({
+        description: result.vies.valid
+          ? texts.customers.toast.vatValidated
+          : texts.customers.toast.vatInvalid,
+      });
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError
+            ? err.message
+            : texts.customers.toast.error,
+      });
+    } finally {
+      setVatValidating(false);
+    }
   };
 
   /** Übernimmt ausgewählte Daten aus der Recherche ins Formular. */
@@ -450,7 +478,34 @@ export function CustomerForm({
             </div>
           </Field>
           <Field label={f.vatId}>
-            <Input {...register('vatId')} className="min-h-[44px]" />
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Input {...register('vatId')} className="min-h-[44px] flex-1" />
+                {customer?.id && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px] shrink-0"
+                    disabled={vatValidating}
+                    onClick={() => void handleValidateVat()}
+                  >
+                    {vatValidating ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    {vatValidating ? f.vatIdValidating : f.vatIdValidate}
+                  </Button>
+                )}
+              </div>
+              {customer?.id && (
+                <p className="text-xs text-muted-foreground">
+                  {customer.vatIdValid === true
+                    ? `${f.vatIdValid}${customer.vatIdValidatedAt ? ` · ${f.vatIdCheckedAt} ${new Date(customer.vatIdValidatedAt).toLocaleString('de-DE')}` : ''}${customer.vatIdViesName ? ` · ${f.vatIdViesName}: ${customer.vatIdViesName}` : ''}`
+                    : customer.vatIdValid === false
+                      ? f.vatIdInvalid
+                      : f.vatIdUnchecked}
+                </p>
+              )}
+            </div>
           </Field>
           <Field label={f.taxNumber}>
             <Input {...register('taxNumber')} className="min-h-[44px]" />

@@ -51,10 +51,13 @@ export function PaymentDialog({
     texts.invoices.methods.TRANSFER,
   );
   const [reference, setReference] = useState('');
+  const [skontoApplied, setSkontoApplied] = useState(false);
+  const [skontoAmount, setSkontoAmount] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const save = async (): Promise<void> => {
     if (!(Number(amount) > 0) || !paidDate) return;
+    if (skontoApplied && !(Number(skontoAmount) > 0)) return;
     setBusy(true);
     try {
       await invoicesApi.addPayment(invoiceId, {
@@ -62,6 +65,8 @@ export function PaymentDialog({
         paidDate: new Date(paidDate).toISOString(),
         method: method || undefined,
         reference: reference.trim() || undefined,
+        skontoApplied,
+        skontoAmount: skontoApplied ? Number(skontoAmount) : undefined,
       });
       onSaved();
     } catch (err) {
@@ -128,6 +133,28 @@ export function PaymentDialog({
               className="min-h-[44px]"
             />
           </div>
+          <label className="flex min-h-[44px] items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-5 w-5"
+              checked={skontoApplied}
+              onChange={(e) => setSkontoApplied(e.target.checked)}
+            />
+            <span className="text-sm font-medium">{t.skontoApplied}</span>
+          </label>
+          {skontoApplied && (
+            <div className="space-y-1.5">
+              <Label>{t.skontoAmount}</Label>
+              <Input
+                type="number"
+                step="0.01"
+                min={0.01}
+                value={skontoAmount}
+                onChange={(e) => setSkontoAmount(Number(e.target.value))}
+                className="min-h-[44px]"
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button
@@ -140,7 +167,11 @@ export function PaymentDialog({
           </Button>
           <Button
             className="min-h-[44px]"
-            disabled={busy || !(Number(amount) > 0)}
+            disabled={
+              busy ||
+              !(Number(amount) > 0) ||
+              (skontoApplied && !(Number(skontoAmount) > 0))
+            }
             onClick={save}
           >
             {busy ? t.saving : t.save}

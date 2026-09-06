@@ -5,10 +5,12 @@
 import {
   InvoiceLineType,
   InvoiceStatus,
+  InvoiceTaxKind,
   InvoiceType,
   Prisma,
 } from '@prisma/client';
 import { CreateInvoiceLineDto } from './dto/create-invoice-line.dto';
+import { computeLineNet } from './line-totals';
 
 /** Sortierbare Spalten der Rechnungsliste. */
 export const SORTABLE_FIELDS = [
@@ -56,6 +58,7 @@ export const listSelect = {
   subtotal: true,
   taxRate: true,
   taxAmount: true,
+  taxKind: true,
   total: true,
   paidAmount: true,
   isPartialInvoice: true,
@@ -101,6 +104,19 @@ export const detailInclude = {
       postalCode: true,
       city: true,
       country: true,
+      vatId: true,
+      vatIdValid: true,
+      vatIdValidatedAt: true,
+      vatIdViesName: true,
+      emails: {
+        select: {
+          id: true,
+          email: true,
+          emailType: true,
+          isPrimary: true,
+          label: true,
+        },
+      },
     },
   },
   subcontractor: { select: { id: true, name: true } },
@@ -125,7 +141,22 @@ export const detailInclude = {
     },
     orderBy: { createdAt: 'asc' as const },
   },
-  lines: { orderBy: { position: 'asc' as const } },
+  lines: {
+    orderBy: { position: 'asc' as const },
+    include: {
+      product: {
+        select: { id: true, code: true, name: true, unit: true },
+      },
+      weeklyTimesheet: {
+        select: {
+          id: true,
+          weekNumber: true,
+          weekYear: true,
+          worker: { select: { firstName: true, lastName: true } },
+        },
+      },
+    },
+  },
   payments: { orderBy: { paidDate: 'asc' as const } },
 } satisfies Prisma.InvoiceInclude;
 
@@ -150,6 +181,8 @@ export function buildLineData(
   return lines.map((l, index) => {
     const quantity = l.quantity ?? 1;
     const unitPrice = l.unitPrice ?? 0;
+    const discountPercent = l.discountPercent ?? null;
+    const discountAmount = l.discountAmount ?? null;
     return {
       lineType: l.lineType,
       position: l.position ?? index,
@@ -157,7 +190,15 @@ export function buildLineData(
       quantity,
       unit: l.unit,
       unitPrice,
-      total: round2(quantity * unitPrice),
+      discountPercent,
+      discountAmount,
+      product: l.productId ? { connect: { id: l.productId } } : undefined,
+      total: computeLineNet({
+        quantity,
+        unitPrice,
+        discountPercent,
+        discountAmount,
+      }),
       weeklyTimesheet: l.weeklyTimesheetId
         ? { connect: { id: l.weeklyTimesheetId } }
         : undefined,
@@ -176,4 +217,24 @@ export function computeTotals(
   return { subtotal, taxAmount, total };
 }
 
-export { InvoiceLineType, InvoiceStatus, InvoiceType };
+/** Effektiver Steuersatz aus taxKind + Länderliste / explizitem Satz. */
+export function effectiveTaxRateForKind(
+  taxKind: InvoiceTaxKind,
+  explicitRate: number | undefined,
+  countryRates: { standardRate: number; reducedRate: number } | null,
+): number {
+  if (
+    taxKind === InvoiceTaxKind.REVERSE_CHARGE ||
+    taxKind === InvoiceTaxKind.TAX_EXEMPT
+  ) {
+    return 0;
+  }
+  if (taxKind === InvoiceTaxKind.REDUCED) {
+    if (explicitRate != null && !Number.isNaN(explicitRate)) return explicitRate;
+    return countryRates?.reducedRate ?? 7;
+  }
+  if (explicitRate != null && !Number.isNaN(explicitRate)) return explicitRate;
+  return countryRates?.standardRate ?? 19;
+}
+
+export { InvoiceLineType, InvoiceStatus, InvoiceType, InvoiceTaxKind };
