@@ -9,6 +9,7 @@ import {
   DatabaseBackup,
   ToggleLeft,
   Contact,
+  CalendarDays,
   SlidersHorizontal,
   Briefcase,
   Sparkles,
@@ -66,6 +67,12 @@ const settingsLinks = [
     label: texts.settings.nav.contacts,
     description: texts.settings.contacts.subtitle,
     icon: Contact,
+  },
+  {
+    href: '/settings/calendar',
+    label: texts.settings.nav.calendar,
+    description: texts.settings.calendar.subtitle,
+    icon: CalendarDays,
   },
   {
     href: '/settings/backup',

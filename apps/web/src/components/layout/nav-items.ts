@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   FolderKanban,
+  CalendarDays,
   HardHat,
   UsersRound,
   Building2,
@@ -50,6 +51,7 @@ export const navGroups: NavGroup[] = [
       { href: '/todos', label: texts.todos.title, icon: CheckSquare },
       { href: '/customers', label: texts.nav.customers, icon: Users },
       { href: '/projects', label: texts.nav.projects, icon: FolderKanban },
+      { href: '/calendar', label: texts.nav.calendar, icon: CalendarDays },
       { href: '/workers', label: texts.nav.workers, icon: HardHat },
       { href: '/teams', label: texts.nav.teams, icon: UsersRound },
       {

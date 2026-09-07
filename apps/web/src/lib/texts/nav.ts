@@ -7,6 +7,7 @@ export const nav = {
     dashboard: 'Dashboard',
     customers: 'Kunden',
     projects: 'Projekte',
+    calendar: 'Kalender',
     workers: 'Monteure',
     teams: 'Teams',
     subcontractors: 'Subunternehmen',

@@ -31,7 +31,8 @@ office/
 │   │       ├── timesheets/       # Stundenzettel (Wochen-Übersicht, PDF-Export)
 │   │       ├── time-entries/     # Zeiteinträge (Stempeln, Baustellenfotos)
 │   │       ├── documents/        # Dokumentensystem (Upload, Versionen, Ordner)
-│   │       ├── google-drive/     # Google Drive Sync + Google Contacts Sync
+│   │       ├── google-drive/     # Google Drive Sync + Google Contacts + Google Calendar Sync
+│   │       ├── calendar-events/  # Office-Termine CRUD + Sync Office → Google
 │   │       ├── ocr/              # OCR-Anbindung (PaddleOCR Microservice)
 │   │       ├── research/         # Auto-Recherche Proxy (→ research-service)
 │   │       ├── equipment/        # Werkzeug- & Gerätemanagement
@@ -80,6 +81,7 @@ office/
 - **Dokumente-Tab** – Universelle Dokumentenverwaltung (ohne Visitenkarten)
 - **Drucken** – Dropdown mit "Aktuelle Ansicht" oder "Gesamtübersicht" (alle Daten auf einer Seite)
 - **Google Contacts Sync** – Ansprechpartner werden automatisch in Google Contacts angelegt/aktualisiert/gelöscht (via People API + DWD) – **produktiv** (Einstellungen → Google Contacts)
+- **Google Calendar Sync (Phase 1)** – Office-Termine → Google Calendar (`primary`), Settings `/settings/calendar`, UI `/calendar` – Code; Admin-Scope ggf. noch offen
 
 ### 2. Projektverwaltung (`/projects`)
 - **CRUD** für Projekte mit Projektnummer (P-YYYY-NNNN)
@@ -241,12 +243,14 @@ office/
 ## Offene Aufgaben
 
 ### Priorität (siehe `offen-backlog.md` / `PROJECT-STATUS.md`)
-1. **Google Calendar Phase 1** – Calendar API + DWD-Scope; Cloud-Auftrag `#20` (Office → Google)
-2. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
-3. Optional: Kiosk-Konfig zentral im Office; Phase-2 Calendar Rück-Sync
+1. **Google Admin Calendar-Scope** – Voraussetzung für grünen Settings-Test (#20 Code fertig)
+2. **#31 Kommunikation v2** – Spec ready
+3. **UNIT_BASED Abrechnung** – aus geprüften Arbeitsitems verdrahten
+4. Optional: Kiosk-Konfig zentral im Office; Phase-2 Calendar Rück-Sync
 
 PIN-Login bleibt (Monteur + Kunden-PL). Managed Multi-Instanz / AVV: **nicht geplant** (eigene App).  
-Google Contacts: **produktiv** (People API + DWD OK).
+Google Contacts: **produktiv** (People API + DWD OK).  
+Google Calendar Phase 1: **Code** (Sync Office → Google); Admin-Scope ggf. noch offen.
 
 ### ~~Google People API aktivieren~~ ✅ (erledigt 2026-08-21)
 People API + DWD-Scope `contacts` aktiv; Sync unter Einstellungen → Google Contacts.
@@ -269,10 +273,15 @@ People API + DWD-Scope `contacts` aktiv; Sync unter Einstellungen → Google Con
 - `CUSTOMER_PL` und andere User-Rollen können keine fremde `workerId` mehr stempeln
 
 ### Erledigt 21.–24.08.2026 – Contacts, Kiosk, 1.0.0
-- Google Contacts produktiv; Calendar Phase 1 weiter offen
+- Google Contacts produktiv; Calendar Phase 1 damals offen (jetzt Code #20)
 - Kiosk: Zuweisungspflicht, PIN-Freigabe, Foto-Kommentar im Bild; Domain work.vivahome.de
 - Master-Monteur; Stundenzettel manuell/KW-Bereich/Neu laden; Backup Europe/Berlin
 - Kein `prisma db seed` beim Prod-API-Start; Release **v1.0.0** + `HANDBUCH.md`
+
+### Erledigt – Google Calendar Phase 1 (#20)
+- Modell `CalendarEvent`, Settings `/settings/calendar`, CRUD `/calendar-events`, Web `/calendar`
+- Sync Office → Google `primary`; AppSetting `google_calendar_enabled`
+- Projekt-Timeline `/projects/calendar` unverändert
 
 ---
 

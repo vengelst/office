@@ -276,6 +276,7 @@ model User {
   approvedTimesheets   WeeklyTimesheet[]      @relation("TimesheetApprover")
   createdInvoices      Invoice[]              @relation("InvoiceCreator")
   finalizedInvoices    Invoice[]              @relation("InvoiceFinalizer")
+  calendarEvents       CalendarEvent[]
 
   customerPlProjects ProjectCustomerPlAssignment[]
   workItemReviews    WorkItemReview[]
@@ -412,6 +413,7 @@ model Customer {
   submissions       Submission[]
   workCardTemplates WorkCardTemplate[]
   productPrices     CustomerProductPrice[]
+  calendarEvents    CalendarEvent[]
 
   @@index([status, deletedAt])
   @@index([companyName])
@@ -611,10 +613,36 @@ model Project {
   workItems        WorkItem[]
   customerPls      ProjectCustomerPlAssignment[]
   workActivities   ProjectWorkActivity[]
+  calendarEvents   CalendarEvent[]
 
   @@index([customerId])
   @@index([status, deletedAt])
   @@index([deletedAt])
+}
+
+/// Office-Termin (Phase 1: Sync Office → Google Calendar).
+model CalendarEvent {
+  id            String   @id @default(cuid())
+  title         String
+  description   String?
+  startsAt      DateTime
+  endsAt        DateTime
+  allDay        Boolean  @default(false)
+  projectId     String?
+  customerId    String?
+  createdById   String?
+  syncToGoogle  Boolean  @default(true)
+  googleEventId String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([startsAt])
+  @@index([projectId])
+  @@index([customerId])
 }
 
 /// Projektbezogene Arbeitstätigkeit (Checkbox-Label für Stundenzettel/Clock-Out).

@@ -1,5 +1,5 @@
 ---
-description: Office Offener Backlog – v1.0.1; SPIE/KI-Import Übergabe 2026-09-01
+description: Office Offener Backlog – v1.0.1; #20 Calendar Code; SPIE/KI 2026-09-01
 alwaysApply: false
 ---
 
@@ -7,7 +7,7 @@ alwaysApply: false
 
 Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel, Handbuch, GPS, Stempeluhr, **KI-Import** oder **SPIE** anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** / Übergabe lesen.
 
-## Session-Übergabe (Stand 2026-09-01 · Version 1.0.1)
+## Session-Übergabe (Stand 2026-09-07 · Version 1.0.1)
 
 **Erledigt & auf Prod:**
 1. Stempel-API-Rollen; eigene App; PIN bleibt
@@ -18,14 +18,18 @@ Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Con
 6. **#22** Master-Tätigkeiten · **#23** Stempeluhr Zeitraum/Pause
 7. Release **v1.0.1**
 8. SPIE manuell `K-2026-0012` · **#24/#25** KI-Kontakt-Import live · KI-Settings aktiv
+9. **#27–#29** Rechnungswesen (RE/ST/KO)
+
+**Code fertig (Merge/Deploy):**
+- **#20** Google Calendar Phase 1 – Termine, Settings, Sync Office → Google (`/calendar`)
 
 **Deploy-Regel:** immer `docker compose … --env-file .env.production` (ohne Env = „leere App“).
 
 **Offen (Prio):**
+- Google Admin: Calendar API + DWD-Scope `calendar` (für grünen Settings-Test)
+- Cloud-Auftrag `#31` Kommunikation v2 (nach #20-Merge)
+- Cloud-Auftrag `#26` Projektpläne + Kiosk-Download (nur aktuell)
 - KI-Import SPIE-PDF einmal E2E fachlich abnehmen
-- Google Admin: Calendar API + DWD-Scope `calendar`
-- Cloud-Auftrag `#20` Termine + Sync Office → Google
-- Cloud-Auftrag `#26` Projektpläne + Kiosk-Download (nur aktuell) – Spec startklar
 - Phase 2 Calendar / UNIT_BASED
 
 **Übergabe-Datei:** `claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`  
