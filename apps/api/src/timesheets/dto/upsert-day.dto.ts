@@ -1,5 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 /**
  * Manueller Tageseintrag (z. B. Monteur ohne Handy): Tag anlegen oder Zeiten setzen.
@@ -32,4 +41,20 @@ export class UpsertDayDto {
   @IsOptional()
   @IsString()
   summaryComment?: string;
+
+  @ApiPropertyOptional({ description: 'Freitext Arbeiten (Projekt-Flag)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  workNotes?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Gewählte ProjectWorkActivity-IDs des Timesheet-Projekts',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  projectWorkActivityIds?: string[];
 }

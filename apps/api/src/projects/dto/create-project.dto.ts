@@ -216,4 +216,13 @@ export class CreateProjectDto {
   @IsOptional()
   @IsBoolean()
   itemBased?: boolean;
+
+  @ApiPropertyOptional({
+    default: true,
+    description:
+      'Freitext „Arbeiten“ nach Ausstempeln / am Stundenzettel (Auftrag #30)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  workNotesEnabled?: boolean;
 }

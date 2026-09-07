@@ -175,13 +175,13 @@ export default function TimesheetDetailPage(): React.ReactNode {
       {editDay && (
         <EditDayDialog
           day={editDay}
+          sheet={sheet}
           onClose={() => setEditDay(null)}
           onSaved={(updated) => {
             setSheet(updated);
             setEditDay(null);
             toast({ description: t.toast.dayUpdated });
           }}
-          sheetId={sheet.id}
         />
       )}
 

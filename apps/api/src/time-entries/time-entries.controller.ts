@@ -41,6 +41,7 @@ import { GpsPingDto } from './dto/gps-ping.dto';
 import { SwitchActivityDto } from './dto/switch-activity.dto';
 import { BreakDto } from './dto/break.dto';
 import { ManualEntryDto, UpdateEntryDto } from './dto/manual-entry.dto';
+import { WorkDocumentationDto } from './dto/work-documentation.dto';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -194,6 +195,21 @@ export class TimeEntriesController {
   @ApiOperation({ summary: 'Manuelles Stempel-Event (Büro)' })
   createManual(@Body() dto: ManualEntryDto, @CurrentUser() user: AuthUser) {
     return this.timeEntries.createManual(dto, user);
+  }
+
+  @Post(':id/work-documentation')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(RolesGuard)
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
+  @ApiOperation({
+    summary: 'Arbeitsdokumentation nach Clock-Out speichern (Auftrag #30)',
+  })
+  saveWorkDocumentation(
+    @Param('id') id: string,
+    @Body() dto: WorkDocumentationDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.timeEntries.saveWorkDocumentation(id, dto, user);
   }
 
   @Patch(':id')

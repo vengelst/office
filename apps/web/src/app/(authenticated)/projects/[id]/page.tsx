@@ -76,6 +76,13 @@ const EquipmentTab = dynamic(
     ),
   { loading: () => tabFallback },
 );
+const WorkActivitiesTab = dynamic(
+  () =>
+    import('@/components/projects/tabs/work-activities-tab').then(
+      (m) => m.WorkActivitiesTab,
+    ),
+  { loading: () => tabFallback },
+);
 const EmailRecipientsTab = dynamic(
   () =>
     import('@/components/projects/tabs/email-recipients-tab').then(
@@ -348,6 +355,9 @@ export default function ProjectDetailPage(): React.ReactNode {
           <TabsTrigger value="equipment" className="min-h-[44px]">
             {t.tabs.equipment}
           </TabsTrigger>
+          <TabsTrigger value="arbeiten" className="min-h-[44px]">
+            {t.tabs.arbeiten}
+          </TabsTrigger>
           <TabsTrigger value="arbeitsitems" className="min-h-[44px]">
             {t.tabs.arbeitsitems}
           </TabsTrigger>
@@ -402,6 +412,15 @@ export default function ProjectDetailPage(): React.ReactNode {
           <EquipmentTab
             projectId={id}
             equipment={project.equipment}
+            onChange={load}
+          />
+        </TabsContent>
+
+        <TabsContent value="arbeiten">
+          <WorkActivitiesTab
+            projectId={id}
+            workNotesEnabled={project.workNotesEnabled}
+            activities={project.workActivities ?? []}
             onChange={load}
           />
         </TabsContent>

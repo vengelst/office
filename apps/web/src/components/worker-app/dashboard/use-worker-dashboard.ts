@@ -13,6 +13,8 @@ import {
   type TodayEntry,
   type WorkerMe,
   type WorkerMeAssignment,
+  type PendingWorkDocumentation,
+  type WorkDocumentationBody,
 } from '@/lib/timesheets';
 import {
   activityTypesApi,
@@ -50,6 +52,8 @@ export function useWorkerDashboard() {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const photoInput = useRef<HTMLInputElement | null>(null);
+  const [workDocPending, setWorkDocPending] =
+    useState<PendingWorkDocumentation | null>(null);
 
   usePeriodicGpsPing({
     active: Boolean(status?.clockedIn && worker?.id),
@@ -76,6 +80,9 @@ export function useWorkerDashboard() {
       const merged = await getOptimisticClockStatus(workerId, st);
       setStatus(merged);
       setToday(td);
+      if (merged.pendingWorkDocumentation) {
+        setWorkDocPending(merged.pendingWorkDocumentation);
+      }
     } catch {
       const merged = await getOptimisticClockStatus(workerId, null);
       setStatus(merged);
@@ -243,6 +250,29 @@ export function useWorkerDashboard() {
       setStatus(result);
       if (result.queued) {
         toast({ description: t.toast.savedPending });
+      } else if (
+        result.workDocumentationRequired ||
+        result.pendingWorkDocumentation
+      ) {
+        const pending =
+          result.pendingWorkDocumentation ??
+          (result.clockOutTimeEntryId
+            ? {
+                timeEntryId: result.clockOutTimeEntryId,
+                projectId: status?.project?.id ?? '',
+                workNotesEnabled: result.workNotesEnabled ?? true,
+                workActivities: result.workActivities ?? [],
+                configurationError:
+                  (result.workActivities?.length ?? 0) === 0 &&
+                  !(result.workNotesEnabled ?? true),
+              }
+            : null);
+        if (pending) {
+          setWorkDocPending(pending);
+        } else {
+          await refresh(worker.id);
+          toast({ description: t.toast.clockedOut });
+        }
       } else {
         await refresh(worker.id);
         toast({ description: t.toast.clockedOut });
@@ -254,6 +284,16 @@ export function useWorkerDashboard() {
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleSaveWorkDocumentation = async (
+    body: WorkDocumentationBody,
+  ): Promise<void> => {
+    if (!workDocPending) return;
+    await workerApi.saveWorkDocumentation(workDocPending.timeEntryId, body);
+    setWorkDocPending(null);
+    if (worker) await refresh(worker.id);
+    toast({ description: t.toast.workDocumented });
   };
 
   const handleBreakStart = async (): Promise<void> => {
@@ -419,6 +459,8 @@ export function useWorkerDashboard() {
     handleBreakEnd,
     handlePhotoUpload,
     handleLogout,
+    workDocPending,
+    handleSaveWorkDocumentation,
   };
 }
 

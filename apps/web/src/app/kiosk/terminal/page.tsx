@@ -12,12 +12,15 @@ import { TerminalWorkItemsScreen } from '@/components/kiosk/terminal/terminal-wo
 import { TerminalActionScreen } from '@/components/kiosk/terminal/terminal-action-screen';
 import { TerminalIdleScreen } from '@/components/kiosk/terminal/terminal-idle-screen';
 import { TerminalPlansScreen } from '@/components/kiosk/terminal/terminal-plans-screen';
+import { WorkDocumentationModal } from '@/components/timesheets/work-documentation-modal';
+import { texts } from '@/lib/texts';
 
 /**
  * UI-Komponente `KioskTerminalPage`.
  */
 export default function KioskTerminalPage() {
   const terminal = useKioskTerminal();
+  const tw = texts.timesheets.workDoc;
 
   if (!terminal.config) {
     return (
@@ -25,21 +28,36 @@ export default function KioskTerminalPage() {
     );
   }
 
+  const workDocOverlay = terminal.workDocPending ? (
+    <WorkDocumentationModal
+      pending={terminal.workDocPending}
+      title={tw.title}
+      description={tw.description}
+      saveLabel={tw.save}
+      notesLabel={tw.notes}
+      notesPlaceholder={tw.notesPlaceholder}
+      emptyHint={tw.empty}
+      configErrorText={tw.configError}
+      validationHint={tw.validation}
+      onSave={terminal.handleSaveWorkDocumentation}
+    />
+  ) : null;
+
+  let screen: React.ReactNode;
+
   if (terminal.state === 'confirmation') {
-    return (
+    screen = (
       <TerminalConfirmationScreen
         confirmMessage={terminal.confirmMessage}
         confirmSubtext={terminal.confirmSubtext}
         onPointerDown={terminal.tryEnterFullscreen}
       />
     );
-  }
-
-  if (
+  } else if (
     (terminal.state === 'items' || terminal.state === 'itemDetail') &&
     terminal.worker
   ) {
-    return (
+    screen = (
       <TerminalWorkItemsScreen
         state={terminal.state}
         worker={terminal.worker}
@@ -53,11 +71,8 @@ export default function KioskTerminalPage() {
         setSelectedItemId={terminal.setSelectedItemId}
       />
     );
-  }
-
-
-  if (terminal.state === 'plans' && terminal.worker) {
-    return (
+  } else if (terminal.state === 'plans' && terminal.worker) {
+    screen = (
       <TerminalPlansScreen
         projectId={terminal.config.projectId}
         countdown={terminal.countdown}
@@ -67,10 +82,8 @@ export default function KioskTerminalPage() {
         setState={terminal.setState}
       />
     );
-  }
-
-  if (terminal.state === 'action' && terminal.worker) {
-    return (
+  } else if (terminal.state === 'action' && terminal.worker) {
+    screen = (
       <TerminalActionScreen
         worker={terminal.worker}
         config={terminal.config}
@@ -106,29 +119,36 @@ export default function KioskTerminalPage() {
         uploadPhotoWithComment={terminal.uploadPhotoWithComment}
       />
     );
+  } else {
+    screen = (
+      <TerminalIdleScreen
+        config={terminal.config}
+        pin={terminal.pin}
+        pinError={terminal.pinError}
+        pinLoading={terminal.pinLoading}
+        pinLength={terminal.pinLength}
+        lang={terminal.lang}
+        timeStr={terminal.timeStr}
+        dateStr={terminal.dateStr}
+        showAdminDialog={terminal.showAdminDialog}
+        adminPinInput={terminal.adminPinInput}
+        t={terminal.t}
+        onPointerDown={terminal.tryEnterFullscreen}
+        setLang={terminal.setLang}
+        setShowAdminDialog={terminal.setShowAdminDialog}
+        setAdminPinInput={terminal.setAdminPinInput}
+        handlePinDigit={terminal.handlePinDigit}
+        handlePinClear={terminal.handlePinClear}
+        submitPin={terminal.submitPin}
+        handleAdminPinConfirm={terminal.handleAdminPinConfirm}
+      />
+    );
   }
 
   return (
-    <TerminalIdleScreen
-      config={terminal.config}
-      pin={terminal.pin}
-      pinError={terminal.pinError}
-      pinLoading={terminal.pinLoading}
-      pinLength={terminal.pinLength}
-      lang={terminal.lang}
-      timeStr={terminal.timeStr}
-      dateStr={terminal.dateStr}
-      showAdminDialog={terminal.showAdminDialog}
-      adminPinInput={terminal.adminPinInput}
-      t={terminal.t}
-      onPointerDown={terminal.tryEnterFullscreen}
-      setLang={terminal.setLang}
-      setShowAdminDialog={terminal.setShowAdminDialog}
-      setAdminPinInput={terminal.setAdminPinInput}
-      handlePinDigit={terminal.handlePinDigit}
-      handlePinClear={terminal.handlePinClear}
-      submitPin={terminal.submitPin}
-      handleAdminPinConfirm={terminal.handleAdminPinConfirm}
-    />
+    <>
+      {screen}
+      {workDocOverlay}
+    </>
   );
 }

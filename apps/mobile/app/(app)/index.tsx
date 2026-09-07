@@ -12,6 +12,7 @@ import {
   Platform,
   Vibration,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,7 @@ import {
   type ClockStatus,
   type TodayEntry,
   type WorkerMeAssignment,
+  type PendingWorkDocumentation,
   ApiError,
 } from '../../lib/api';
 import { formatDuration, formatTime, initials, dayStart } from '../../lib/utils';
@@ -50,6 +52,11 @@ export default function DashboardScreen() {
   const [pickerOpen, setPickerOpen] = useState(false);
   /** Nach dem Ausstempeln einmalig einblenden: Items bleiben zugeordnet. */
   const [clockedOutHint, setClockedOutHint] = useState(false);
+  const [workDocPending, setWorkDocPending] =
+    useState<PendingWorkDocumentation | null>(null);
+  const [workSelected, setWorkSelected] = useState<string[]>([]);
+  const [workNotes, setWorkNotes] = useState('');
+  const [workBusy, setWorkBusy] = useState(false);
 
   const refresh = useCallback(
     async (workerId: string) => {
@@ -60,6 +67,11 @@ export default function DashboardScreen() {
         ]);
         setStatus(st);
         setTodayEntries(td);
+        if (st.pendingWorkDocumentation) {
+          setWorkDocPending(st.pendingWorkDocumentation);
+          setWorkSelected([]);
+          setWorkNotes('');
+        }
       } catch (err) {
         Alert.alert(
           'Fehler',
@@ -164,7 +176,7 @@ export default function DashboardScreen() {
     try {
       const geo = await getCurrentPosition();
       setGpsOk(geo !== null);
-      await workerApi.clockOut({
+      const result = await workerApi.clockOut({
         workerId: worker.id,
         ...(geo ?? {}),
         occurredAtClient: new Date().toISOString(),
@@ -175,7 +187,34 @@ export default function DashboardScreen() {
       // Item-Sessions schließt die API beim Ausstempeln, die Zuordnung bleibt –
       // das einmal sagen, statt den Monteur rätseln zu lassen (SPEZ 5.1).
       setClockedOutHint(itemBasedActive);
-      await refresh(worker.id);
+      if (
+        result.workDocumentationRequired ||
+        result.pendingWorkDocumentation
+      ) {
+        const pending =
+          result.pendingWorkDocumentation ??
+          (result.clockOutTimeEntryId
+            ? {
+                timeEntryId: result.clockOutTimeEntryId,
+                projectId: status?.project?.id ?? '',
+                workNotesEnabled: result.workNotesEnabled ?? true,
+                workActivities: result.workActivities ?? [],
+                configurationError:
+                  (result.workActivities?.length ?? 0) === 0 &&
+                  !(result.workNotesEnabled ?? true),
+              }
+            : null);
+        if (pending) {
+          setWorkDocPending(pending);
+          setWorkSelected([]);
+          setWorkNotes('');
+          setStatus(result);
+        } else {
+          await refresh(worker.id);
+        }
+      } else {
+        await refresh(worker.id);
+      }
     } catch (err) {
       Alert.alert(
         'Fehler',
@@ -183,6 +222,44 @@ export default function DashboardScreen() {
       );
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleSaveWorkDoc = async () => {
+    if (!workDocPending) return;
+    const hasCb = workSelected.length > 0;
+    const hasNotes = workNotes.trim().length > 0;
+    if (workDocPending.configurationError) {
+      Alert.alert(
+        'Konfiguration',
+        'Keine Tätigkeiten am Projekt und Freitext aus. Bitte Büro kontaktieren.',
+      );
+      return;
+    }
+    if (workDocPending.workNotesEnabled) {
+      if (!hasCb && !hasNotes) {
+        Alert.alert('Hinweis', 'Mindestens eine Tätigkeit und/oder Freitext.');
+        return;
+      }
+    } else if (!hasCb) {
+      Alert.alert('Hinweis', 'Mindestens eine Tätigkeit auswählen.');
+      return;
+    }
+    setWorkBusy(true);
+    try {
+      await workerApi.saveWorkDocumentation(workDocPending.timeEntryId, {
+        projectWorkActivityIds: workSelected,
+        workNotes: workDocPending.workNotesEnabled ? workNotes : undefined,
+      });
+      setWorkDocPending(null);
+      if (worker) await refresh(worker.id);
+    } catch (err) {
+      Alert.alert(
+        'Fehler',
+        err instanceof ApiError ? err.message : 'Speichern fehlgeschlagen.',
+      );
+    } finally {
+      setWorkBusy(false);
     }
   };
 
@@ -614,6 +691,73 @@ export default function DashboardScreen() {
           <Text style={styles.logoutText}>Abmelden</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <Modal visible={!!workDocPending} animationType="slide" transparent>
+        <View style={styles.workDocBackdrop}>
+          <View style={styles.workDocCard}>
+            <Text style={styles.workDocTitle}>Arbeiten dokumentieren</Text>
+            <Text style={styles.workDocHint}>
+              Bitte erledigte Arbeiten dieser Schicht angeben.
+            </Text>
+            {workDocPending?.configurationError ? (
+              <Text style={styles.workDocError}>
+                Keine Tätigkeiten am Projekt und Freitext aus. Bitte Büro
+                kontaktieren.
+              </Text>
+            ) : (
+              <>
+                {(workDocPending?.workActivities ?? []).map((a) => {
+                  const on = workSelected.includes(a.id);
+                  return (
+                    <TouchableOpacity
+                      key={a.id}
+                      style={styles.workDocRow}
+                      onPress={() =>
+                        setWorkSelected((prev) =>
+                          on
+                            ? prev.filter((x) => x !== a.id)
+                            : [...prev, a.id],
+                        )
+                      }
+                    >
+                      <Ionicons
+                        name={on ? 'checkbox' : 'square-outline'}
+                        size={22}
+                        color="#3b82f6"
+                      />
+                      <Text style={styles.workDocLabel}>{a.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+                {workDocPending?.workNotesEnabled && (
+                  <TextInput
+                    style={styles.workDocInput}
+                    value={workNotes}
+                    onChangeText={setWorkNotes}
+                    placeholder="Freitext (optional)"
+                    placeholderTextColor="#6b7280"
+                    multiline
+                  />
+                )}
+              </>
+            )}
+            <TouchableOpacity
+              style={[
+                styles.workDocSave,
+                (workBusy || workDocPending?.configurationError) && {
+                  opacity: 0.5,
+                },
+              ]}
+              disabled={workBusy || !!workDocPending?.configurationError}
+              onPress={() => void handleSaveWorkDoc()}
+            >
+              <Text style={styles.workDocSaveText}>
+                {workBusy ? 'Speichern…' : 'Speichern'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1056,5 +1200,65 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ef4444',
     fontWeight: '500',
+  },
+  workDocBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'flex-end',
+  },
+  workDocCard: {
+    backgroundColor: '#111827',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 20,
+    gap: 12,
+    maxHeight: '85%',
+  },
+  workDocTitle: {
+    color: '#f9fafb',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  workDocHint: {
+    color: '#9ca3af',
+    fontSize: 14,
+  },
+  workDocError: {
+    color: '#f87171',
+    fontSize: 14,
+  },
+  workDocRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 44,
+    paddingVertical: 8,
+  },
+  workDocLabel: {
+    color: '#e5e7eb',
+    fontSize: 15,
+    flex: 1,
+  },
+  workDocInput: {
+    borderWidth: 1,
+    borderColor: '#374151',
+    borderRadius: 8,
+    color: '#f9fafb',
+    padding: 12,
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  workDocSave: {
+    backgroundColor: '#3b82f6',
+    borderRadius: 10,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  workDocSaveText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

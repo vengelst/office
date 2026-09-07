@@ -75,6 +75,12 @@ export const detailInclude = {
       id: true,
       projectNumber: true,
       title: true,
+      workNotesEnabled: true,
+      workActivities: {
+        where: { active: true },
+        orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+        select: { id: true, label: true, sortOrder: true, active: true },
+      },
       customer: { select: { id: true, companyName: true } },
     },
   },
@@ -90,6 +96,14 @@ export const detailInclude = {
           },
         },
         orderBy: { activityType: { sortOrder: 'asc' } },
+      },
+      workActivities: {
+        include: {
+          projectWorkActivity: {
+            select: { id: true, label: true, active: true },
+          },
+        },
+        orderBy: { projectWorkActivity: { sortOrder: 'asc' } },
       },
     },
   },

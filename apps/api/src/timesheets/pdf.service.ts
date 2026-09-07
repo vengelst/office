@@ -47,6 +47,12 @@ export class TimesheetPdfService {
               },
               orderBy: { activityType: { sortOrder: 'asc' } },
             },
+            workActivities: {
+              include: {
+                projectWorkActivity: { select: { id: true, label: true } },
+              },
+              orderBy: { projectWorkActivity: { sortOrder: 'asc' } },
+            },
           },
         },
         signatures: true,
@@ -204,6 +210,55 @@ export class TimesheetPdfService {
           y,
           aCols,
           [row.day, row.name, formatMinutes(row.minutes)],
+          false,
+        );
+        y += 18;
+      }
+      y += 16;
+    }
+
+    // ── Arbeiten (projektbezogen, Auftrag #30) ────────────────
+    const workRows: Array<{ day: string; text: string }> = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(start);
+      date.setUTCDate(start.getUTCDate() + i);
+      const day = dayMap.get(dateKey(date));
+      if (!day) continue;
+      const labels = (day.workActivities ?? []).map(
+        (w) => w.projectWorkActivity.label,
+      );
+      const notes = day.workNotes?.trim();
+      const parts = [...labels];
+      if (notes) parts.push(notes);
+      if (parts.length === 0) continue;
+      workRows.push({ day: WEEKDAYS[i], text: parts.join(', ') });
+    }
+    if (workRows.length > 0) {
+      doc.y = y;
+      doc.x = startX;
+      doc.fontSize(12).text('Arbeiten');
+      doc.moveDown(0.4);
+      y = doc.y;
+      const wCols = [
+        { label: 'Tag', width: 50 },
+        { label: 'Arbeiten', width: 360 },
+      ];
+      this.drawRow(
+        doc,
+        startX,
+        y,
+        wCols,
+        wCols.map((c) => c.label),
+        true,
+      );
+      y += 20;
+      for (const row of workRows) {
+        this.drawRow(
+          doc,
+          startX,
+          y,
+          wCols,
+          [row.day, row.text],
           false,
         );
         y += 18;

@@ -47,6 +47,24 @@ export interface ClockStatus {
   project: ClockProject | null;
   timeEntryId: string | null;
   lastGrossMinutes?: number;
+  workDocumentationRequired?: boolean;
+  workNotesEnabled?: boolean;
+  workActivities?: Array<{ id: string; label: string }>;
+  clockOutTimeEntryId?: string | null;
+  pendingWorkDocumentation?: PendingWorkDocumentation | null;
+}
+
+export interface PendingWorkDocumentation {
+  timeEntryId: string;
+  projectId: string;
+  workNotesEnabled: boolean;
+  workActivities: Array<{ id: string; label: string }>;
+  configurationError: boolean;
+}
+
+export interface WorkDocumentationBody {
+  projectWorkActivityIds: string[];
+  workNotes?: string;
 }
 
 export interface TodayEntry {
@@ -222,6 +240,12 @@ export const workerApi = {
 
   clockOut: (body: ClockOutBody) =>
     apiFetch<ClockStatus>('/time-entries/clock-out', { method: 'POST', body }),
+
+  saveWorkDocumentation: (timeEntryId: string, body: WorkDocumentationBody) =>
+    apiFetch<unknown>(`/time-entries/${timeEntryId}/work-documentation`, {
+      method: 'POST',
+      body,
+    }),
 
   uploadPhoto: async (form: FormData) => {
     const token = await getToken();

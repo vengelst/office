@@ -69,6 +69,19 @@ export interface ProjectEquipment {
 }
 
 /**
+ * Projektbezogene Arbeitstätigkeit (Checkbox-Label, Auftrag #30).
+ */
+export interface ProjectWorkActivity {
+  id: string;
+  projectId: string;
+  label: string;
+  sortOrder: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * Typ/Interface `ProjectStatusHistory` für die Web-App.
  */
 export interface ProjectStatusHistory {
@@ -202,6 +215,8 @@ export interface ProjectDetail {
   pauseRuleId: string | null;
   /** Projekt wird über Arbeitsitems abgearbeitet (SPEZ-arbeitsitems.md). */
   itemBased: boolean;
+  /** Freitext „Arbeiten“ nach Ausstempeln / am Stundenzettel. */
+  workNotesEnabled: boolean;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -215,6 +230,7 @@ export interface ProjectDetail {
   } | null;
   sites: ProjectSite[];
   equipment: ProjectEquipment[];
+  workActivities: ProjectWorkActivity[];
   emailRecipients: ProjectEmailRecipient[];
   assignments: ProjectAssignment[];
   statusHistory: ProjectStatusHistory[];
@@ -360,6 +376,22 @@ export const projectsApi = {
     apiClient.patch<ProjectEquipment>(`/projects/${pid}/equipment/${id}`, body),
   removeEquipment: (pid: string, id: string) =>
     apiClient.delete<unknown>(`/projects/${pid}/equipment/${id}`),
+
+  // Arbeitstätigkeiten (Auftrag #30)
+  listWorkActivities: (pid: string) =>
+    apiClient.get<ProjectWorkActivity[]>(`/projects/${pid}/work-activities`),
+  createWorkActivity: (pid: string, body: unknown) =>
+    apiClient.post<ProjectWorkActivity>(
+      `/projects/${pid}/work-activities`,
+      body,
+    ),
+  updateWorkActivity: (pid: string, id: string, body: unknown) =>
+    apiClient.patch<ProjectWorkActivity>(
+      `/projects/${pid}/work-activities/${id}`,
+      body,
+    ),
+  removeWorkActivity: (pid: string, id: string) =>
+    apiClient.delete<unknown>(`/projects/${pid}/work-activities/${id}`),
 
   // E-Mail-Verteiler
   listEmailRecipients: (pid: string) =>
