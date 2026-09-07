@@ -2,73 +2,83 @@
  * Unit-Tests: Contact-Validierung CommunicationService (Fremd-contactId → 400).
  */
 
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
 import { BadRequestException } from '@nestjs/common';
 import { CommunicationService } from './communication.service';
 
-describe('CommunicationService contact validation', () => {
-  const prisma = {
-    customer: { findFirst: jest.fn(), findMany: jest.fn() },
-    subcontractor: { findFirst: jest.fn(), findMany: jest.fn() },
-    worker: { findFirst: jest.fn(), findMany: jest.fn() },
-    customerContact: { findUnique: jest.fn(), findMany: jest.fn() },
-    subcontractorContact: { findUnique: jest.fn(), findMany: jest.fn() },
-    communicationEntry: {
-      create: jest.fn(),
-      findUnique: jest.fn(),
-      findMany: jest.fn(),
-      count: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
+function makePrisma(overrides: Record<string, unknown> = {}) {
+  return {
+    customer: {
+      findFirst: async () => ({ id: 'cust-1' }),
+      findMany: async () => [],
     },
-    user: { findMany: jest.fn() },
-    $transaction: jest.fn(),
+    subcontractor: {
+      findFirst: async () => ({ id: 'sub-1' }),
+      findMany: async () => [],
+    },
+    worker: {
+      findFirst: async () => ({ id: 'w-1' }),
+      findMany: async () => [],
+    },
+    customerContact: {
+      findUnique: async () => ({ customerId: 'other-customer' }),
+      findMany: async () => [],
+    },
+    subcontractorContact: {
+      findUnique: async () => ({ subcontractorId: 'other-sub' }),
+      findMany: async () => [],
+    },
+    communicationEntry: {
+      create: async () => {
+        throw new Error('create sollte nicht aufgerufen werden');
+      },
+      findUnique: async () => null,
+      findMany: async () => [],
+      count: async () => 0,
+      update: async () => null,
+      delete: async () => null,
+    },
+    user: { findMany: async () => [] },
+    $transaction: async (ops: unknown) => ops,
+    ...overrides,
   };
+}
 
-  const service = new CommunicationService(prisma as never);
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
+describe('CommunicationService contact validation', () => {
   it('wirft 400 wenn contactId nicht zum Kunden gehört', async () => {
-    prisma.customer.findFirst.mockResolvedValue({ id: 'cust-1' });
-    prisma.customerContact.findUnique.mockResolvedValue({
-      customerId: 'other-customer',
-    });
-
-    await expect(
-      service.create(
-        {
-          entityType: 'CUSTOMER',
-          entityId: 'cust-1',
-          contactId: 'contact-x',
-          type: 'PHONE_CALL',
-          content: 'Test',
-        } as never,
-        'user-1',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
-
-    expect(prisma.communicationEntry.create).not.toHaveBeenCalled();
+    const service = new CommunicationService(makePrisma() as never);
+    await assert.rejects(
+      () =>
+        service.create(
+          {
+            entityType: 'CUSTOMER',
+            entityId: 'cust-1',
+            contactId: 'contact-x',
+            type: 'PHONE_CALL',
+            content: 'Test',
+          } as never,
+          'user-1',
+        ),
+      (err: unknown) => err instanceof BadRequestException,
+    );
   });
 
   it('wirft 400 wenn contactId zum falschen Sub gehört', async () => {
-    prisma.subcontractor.findFirst.mockResolvedValue({ id: 'sub-1' });
-    prisma.subcontractorContact.findUnique.mockResolvedValue({
-      subcontractorId: 'other-sub',
-    });
-
-    await expect(
-      service.create(
-        {
-          entityType: 'SUBCONTRACTOR',
-          entityId: 'sub-1',
-          contactId: 'sc-1',
-          type: 'NOTE',
-          content: 'Notiz',
-        } as never,
-        'user-1',
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
+    const service = new CommunicationService(makePrisma() as never);
+    await assert.rejects(
+      () =>
+        service.create(
+          {
+            entityType: 'SUBCONTRACTOR',
+            entityId: 'sub-1',
+            contactId: 'sc-1',
+            type: 'NOTE',
+            content: 'Notiz',
+          } as never,
+          'user-1',
+        ),
+      (err: unknown) => err instanceof BadRequestException,
+    );
   });
 });
