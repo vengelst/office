@@ -30,6 +30,7 @@ import { map } from './map';
 import { equipment } from './equipment';
 import { communication } from './communication';
 import { todos } from './todos';
+import { calendar } from './calendar';
 import { common } from './common';
 
 export const texts = {
@@ -60,6 +61,7 @@ export const texts = {
   equipment,
   communication,
   todos,
+  calendar,
   common,
 } as const;
 

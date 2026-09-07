@@ -1,7 +1,7 @@
 # Cloud-Auftrag #20: Google Calendar – Termine in Office + Sync Office → Google
 
-**Status:** Spec startklar (2026-08-26) · Prod = **v1.0.1** · Branch `main`  
-**Folgt darauf:** `#31` Kommunikation v2 (Termin aus Telefonat) – Umsetzung von `#31` wartet auf dieses Kalender-Modell.  
+**Status:** Code umgesetzt (Cloud-PR) · Prod = **v1.0.1** · Branch `main`  
+**Folgt darauf:** `#31` Kommunikation v2 (Termin aus Telefonat) – Umsetzung von `#31` wartet auf Merge dieses Kalender-Modells.  
 **Voraussetzung für grünen Verbindungstest (manuell, nicht Teil dieses Auftrags):** Google Admin – Calendar API + DWD-Scope `calendar` (siehe unten). Ohne Admin-Schritt: Code + Builds trotzdem grün; nur Settings-Test schlägt fehl.
 
 ## Kontext

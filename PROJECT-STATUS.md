@@ -10,8 +10,8 @@
 > Ausführliche Feature-Liste: **`STATUS.md`**  
 > Session-/Backlog: **`claude-auftraege/offen-backlog.md`**  
 > **Übergabe 01.09.2026:** **`claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`**  
-> Nächster Cloud-Auftrag: **`claude-auftraege/claude-arbeitsitems-20-google-calendar.md`**  
-> Zuletzt: **#24/#25** KI-Import live · SPIE `K-2026-0012` · KI-Settings aktiv  
+> Nächster Cloud-Auftrag: **`claude-auftraege/claude-arbeitsitems-31-kommunikation-v2.md`**  
+> Zuletzt: **#20** Google Calendar Phase 1 (Code) · davor #24/#25 KI-Import · SPIE `K-2026-0012`  
 > Deployment: **`DEPLOYMENT.md`** (immer `--env-file .env.production`)  
 
 ### Release 1.0.0 – Produktivstart (Ende Beta)
@@ -53,10 +53,11 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 | 14 | Kommunikation | Kundenhistorie |
 | 15 | To-Dos | Prioritäten, Dashboard |
 | 16 | Ausschreibungen | Submissions |
-| 17 | Einstellungen | Firma, Pausen, Tätigkeitsbereiche, Storage, Contacts, Backup, System, Feature-Flags |
+| 17 | Einstellungen | Firma, Pausen, Tätigkeitsbereiche, Storage, Contacts, Calendar, Backup, System, Feature-Flags |
 | 18 | Mobile Kiosk-App | Expo/Android APK |
 | 19 | Arbeitsitems | Import, Büro, Monteur, Kunden-PL |
 | 20 | Feature-Flags | Module an/aus |
+| 21 | Termine / Kalender | CRUD `/calendar`, Sync Office → Google (`google_calendar_enabled`) |
 
 ---
 
@@ -72,4 +73,4 @@ Eingefrorener Produktionsstand. Weitere Änderungen erfolgen als **1.x** in der 
 
 ## Offene Punkte / Backlog
 
-Siehe **`claude-auftraege/offen-backlog.md`**. Nächster Auftrag: **Google Calendar Phase 1 (#20)** – Spec startklar; davor Google Admin Calendar-Scope.
+Siehe **`claude-auftraege/offen-backlog.md`**. **#20** Google Calendar Phase 1: Code fertig; Google Admin Calendar-Scope für grünen Verbindungstest noch manuell. Als Nächstes: **#31** Kommunikation v2.

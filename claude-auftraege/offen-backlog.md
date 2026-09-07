@@ -7,13 +7,23 @@ Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kur
 
 ---
 
+## Session-Notiz Cursor 07.09.2026 – Google Calendar Phase 1 (#20)
+
+- **#20** Google Calendar Phase 1 – Code: Termine (`CalendarEvent`), Settings `/settings/calendar`, Sync Office → Google, UI `/calendar`
+- Feature-Flag AppSetting `google_calendar_enabled` (analog Contacts)
+- **Google Admin noch manuell:** Calendar API + DWD-Scope `calendar` – ohne Scope schlägt nur der Verbindungstest fehl
+- Phase 2 (Rück-Sync / Kalender pro User) weiterhin bewusst später
+- Spec: [`claude-arbeitsitems-20-google-calendar.md`](./claude-arbeitsitems-20-google-calendar.md)
+
+---
+
 ## Session-Notiz Cursor 07.09.2026 – Rechnungswesen + Pipeline
 
 - **#27–#29** Rechnungswesen (RE/ST/KO, Steuer je Satz) – **Prod**
-- **#30** Stundenzettel Arbeiten (projektbezogene Checkboxen, Pflicht nach Clock-Out) – **in Umsetzung** (Cloud)
-- **Als Nächstes (nach #30):** `#20` Google Calendar, dann `#31` Kommunikation v2
+- **#30** Stundenzettel Arbeiten (projektbezogene Checkboxen, Pflicht nach Clock-Out) – **in Umsetzung** / PR
+- **Als Nächstes:** `#31` Kommunikation v2 (wartet auf #20-Merge)
 - Spec `#31`: [`claude-arbeitsitems-31-kommunikation-v2.md`](./claude-arbeitsitems-31-kommunikation-v2.md) – **nur Spec, noch keine Umsetzung**
-- Spec `#20`: [`claude-arbeitsitems-20-google-calendar.md`](./claude-arbeitsitems-20-google-calendar.md) – startklar (Google Admin Calendar-Scope)
+- Spec `#20`: umgesetzt (dieser PR); Google Admin Calendar-Scope weiter manuell
 
 ---
 
@@ -36,7 +46,7 @@ Projekt wird gewechselt – Stand SPIE/KI:
 - KI-Anbindung Prod: aktiv, Test grün (OpenAI `gpt-4.1-mini`)
 - Deploy-Regel: immer `--env-file .env.production`
 - **Noch offen fachlich:** SPIE-PDF einmal per KI-Import E2E abnehmen
-- **Nächster großer Cloud-Auftrag:** `#20` Google Calendar
+- **Nächster großer Cloud-Auftrag:** `#31` Kommunikation v2 (nach Merge #20)
 
 Details: **`session-uebergabe-2026-09-01-spie-ki-import.md`**
 
@@ -103,9 +113,10 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 | Release-Tag **v1.0.1** | `27f1f23` … | live |
 
 **Nächste Cloud-Aufträge:**
-- `#20` Google Calendar Phase 1 – Spec startklar in `claude-arbeitsitems-20-google-calendar.md`
+- `#20` Google Calendar Phase 1 – **umgesetzt** (PR; Google Admin Calendar-Scope weiter manuell für grünen Test)
 - `#26` Projektpläne (Versionen) + Kiosk-Download nur aktuell – Spec: `claude-arbeitsitems-26-projektplaene-kiosk.md`
 - `#24` / `#25` KI-Kontakt-Import – **umgesetzt** (2026-08-27)
+- `#31` Kommunikation v2 – Spec ready, nach #20-Merge
 
 ---
 
@@ -136,15 +147,14 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 - Release-Tag **v1.0.0** (Ende Beta / Produktivstart)
 
 **Noch zu tun (Priorität):**
-1. **#30** Stundenzettel Arbeiten – Cloud läuft / danach Abnahme
-2. **Google Admin (manuell, Voraussetzung für #20):** Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
-3. **Cloud-Auftrag `#20`** – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`)
-4. **Cloud-Auftrag `#31`** – Kommunikation v2: Kontakt, Übersicht, To-Do/Termin aus Eintrag (`claude-arbeitsitems-31-kommunikation-v2.md`) – Spec ready, **warten bis nach #30/#20**
-5. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk – Spec; Ist teilweise da → Abnahme
-6. SPIE-PDF KI-Import einmal E2E abnehmen
-7. Optional später: Calendar Phase 2; WhatsApp Business API; UNIT_BASED
+1. **Google Admin (manuell):** Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com` – Voraussetzung für grünen Settings-Test
+2. **#20** Google Calendar Phase 1 – **Code fertig** (Merge/Deploy); Sync Office → Google
+3. **Cloud-Auftrag `#31`** – Kommunikation v2: Kontakt, Übersicht, To-Do/Termin aus Eintrag (`claude-arbeitsitems-31-kommunikation-v2.md`)
+4. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk – Spec; Ist teilweise da → Abnahme
+5. SPIE-PDF KI-Import einmal E2E abnehmen
+6. Optional später: Calendar Phase 2; WhatsApp Business API; UNIT_BASED
 
-~~#22~~ ~~#23~~ ~~#24~~ ~~#25~~ ~~#27~~ ~~#28~~ ~~#29~~ ✅
+~~#22~~ ~~#23~~ ~~#24~~ ~~#25~~ ~~#27~~ ~~#28~~ ~~#29~~ ✅ · `#20` Code ✅ (Admin-Scope offen)
 
 ---
 
@@ -223,10 +233,10 @@ People API + DWD `contacts` OK; Sync-Flag auf Prod aktiv. Pro Kontakt Checkbox `
 
 ---
 
-## 3b. Google Calendar – Phase 1 (Auftrag #20)
+## 3b. Google Calendar – Phase 1 (Auftrag #20) – Code erledigt
 
-**Google Admin (manuell):** Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`  
-**App:** siehe `claude-arbeitsitems-20-google-calendar.md`  
+**App:** `/calendar` (Termine CRUD), `/settings/calendar` (`google_calendar_enabled`), Sync Office → Google `primary`  
+**Google Admin (manuell, für grünen Test):** Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`  
 **Phase 2:** Rück-Sync / Kalender pro User – bewusst später
 
 ---

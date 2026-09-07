@@ -39,6 +39,7 @@ import { WorkItemsModule } from './work-items/work-items.module';
 import { BackupsModule } from './backups/backups.module';
 import { FeatureFlagsModule } from './feature-flags/feature-flags.module';
 import { AiImportModule } from './ai-import/ai-import.module';
+import { CalendarEventsModule } from './calendar-events/calendar-events.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 
@@ -53,6 +54,7 @@ import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor
     UsersModule,
     CustomersModule,
     AiImportModule,
+    CalendarEventsModule,
     ProjectsModule,
     WorkersModule,
     SubcontractorsModule,
