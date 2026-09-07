@@ -20,6 +20,8 @@ import {
   CommunicationType,
   RoleCode,
 } from '@prisma/client';
+import { AuthUser } from '@office/types';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { CommunicationService } from './communication.service';
@@ -34,25 +36,19 @@ import { UpdateCommunicationDto } from './dto/update-communication.dto';
 export class CommunicationController {
   constructor(private readonly communication: CommunicationService) {}
 
-  /**
-   * Liefert eine (ggf. gefilterte/paginierte) Liste.
-   *
-   * @param entityType - Entitätstyp (Customer, Project, …) (CommunicationEntityType)
-   * @param entityId - ID der verknüpften Entität (string)
-   * @param contactId - ID (contactId) (string)
-   * @param type - Parameter `type` (CommunicationType)
-   * @param page - Seitennummer (1-basiert) (string)
-   * @param limit - Seitengröße (string)
-   * @returns Listenergebnis
-   */
-
   @Get()
-  @ApiOperation({ summary: 'Kommunikationseinträge auflisten (Paginierung, Filter)' })
+  @ApiOperation({
+    summary:
+      'Kommunikationseinträge auflisten (globale Übersicht ohne Pflicht-Entity; Filter)',
+  })
   findAll(
     @Query('entityType') entityType?: CommunicationEntityType,
     @Query('entityId') entityId?: string,
     @Query('contactId') contactId?: string,
     @Query('type') type?: CommunicationType,
+    @Query('createdBy') createdBy?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
@@ -61,17 +57,19 @@ export class CommunicationController {
       entityId,
       contactId,
       type,
+      createdBy,
+      from,
+      to,
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
   }
 
-  /**
-   * Lädt einen einzelnen Datensatz anhand der ID.
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @returns Datensatz
-   */
+  @Get('authors')
+  @ApiOperation({ summary: 'Autoren für Filter der Kommunikationsübersicht' })
+  listAuthors() {
+    return this.communication.listAuthors();
+  }
 
   @Get(':id')
   @ApiOperation({ summary: 'Einzelnen Kommunikationseintrag laden' })
@@ -79,39 +77,20 @@ export class CommunicationController {
     return this.communication.get(id);
   }
 
-  /**
-   * Legt einen neuen Datensatz an.
-   *
-   * @param dto - Request-Body / Eingabedaten (CreateCommunicationDto)
-   * @returns Neu angelegter Datensatz
-   */
-
   @Post()
   @ApiOperation({ summary: 'Kommunikationseintrag erstellen' })
-  create(@Body() dto: CreateCommunicationDto) {
-    return this.communication.create(dto);
+  create(
+    @CurrentUser() user: AuthUser,
+    @Body() dto: CreateCommunicationDto,
+  ) {
+    return this.communication.create(dto, user.id);
   }
-
-  /**
-   * Aktualisiert einen bestehenden Datensatz.
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @param dto - Request-Body / Eingabedaten (UpdateCommunicationDto)
-   * @returns Aktualisierter Datensatz
-   */
 
   @Patch(':id')
   @ApiOperation({ summary: 'Kommunikationseintrag aktualisieren' })
   update(@Param('id') id: string, @Body() dto: UpdateCommunicationDto) {
     return this.communication.update(id, dto);
   }
-
-  /**
-   * Löscht bzw. deaktiviert einen Datensatz.
-   *
-   * @param id - Primärschlüssel der Entität (string)
-   * @returns Ergebnis der Löschung
-   */
 
   @Delete(':id')
   @ApiOperation({ summary: 'Kommunikationseintrag löschen' })

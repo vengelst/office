@@ -4,16 +4,26 @@
 
 import { apiClient } from './api-client';
 
+export type CommunicationEntityType = 'CUSTOMER' | 'SUBCONTRACTOR' | 'WORKER';
+export type CommunicationType =
+  | 'PHONE_CALL'
+  | 'EMAIL'
+  | 'MEETING'
+  | 'NOTE'
+  | 'INSTRUCTION'
+  | 'WHATSAPP';
+export type CommunicationDirection = 'INCOMING' | 'OUTGOING';
+
 /**
  * Typ/Interface `CommunicationEntry` für die Web-App.
  */
 export interface CommunicationEntry {
   id: string;
-  entityType: 'CUSTOMER' | 'SUBCONTRACTOR' | 'WORKER';
+  entityType: CommunicationEntityType;
   entityId: string;
   contactId: string | null;
-  type: 'PHONE_CALL' | 'EMAIL' | 'MEETING' | 'NOTE' | 'INSTRUCTION';
-  direction: 'INCOMING' | 'OUTGOING';
+  type: CommunicationType;
+  direction: CommunicationDirection;
   subject: string | null;
   content: string;
   occurredAt: string;
@@ -21,16 +31,22 @@ export interface CommunicationEntry {
   createdBy: string | null;
   createdAt: string;
   updatedAt: string;
+  entityName?: string | null;
+  contactName?: string | null;
+  createdByName?: string | null;
 }
 
 /**
  * Typ/Interface `CommunicationListParams` für die Web-App.
  */
 export interface CommunicationListParams {
-  entityType: string;
-  entityId: string;
+  entityType?: string;
+  entityId?: string;
   contactId?: string;
   type?: string;
+  createdBy?: string;
+  from?: string;
+  to?: string;
   page?: number;
   limit?: number;
 }
@@ -45,15 +61,28 @@ export interface CommunicationListResponse {
   limit: number;
 }
 
+export interface CommunicationAuthor {
+  id: string;
+  displayName: string;
+  email: string;
+}
+
 export const communicationApi = {
-  list(params: CommunicationListParams): Promise<CommunicationListResponse> {
+  list(params: CommunicationListParams = {}): Promise<CommunicationListResponse> {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined) searchParams.set(key, String(value));
+      if (value !== undefined && value !== '') {
+        searchParams.set(key, String(value));
+      }
     });
+    const qs = searchParams.toString();
     return apiClient.get<CommunicationListResponse>(
-      `/communication?${searchParams.toString()}`,
+      `/communication${qs ? `?${qs}` : ''}`,
     );
+  },
+
+  listAuthors(): Promise<CommunicationAuthor[]> {
+    return apiClient.get<CommunicationAuthor[]>('/communication/authors');
   },
 
   get(id: string): Promise<CommunicationEntry> {
@@ -61,11 +90,13 @@ export const communicationApi = {
   },
 
   create(
-    data: Pick<CommunicationEntry, 'entityType' | 'entityId' | 'type' | 'direction' | 'content' | 'occurredAt'> & {
+    data: Pick<
+      CommunicationEntry,
+      'entityType' | 'entityId' | 'type' | 'direction' | 'content' | 'occurredAt'
+    > & {
       contactId?: string;
       subject?: string;
       duration?: number;
-      createdBy?: string;
     },
   ): Promise<CommunicationEntry> {
     return apiClient.post<CommunicationEntry>('/communication', data);
@@ -82,3 +113,20 @@ export const communicationApi = {
     return apiClient.delete<void>(`/communication/${id}`);
   },
 };
+
+/** Kurz-Titel für To-Do / Termin aus einem Kommunikationseintrag. */
+export function communicationPrefillTitle(entry: CommunicationEntry): string {
+  const subject = entry.subject?.trim();
+  if (subject) return subject.slice(0, 120);
+  const content = entry.content.trim().replace(/\s+/g, ' ');
+  if (content.length <= 80) return content;
+  return `${content.slice(0, 77)}…`;
+}
+
+export function communicationEntityHref(entry: CommunicationEntry): string {
+  if (entry.entityType === 'CUSTOMER') return `/customers/${entry.entityId}`;
+  if (entry.entityType === 'SUBCONTRACTOR') {
+    return `/subcontractors/${entry.entityId}`;
+  }
+  return `/workers/${entry.entityId}`;
+}

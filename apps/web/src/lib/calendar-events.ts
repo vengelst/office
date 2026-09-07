@@ -23,6 +23,7 @@ export interface CalendarEvent {
   allDay: boolean;
   projectId: string | null;
   customerId: string | null;
+  communicationEntryId?: string | null;
   createdById: string | null;
   syncToGoogle: boolean;
   googleEventId: string | null;
@@ -41,6 +42,7 @@ export interface CalendarEventInput {
   allDay?: boolean;
   projectId?: string | null;
   customerId?: string | null;
+  communicationEntryId?: string | null;
   syncToGoogle?: boolean;
 }
 

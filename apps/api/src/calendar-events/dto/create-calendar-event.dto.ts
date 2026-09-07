@@ -45,4 +45,11 @@ export class CreateCalendarEventDto {
   @IsBoolean()
   @IsOptional()
   syncToGoogle?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Optionaler Bezug zu einem Kommunikationseintrag',
+  })
+  @IsString()
+  @IsOptional()
+  communicationEntryId?: string;
 }

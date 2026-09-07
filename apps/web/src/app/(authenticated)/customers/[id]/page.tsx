@@ -374,6 +374,7 @@ export default function CustomerDetailPage(): React.ReactNode {
           <CommunicationTab
             entityType="CUSTOMER"
             entityId={customer.id}
+            entityName={customer.companyName}
             contacts={customer.contacts}
           />
         </TabsContent>

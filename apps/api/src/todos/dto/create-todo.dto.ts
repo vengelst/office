@@ -53,4 +53,11 @@ export class CreateTodoDto {
   @IsString()
   @IsOptional()
   linkedEntityName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Optionaler Bezug zu einem Kommunikationseintrag',
+  })
+  @IsString()
+  @IsOptional()
+  communicationEntryId?: string;
 }

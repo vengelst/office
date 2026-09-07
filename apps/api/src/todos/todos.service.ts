@@ -194,6 +194,7 @@ export class TodosService {
         linkedEntityType: dto.linkedEntityType,
         linkedEntityId: dto.linkedEntityId,
         linkedEntityName: dto.linkedEntityName,
+        communicationEntryId: dto.communicationEntryId || null,
       },
     });
   }
@@ -208,9 +209,15 @@ export class TodosService {
   async update(id: string, dto: UpdateTodoDto) {
     await this.get(id);
 
-    const data: Prisma.TodoUpdateInput = { ...dto };
-    if (dto.dueDate !== undefined) {
-      data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    const { communicationEntryId, dueDate, ...rest } = dto;
+    const data: Prisma.TodoUpdateInput = { ...rest };
+    if (dueDate !== undefined) {
+      data.dueDate = dueDate ? new Date(dueDate) : null;
+    }
+    if (communicationEntryId !== undefined) {
+      data.communicationEntry = communicationEntryId
+        ? { connect: { id: communicationEntryId } }
+        : { disconnect: true };
     }
     if (dto.status === 'DONE') {
       data.completedAt = new Date();

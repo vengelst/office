@@ -489,6 +489,9 @@ export function ContactsTab({
           cardImages={cardImages}
           branchLabel={(id) => branchName(id)}
           uploadFor={uploadFor}
+          phoneCallsHrefFor={(contactId) =>
+            `/communication?entityType=CUSTOMER&entityId=${customerId}&contactId=${contactId}&type=PHONE_CALL`
+          }
           onEdit={openEdit}
           onDelete={setDeleteId}
           onUpload={triggerUpload}
@@ -511,6 +514,7 @@ export function ContactsTab({
                     cardSrc={cardImages[c.id]}
                     compact={viewMode === '3' || viewMode === '4'}
                     uploadBusy={uploadFor === c.id}
+                    phoneCallsHref={`/communication?entityType=CUSTOMER&entityId=${customerId}&contactId=${c.id}&type=PHONE_CALL`}
                     onEdit={() => openEdit(c)}
                     onDelete={() => setDeleteId(c.id)}
                     onUpload={() => triggerUpload(c.id)}

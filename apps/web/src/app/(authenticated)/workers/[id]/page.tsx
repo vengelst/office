@@ -433,7 +433,11 @@ export default function WorkerDetailPage(): React.ReactNode {
         </TabsContent>
 
         <TabsContent value="communication">
-          <CommunicationTab entityType="WORKER" entityId={worker.id} />
+          <CommunicationTab
+            entityType="WORKER"
+            entityId={worker.id}
+            entityName={workerFullName(worker)}
+          />
         </TabsContent>
       </Tabs>
 
