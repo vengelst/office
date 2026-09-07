@@ -21,6 +21,8 @@ import { UpdateEmailRecipientDto } from './dto/update-email-recipient.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
+import { CreateProjectWorkActivityDto } from './dto/create-work-activity.dto';
+import { UpdateProjectWorkActivityDto } from './dto/update-work-activity.dto';
 import {
   SORTABLE_FIELDS,
   type SortField,
@@ -332,6 +334,22 @@ export class ProjectsService {
   }
   removeEquipment(projectId: string, id: string) {
     return this.resources.removeEquipment(projectId, id);
+  }
+  findWorkActivities(projectId: string) {
+    return this.resources.findWorkActivities(projectId);
+  }
+  createWorkActivity(projectId: string, dto: CreateProjectWorkActivityDto) {
+    return this.resources.createWorkActivity(projectId, dto);
+  }
+  updateWorkActivity(
+    projectId: string,
+    id: string,
+    dto: UpdateProjectWorkActivityDto,
+  ) {
+    return this.resources.updateWorkActivity(projectId, id, dto);
+  }
+  removeWorkActivity(projectId: string, id: string) {
+    return this.resources.removeWorkActivity(projectId, id);
   }
   findEmailRecipients(projectId: string) {
     return this.resources.findEmailRecipients(projectId);

@@ -50,6 +50,18 @@ export const workerApp = {
       chooseActivity: 'Tätigkeit wählen',
       switchActivity: 'Tätigkeit wechseln',
       currentActivity: 'Aktuelle Tätigkeit',
+      workDocTitle: 'Arbeiten dokumentieren',
+      workDocDescription:
+        'Bitte die erledigten Arbeiten dieser Schicht angeben.',
+      workDocSave: 'Speichern',
+      workDocNotes: 'Freitext',
+      workDocNotesPlaceholder: 'Weitere Angaben …',
+      workDocEmpty:
+        'Keine Tätigkeiten am Projekt – Freitext verwenden oder Büro informieren.',
+      workDocConfigError:
+        'Keine Arbeitstätigkeiten am Projekt und Freitext aus. Bitte Büro kontaktieren.',
+      workDocValidation:
+        'Mindestens eine Tätigkeit und/oder Freitext erforderlich.',
     },
     toast: {
       clockedIn: 'Eingestempelt.',
@@ -62,5 +74,6 @@ export const workerApp = {
       noActivity: 'Bitte Tätigkeit wählen.',
       activitySwitched: 'Tätigkeit gewechselt.',
       savedPending: 'Gespeichert – wird synchronisiert',
+      workDocumented: 'Arbeiten gespeichert.',
     },
   } as const;

@@ -93,6 +93,23 @@ export interface ClockStatus {
   /** Pause aktiv. */
   onBreak?: boolean;
   breakStartedAt?: string | null;
+  /** Ausstehende Arbeitsdokumentation nach Clock-Out (Auftrag #30). */
+  pendingWorkDocumentation?: PendingWorkDocumentation | null;
+  /** Clock-Out: Doku erforderlich. */
+  workDocumentationRequired?: boolean;
+  workNotesEnabled?: boolean;
+  workActivities?: Array<{ id: string; label: string }>;
+  clockOutTimeEntryId?: string | null;
+  closedItemSessions?: number;
+  queued?: boolean;
+}
+
+export interface PendingWorkDocumentation {
+  timeEntryId: string;
+  projectId: string;
+  workNotesEnabled: boolean;
+  workActivities: Array<{ id: string; label: string }>;
+  configurationError: boolean;
 }
 
 
@@ -235,11 +252,22 @@ export interface TimesheetDay {
   breakMinutes: number | null;
   netMinutes: number | null;
   summaryComment: string | null;
+  workNotes: string | null;
   clockInLatitude: number | null;
   clockInLongitude: number | null;
   clockOutLatitude: number | null;
   clockOutLongitude: number | null;
   activities?: TimesheetDayActivity[];
+  workActivities?: TimesheetDayWorkActivity[];
+}
+
+export interface TimesheetDayWorkActivity {
+  id: string;
+  projectWorkActivity: {
+    id: string;
+    label: string;
+    active?: boolean;
+  };
 }
 
 /** Digitale Signatur auf einem Wochenstundenzettel (Monteur, Kunde, Vorgesetzter). */
@@ -282,7 +310,16 @@ export interface TimesheetDetail {
     lastName: string;
     photoPath: string | null;
   };
-  project: ClockProject & { customer: { id: string; companyName: string } };
+  project: ClockProject & {
+    customer: { id: string; companyName: string };
+    workNotesEnabled?: boolean;
+    workActivities?: Array<{
+      id: string;
+      label: string;
+      sortOrder?: number;
+      active?: boolean;
+    }>;
+  };
   reviewedBy: { id: string; displayName: string } | null;
   approvedBy: { id: string; displayName: string } | null;
   days: TimesheetDay[];
@@ -318,6 +355,8 @@ export interface UpdateDayBody {
   lastClockOutAt?: string;
   breakMinutes?: number;
   summaryComment?: string;
+  workNotes?: string;
+  projectWorkActivityIds?: string[];
 }
 
 /** Request-Body: Tag manuell anlegen/überschreiben. */
@@ -327,6 +366,13 @@ export interface UpsertDayBody {
   lastClockOutAt?: string;
   breakMinutes?: number;
   summaryComment?: string;
+  workNotes?: string;
+  projectWorkActivityIds?: string[];
+}
+
+export interface WorkDocumentationBody {
+  projectWorkActivityIds: string[];
+  workNotes?: string;
 }
 
 /** Request-Body zum digitalen Signieren eines Stundenzettels. */
@@ -577,6 +623,13 @@ export const workerApi = {
     occurredAtClient?: string;
   }) =>
     workerFetch<ClockStatus>('/time-entries/switch-activity', {
+      method: 'POST',
+      body,
+    }),
+
+  /** POST /time-entries/:id/work-documentation – Arbeiten nach Clock-Out. */
+  saveWorkDocumentation: (timeEntryId: string, body: WorkDocumentationBody) =>
+    workerFetch<unknown>(`/time-entries/${timeEntryId}/work-documentation`, {
       method: 'POST',
       body,
     }),
@@ -956,6 +1009,13 @@ export const kioskApi = {
     occurredAtClient?: string;
   }) =>
     workerFetch<ClockStatus>('/time-entries/switch-activity', {
+      method: 'POST',
+      body,
+    }),
+
+  /** POST /time-entries/:id/work-documentation – Arbeiten nach Clock-Out. */
+  saveWorkDocumentation: (timeEntryId: string, body: WorkDocumentationBody) =>
+    workerFetch<unknown>(`/time-entries/${timeEntryId}/work-documentation`, {
       method: 'POST',
       body,
     }),

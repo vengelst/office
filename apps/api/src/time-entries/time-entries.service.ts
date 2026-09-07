@@ -37,6 +37,8 @@ import {
 } from '../timesheets/timesheet.util';
 import { FINAL_STATUSES } from '../timesheets/timesheet-shared';
 import { TimesheetGenerationService } from '../timesheets/timesheet-generation.service';
+import { WorkDocumentationDto } from './dto/work-documentation.dto';
+import { validateWorkDocumentation } from './work-documentation.util';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -86,6 +88,30 @@ export interface ClockStatus {
     segmentId: string;
     startedAt: Date;
   } | null;
+  /**
+   * Ausstehende Arbeitsdokumentation nach Clock-Out (Auftrag #30).
+   * null wenn nichts offen.
+   */
+  pendingWorkDocumentation: PendingWorkDocumentation | null;
+}
+
+export interface PendingWorkDocumentation {
+  timeEntryId: string;
+  projectId: string;
+  workNotesEnabled: boolean;
+  workActivities: Array<{ id: string; label: string }>;
+  /** true wenn keine Tätigkeiten und Freitext aus – Büro muss konfigurieren. */
+  configurationError: boolean;
+}
+
+export interface ClockOutResult extends ClockStatus {
+  lastGrossMinutes: number;
+  closedItemSessions: number;
+  workDocumentationRequired: boolean;
+  workNotesEnabled: boolean;
+  workActivities: Array<{ id: string; label: string }>;
+  /** ID des CLOCK_OUT-Eintrags (für POST …/work-documentation). */
+  clockOutTimeEntryId: string | null;
 }
 
 export type OverviewRowStatus =
@@ -249,7 +275,7 @@ export class TimeEntriesService {
    * @param actor - Authentifizierter Benutzer/Worker
    * @returns Stempel-Status mit Brutto-Minuten der Schicht
    */
-  async clockOut(dto: ClockOutDto, actor: AuthUser) {
+  async clockOut(dto: ClockOutDto, actor: AuthUser): Promise<ClockOutResult> {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
 
@@ -258,7 +284,16 @@ export class TimeEntriesService {
       const existing = await this.findByClientEventId(dto.clientEventId);
       if (existing) {
         const status = await this.getStatus(dto.workerId);
-        return { ...status, lastGrossMinutes: 0, closedItemSessions: 0 };
+        const pending = status.pendingWorkDocumentation;
+        return {
+          ...status,
+          lastGrossMinutes: 0,
+          closedItemSessions: 0,
+          workDocumentationRequired: !!pending,
+          workNotesEnabled: pending?.workNotesEnabled ?? true,
+          workActivities: pending?.workActivities ?? [],
+          clockOutTimeEntryId: pending?.timeEntryId ?? existing.id,
+        };
       }
     }
 
@@ -302,6 +337,8 @@ export class TimeEntriesService {
           sourceDevice: dto.sourceDevice,
           clientEventId: dto.clientEventId ?? null,
           createdByUserId: actor.type === 'user' ? actor.id : null,
+          // workDocumentedAt bleibt null → Pending bis Doku gespeichert
+          workDocumentedAt: null,
         },
       });
 
@@ -334,12 +371,37 @@ export class TimeEntriesService {
         occurredAtClient,
       );
 
+      const workMeta = await this.loadProjectWorkMeta(open.projectId);
       const status = await this.getStatus(dto.workerId);
-      return { ...status, lastGrossMinutes: grossMinutes, closedItemSessions };
+      return {
+        ...status,
+        lastGrossMinutes: grossMinutes,
+        closedItemSessions,
+        workDocumentationRequired: true,
+        workNotesEnabled: workMeta.workNotesEnabled,
+        workActivities: workMeta.workActivities,
+        clockOutTimeEntryId: entry.id,
+        pendingWorkDocumentation: {
+          timeEntryId: entry.id,
+          projectId: open.projectId,
+          workNotesEnabled: workMeta.workNotesEnabled,
+          workActivities: workMeta.workActivities,
+          configurationError: workMeta.configurationError,
+        },
+      };
     } catch (err) {
       if (dto.clientEventId && isUniqueClientEventConflict(err)) {
         const status = await this.getStatus(dto.workerId);
-        return { ...status, lastGrossMinutes: 0, closedItemSessions: 0 };
+        const pending = status.pendingWorkDocumentation;
+        return {
+          ...status,
+          lastGrossMinutes: 0,
+          closedItemSessions: 0,
+          workDocumentationRequired: !!pending,
+          workNotesEnabled: pending?.workNotesEnabled ?? true,
+          workActivities: pending?.workActivities ?? [],
+          clockOutTimeEntryId: pending?.timeEntryId ?? null,
+        };
       }
       throw err;
     }
@@ -704,6 +766,7 @@ export class TimeEntriesService {
    * @throws {ForbiddenException} Wenn die Berechtigung fehlt
    */
   private async getStatus(workerId: string): Promise<ClockStatus> {
+    const pending = await this.findPendingWorkDocumentation(workerId);
     const latest = await this.getLatestClockEntry(workerId);
     if (!latest || latest.entryType !== TimeEntryType.CLOCK_IN) {
       return {
@@ -715,6 +778,7 @@ export class TimeEntriesService {
         onBreak: false,
         breakStartedAt: null,
         currentActivity: null,
+        pendingWorkDocumentation: pending,
       };
     }
     const openBreak = await this.getOpenBreakStart(
@@ -745,7 +809,247 @@ export class TimeEntriesService {
             startedAt: openSeg.startedAt,
           }
         : null,
+      pendingWorkDocumentation: pending,
     };
+  }
+
+  private async loadProjectWorkMeta(projectId: string): Promise<{
+    workNotesEnabled: boolean;
+    workActivities: Array<{ id: string; label: string }>;
+    configurationError: boolean;
+  }> {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        workNotesEnabled: true,
+        workActivities: {
+          where: { active: true },
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: { id: true, label: true },
+        },
+      },
+    });
+    const workNotesEnabled = project?.workNotesEnabled ?? true;
+    const workActivities = project?.workActivities ?? [];
+    return {
+      workNotesEnabled,
+      workActivities,
+      configurationError: workActivities.length === 0 && !workNotesEnabled,
+    };
+  }
+
+  private async findPendingWorkDocumentation(
+    workerId: string,
+  ): Promise<PendingWorkDocumentation | null> {
+    const pending = await this.prisma.timeEntry.findFirst({
+      where: {
+        workerId,
+        entryType: TimeEntryType.CLOCK_OUT,
+        workDocumentedAt: null,
+      },
+      orderBy: { occurredAtClient: 'desc' },
+      select: { id: true, projectId: true },
+    });
+    if (!pending) return null;
+    const meta = await this.loadProjectWorkMeta(pending.projectId);
+    return {
+      timeEntryId: pending.id,
+      projectId: pending.projectId,
+      workNotesEnabled: meta.workNotesEnabled,
+      workActivities: meta.workActivities,
+      configurationError: meta.configurationError,
+    };
+  }
+
+  /**
+   * Speichert Arbeitsdokumentation nach Clock-Out (Checkboxen + optional Freitext).
+   */
+  async saveWorkDocumentation(
+    timeEntryId: string,
+    dto: WorkDocumentationDto,
+    actor: AuthUser,
+  ) {
+    const entry = await this.prisma.timeEntry.findUnique({
+      where: { id: timeEntryId },
+      select: {
+        id: true,
+        workerId: true,
+        projectId: true,
+        entryType: true,
+        occurredAtClient: true,
+        workDocumentedAt: true,
+      },
+    });
+    if (!entry) {
+      throw new NotFoundException('Stempel-Eintrag nicht gefunden');
+    }
+    if (entry.entryType !== TimeEntryType.CLOCK_OUT) {
+      throw new BadRequestException(
+        'Arbeitsdokumentation nur für Ausstempel-Einträge',
+      );
+    }
+    this.assertOwnWorker(entry.workerId, actor);
+
+    if (entry.workDocumentedAt) {
+      // Idempotent: bereits dokumentiert → aktuellen Stand zurück
+      return this.getWorkDocumentationView(entry.id);
+    }
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: entry.projectId },
+      select: {
+        workNotesEnabled: true,
+        workActivities: {
+          select: { id: true, active: true },
+        },
+      },
+    });
+    if (!project) {
+      throw new NotFoundException('Projekt nicht gefunden');
+    }
+
+    const allowedIds = new Set(project.workActivities.map((a) => a.id));
+    const requested = dto.projectWorkActivityIds ?? [];
+    for (const id of requested) {
+      if (!allowedIds.has(id)) {
+        throw new BadRequestException(
+          `Arbeitstätigkeit gehört nicht zu diesem Projekt: ${id}`,
+        );
+      }
+    }
+
+    const activeCount = project.workActivities.filter((a) => a.active).length;
+    const validated = validateWorkDocumentation({
+      workNotesEnabled: project.workNotesEnabled,
+      activeActivityCount: activeCount,
+      projectWorkActivityIds: requested,
+      workNotes: dto.workNotes,
+    });
+    if (!validated.ok) {
+      throw new BadRequestException(validated.message);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.timeEntryWorkActivity.deleteMany({
+        where: { timeEntryId: entry.id },
+      });
+      if (validated.activityIds.length > 0) {
+        await tx.timeEntryWorkActivity.createMany({
+          data: validated.activityIds.map((projectWorkActivityId) => ({
+            timeEntryId: entry.id,
+            projectWorkActivityId,
+          })),
+        });
+      }
+      await tx.timeEntry.update({
+        where: { id: entry.id },
+        data: {
+          workNotes: validated.notes,
+          workDocumentedAt: new Date(),
+        },
+      });
+    });
+
+    await this.syncDayWorkFromEntries(
+      entry.workerId,
+      entry.projectId,
+      entry.occurredAtClient,
+    );
+
+    return this.getWorkDocumentationView(entry.id);
+  }
+
+  private async getWorkDocumentationView(timeEntryId: string) {
+    return this.prisma.timeEntry.findUnique({
+      where: { id: timeEntryId },
+      select: {
+        id: true,
+        workNotes: true,
+        workDocumentedAt: true,
+        workActivities: {
+          select: {
+            projectWorkActivity: {
+              select: { id: true, label: true },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Aggregiert dokumentierte CLOCK_OUT-Arbeiten auf den Wochen-Tageseintrag.
+   */
+  private async syncDayWorkFromEntries(
+    workerId: string,
+    projectId: string,
+    at: Date,
+  ): Promise<void> {
+    const dateKey = berlinDateKey(at);
+    const { from, to } = berlinDayRange(dateKey);
+    const outs = await this.prisma.timeEntry.findMany({
+      where: {
+        workerId,
+        projectId,
+        entryType: TimeEntryType.CLOCK_OUT,
+        occurredAtClient: { gte: from, lte: to },
+        workDocumentedAt: { not: null },
+      },
+      include: {
+        workActivities: {
+          include: {
+            projectWorkActivity: { select: { id: true, label: true } },
+          },
+        },
+      },
+    });
+
+    const activityIds = [
+      ...new Set(
+        outs.flatMap((o) =>
+          o.workActivities.map((l) => l.projectWorkActivity.id),
+        ),
+      ),
+    ];
+    const notes = outs
+      .map((o) => o.workNotes?.trim())
+      .filter((n): n is string => !!n && n.length > 0)
+      .join(' · ');
+
+    const { weekYear, weekNumber } = isoWeekOf(from);
+    const sheet = await this.prisma.weeklyTimesheet.findUnique({
+      where: {
+        workerId_projectId_weekYear_weekNumber: {
+          workerId,
+          projectId,
+          weekYear,
+          weekNumber,
+        },
+      },
+      select: { id: true, status: true, days: { select: { id: true, workDate: true } } },
+    });
+    if (!sheet || FINAL_STATUSES.includes(sheet.status)) return;
+
+    const day = sheet.days.find((d) => berlinDateKey(d.workDate) === dateKey);
+    if (!day) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.weeklyTimesheetDayWorkActivity.deleteMany({
+        where: { dayId: day.id },
+      });
+      if (activityIds.length > 0) {
+        await tx.weeklyTimesheetDayWorkActivity.createMany({
+          data: activityIds.map((projectWorkActivityId) => ({
+            dayId: day.id,
+            projectWorkActivityId,
+          })),
+        });
+      }
+      await tx.weeklyTimesheetDay.update({
+        where: { id: day.id },
+        data: { workNotes: notes.length > 0 ? notes : null },
+      });
+    });
   }
 
   /**

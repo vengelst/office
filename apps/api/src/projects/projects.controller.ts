@@ -36,6 +36,8 @@ import { UpdateEmailRecipientDto } from './dto/update-email-recipient.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
 import { CreateAssignmentDto } from './dto/create-assignment.dto';
 import { UpdateAssignmentDto } from './dto/update-assignment.dto';
+import { CreateProjectWorkActivityDto } from './dto/create-work-activity.dto';
+import { UpdateProjectWorkActivityDto } from './dto/update-work-activity.dto';
 
 /**
  * Controller für die Projektverwaltung.
@@ -370,6 +372,42 @@ export class ProjectsController {
     @Param('id') id: string,
   ) {
     return this.projects.removeEquipment(projectId, id);
+  }
+
+  // ── Arbeitstätigkeiten (Auftrag #30) ─────────────────────────
+
+  @Get(':id/work-activities')
+  @ApiOperation({ summary: 'Projektbezogene Arbeitstätigkeiten (Checkbox-Labels)' })
+  findWorkActivities(@Param('id') id: string) {
+    return this.projects.findWorkActivities(id);
+  }
+
+  @Post(':id/work-activities')
+  @ApiOperation({ summary: 'Arbeitstätigkeit am Projekt anlegen' })
+  createWorkActivity(
+    @Param('id') id: string,
+    @Body() dto: CreateProjectWorkActivityDto,
+  ) {
+    return this.projects.createWorkActivity(id, dto);
+  }
+
+  @Patch(':id/work-activities/:activityId')
+  @ApiOperation({ summary: 'Arbeitstätigkeit am Projekt aktualisieren' })
+  updateWorkActivity(
+    @Param('id') id: string,
+    @Param('activityId') activityId: string,
+    @Body() dto: UpdateProjectWorkActivityDto,
+  ) {
+    return this.projects.updateWorkActivity(id, activityId, dto);
+  }
+
+  @Delete(':id/work-activities/:activityId')
+  @ApiOperation({ summary: 'Arbeitstätigkeit am Projekt löschen' })
+  removeWorkActivity(
+    @Param('id') id: string,
+    @Param('activityId') activityId: string,
+  ) {
+    return this.projects.removeWorkActivity(id, activityId);
   }
 
   // ── E-Mail-Verteiler ─────────────────────────────────────────

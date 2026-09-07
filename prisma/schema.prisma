@@ -581,6 +581,8 @@ model Project {
   primaryCustomerContactId     String?
   pauseRuleId                  String?
   itemBased                    Boolean       @default(false) // Projekt wird über Work Items abgearbeitet
+  /// Freitext-Feld „Arbeiten“ nach Ausstempeln / am Stundenzettel.
+  workNotesEnabled             Boolean       @default(true)
   notes                        String?
   createdAt                    DateTime      @default(now())
   updatedAt                    DateTime      @updatedAt
@@ -608,10 +610,28 @@ model Project {
   blocks           ProjectBlock[]
   workItems        WorkItem[]
   customerPls      ProjectCustomerPlAssignment[]
+  workActivities   ProjectWorkActivity[]
 
   @@index([customerId])
   @@index([status, deletedAt])
   @@index([deletedAt])
+}
+
+/// Projektbezogene Arbeitstätigkeit (Checkbox-Label für Stundenzettel/Clock-Out).
+model ProjectWorkActivity {
+  id        String   @id @default(cuid())
+  projectId String
+  label     String
+  sortOrder Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project          Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeEntryLinks   TimeEntryWorkActivity[]
+  timesheetDayLinks WeeklyTimesheetDayWorkActivity[]
+
+  @@index([projectId, active, sortOrder])
 }
 
 model ProjectSite {
@@ -1109,17 +1129,35 @@ model TimeEntry {
   /// Client-seitige Event-UUID für Offline-Idempotenz (null = Alt/Online ohne Id)
   clientEventId    String?       @unique
   createdByUserId  String?
+  /// Freitext „Arbeiten“ (nach Clock-Out); nur bei CLOCK_OUT relevant.
+  workNotes        String?
+  /// null = Arbeitsdokumentation nach Clock-Out noch ausstehend.
+  workDocumentedAt DateTime?
   createdAt        DateTime      @default(now())
 
-  worker    Worker     @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  createdBy User?      @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
-  gpsEvents GpsEvent[]
+  worker         Worker                   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  project        Project                  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdBy      User?                    @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  gpsEvents      GpsEvent[]
+  workActivities TimeEntryWorkActivity[]
 
   @@index([workerId, projectId])
   @@index([occurredAtClient])
   @@index([projectId])
   @@index([workerId, entryType, occurredAtClient])
+  @@index([workerId, entryType, workDocumentedAt])
+}
+
+model TimeEntryWorkActivity {
+  id                     String @id @default(cuid())
+  timeEntryId            String
+  projectWorkActivityId  String
+
+  timeEntry            TimeEntry            @relation(fields: [timeEntryId], references: [id], onDelete: Cascade)
+  projectWorkActivity  ProjectWorkActivity  @relation(fields: [projectWorkActivityId], references: [id], onDelete: Restrict)
+
+  @@unique([timeEntryId, projectWorkActivityId])
+  @@index([projectWorkActivityId])
 }
 
 model GpsEvent {
@@ -1195,15 +1233,30 @@ model WeeklyTimesheetDay {
   breakMinutes      Int?
   netMinutes        Int?
   summaryComment    String?
+  /// Aggregierte / manuelle Freitext-Arbeiten (getrennt von Master-Tätigkeiten).
+  workNotes         String?
   clockInLatitude   Float?
   clockInLongitude  Float?
   clockOutLatitude  Float?
   clockOutLongitude Float?
 
-  weeklyTimesheet WeeklyTimesheet              @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
-  activities      WeeklyTimesheetDayActivity[]
+  weeklyTimesheet  WeeklyTimesheet                   @relation(fields: [weeklyTimesheetId], references: [id], onDelete: Cascade)
+  activities       WeeklyTimesheetDayActivity[]
+  workActivities   WeeklyTimesheetDayWorkActivity[]
 
   @@index([weeklyTimesheetId])
+}
+
+model WeeklyTimesheetDayWorkActivity {
+  id                    String @id @default(cuid())
+  dayId                 String
+  projectWorkActivityId String
+
+  day                 WeeklyTimesheetDay  @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  projectWorkActivity ProjectWorkActivity @relation(fields: [projectWorkActivityId], references: [id], onDelete: Restrict)
+
+  @@unique([dayId, projectWorkActivityId])
+  @@index([projectWorkActivityId])
 }
 
 /// Katalog abrechnungsrelevanter Tätigkeiten (Master-Monteur).

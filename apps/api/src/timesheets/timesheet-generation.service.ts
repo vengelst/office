@@ -39,6 +39,7 @@ import {
   sumTotals,
   parseDate,
 } from './timesheet-shared';
+import { validateWorkDocumentation } from '../time-entries/work-documentation.util';
 
 @Injectable()
 export class TimesheetGenerationService {
@@ -173,6 +174,11 @@ export class TimesheetGenerationService {
         occurredAtClient: { gte: start, lte: end },
       },
       orderBy: { occurredAtClient: 'asc' },
+      include: {
+        workActivities: {
+          select: { projectWorkActivityId: true },
+        },
+      },
     });
 
     const rule = selectBreakRule(
@@ -347,6 +353,37 @@ export class TimesheetGenerationService {
             })),
           });
         }
+
+        // Projekt-Arbeiten aus dokumentierten CLOCK_OUT aggregieren (Auftrag #30)
+        const dayOuts = entries.filter(
+          (e) =>
+            e.entryType === TimeEntryType.CLOCK_OUT &&
+            e.workDocumentedAt != null &&
+            dayKey(e.occurredAtClient) === dayKey(d.workDate),
+        );
+        const workIdSet = new Set<string>();
+        const noteParts: string[] = [];
+        for (const out of dayOuts) {
+          for (const link of out.workActivities) {
+            workIdSet.add(link.projectWorkActivityId);
+          }
+          const n = out.workNotes?.trim();
+          if (n) noteParts.push(n);
+        }
+        if (workIdSet.size > 0) {
+          await tx.weeklyTimesheetDayWorkActivity.createMany({
+            data: [...workIdSet].map((projectWorkActivityId) => ({
+              dayId: dayRow.id,
+              projectWorkActivityId,
+            })),
+          });
+        }
+        if (noteParts.length > 0) {
+          await tx.weeklyTimesheetDay.update({
+            where: { id: dayRow.id },
+            data: { workNotes: noteParts.join(' · ') },
+          });
+        }
       }
       return sheet;
     });
@@ -417,6 +454,19 @@ export class TimesheetGenerationService {
             : day.summaryComment,
       },
     });
+
+    if (
+      dto.projectWorkActivityIds !== undefined ||
+      dto.workNotes !== undefined
+    ) {
+      await this.applyDayWorkDocumentation(sheet.projectId, dayId, {
+        projectWorkActivityIds: dto.projectWorkActivityIds,
+        workNotes: dto.workNotes,
+        existingActivityIds: (day as { workActivities?: Array<{ projectWorkActivityId: string }> })
+          .workActivities?.map((w) => w.projectWorkActivityId),
+        existingNotes: (day as { workNotes?: string | null }).workNotes,
+      });
+    }
 
     await this.recomputeTotals(id);
     return this.findOne(id);
@@ -498,14 +548,109 @@ export class TimesheetGenerationService {
         where: { id: existing.id },
         data,
       });
+      if (
+        dto.projectWorkActivityIds !== undefined ||
+        dto.workNotes !== undefined
+      ) {
+        await this.applyDayWorkDocumentation(sheet.projectId, existing.id, {
+          projectWorkActivityIds: dto.projectWorkActivityIds,
+          workNotes: dto.workNotes,
+          existingActivityIds: (
+            existing as {
+              workActivities?: Array<{ projectWorkActivityId: string }>;
+            }
+          ).workActivities?.map((w) => w.projectWorkActivityId),
+          existingNotes: (existing as { workNotes?: string | null }).workNotes,
+        });
+      }
     } else {
-      await this.prisma.weeklyTimesheetDay.create({
+      const created = await this.prisma.weeklyTimesheetDay.create({
         data: { ...data, weeklyTimesheetId: id },
       });
+      if (
+        dto.projectWorkActivityIds !== undefined ||
+        dto.workNotes !== undefined
+      ) {
+        await this.applyDayWorkDocumentation(sheet.projectId, created.id, {
+          projectWorkActivityIds: dto.projectWorkActivityIds,
+          workNotes: dto.workNotes,
+        });
+      }
     }
 
     await this.recomputeTotals(id);
     return this.findOne(id);
+  }
+
+  /**
+   * Setzt / validiert projektbezogene Arbeiten an einem Stundenzettel-Tag.
+   * Wird erzwungen, sobald Arbeiten-Felder im Request mitgeschickt werden.
+   */
+  private async applyDayWorkDocumentation(
+    projectId: string,
+    dayId: string,
+    opts: {
+      projectWorkActivityIds?: string[];
+      workNotes?: string;
+      existingActivityIds?: string[];
+      existingNotes?: string | null;
+    },
+  ) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      select: {
+        workNotesEnabled: true,
+        workActivities: { select: { id: true, active: true } },
+      },
+    });
+    if (!project) {
+      throw new NotFoundException('Projekt nicht gefunden');
+    }
+
+    const ids =
+      opts.projectWorkActivityIds !== undefined
+        ? opts.projectWorkActivityIds
+        : (opts.existingActivityIds ?? []);
+    const notes =
+      opts.workNotes !== undefined ? opts.workNotes : opts.existingNotes;
+
+    const allowedIds = new Set(project.workActivities.map((a) => a.id));
+    for (const id of ids) {
+      if (!allowedIds.has(id)) {
+        throw new BadRequestException(
+          `Arbeitstätigkeit gehört nicht zu diesem Projekt: ${id}`,
+        );
+      }
+    }
+
+    const activeCount = project.workActivities.filter((a) => a.active).length;
+    const validated = validateWorkDocumentation({
+      workNotesEnabled: project.workNotesEnabled,
+      activeActivityCount: activeCount,
+      projectWorkActivityIds: ids,
+      workNotes: notes,
+    });
+    if (!validated.ok) {
+      throw new BadRequestException(validated.message);
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.weeklyTimesheetDayWorkActivity.deleteMany({
+        where: { dayId },
+      });
+      if (validated.activityIds.length > 0) {
+        await tx.weeklyTimesheetDayWorkActivity.createMany({
+          data: validated.activityIds.map((projectWorkActivityId) => ({
+            dayId,
+            projectWorkActivityId,
+          })),
+        });
+      }
+      await tx.weeklyTimesheetDay.update({
+        where: { id: dayId },
+        data: { workNotes: validated.notes },
+      });
+    });
   }
 
   /**

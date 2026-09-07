@@ -11,6 +11,8 @@ import {
   type WorkerMe,
   type ClockStatus,
   type KioskWorkerStatus,
+  type PendingWorkDocumentation,
+  type WorkDocumentationBody,
 } from '@/lib/timesheets';
 import {
   getOptimisticClockStatus,
@@ -72,6 +74,12 @@ export function useKioskTerminal() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [photoPending, setPhotoPending] = useState<File | null>(null);
   const [photoComment, setPhotoComment] = useState('');
+  const [workDocPending, setWorkDocPending] =
+    useState<PendingWorkDocumentation | null>(null);
+  const pendingConfirmRef = useRef<{
+    message: string;
+    subtext: string;
+  } | null>(null);
 
   usePeriodicGpsPing({
     active: Boolean(
@@ -219,6 +227,10 @@ export function useKioskTerminal() {
     setSelectedItemId(null);
     setSelectedProjectId(config?.projectId ?? null);
     setLiveWorkers([]);
+    setPhotoPending(null);
+    setPhotoComment('');
+    setWorkDocPending(null);
+    pendingConfirmRef.current = null;
     clearWorkerSession();
   }, [config?.projectId]);
 
@@ -244,6 +256,7 @@ export function useKioskTerminal() {
 
   useEffect(() => {
     if (!SESSION_STATES.includes(state) || !config) return;
+    if (workDocPending) return; // Pflicht-Modal: kein Auto-Logout
     const limit =
       state === 'action'
         ? config.autoLogoutSeconds
@@ -259,7 +272,7 @@ export function useKioskTerminal() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [state, config, endSession]);
+  }, [state, config, endSession, workDocPending]);
 
   const handlePinDigit = (digit: string) => {
     if (pin.length >= pinLength) return;
@@ -298,10 +311,14 @@ export function useKioskTerminal() {
           durationMinutes: 0,
           project: null,
           timeEntryId: null,
+          pendingWorkDocumentation: null,
         };
       }
       const merged = await getOptimisticClockStatus(me.id, status);
       setClockStatus(merged);
+      if (merged.pendingWorkDocumentation) {
+        setWorkDocPending(merged.pendingWorkDocumentation);
+      }
       const defaultProjectId =
         merged.clockedIn && merged.project?.id
           ? merged.project.id
@@ -430,31 +447,78 @@ export function useKioskTerminal() {
           `${worker.firstName} ${worker.lastName} – ${t(KT.savedPending)}`,
         );
         setConfirmSubtext(t(KT.goodBye));
+        setState('confirmation');
+        tryVibrate();
+        setTimeout(() => {
+          void endSession();
+        }, 3000);
       } else {
         const duration = result.lastGrossMinutes
           ? formatDuration(result.lastGrossMinutes * 60)
           : '';
-        setConfirmMessage(
-          t(
-            KT.confirmClockOut(
-              `${worker.firstName} ${worker.lastName}`,
-              now,
-              duration,
-            ),
+        const message = t(
+          KT.confirmClockOut(
+            `${worker.firstName} ${worker.lastName}`,
+            now,
+            duration,
           ),
         );
-        setConfirmSubtext(t(KT.goodBye));
+        const subtext = t(KT.goodBye);
+        const pending =
+          result.pendingWorkDocumentation ??
+          (result.clockOutTimeEntryId
+            ? {
+                timeEntryId: result.clockOutTimeEntryId,
+                projectId:
+                  config.projectId ??
+                  result.project?.id ??
+                  openProjectIdFallback(result),
+                workNotesEnabled: result.workNotesEnabled ?? true,
+                workActivities: result.workActivities ?? [],
+                configurationError:
+                  (result.workActivities?.length ?? 0) === 0 &&
+                  !(result.workNotesEnabled ?? true),
+              }
+            : null);
+        if (result.workDocumentationRequired && pending) {
+          pendingConfirmRef.current = { message, subtext };
+          setWorkDocPending(pending);
+        } else {
+          setConfirmMessage(message);
+          setConfirmSubtext(subtext);
+          setState('confirmation');
+          tryVibrate();
+          setTimeout(() => {
+            void endSession();
+          }, 3000);
+        }
       }
-      setState('confirmation');
-      tryVibrate();
-      setTimeout(() => {
-        void endSession();
-      }, 3000);
     } catch {
       setPinError(t(KT.error));
     } finally {
       setProcessing(false);
     }
+  };
+
+  function openProjectIdFallback(result: ClockStatus): string {
+    return result.project?.id ?? '';
+  }
+
+  const handleSaveWorkDocumentation = async (
+    body: WorkDocumentationBody,
+  ): Promise<void> => {
+    if (!workDocPending) return;
+    await kioskApi.saveWorkDocumentation(workDocPending.timeEntryId, body);
+    setWorkDocPending(null);
+    const pending = pendingConfirmRef.current;
+    pendingConfirmRef.current = null;
+    setConfirmMessage(pending?.message ?? '');
+    setConfirmSubtext(pending?.subtext ?? t(KT.goodBye));
+    setState('confirmation');
+    tryVibrate();
+    setTimeout(() => {
+      void endSession();
+    }, 3000);
   };
 
   const handleBreakStart = async () => {
@@ -669,6 +733,8 @@ export function useKioskTerminal() {
     uploadPhotoWithComment,
     handleAdminPinConfirm,
     handleActivityTypeChange,
+    workDocPending,
+    handleSaveWorkDocumentation,
     activeProjectId,
     itemBasedProject,
     canClockInOnKioskProject,

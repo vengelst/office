@@ -71,6 +71,7 @@ export const timesheets = {
       net: 'Netto',
       comment: 'Kommentar',
       activities: 'Tätigkeiten',
+      work: 'Arbeiten',
       total: 'Summe',
       gps: 'GPS-Standort öffnen',
       noData: 'Für diesen Stundenzettel liegen keine Tageseinträge vor.',
@@ -99,6 +100,14 @@ export const timesheets = {
       end: 'Arbeitsende',
       break: 'Pause (Minuten)',
       comment: 'Kommentar',
+      workSection: 'Arbeiten',
+      workNotes: 'Freitext Arbeiten',
+      workNotesPlaceholder: 'Was wurde erledigt?',
+      workEmpty: 'Keine Tätigkeiten am Projekt hinterlegt.',
+      workConfigError:
+        'Keine Tätigkeiten am Projekt und Freitext deaktiviert – bitte im Projekt hinterlegen.',
+      workValidation:
+        'Mindestens eine Tätigkeit und/oder Freitext erforderlich.',
       save: 'Speichern',
       saving: 'Wird gespeichert …',
     },
@@ -111,8 +120,30 @@ export const timesheets = {
       end: 'Arbeitsende',
       break: 'Pause (Minuten)',
       comment: 'Kommentar',
+      workSection: 'Arbeiten',
+      workNotes: 'Freitext Arbeiten',
+      workNotesPlaceholder: 'Was wurde erledigt?',
+      workEmpty: 'Keine Tätigkeiten am Projekt hinterlegt.',
+      workConfigError:
+        'Keine Tätigkeiten am Projekt und Freitext deaktiviert – bitte im Projekt hinterlegen.',
+      workValidation:
+        'Mindestens eine Tätigkeit und/oder Freitext erforderlich.',
       save: 'Speichern',
       saving: 'Wird gespeichert …',
+    },
+    workDoc: {
+      title: 'Arbeiten dokumentieren',
+      description:
+        'Bitte die erledigten Arbeiten dieser Schicht angeben. Ohne Angabe kein Abschluss.',
+      save: 'Speichern',
+      notes: 'Freitext',
+      notesPlaceholder: 'Weitere Angaben …',
+      empty:
+        'Keine Tätigkeiten am Projekt – Freitext verwenden oder Büro informieren.',
+      configError:
+        'Keine Arbeitstätigkeiten am Projekt hinterlegt und Freitext deaktiviert. Bitte Büro kontaktieren.',
+      validation:
+        'Mindestens eine Tätigkeit und/oder Freitext erforderlich.',
     },
     signatures: {
       timeline: 'Status-Verlauf',

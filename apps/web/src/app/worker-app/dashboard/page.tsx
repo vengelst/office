@@ -14,6 +14,7 @@ import { PhotoSection } from '@/components/worker-app/dashboard/photo-section';
 import { TodayEntriesSection } from '@/components/worker-app/dashboard/today-entries-section';
 import { useWorkerDashboard } from '@/components/worker-app/dashboard/use-worker-dashboard';
 import { WorkItemsLink } from '@/components/worker-app/dashboard/work-items-link';
+import { WorkDocumentationModal } from '@/components/timesheets/work-documentation-modal';
 import { texts } from '@/lib/texts';
 
 /**
@@ -41,6 +42,20 @@ export default function WorkerDashboardPage(): React.ReactNode {
 
   return (
     <div className="flex flex-1 flex-col gap-6 px-5 py-6">
+      {dashboard.workDocPending && (
+        <WorkDocumentationModal
+          pending={dashboard.workDocPending}
+          title={t.dashboard.workDocTitle}
+          description={t.dashboard.workDocDescription}
+          saveLabel={t.dashboard.workDocSave}
+          notesLabel={t.dashboard.workDocNotes}
+          notesPlaceholder={t.dashboard.workDocNotesPlaceholder}
+          emptyHint={t.dashboard.workDocEmpty}
+          configErrorText={t.dashboard.workDocConfigError}
+          validationHint={t.dashboard.workDocValidation}
+          onSave={dashboard.handleSaveWorkDocumentation}
+        />
+      )}
       <OfflineClockBanner
         workerId={worker.id}
         onSynced={() => {

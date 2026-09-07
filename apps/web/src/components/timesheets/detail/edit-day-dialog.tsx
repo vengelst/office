@@ -21,15 +21,19 @@ import {
 } from '@/lib/timesheets';
 import { texts } from '@/lib/texts';
 import { toLocalInput } from './utils';
+import {
+  WorkDocumentationFields,
+  canSubmitWorkDocumentation,
+} from '@/components/timesheets/work-documentation-fields';
 
 export function EditDayDialog({
   day,
-  sheetId,
+  sheet,
   onClose,
   onSaved,
 }: {
   day: TimesheetDay;
-  sheetId: string;
+  sheet: TimesheetDetail;
   onClose: () => void;
   onSaved: (updated: TimesheetDetail) => void;
 }): React.ReactNode {
@@ -39,16 +43,44 @@ export function EditDayDialog({
   const [end, setEnd] = useState(toLocalInput(day.lastClockOutAt));
   const [brk, setBrk] = useState(day.breakMinutes ?? 0);
   const [comment, setComment] = useState(day.summaryComment ?? '');
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    (day.workActivities ?? []).map((w) => w.projectWorkActivity.id),
+  );
+  const [workNotes, setWorkNotes] = useState(day.workNotes ?? '');
   const [busy, setBusy] = useState(false);
 
+  const activities = sheet.project.workActivities ?? [];
+  const workNotesEnabled = sheet.project.workNotesEnabled ?? true;
+  const configError = activities.length === 0 && !workNotesEnabled;
+  const hasTimes = Boolean(start && end);
+  const workOk =
+    !hasTimes ||
+    canSubmitWorkDocumentation({
+      workNotesEnabled,
+      activities,
+      selectedIds,
+      workNotes,
+      configurationError: configError,
+    });
+
   const save = async (): Promise<void> => {
+    if (hasTimes && !workOk) {
+      toast({ description: t.workValidation });
+      return;
+    }
     setBusy(true);
     try {
-      const updated = await timesheetsApi.updateDay(sheetId, day.id, {
+      const updated = await timesheetsApi.updateDay(sheet.id, day.id, {
         firstClockInAt: start ? new Date(start).toISOString() : undefined,
         lastClockOutAt: end ? new Date(end).toISOString() : undefined,
         breakMinutes: Number(brk),
         summaryComment: comment,
+        ...(hasTimes
+          ? {
+              projectWorkActivityIds: selectedIds,
+              workNotes: workNotesEnabled ? workNotes : undefined,
+            }
+          : {}),
       });
       onSaved(updated);
     } catch (err) {
@@ -62,7 +94,7 @@ export function EditDayDialog({
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t.title}</DialogTitle>
         </DialogHeader>
@@ -104,9 +136,31 @@ export function EditDayDialog({
               onChange={(e) => setComment(e.target.value)}
             />
           </div>
+          {hasTimes && (
+            <div className="space-y-2 border-t pt-4">
+              <Label>{t.workSection}</Label>
+              <WorkDocumentationFields
+                activities={activities}
+                workNotesEnabled={workNotesEnabled}
+                selectedIds={selectedIds}
+                onSelectedIdsChange={setSelectedIds}
+                workNotes={workNotes}
+                onWorkNotesChange={setWorkNotes}
+                notesLabel={t.workNotes}
+                notesPlaceholder={t.workNotesPlaceholder}
+                emptyHint={t.workEmpty}
+                configError={configError}
+                configErrorText={t.workConfigError}
+              />
+            </div>
+          )}
         </div>
         <DialogFooter>
-          <Button className="min-h-[44px]" disabled={busy} onClick={save}>
+          <Button
+            className="min-h-[44px]"
+            disabled={busy || (hasTimes && !workOk)}
+            onClick={() => void save()}
+          >
             {busy ? t.saving : t.save}
           </Button>
         </DialogFooter>

@@ -52,6 +52,7 @@ export const detailInclude = {
   },
   sites: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
   equipment: { orderBy: { issuedAt: 'desc' } },
+  workActivities: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
   emailRecipients: { orderBy: { recipientType: 'asc' } },
   assignments: {
     orderBy: [{ isLead: 'desc' }, { startDate: 'asc' }],

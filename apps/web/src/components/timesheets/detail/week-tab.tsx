@@ -55,6 +55,7 @@ export function WeekTab({
             <TableHead className="text-right">{t.break}</TableHead>
             <TableHead className="text-right">{t.net}</TableHead>
             <TableHead>{t.activities}</TableHead>
+            <TableHead>{t.work}</TableHead>
             <TableHead>{t.comment}</TableHead>
             {editable && <TableHead className="w-px" />}
           </TableRow>
@@ -106,6 +107,21 @@ export function WeekTab({
                       )
                       .join(' · ')}
               </TableCell>
+              <TableCell className="max-w-[12rem] text-xs text-muted-foreground">
+                {(() => {
+                  const labels = (d.workActivities ?? []).map(
+                    (w) => w.projectWorkActivity.label,
+                  );
+                  const notes = d.workNotes?.trim();
+                  const parts = [...labels];
+                  if (notes) {
+                    parts.push(
+                      notes.length > 40 ? `${notes.slice(0, 40)}…` : notes,
+                    );
+                  }
+                  return parts.length === 0 ? '—' : parts.join(' · ');
+                })()}
+              </TableCell>
               <TableCell className="max-w-[14rem] truncate text-muted-foreground">
                 {d.summaryComment ?? ''}
               </TableCell>
@@ -134,6 +150,8 @@ export function WeekTab({
             <TableCell className="text-right font-mono">
               {formatMinutes(sheet.totalMinutesNet)}
             </TableCell>
+            <TableCell />
+            <TableCell />
             <TableCell />
             {editable && <TableCell />}
           </TableRow>

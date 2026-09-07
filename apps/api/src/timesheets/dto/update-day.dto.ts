@@ -1,5 +1,13 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import {
+  ArrayUnique,
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 /**
  * Manuelle Korrektur eines Tageseintrags. Werden firstClockInAt/lastClockOutAt
@@ -27,4 +35,20 @@ export class UpdateDayDto {
   @IsOptional()
   @IsString()
   summaryComment?: string;
+
+  @ApiPropertyOptional({ description: 'Freitext Arbeiten (Projekt-Flag)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(4000)
+  workNotes?: string;
+
+  @ApiPropertyOptional({
+    type: [String],
+    description: 'Gewählte ProjectWorkActivity-IDs des Timesheet-Projekts',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  projectWorkActivityIds?: string[];
 }

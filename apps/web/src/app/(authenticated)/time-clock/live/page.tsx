@@ -121,7 +121,7 @@ export default function TimeClockLivePage(): React.ReactNode {
     }
   };
 
-  const clockOutButton = (e: LiveEntry): React.ReactNode => (
+  const clockOutButton = (e: LiveEntry): JSX.Element => (
     <Button
       type="button"
       variant="outline"

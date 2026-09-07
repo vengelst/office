@@ -11,6 +11,8 @@ import { UpdateEquipmentDto } from './dto/update-equipment.dto';
 import { CreateEmailRecipientDto } from './dto/create-email-recipient.dto';
 import { UpdateEmailRecipientDto } from './dto/update-email-recipient.dto';
 import { CreateNoteDto } from './dto/create-note.dto';
+import { CreateProjectWorkActivityDto } from './dto/create-work-activity.dto';
+import { UpdateProjectWorkActivityDto } from './dto/update-work-activity.dto';
 import { coerceDate } from './project-shared';
 
 @Injectable()
@@ -319,4 +321,67 @@ export class ProjectResourcesService {
     }
   }
 
+  // ── Work Activities (Auftrag #30) ────────────────────────────
+
+  async findWorkActivities(projectId: string) {
+    await this.ensureProject(projectId);
+    return this.prisma.projectWorkActivity.findMany({
+      where: { projectId },
+      orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  async createWorkActivity(
+    projectId: string,
+    dto: CreateProjectWorkActivityDto,
+  ) {
+    await this.ensureProject(projectId);
+    let sortOrder = dto.sortOrder;
+    if (sortOrder === undefined) {
+      const max = await this.prisma.projectWorkActivity.aggregate({
+        where: { projectId },
+        _max: { sortOrder: true },
+      });
+      sortOrder = (max._max.sortOrder ?? -1) + 1;
+    }
+    return this.prisma.projectWorkActivity.create({
+      data: {
+        projectId,
+        label: dto.label.trim(),
+        sortOrder,
+        active: dto.active ?? true,
+      },
+    });
+  }
+
+  async updateWorkActivity(
+    projectId: string,
+    id: string,
+    dto: UpdateProjectWorkActivityDto,
+  ) {
+    await this.ensureWorkActivity(projectId, id);
+    return this.prisma.projectWorkActivity.update({
+      where: { id },
+      data: {
+        ...(dto.label !== undefined ? { label: dto.label.trim() } : {}),
+        ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+        ...(dto.active !== undefined ? { active: dto.active } : {}),
+      },
+    });
+  }
+
+  async removeWorkActivity(projectId: string, id: string) {
+    await this.ensureWorkActivity(projectId, id);
+    await this.prisma.projectWorkActivity.delete({ where: { id } });
+    return { id, deleted: true };
+  }
+
+  async ensureWorkActivity(projectId: string, id: string): Promise<void> {
+    const count = await this.prisma.projectWorkActivity.count({
+      where: { id, projectId },
+    });
+    if (count === 0) {
+      throw new NotFoundException('Arbeitstätigkeit nicht gefunden');
+    }
+  }
 }

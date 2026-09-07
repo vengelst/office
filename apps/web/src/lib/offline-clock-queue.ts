@@ -257,6 +257,7 @@ function optimisticFromEntry(entry: OfflineClockEntry): OfflineClockResult {
         title: '',
       },
       timeEntryId: null,
+      pendingWorkDocumentation: null,
       pendingSync: true,
       queued: true,
     };
@@ -267,6 +268,7 @@ function optimisticFromEntry(entry: OfflineClockEntry): OfflineClockResult {
     durationMinutes: 0,
     project: null,
     timeEntryId: null,
+    pendingWorkDocumentation: null,
     pendingSync: true,
     queued: true,
   };
@@ -292,6 +294,7 @@ export async function getOptimisticClockStatus(
         durationMinutes: 0,
         project: null,
         timeEntryId: null,
+        pendingWorkDocumentation: null,
       };
 
   for (const e of entries) {
