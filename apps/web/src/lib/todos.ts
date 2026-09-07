@@ -38,6 +38,7 @@ export interface Todo {
   linkedEntityType: TodoEntityType | null;
   linkedEntityId: string | null;
   linkedEntityName: string | null;
+  communicationEntryId?: string | null;
   createdAt: string;
   updatedAt: string;
 }

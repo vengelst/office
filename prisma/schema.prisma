@@ -517,6 +517,8 @@ model CustomerNote {
   @@index([customerId])
 }
 
+/// @deprecated Seit Kommunikation v2 (#31). Neue Erfassung nur über CommunicationEntry.
+/// Tabelle bleibt für Backup/Restore; Daten wurden nach CommunicationEntry migriert.
 model CustomerCallLog {
   id              String   @id @default(cuid())
   customerId      String
@@ -622,27 +624,30 @@ model Project {
 
 /// Office-Termin (Phase 1: Sync Office → Google Calendar).
 model CalendarEvent {
-  id            String   @id @default(cuid())
-  title         String
-  description   String?
-  startsAt      DateTime
-  endsAt        DateTime
-  allDay        Boolean  @default(false)
-  projectId     String?
-  customerId    String?
-  createdById   String?
-  syncToGoogle  Boolean  @default(true)
-  googleEventId String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  title                 String
+  description           String?
+  startsAt              DateTime
+  endsAt                DateTime
+  allDay                Boolean  @default(false)
+  projectId             String?
+  customerId            String?
+  communicationEntryId  String?
+  createdById           String?
+  syncToGoogle          Boolean  @default(true)
+  googleEventId         String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
-  project   Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  customer  Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  project              Project?             @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  customer             Customer?            @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  communicationEntry   CommunicationEntry?  @relation(fields: [communicationEntryId], references: [id], onDelete: SetNull)
+  createdBy            User?                @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([startsAt])
   @@index([projectId])
   @@index([customerId])
+  @@index([communicationEntryId])
 }
 
 /// Projektbezogene Arbeitstätigkeit (Checkbox-Label für Stundenzettel/Clock-Out).
@@ -1428,6 +1433,8 @@ model DocumentFolder {
 // Communication
 // ──────────────────────────────────────────────────────────────
 
+/// Polymorphes Kontakt-Feld: contactId verweist je nach entityType auf
+/// CustomerContact bzw. SubcontractorContact (kein einzelner FK möglich).
 model CommunicationEntry {
   id         String                  @id @default(cuid())
   entityType CommunicationEntityType
@@ -1443,8 +1450,14 @@ model CommunicationEntry {
   createdAt  DateTime                @default(now())
   updatedAt  DateTime                @updatedAt
 
+  todos           Todo[]
+  calendarEvents  CalendarEvent[]
+
   @@index([entityType, entityId, occurredAt])
   @@index([contactId, occurredAt])
+  @@index([occurredAt])
+  @@index([createdBy, occurredAt])
+  @@index([type, occurredAt])
 }
 
 enum CommunicationEntityType {
@@ -1459,6 +1472,7 @@ enum CommunicationType {
   MEETING
   NOTE
   INSTRUCTION
+  WHATSAPP
 }
 
 enum CommunicationDirection {
@@ -1489,12 +1503,17 @@ model Todo {
   linkedEntityId   String?
   linkedEntityName String?
 
+  communicationEntryId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  communicationEntry CommunicationEntry? @relation(fields: [communicationEntryId], references: [id], onDelete: SetNull)
 
   @@index([status, assignedToId, dueDate])
   @@index([linkedEntityType, linkedEntityId])
   @@index([createdById])
+  @@index([communicationEntryId])
 }
 
 enum TodoStatus {

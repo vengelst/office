@@ -269,7 +269,16 @@ export default function SubcontractorDetailPage(): React.ReactNode {
         </TabsContent>
 
         <TabsContent value="communication">
-          <CommunicationTab entityType="SUBCONTRACTOR" entityId={sub.id} />
+          <CommunicationTab
+            entityType="SUBCONTRACTOR"
+            entityId={sub.id}
+            entityName={sub.name}
+            contacts={(sub.contacts ?? []).map((c) => ({
+              id: c.id,
+              firstName: c.firstName,
+              lastName: c.lastName,
+            }))}
+          />
         </TabsContent>
       </Tabs>
 

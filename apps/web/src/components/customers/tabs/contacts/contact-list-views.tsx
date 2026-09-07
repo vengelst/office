@@ -10,8 +10,10 @@ import {
   Gift,
   Linkedin,
   Pencil,
+  Phone,
   Trash2,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +36,7 @@ export function ContactCardItem({
   cardSrc,
   compact,
   uploadBusy,
+  phoneCallsHref,
   onEdit,
   onDelete,
   onUpload,
@@ -43,6 +46,7 @@ export function ContactCardItem({
   cardSrc?: string;
   compact?: boolean;
   uploadBusy?: boolean;
+  phoneCallsHref?: string;
   onEdit: () => void;
   onDelete: () => void;
   onUpload: () => void;
@@ -67,6 +71,22 @@ export function ContactCardItem({
             )}
           </div>
           <div className="flex shrink-0 gap-0.5">
+            {phoneCallsHref && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9"
+                asChild
+              >
+                <Link
+                  href={phoneCallsHref}
+                  aria-label={texts.communication.phoneCallsOfContact}
+                  title={texts.communication.phoneCallsOfContact}
+                >
+                  <Phone className="h-4 w-4" />
+                </Link>
+              </Button>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -171,6 +191,7 @@ export function ContactsTable({
   cardImages,
   branchLabel,
   uploadFor,
+  phoneCallsHrefFor,
   onEdit,
   onDelete,
   onUpload,
@@ -180,6 +201,7 @@ export function ContactsTable({
   cardImages: Record<string, string>;
   branchLabel: (branchId: string | null) => string;
   uploadFor: string | null;
+  phoneCallsHrefFor?: (contactId: string) => string;
   onEdit: (c: CustomerContact) => void;
   onDelete: (id: string) => void;
   onUpload: (id: string) => void;
@@ -239,6 +261,22 @@ export function ContactsTable({
               </td>
               <td className="px-3 py-2">
                 <div className="flex justify-end gap-0.5">
+                  {phoneCallsHrefFor && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      asChild
+                    >
+                      <Link
+                        href={phoneCallsHrefFor(c.id)}
+                        aria-label={texts.communication.phoneCallsOfContact}
+                        title={texts.communication.phoneCallsOfContact}
+                      >
+                        <Phone className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"

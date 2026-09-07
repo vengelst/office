@@ -8,6 +8,7 @@ export const nav = {
     customers: 'Kunden',
     projects: 'Projekte',
     calendar: 'Kalender',
+    communication: 'Kommunikation',
     workers: 'Monteure',
     teams: 'Teams',
     subcontractors: 'Subunternehmen',

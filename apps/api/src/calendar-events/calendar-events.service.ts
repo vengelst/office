@@ -76,6 +76,7 @@ export class CalendarEventsService {
         allDay: dto.allDay ?? false,
         projectId: dto.projectId || null,
         customerId: dto.customerId || null,
+        communicationEntryId: dto.communicationEntryId || null,
         createdById: createdById || null,
         syncToGoogle: dto.syncToGoogle ?? true,
       },
@@ -131,6 +132,9 @@ export class CalendarEventsService {
           : {}),
         ...(dto.customerId !== undefined
           ? { customerId: dto.customerId || null }
+          : {}),
+        ...(dto.communicationEntryId !== undefined
+          ? { communicationEntryId: dto.communicationEntryId || null }
           : {}),
         ...(dto.syncToGoogle !== undefined
           ? { syncToGoogle: dto.syncToGoogle }
