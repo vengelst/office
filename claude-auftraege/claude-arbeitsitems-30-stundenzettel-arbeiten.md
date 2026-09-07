@@ -15,7 +15,7 @@ Master-Minuten-Tätigkeiten (`ActivityType` / Segmente) bleiben unverändert.
 1. Reihenfolge: **erst Clock-Out**, **dann** Pflicht-Popup.
 2. Inhaltspflicht: Checkbox(en) und/oder Freitext (siehe Validierung).
 3. Freitext-Feld am **Projekt** ein-/ausschaltbar.
-4. Checkboxen **nicht** aus globalem Katalog, sondern aus einem **Feld/Liste am Projekt** (3–5 typische Tätigkeiten pro Projekt); anderes Projekt → andere Checkboxen.
+4. Checkboxen **nicht** aus globalem Katalog, sondern aus einer **Liste am Projekt** (beliebig viele Tätigkeiten; jedes Label → eine Checkbox); anderes Projekt → andere Checkboxen. **Kein Limit** (3–5 war nur Beispiel).
 5. Manueller Stundenzettel (Büro, ohne Kiosk): dieselben Checkboxen + Freitext müssen verfügbar sein.
 6. Neue Stempel-Session nach Wiedereinstempeln = neuer Arbeits-Block.
 7. „Neu laden der Zeiten“ = nur Büro-Regenerieren aus Stempeldaten – nicht Teil des Monteur-Flows.
@@ -32,7 +32,7 @@ Master-Minuten-Tätigkeiten (`ActivityType` / Segmente) bleiben unverändert.
 
 | Thema | Entscheidung |
 |--------|----------------|
-| Checkbox-Quelle | **Nur Projekt** – `ProjectWorkActivity` (Label-Liste am Projekt) |
+| Checkbox-Quelle | **Nur Projekt** – `ProjectWorkActivity` (Label-Liste am Projekt, **kein Mengenlimit**) |
 | Globaler WorkTag-Katalog | **Nein** (kein Settings-CRUD für systemweite Checkboxen in v1) |
 | Freitext | `Project.workNotesEnabled` (Default: `true`) |
 | Reihenfolge Clock-Out | API Clock-Out zuerst, dann Pflicht-UI |
@@ -89,7 +89,7 @@ Beim Generieren aus Stempel: TimeEntry-Arbeiten für den Tag aggregieren (Labels
 
 ### Projekt (Office)
 - Abschnitt **Arbeiten / Tätigkeiten für Stundenzettel**:
-  - Liste Labels (hinzufügen, umbenennen, Reihenfolge, aktiv)
+  - Liste Labels (hinzufügen, umbenennen, Reihenfolge, aktiv) – **beliebig viele Einträge**
   - Schalter „Freitext nach Ausstempeln / am Stundenzettel“
 
 ### Kiosk / Worker-App / Mobile
