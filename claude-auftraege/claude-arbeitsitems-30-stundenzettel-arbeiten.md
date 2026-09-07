@@ -1,112 +1,139 @@
-# Cloud-Auftrag #30: Stundenzettel „Arbeiten“ (Checklisten + Freitext)
+# Cloud-Auftrag #30: Stundenzettel „Arbeiten“ (Pflicht nach Clock-Out)
 
 ## Kontext
 
-Stundenzettel zeigen Zeiten; **Master**-Monteure haben bereits **zeitbasierte** Tätigkeitssegmente (`ActivityType` / `TimeActivitySegment` → `WeeklyTimesheetDayActivity` mit Minuten). Das bleibt unverändert.
+Master-Minuten-Tätigkeiten (`ActivityType` / Segmente) bleiben unverändert.
 
-**Neu (dieser Auftrag):** Für **alle** Monteure optional dokumentieren, **was** am Tag gemacht wurde – ohne Pflicht, ohne Minutenabrechnung.
+**Neu:** Nach dem Ausstempeln dokumentiert der Monteur **pflichtig**, welche Arbeiten in **dieser Stempel-Session** erledigt wurden – per Checkboxen und optional (projektspezifisch) Freitext.
 
-Auslöser User (2026-09-07): Feld „Arbeiten“ am Stundenzettel; Pflege durch Monteur (z. B. beim Auschecken) oder Büro bei manueller Erzeugung/Überarbeitung; optional Pop-up beim Clock-Out; **Checkboxen** aus Einstellungen (Kabelzug, Anschluss, Kameras …) **plus** freies Textfeld.
+User-Klarstellung 2026-09-07:
+- Popup **nicht optional** (Inhaltspflicht).
+- Reihenfolge: **erst ausstempeln**, **dann** Popup (Absicht „ich höre auf“ darf nicht blockiert werden).
+- Freitext-Feld **pro Projekt** ein-/ausschaltbar.
+- Checkboxen = typische Arbeiten (auswählbar).
+- Neue Stempel-Session (wieder einchecken) = **neuer** Arbeits-Block.
+- „Neu laden der Zeiten“ (Büro-Regenerieren) ist **kein** Thema dieses Flows – betrifft nur Office-Stundenzettel-Neuberechnung aus Stempeldaten.
 
 ## Ziel
 
-1. Am Stundenzettel-Tag: Bereich **Arbeiten** = Mehrfachauswahl Standardarbeiten + optionaler Freitext.
-2. Katalog Standardarbeiten unter **Einstellungen** pflegbar.
-3. Optionaler Dialog beim **Auschecken** (Kiosk + Worker-App): „Was hast du heute gemacht?“ – überspringbar.
-4. Büro kann dieselben Felder beim Anlegen/Bearbeiten eines Tages setzen.
-5. PDF und Wochen-UI zeigen die Arbeiten (wenn vorhanden).
+1. Clock-Out führt sofort aus (Zeiten/GPS wie heute).
+2. Danach Modal **Pflicht**: solange nicht erfüllt/gespeichert, gilt die Session als „Arbeiten ausstehend“.
+3. Inhalt: Checkboxen (Standardarbeiten) + Freitext nur wenn am Projekt aktiviert.
+4. Validierung: mindestens eine Checkbox **oder** (wenn Freitext aktiv) nicht-leerer Text – siehe Regeln unten.
+5. Büro sieht/kann dieselben Daten am Stundenzettel-Tag (und Session) einsehen/nachpflegen.
+6. Katalog Standardarbeiten in Einstellungen; Zuordnung/ Freitext-Flag am Projekt.
 
-## Produktentscheidungen (Defaults – bei Widerspruch melden)
+## Flow (verbindlich)
+
+```text
+[Eingestempelt] → User tippt „Ausstempeln“
+       → Clock-Out API (Erfolg)
+       → Modal „Arbeiten dieser Schicht“ (Pflicht-UI)
+            → Speichern (gültig) → fertig
+            → App schließen ohne Speichern → beim nächsten Öffnen
+              (solange eingeloggt / gleiche Schicht dokumentiert werden muss)
+              Modal erneut, bis gespeichert
+```
+
+**Kein** Modal vor dem Clock-Out.
+
+## Produktentscheidungen
 
 | Thema | Entscheidung |
 |--------|----------------|
-| Trennung zu Master-Minuten | **Separater Katalog** `WorkTag` (nicht `ActivityType`). Master-Segmente/Minuten bleiben wie #22. |
-| Pflicht | **Nie** Pflicht – Clock-Out und Speichern ohne Auswahl/Text immer erlaubt |
-| Umfang | Pro **Kalendertag** am Stundenzettel (nicht pro Stempel-Intervall) |
-| Mehrere Clock-Outs am Tag | Tags: **Vereinigung**; Freitext: neuer Text **anhängen** (mit Zeilenumbruch), leerer Text ändert nichts |
-| Regenerieren aus Stempel | Zeiten neu; **Arbeiten (Tags+Text) am Tag behalten**, sofern Tag-Zeile erhalten/merged – bei Hard-Delete+Recreate der Days: vorherige `workNotes`/`workTags` aus DB-Snapshot des gleichen `workDate` wiederherstellen |
-| Offline-Clock-Out | Tags/Text in Offline-Payload mitsenden; bei Sync speichern |
-| Mobile-App | Gleicher optionaler Dialog wie Worker-Web, wenn Clock-Out dort existiert |
-| Sprache | DE-Texte; Kiosk folgt Locale wo sinnvoll |
+| Reihenfolge | Clock-Out **zuerst**, Popup **danach** |
+| Pflicht | Popup muss bedient werden; Skip ohne Inhalt **nicht** erlaubt |
+| Freitext | Flag am **Projekt** (z. B. `workNotesEnabled`); globaler Default aus oder an – **Empfehlung Default: an** |
+| Checkbox-Katalog | Global unter Einstellungen (`WorkTag`); am Projekt optional welche Tags gelten – **Empfehlung v1: alle aktiven Tags für jedes Projekt**, Filter pro Projekt als Follow-up falls nötig |
+| Session | Ein Dokumentations-Datensatz pro **beendetem** TimeEntry (Clock-Out-Intervall), nicht nur pro Kalendertag |
+| Wiedereinstempeln | Neue Session → neues leeres Formular beim nächsten Clock-Out |
+| Master-Segmente | Unberührt |
+| Offline | Clock-Out offline wie heute; Arbeiten lokal merken und bei Sync nachziehen; UI blockiert „fertig“ bis lokal gespeichert |
 
-## Datenmodell
+### Validierung (Inhalt)
+
+- Freitext **aus** (Projekt): ≥ 1 Checkbox Pflicht.
+- Freitext **an**: ≥ 1 Checkbox **oder** Freitext mit Inhalt (nach Trim) – beides erlaubt.
+
+## Datenmodell (Empfehlung)
 
 ```text
 WorkTag
-  id, label, sortOrder, active, createdAt, updatedAt
+  id, label, sortOrder, active, …
 
-WeeklyTimesheetDay
-  + workNotes String?          // Freitext „Arbeiten“
-  activities (bestehend)       // Master-Minuten – unberührt
-  workTags WeeklyTimesheetDayWorkTag[]
+Project
+  + workNotesEnabled Boolean @default(true)
+  // optional später: ProjectWorkTag[]
 
-WeeklyTimesheetDayWorkTag
-  dayId, workTagId
-  @@unique([dayId, workTagId])
-
-TimeEntry (optional, für Clock-Out vor Generierung)
+TimeEntry   // nach Clock-Out endedAt gesetzt
   + workNotes String?
-  // Tags: TimeEntryWorkTag oder JSON workTagIds – Empfehlung Relation analog
+  + workDocumentedAt DateTime?   // null = Popup noch offen
+  workTags TimeEntryWorkTag[]
+
+TimeEntryWorkTag
+  timeEntryId, workTagId
+  @@unique([timeEntryId, workTagId])
 ```
 
-**Alternative schlank:** Arbeiten nur am `WeeklyTimesheetDay`; Clock-Out legt/aktualisiert Draft-Timesheet-Tag für heute (ensure DRAFT week + day) und schreibt dorthin. Dann kein `TimeEntry`-Feld nötig. **Empfehlung:** diese Variante (weniger Doppelhaltung), solange Auto-Timesheet-on-clock bereits existiert.
+Stundenzettel-Anzeige: beim Generieren/Anzeigen pro Tag die Arbeiten aller TimeEntries dieses Tages aggregieren (Tags vereinigen, Freitexte mit Trenner/Session-Hinweis). Büro-Edit: vorerst an TimeEntry oder aggregiert am Day – **Empfehlung:** Anzeige aggregiert am Tag; Nachpflege im Office über Tag-Editor schreibt auf den letzten Entry des Tages oder legt manuelle Notiz am Day (`workNotes`/`workTags` am Day parallel) – **v1 einfach:** nur an `TimeEntry` speichern; Office zeigt read-only Aggregation + darf PATCH auf Entry wenn nötig.
+
+**v1-Pragmatik:** Speicherung nur an `TimeEntry`; Office-Stundenzettel liest/zeigt Aggregation; manuelle Tage ohne Stempel: `WeeklyTimesheetDay.workNotes` + Day-WorkTags analog (Büro-Pflicht optional lockern: manuell weiter ohne Popup).
 
 ## API
 
-1. CRUD `GET/POST/PATCH/DELETE /work-tags` (SUPERADMIN/OFFICE; GET active auch WORKER/Kiosk).
-2. Timesheet Day Update/Upsert: `workNotes?`, `workTagIds?: string[]` (ersetzt Tag-Set am Tag).
-3. Clock-Out Body erweitern: `workNotes?`, `workTagIds?` – Service merged in heutigen Timesheet-Day (ensure week/day).
-4. Detail/PDF-Include: `workTags: { id, label }[]`, `workNotes`.
+1. CRUD `/work-tags` (OFFICE/SUPERADMIN; GET active für Worker/Kiosk).
+2. Project PATCH: `workNotesEnabled`.
+3. Clock-Out: unverändert zeitlich; Response signalisiert `workDocumentationRequired: true` + `timeEntryId` wenn `workDocumentedAt == null`.
+4. `POST /time-entries/:id/work-documentation` `{ workTagIds: string[], workNotes?: string }` – Validierung wie oben; setzt `workDocumentedAt`.
+5. Status/Dashboard: wenn letzter Ausstempel-Eintrag ohne Doku → `pendingWorkDocumentation: { timeEntryId, workNotesEnabled, … }` damit UI Modal erzwingt.
 
 ## UI
 
 ### Einstellungen
-- Neue Seite oder Unterpunkt: **Standardarbeiten** (`/settings/work-tags`) – Liste, anlegen, umbenennen, sortieren, aktiv/inaktiv.
+- **Standardarbeiten** – CRUD Checkbox-Labels.
 
-### Stundenzettel (Office)
-- Wochen-Tabelle: Spalte/Hinweis **Arbeiten** (Tags + gekürzter Text).
-- Edit-/Add-Day-Dialog: Checkbox-Gruppe (aktive Tags) + Textarea „Arbeiten / Beschreibung“ (zusätzlich zu bestehendem `summaryComment` – Labels klar trennen: Kommentar vs. Arbeiten).
+### Projekt
+- Schalter: „Freitext Arbeiten nach Ausstempeln“ (workNotesEnabled).
 
-### Kiosk / Worker-App
-- Nach erfolgreichem Clock-Out **oder** unmittelbar davor (ein Flow): Modal  
-  - Titel z. B. „Arbeiten heute (optional)“  
-  - Checkboxen aktiver WorkTags  
-  - Textarea  
-  - Buttons: **Überspringen** | **Speichern**  
-- Überspringen = Clock-Out ohne Arbeiten (wenn Modal nach Clock-Out: nur speichern/skip für Arbeiten).
+### Kiosk / Worker-App / Mobile
+- Nach Clock-Out-Erfolg: Modal Pflicht.
+- Beim App-Start / Terminal-Fokus: wenn `pendingWorkDocumentation` → Modal erneut.
+- Kein zweites Einstempeln? **Erlaubt** – aber Modal für offene Doku der **letzten** ausgecheckten Session weiter anzeigen bis erledigt (nicht blockieren für Clock-In, außer Product will block – **Empfehlung: Clock-In erlauben**, Modal bei nächster Gelegenheit / sofort nach Login priorisieren).
 
-**Empfohlene UX:** Clock-Out zuerst ausführen, dann optionales Modal „Noch kurz notieren?“ – bei Skip fertig; bei Speichern PATCH Tag/ensure day. So blockiert das Modal nie das Ausstempeln.
+### Office Stundenzettel
+- Pro Tag: Anzeige aggregierter Arbeiten.
+- Manueller Tages-Dialog: dieselben Checkboxen + Freitext (wenn Projekt Freitext an), speichert am Day.
 
 ## PDF
 
-- Abschnitt oder Zeile unter dem Tag: „Arbeiten: Tag1, Tag2 – Freitext…“ nur wenn Inhalt vorhanden.
-- Nicht mit „Tätigkeiten (abrechnungsrelevant)“ (Master-Minuten) vermischen – zwei getrennte Blöcke.
+- Pro Tag: „Arbeiten: …“ wenn vorhanden (Tags + Text), getrennt von Master-„Tätigkeiten (abrechnungsrelevant)“.
 
 ## Nichtziele
 
-- Keine Minuten/Stückzahlen an WorkTags
-- Keine Pflichtauswahl
-- Kein Umbau Master-`ActivityType`-Segmente
-- Keine Abrechnungslogik an WorkTags
-- Kein DATEV
+- Minuten an WorkTags
+- Modal vor Clock-Out
+- Umbau Master-ActivityType
+- Projekt-spezifische Tag-Listen (v1 optional später)
+- DATEV / Abrechnung an Tags
 
 ## Tests
 
-1. WorkTag CRUD; inaktive nicht in Clock-Out/Checkbox-Liste.
-2. Day-Update setzt Tags+Notes; PDF enthält sie.
-3. Clock-Out ohne Payload unverändert möglich.
-4. Clock-Out mit Tags+Notes → Draft-Tag hat Daten.
-5. Zweiter Clock-Out: Tags vereinigt, Text angehängt.
-6. Regenerieren überschreibt Zeiten, behält Arbeiten am gleichen Datum.
-7. Build api+web grün.
+1. Clock-Out ohne Doku → pending; Endpoint Doku ohne Tags/Text → 400.
+2. Nur Text (Freitext an) → OK; nur Tags → OK; beides → OK.
+3. Freitext aus + keine Tags → 400.
+4. Nach Speichern kein pending mehr.
+5. App-Reload zeigt pending erneut.
+6. Zweite Schicht am Tag: zweites Doku-Objekt; Aggregation auf Tagesanzeige.
+7. PDF/UI ohne „Skip“.
+8. Build grün.
 
 ## Lieferumfang
 
-- PR gegen `main`, Commit `feat(timesheets): optionale Arbeiten (Tags + Freitext)`
-- Kurze Summary, Abweichungen, Testergebnis
+- PR `feat(timesheets): Pflicht-Arbeiten nach Clock-Out (Tags + Projekt-Freitext)`
+- Spec-Abweichungen dokumentieren
 
-## Repo-Hinweise
+## Repo
 
-- NestJS / Next.js / Prisma; Kiosk + Worker-App + ggf. `apps/mobile`
-- Bestehende Auto-Timesheet-Erzeugung bei Clock-In/Out wiederverwenden (`ensure` DRAFT week)
-- Feature-Flag `timesheets` beachten
+- `apps/api` time-entries + projects + timesheets PDF/generate
+- `apps/web` kiosk, worker-app, settings, project form, timesheet day UI
+- `apps/mobile` Clock-Out-Flow analog
