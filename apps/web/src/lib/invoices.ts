@@ -9,16 +9,20 @@ const API_BASE_URL =
 
 // ── Enums (spiegeln Prisma) ────────────────────────────────────
 
-/** Rechnungsrichtung: Ausgang, Eingang (legacy) oder Gutschrift. */
-export type InvoiceType = 'OUTGOING' | 'INCOMING' | 'CREDIT_NOTE';
+/** Belegart: RE / ST / KO (INCOMING legacy). */
+export type InvoiceType = 'OUTGOING' | 'INCOMING' | 'STORNO' | 'CORRECTION';
 
-/** Lebenszyklus-Status einer Rechnung (Entwurf → Versendet → Bezahlt/Storniert). */
+/** Lebenszyklus-Status einer Rechnung. */
 export type InvoiceStatus =
   | 'DRAFT'
   | 'SENT'
   | 'PARTIALLY_PAID'
   | 'PAID'
+  | 'PARTIALLY_CORRECTED'
   | 'CANCELLED';
+
+/** Korrekturgrund für ST/KO. */
+export type CorrectionReason = 'INVOICE_ERROR' | 'CONSIDERATION_REDUCTION';
 
 /** Art einer Rechnungsposition (Wochenpaket, Überstunden, Abschlag, etc.). */
 export type InvoiceLineType =
@@ -48,6 +52,7 @@ export interface InvoiceLine {
   unit: string | null;
   unitPrice: number;
   total: number;
+  taxRate: number | null;
   productId: string | null;
   discountPercent: number | null;
   discountAmount: number | null;
@@ -138,6 +143,9 @@ export interface InvoiceDetail {
   customerId: string | null;
   subcontractorId: string | null;
   creditedInvoiceId: string | null;
+  correctionReason: CorrectionReason | null;
+  taxPeriodFrom: string | null;
+  taxPeriodTo: string | null;
   periodFrom: string | null;
   periodTo: string | null;
   performanceCountryCode: string | null;
@@ -146,6 +154,12 @@ export interface InvoiceDetail {
   taxRate: number;
   taxAmount: number;
   total: number;
+  taxBreakdown: Array<{
+    rate: number;
+    net: number;
+    tax: number;
+    gross: number;
+  }> | null;
   isPartialInvoice: boolean;
   partialNumber: number | null;
   partialPercentage: number | null;
@@ -206,9 +220,11 @@ export interface InvoiceDetail {
   creditNotes: Array<{
     id: string;
     invoiceNumber: string | null;
+    invoiceType: InvoiceType;
     status: InvoiceStatus;
     total: number;
     issueDate: string;
+    correctionReason: CorrectionReason | null;
   }>;
   lines: InvoiceLine[];
   payments: InvoicePayment[];
@@ -369,10 +385,27 @@ export const invoicesApi = {
   finalize: (id: string) =>
     apiClient.post<InvoiceDetail>(`/invoices/${id}/finalize`),
   /**
-   * POST /invoices/:id/credit-note – Storno über Gutschrift (SUPERADMIN).
+   * POST /invoices/:id/storno – Stornorechnung ST (SUPERADMIN).
    */
-  creditNote: (id: string) =>
-    apiClient.post<InvoiceDetail>(`/invoices/${id}/credit-note`),
+  storno: (id: string, body: { correctionReason: CorrectionReason }) =>
+    apiClient.post<InvoiceDetail>(`/invoices/${id}/storno`, body),
+  /**
+   * POST /invoices/:id/correction – KO-Entwurf (SUPERADMIN).
+   */
+  correction: (
+    id: string,
+    body: {
+      correctionReason: CorrectionReason;
+      lines?: Array<{
+        lineType: InvoiceLineType;
+        description: string;
+        quantity?: number;
+        unit?: string;
+        unitPrice?: number;
+        taxRate?: number;
+      }>;
+    },
+  ) => apiClient.post<InvoiceDetail>(`/invoices/${id}/correction`, body),
   /**
    * POST /invoices/:id/cancel – Storniert einen Entwurf.
    */

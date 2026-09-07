@@ -52,6 +52,7 @@ const STATUSES: InvoiceStatus[] = [
   'SENT',
   'PARTIALLY_PAID',
   'PAID',
+  'PARTIALLY_CORRECTED',
   'CANCELLED',
 ];
 
@@ -149,7 +150,8 @@ export default function InvoicesPage(): React.ReactNode {
       >
         <TabsList className="mb-4">
           <TabsTrigger value="OUTGOING">{t.tabsType.outgoing}</TabsTrigger>
-          <TabsTrigger value="CREDIT_NOTE">{t.tabsType.creditNotes}</TabsTrigger>
+          <TabsTrigger value="STORNO">{t.tabsType.storno}</TabsTrigger>
+          <TabsTrigger value="CORRECTION">{t.tabsType.correction}</TabsTrigger>
         </TabsList>
       </Tabs>
 

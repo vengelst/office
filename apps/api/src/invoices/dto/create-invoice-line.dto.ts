@@ -66,4 +66,12 @@ export class CreateInvoiceLineDto {
   @IsNumber()
   @Min(0)
   discountAmount?: number;
+
+  @ApiPropertyOptional({
+    description: 'Steuersatz pro Zeile in % (optional; sonst Header-taxRate)',
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
 }

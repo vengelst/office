@@ -1,6 +1,6 @@
 /**
  * Seite: settings / billing (Office-Web).
- * Verrechnung: Nummernkreise RE/GS, Zahlungsziele, Skonto, Leistungsort-MwSt.
+ * Verrechnung: Nummernkreise RE/ST/KO, Zahlungsziele, Skonto, Leistungsort-MwSt.
  */
 
 'use client';
@@ -35,7 +35,10 @@ export default function BillingSettingsPage(): React.ReactNode {
   const [saving, setSaving] = useState(false);
   const [rePrefix, setRePrefix] = useState('RE');
   const [reNext, setReNext] = useState(40000113);
-  const [gsPrefix, setGsPrefix] = useState('GS');
+  const [stPrefix, setStPrefix] = useState('ST');
+  const [stNext, setStNext] = useState(40000001);
+  const [koPrefix, setKoPrefix] = useState('KO');
+  const [koNext, setKoNext] = useState(40000001);
   const [settings, setSettings] = useState<BillingSettingsData | null>(null);
   const [optionsText, setOptionsText] = useState('7, 14, 30, 60');
 
@@ -45,15 +48,16 @@ export default function BillingSettingsPage(): React.ReactNode {
       .then((data) => {
         setRePrefix(data.series.re.prefix);
         setReNext(data.series.re.nextNumber);
-        setGsPrefix(data.series.gs.prefix);
+        setStPrefix(data.series.st.prefix);
+        setStNext(data.series.st.nextNumber);
+        setKoPrefix(data.series.ko.prefix);
+        setKoNext(data.series.ko.nextNumber);
         setSettings(data.settings);
         setOptionsText(data.settings.paymentTermOptions.join(', '));
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
-
-  const rePreview = `${rePrefix}-${reNext}`;
 
   const handleSave = async (): Promise<void> => {
     if (!isSuperadmin || !settings) return;
@@ -66,7 +70,8 @@ export default function BillingSettingsPage(): React.ReactNode {
       const saved = await settingsApi.saveBilling({
         series: {
           re: { prefix: rePrefix, nextNumber: Number(reNext) },
-          gs: { prefix: gsPrefix },
+          st: { prefix: stPrefix, nextNumber: Number(stNext) },
+          ko: { prefix: koPrefix, nextNumber: Number(koNext) },
         },
         settings: {
           ...settings,
@@ -75,7 +80,10 @@ export default function BillingSettingsPage(): React.ReactNode {
       });
       setRePrefix(saved.series.re.prefix);
       setReNext(saved.series.re.nextNumber);
-      setGsPrefix(saved.series.gs.prefix);
+      setStPrefix(saved.series.st.prefix);
+      setStNext(saved.series.st.nextNumber);
+      setKoPrefix(saved.series.ko.prefix);
+      setKoNext(saved.series.ko.nextNumber);
       setSettings(saved.settings);
       setOptionsText(saved.settings.paymentTermOptions.join(', '));
       toast({ description: t.toast.saved });
@@ -160,33 +168,37 @@ export default function BillingSettingsPage(): React.ReactNode {
         <CardHeader>
           <CardTitle className="text-base">{t.series.title}</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-6 sm:grid-cols-2">
+        <CardContent className="grid gap-6 sm:grid-cols-3">
           <SeriesFields
             title={t.series.reTitle}
             prefix={rePrefix}
             next={reNext}
-            preview={rePreview}
+            preview={`${rePrefix}-${reNext}`}
             disabled={!isSuperadmin}
             onPrefix={setRePrefix}
             onNext={setReNext}
             labels={t.series}
           />
-          <div className="space-y-3">
-            <p className="text-sm font-medium">{t.series.gsTitle}</p>
-            <div className="space-y-1.5">
-              <Label>{t.series.prefix}</Label>
-              <Input
-                className="min-h-[44px]"
-                disabled={!isSuperadmin}
-                value={gsPrefix}
-                onChange={(e) => setGsPrefix(e.target.value.toUpperCase())}
-              />
-            </div>
-            <p className="text-sm text-muted-foreground">{t.series.gsHint}</p>
-            <p className="text-sm text-muted-foreground">
-              {t.series.gsPreviewLabel(gsPrefix)}
-            </p>
-          </div>
+          <SeriesFields
+            title={t.series.stTitle}
+            prefix={stPrefix}
+            next={stNext}
+            preview={`${stPrefix}-${stNext}`}
+            disabled={!isSuperadmin}
+            onPrefix={setStPrefix}
+            onNext={setStNext}
+            labels={t.series}
+          />
+          <SeriesFields
+            title={t.series.koTitle}
+            prefix={koPrefix}
+            next={koNext}
+            preview={`${koPrefix}-${koNext}`}
+            disabled={!isSuperadmin}
+            onPrefix={setKoPrefix}
+            onNext={setKoNext}
+            labels={t.series}
+          />
         </CardContent>
       </Card>
 

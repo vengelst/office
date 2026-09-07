@@ -5,7 +5,7 @@
 
 export const invoices = {
   title: 'Rechnungen',
-  subtitle: 'Ausgangsrechnungen und Gutschriften verwalten',
+  subtitle: 'Ausgangsrechnungen, Stornorechnungen und Korrekturen verwalten',
   newInvoice: 'Neue Rechnung',
   generate: 'Aus Stundenzetteln',
   searchPlaceholder: 'Suche nach Rechnungsnr. …',
@@ -22,7 +22,8 @@ export const invoices = {
   },
   tabsType: {
     outgoing: 'Ausgangsrechnungen',
-    creditNotes: 'Gutschriften',
+    storno: 'Stornorechnungen',
+    correction: 'Korrekturen',
   },
   columns: {
     invoiceNumber: 'Rechnungs-Nr.',
@@ -46,12 +47,18 @@ export const invoices = {
     SENT: 'Finalisiert',
     PARTIALLY_PAID: 'Teilbezahlt',
     PAID: 'Bezahlt',
+    PARTIALLY_CORRECTED: 'Teilkorrigiert',
     CANCELLED: 'Storniert',
   },
   type: {
     OUTGOING: 'Ausgangsrechnung',
     INCOMING: 'Eingangsrechnung',
-    CREDIT_NOTE: 'Gutschrift',
+    STORNO: 'Stornorechnung',
+    CORRECTION: 'Rechnungskorrektur',
+  },
+  correctionReason: {
+    INVOICE_ERROR: 'Rechnungsfehler',
+    CONSIDERATION_REDUCTION: 'Entgeltminderung',
   },
   lineType: {
     WEEKLY_PACKAGE: 'Wochenpaket',
@@ -193,7 +200,9 @@ export const invoices = {
     performanceCountry: 'Leistungsort',
     taxKind: 'Steuerart',
     creditedInvoice: 'Bezug (Rechnung)',
-    creditNotes: 'Gutschriften',
+    relatedDocs: 'ST / KO',
+    correctionReason: 'Korrekturgrund',
+    taxPeriod: 'Steuerperiode',
     finalizedAt: 'Finalisiert am',
     finalizedBy: 'Finalisiert von',
     partialTitle: 'Teilrechnung',
@@ -210,7 +219,8 @@ export const invoices = {
     pdf: 'PDF Vorschau',
     sendEmail: 'Per E-Mail senden',
     cancel: 'Entwurf stornieren',
-    creditNote: 'Stornieren / Gutschrift',
+    storno: 'Stornorechnung erstellen',
+    correction: 'Rechnungskorrektur',
     duplicate: 'Rechnung duplizieren',
     delete: 'Entwurf löschen',
     save: 'Speichern',
@@ -225,11 +235,20 @@ export const invoices = {
     confirm: 'Finalisieren',
     cancel: 'Abbrechen',
   },
-  creditNoteDialog: {
-    title: 'Stornieren und Gutschrift erstellen?',
+  stornoDialog: {
+    title: 'Stornorechnung erstellen?',
     description:
-      'Es wird eine Gutschrift (GS-…) mit Bezug auf diese Rechnung erzeugt. Das Original bleibt mit Beträgen und PDF nachvollziehbar erhalten und wird als storniert markiert.',
-    confirm: 'Gutschrift erstellen',
+      'Es wird eine Stornorechnung (ST-…) mit Bezug auf diese Rechnung erzeugt. Das Original bleibt mit Beträgen und PDF nachvollziehbar erhalten und wird als storniert markiert.',
+    reason: 'Korrekturgrund',
+    confirm: 'Stornorechnung erstellen',
+    cancel: 'Abbrechen',
+  },
+  correctionDialog: {
+    title: 'Rechnungskorrektur anlegen?',
+    description:
+      'Es wird ein Korrektur-Entwurf (KO) angelegt. Positionen können angepasst und danach finalisiert werden.',
+    reason: 'Korrekturgrund',
+    confirm: 'Korrektur-Entwurf anlegen',
     cancel: 'Abbrechen',
   },
   cancelDialog: {
@@ -286,7 +305,8 @@ export const invoices = {
     deleted: 'Rechnung gelöscht.',
     finalized: 'Rechnung finalisiert.',
     cancelled: 'Entwurf storniert.',
-    creditNote: 'Gutschrift erstellt.',
+    storno: 'Stornorechnung erstellt.',
+    correction: 'Korrektur-Entwurf angelegt.',
     duplicated: 'Rechnung dupliziert.',
     lineSaved: 'Position gespeichert.',
     lineDeleted: 'Position entfernt.',

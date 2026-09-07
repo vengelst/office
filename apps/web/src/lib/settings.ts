@@ -156,9 +156,9 @@ export const settingsApi = {
     }),
 };
 
-/** Nummernkreis-Vorschau (RE/GS). */
+/** Nummernkreis-Vorschau (RE/ST/KO). */
 export interface InvoiceSeriesView {
-  code: 'OUTGOING' | 'CREDIT_NOTE';
+  code: 'OUTGOING' | 'STORNO' | 'CORRECTION';
   prefix: string;
   nextNumber: number;
   preview: string;
@@ -186,7 +186,8 @@ export interface BillingSettingsData {
 export interface BillingSettingsResponse {
   series: {
     re: InvoiceSeriesView;
-    gs: InvoiceSeriesView;
+    st: InvoiceSeriesView;
+    ko: InvoiceSeriesView;
   };
   settings: BillingSettingsData;
 }
@@ -194,7 +195,8 @@ export interface BillingSettingsResponse {
 export interface UpdateBillingBody {
   series?: {
     re?: { prefix?: string; nextNumber?: number };
-    gs?: { prefix?: string; nextNumber?: number };
+    st?: { prefix?: string; nextNumber?: number };
+    ko?: { prefix?: string; nextNumber?: number };
   };
   settings?: Partial<BillingSettingsData>;
 }

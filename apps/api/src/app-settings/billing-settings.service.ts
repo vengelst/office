@@ -1,5 +1,5 @@
 /**
- * Service für Verrechnung-Settings und RE/GS-Nummernkreise.
+ * Service für Verrechnung-Settings und RE/ST/KO-Nummernkreise.
  */
 
 import {
@@ -22,6 +22,16 @@ import {
 
 const PREFIX_RE = /^[A-Za-z0-9]{1,8}$/;
 
+const SERIES_DEFAULTS: Array<{
+  code: InvoiceSeriesCode;
+  prefix: string;
+  nextNumber: number;
+}> = [
+  { code: InvoiceSeriesCode.OUTGOING, prefix: 'RE', nextNumber: 40000113 },
+  { code: InvoiceSeriesCode.STORNO, prefix: 'ST', nextNumber: 40000001 },
+  { code: InvoiceSeriesCode.CORRECTION, prefix: 'KO', nextNumber: 40000001 },
+];
+
 @Injectable()
 export class BillingSettingsService {
   constructor(
@@ -36,15 +46,13 @@ export class BillingSettingsService {
       this.ensureSeriesRows(),
     ]);
     const re = seriesRows.find((s) => s.code === InvoiceSeriesCode.OUTGOING)!;
-    const gs = seriesRows.find((s) => s.code === InvoiceSeriesCode.CREDIT_NOTE)!;
+    const st = seriesRows.find((s) => s.code === InvoiceSeriesCode.STORNO)!;
+    const ko = seriesRows.find((s) => s.code === InvoiceSeriesCode.CORRECTION)!;
     return {
       series: {
         re: toSeriesView(re),
-        gs: {
-          ...toSeriesView(gs),
-          // Gutschrift-Nummer folgt der RE – Vorschau nur erklärend
-          preview: `${gs.prefix}-{RE-Nummer}`,
-        },
+        st: toSeriesView(st),
+        ko: toSeriesView(ko),
       },
       settings,
     };
@@ -54,18 +62,19 @@ export class BillingSettingsService {
   async update(input: {
     series?: {
       re?: { prefix?: string; nextNumber?: number };
-      gs?: { prefix?: string; nextNumber?: number };
+      st?: { prefix?: string; nextNumber?: number };
+      ko?: { prefix?: string; nextNumber?: number };
     };
     settings?: Partial<BillingSettings>;
   }): Promise<BillingSettingsResponse> {
     if (input.series?.re) {
       await this.updateSeries(InvoiceSeriesCode.OUTGOING, input.series.re);
     }
-    if (input.series?.gs) {
-      // GS-Nummern folgen der RE – nur Prefix pflegen, nextNumber ignorieren
-      await this.updateSeries(InvoiceSeriesCode.CREDIT_NOTE, {
-        prefix: input.series.gs.prefix,
-      });
+    if (input.series?.st) {
+      await this.updateSeries(InvoiceSeriesCode.STORNO, input.series.st);
+    }
+    if (input.series?.ko) {
+      await this.updateSeries(InvoiceSeriesCode.CORRECTION, input.series.ko);
     }
     if (input.settings) {
       const current = await this.loadSettings();
@@ -92,11 +101,6 @@ export class BillingSettingsService {
     code: InvoiceSeriesCode,
     tx: Prisma.TransactionClient,
   ): Promise<string> {
-    if (code === InvoiceSeriesCode.CREDIT_NOTE) {
-      throw new BadRequestException(
-        'Gutschriften erhalten die Nummer der zugehörigen Rechnung (kein eigener Zähler)',
-      );
-    }
     let lastError: unknown;
     for (let attempt = 0; attempt < 5; attempt++) {
       try {
@@ -147,42 +151,6 @@ export class BillingSettingsService {
       : new ConflictException('Nummernvergabe fehlgeschlagen');
   }
 
-  /**
-   * Baut die GS-Nummer aus der RE-Nummer: gleiche Ziffern, Prefix aus GS-Serie.
-   * Beispiel: RE-40000114 → GS-40000114.
-   */
-  async allocateCreditNoteNumber(
-    sourceInvoiceNumber: string,
-    tx: Prisma.TransactionClient,
-  ): Promise<string> {
-    const rows = await tx.$queryRaw<Array<{ prefix: string }>>`
-      SELECT prefix
-      FROM "InvoiceNumberSeries"
-      WHERE code = ${InvoiceSeriesCode.CREDIT_NOTE}::"InvoiceSeriesCode"
-      FOR UPDATE
-    `;
-    const prefix = (rows[0]?.prefix || 'GS').trim().toUpperCase() || 'GS';
-    const dash = sourceInvoiceNumber.lastIndexOf('-');
-    const suffix =
-      dash >= 0 ? sourceInvoiceNumber.slice(dash + 1).trim() : '';
-    if (!/^\d+$/.test(suffix)) {
-      throw new BadRequestException(
-        `Ungültige Rechnungsnummer für Gutschrift: ${sourceInvoiceNumber}`,
-      );
-    }
-    const invoiceNumber = `${prefix}-${suffix}`;
-    const existing = await tx.invoice.findUnique({
-      where: { invoiceNumber },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `Gutschrift-Nummer ${invoiceNumber} ist bereits vergeben`,
-      );
-    }
-    return invoiceNumber;
-  }
-
   /** Vorschau der nächsten Nummer ohne Verbrauch. */
   async previewNext(code: InvoiceSeriesCode): Promise<string> {
     await this.ensureSeriesRows();
@@ -214,30 +182,19 @@ export class BillingSettingsService {
 
   private async ensureSeriesRows() {
     const existing = await this.prisma.invoiceNumberSeries.findMany();
-    if (existing.length >= 2) return existing;
-
     const ops: Prisma.PrismaPromise<unknown>[] = [];
-    if (!existing.some((e) => e.code === InvoiceSeriesCode.OUTGOING)) {
-      ops.push(
-        this.prisma.invoiceNumberSeries.create({
-          data: {
-            code: InvoiceSeriesCode.OUTGOING,
-            prefix: 'RE',
-            nextNumber: 40000113,
-          },
-        }),
-      );
-    }
-    if (!existing.some((e) => e.code === InvoiceSeriesCode.CREDIT_NOTE)) {
-      ops.push(
-        this.prisma.invoiceNumberSeries.create({
-          data: {
-            code: InvoiceSeriesCode.CREDIT_NOTE,
-            prefix: 'GS',
-            nextNumber: 40000001,
-          },
-        }),
-      );
+    for (const def of SERIES_DEFAULTS) {
+      if (!existing.some((e) => e.code === def.code)) {
+        ops.push(
+          this.prisma.invoiceNumberSeries.create({
+            data: {
+              code: def.code,
+              prefix: def.prefix,
+              nextNumber: def.nextNumber,
+            },
+          }),
+        );
+      }
     }
     if (ops.length) await this.prisma.$transaction(ops);
     return this.prisma.invoiceNumberSeries.findMany();
@@ -271,7 +228,6 @@ export class BillingSettingsService {
       throw new BadRequestException('Nächste Nummer muss eine ganze Zahl ≥ 1 sein');
     }
 
-    // Blockieren, wenn die Zielnummer (oder niedriger mit gleichem Prefix) schon existiert
     const candidate = `${prefix}-${nextNumber}`;
     const clash = await this.prisma.invoice.findUnique({
       where: { invoiceNumber: candidate },
@@ -283,7 +239,6 @@ export class BillingSettingsService {
       );
     }
 
-    // Auch blockieren, wenn nextNumber ≤ max existierender Nummer mit gleichem Prefix
     const withPrefix = await this.prisma.invoice.findMany({
       where: {
         invoiceNumber: { startsWith: `${prefix}-` },

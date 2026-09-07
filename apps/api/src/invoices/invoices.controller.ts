@@ -37,6 +37,10 @@ import { UpdateInvoiceLineDto } from './dto/update-invoice-line.dto';
 import { ReorderLinesDto } from './dto/reorder-lines.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { SendInvoiceEmailDto } from './dto/send-invoice-email.dto';
+import {
+  CreateCorrectionDto,
+  CreateStornoDto,
+} from './dto/create-storno-correction.dto';
 
 /** Hilfsfunktion: AuthUser → userId (nur echte Benutzer, keine Worker). */
 function userIdOf(user: AuthUser): string | null {
@@ -243,25 +247,63 @@ export class InvoicesController {
   }
 
   /**
-   * Storno finalisierter RE über Gutschrift.
+   * Storno finalisierter RE → finalisierte Stornorechnung (ST).
+   */
+  @Post(':id/storno')
+  @HttpCode(HttpStatus.OK)
+  @Roles(RoleCode.SUPERADMIN)
+  @ApiOperation({
+    summary: 'Storno → Stornorechnung ST (SUPERADMIN, eigener Nummernkreis)',
+  })
+  storno(
+    @Param('id') id: string,
+    @Body() dto: CreateStornoDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.invoices.createStorno(id, dto, userIdOf(user));
+  }
+
+  /**
+   * Rechnungskorrektur (KO) als Entwurf anlegen.
+   */
+  @Post(':id/correction')
+  @Roles(RoleCode.SUPERADMIN)
+  @ApiOperation({
+    summary: 'Rechnungskorrektur KO als Entwurf (SUPERADMIN)',
+  })
+  correction(
+    @Param('id') id: string,
+    @Body() dto: CreateCorrectionDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.invoices.createCorrection(id, dto, userIdOf(user));
+  }
+
+  /**
+   * @deprecated Nutze POST :id/storno
    */
   @Post(':id/credit-note')
   @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.SUPERADMIN)
   @ApiOperation({
-    summary: 'Storno → Gutschrift (SUPERADMIN, GS mit gleicher Nummer wie RE)',
+    summary: 'Deprecated: Alias für /storno (Body: correctionReason)',
+    deprecated: true,
   })
-  creditNote(@Param('id') id: string, @CurrentUser() user: AuthUser) {
-    return this.invoices.createCreditNote(id, userIdOf(user));
+  creditNote(
+    @Param('id') id: string,
+    @Body() dto: CreateStornoDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.invoices.createStorno(id, dto, userIdOf(user));
   }
 
   /**
-   * Storniert einen Entwurf (ohne Gutschrift).
+   * Storniert einen Entwurf (ohne ST).
    */
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Entwurf stornieren (finalisierte RE → credit-note nutzen)',
+    summary: 'Entwurf stornieren (finalisierte RE → /storno nutzen)',
   })
   cancel(@Param('id') id: string) {
     return this.invoices.cancel(id);
@@ -293,7 +335,7 @@ export class InvoicesController {
   @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
   @ApiOperation({
-    summary: 'Finalisierte RE/GS per E-Mail an Billing-Adresse senden',
+    summary: 'Finalisierte RE/ST/KO per E-Mail an Billing-Adresse senden',
   })
   sendEmail(@Param('id') id: string, @Body() dto: SendInvoiceEmailDto) {
     return this.invoices.sendEmail(id, dto);
