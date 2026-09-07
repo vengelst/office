@@ -15,7 +15,11 @@ import {
   applySkontoTemplate,
   DEFAULT_REVERSE_CHARGE_PDF_TEXT,
 } from '../app-settings/billing-settings.types';
-import { round2 } from './invoice-shared';
+import {
+  documentTitleForType,
+  round2,
+  type TaxBreakdownLine,
+} from './invoice-shared';
 
 const COMPANY_LOGO_SETTING = 'company_logo_key';
 
@@ -62,7 +66,7 @@ export class InvoicePdfService {
           },
         },
         creditedInvoice: {
-          select: { invoiceNumber: true },
+          select: { invoiceNumber: true, issueDate: true },
         },
         lines: { orderBy: { position: 'asc' } },
       },
@@ -139,16 +143,14 @@ export class InvoicePdfService {
       invoiceNumber: string | null;
       issueDate: Date;
       performanceCountryCode?: string | null;
-      creditedInvoice: { invoiceNumber: string | null } | null;
+      creditedInvoice: {
+        invoiceNumber: string | null;
+        issueDate: Date;
+      } | null;
     },
     logo: Buffer | null,
   ): void {
-    const title =
-      invoice.invoiceType === InvoiceType.CREDIT_NOTE
-        ? 'Gutschrift'
-        : invoice.invoiceType === InvoiceType.OUTGOING
-          ? 'Rechnung'
-          : 'Eingangsrechnung';
+    const title = documentTitleForType(invoice.invoiceType);
 
     // Firmenzeile oben rechts
     doc.fontSize(9).fillColor('#444');
@@ -182,23 +184,25 @@ export class InvoicePdfService {
     doc.text(title, 50, titleY);
     doc.fontSize(10).fillColor('#444');
     const numberLabel = invoice.invoiceNumber ?? 'Entwurf (ohne Nummer)';
-    doc.text(
-      invoice.invoiceType === InvoiceType.CREDIT_NOTE
-        ? `Gutschrift-Nr.: ${numberLabel}`
-        : `Rechnungs-Nr.: ${numberLabel}`,
-      50,
-      titleY + 30,
-    );
+    const numberPrefix =
+      invoice.invoiceType === InvoiceType.STORNO
+        ? 'Storno-Nr.'
+        : invoice.invoiceType === InvoiceType.CORRECTION
+          ? 'Korrektur-Nr.'
+          : 'Rechnungs-Nr.';
+    doc.text(`${numberPrefix}: ${numberLabel}`, 50, titleY + 30);
     doc.text(`Datum: ${formatDate(invoice.issueDate)}`, 50, titleY + 45);
     if (
-      invoice.invoiceType === InvoiceType.CREDIT_NOTE &&
+      (invoice.invoiceType === InvoiceType.STORNO ||
+        invoice.invoiceType === InvoiceType.CORRECTION) &&
       invoice.creditedInvoice?.invoiceNumber
     ) {
-      doc.text(
-        `zu Rechnung ${invoice.creditedInvoice.invoiceNumber}`,
-        50,
-        titleY + 60,
-      );
+      const refDate = formatDate(invoice.creditedInvoice.issueDate);
+      const refText =
+        invoice.invoiceType === InvoiceType.STORNO
+          ? `Storno zu Rechnung ${invoice.creditedInvoice.invoiceNumber} vom ${refDate}`
+          : `Korrektur zu Rechnung ${invoice.creditedInvoice.invoiceNumber} vom ${refDate}`;
+      doc.text(refText, 50, titleY + 60);
     }
     doc.fillColor('#000');
   }
@@ -410,6 +414,7 @@ export class InvoicePdfService {
       taxAmount: number;
       total: number;
       taxKind?: InvoiceTaxKind;
+      taxBreakdown?: unknown;
     },
   ): void {
     const labelX = 350;
@@ -431,10 +436,25 @@ export class InvoicePdfService {
     if (isRc) {
       row('MwSt (0 % / Reverse Charge)', formatCurrency(0));
     } else {
-      row(
-        `zzgl. MwSt ${formatNumber(invoice.taxRate)} %`,
-        formatCurrency(invoice.taxAmount),
-      );
+      const breakdown = parseTaxBreakdown(invoice.taxBreakdown);
+      if (breakdown && breakdown.length > 1) {
+        for (const b of breakdown) {
+          row(
+            `zzgl. MwSt ${formatNumber(b.rate)} %`,
+            formatCurrency(b.tax),
+          );
+        }
+      } else if (breakdown && breakdown.length === 1) {
+        row(
+          `zzgl. MwSt ${formatNumber(breakdown[0].rate)} %`,
+          formatCurrency(breakdown[0].tax),
+        );
+      } else {
+        row(
+          `zzgl. MwSt ${formatNumber(invoice.taxRate)} %`,
+          formatCurrency(invoice.taxAmount),
+        );
+      }
     }
     doc
       .moveTo(labelX, y)
@@ -480,7 +500,8 @@ export class InvoicePdfService {
 
     const isOutgoingLike =
       invoice.invoiceType === InvoiceType.OUTGOING ||
-      invoice.invoiceType === InvoiceType.CREDIT_NOTE;
+      invoice.invoiceType === InvoiceType.STORNO ||
+      invoice.invoiceType === InvoiceType.CORRECTION;
 
     if (
       invoice.taxKind === InvoiceTaxKind.REVERSE_CHARGE &&
@@ -633,4 +654,22 @@ function formatNumber(value: number): string {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   });
+}
+
+function parseTaxBreakdown(raw: unknown): TaxBreakdownLine[] | null {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const lines: TaxBreakdownLine[] = [];
+  for (const item of raw) {
+    if (
+      item &&
+      typeof item === 'object' &&
+      typeof (item as TaxBreakdownLine).rate === 'number' &&
+      typeof (item as TaxBreakdownLine).net === 'number' &&
+      typeof (item as TaxBreakdownLine).tax === 'number' &&
+      typeof (item as TaxBreakdownLine).gross === 'number'
+    ) {
+      lines.push(item as TaxBreakdownLine);
+    }
+  }
+  return lines.length ? lines : null;
 }

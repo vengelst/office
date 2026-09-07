@@ -39,7 +39,12 @@ class SeriesDto {
   @IsOptional()
   @ValidateNested()
   @Type(() => SeriesPatchDto)
-  gs?: SeriesPatchDto;
+  st?: SeriesPatchDto;
+
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SeriesPatchDto)
+  ko?: SeriesPatchDto;
 }
 
 class SkontoDto {

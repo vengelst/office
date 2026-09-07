@@ -28,7 +28,7 @@ export interface BillingSettings {
 }
 
 export interface InvoiceSeriesView {
-  code: 'OUTGOING' | 'CREDIT_NOTE';
+  code: 'OUTGOING' | 'STORNO' | 'CORRECTION';
   prefix: string;
   nextNumber: number;
   preview: string;
@@ -37,7 +37,8 @@ export interface InvoiceSeriesView {
 export interface BillingSettingsResponse {
   series: {
     re: InvoiceSeriesView;
-    gs: InvoiceSeriesView;
+    st: InvoiceSeriesView;
+    ko: InvoiceSeriesView;
   };
   settings: BillingSettings;
 }

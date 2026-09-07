@@ -24,6 +24,7 @@ import {
   computeTotals,
   detailInclude,
   round2,
+  toJsonBreakdown,
 } from './invoice-shared';
 
 /**
@@ -45,9 +46,12 @@ export class InvoiceGenerationService {
         'Eingangsrechnungen werden nicht mehr angelegt (DATEV)',
       );
     }
-    if (dto.invoiceType === InvoiceType.CREDIT_NOTE) {
+    if (
+      dto.invoiceType === InvoiceType.STORNO ||
+      dto.invoiceType === InvoiceType.CORRECTION
+    ) {
       throw new BadRequestException(
-        'Gutschriften entstehen nur über Storno einer finalisierten Rechnung',
+        'Stornorechnungen und Korrekturen entstehen nur über die entsprechenden Aktionen',
       );
     }
 
@@ -280,6 +284,7 @@ export class InvoiceGenerationService {
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
+        taxBreakdown: toJsonBreakdown(totals.taxBreakdown),
         paymentTermDays: input.paymentTermDays,
         createdByUserId: input.userId,
         lines: input.lines.length ? { create: input.lines } : undefined,

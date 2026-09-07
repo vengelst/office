@@ -48,7 +48,8 @@ export class InvoiceExportService {
 
     if (
       invoice.invoiceType === InvoiceType.OUTGOING ||
-      invoice.invoiceType === InvoiceType.CREDIT_NOTE
+      invoice.invoiceType === InvoiceType.STORNO ||
+      invoice.invoiceType === InvoiceType.CORRECTION
     ) {
       const partnerName = invoice.customer?.companyName ?? 'Unbekannt';
       const numberLabel = invoice.invoiceNumber ?? `Entwurf-${invoice.id.slice(-6)}`;

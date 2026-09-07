@@ -15,6 +15,7 @@ import {
   InvoiceStatus,
   InvoiceTaxKind,
   InvoiceType,
+  CorrectionReason,
   Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +31,10 @@ import { UpdateInvoiceLineDto } from './dto/update-invoice-line.dto';
 import { GenerateFromTimesheetsDto } from './dto/generate-from-timesheets.dto';
 import { CreatePaymentDto } from './dto/create-payment.dto';
 import { SendInvoiceEmailDto } from './dto/send-invoice-email.dto';
+import {
+  CreateCorrectionDto,
+  CreateStornoDto,
+} from './dto/create-storno-correction.dto';
 import { InvoiceExportService } from './invoice-export.service';
 import { InvoiceGenerationService } from './invoice-generation.service';
 import { InvoicePdfService } from './invoice-pdf.service';
@@ -44,9 +49,14 @@ import {
   coerceDate,
   computeTotals,
   detailInclude,
+  documentTitleForType,
   effectiveTaxRateForKind,
+  isNegativeTotalType,
   listSelect,
   round2,
+  seriesCodeForType,
+  taxPeriodBounds,
+  toJsonBreakdown,
 } from './invoice-shared';
 
 export type { ListInvoicesParams } from './invoice-shared';
@@ -54,7 +64,7 @@ export type { ListInvoicesParams } from './invoice-shared';
 /**
  * Service für die Rechnungsverwaltung.
  * Behandelt Erstellung, Bearbeitung, Finalisierung (DRAFT → SENT),
- * Gutschrift/Storno, Zahlungserfassung; PDF und Generierung delegiert.
+ * Storno (ST) / Korrektur (KO), Zahlungserfassung; PDF und Generierung delegiert.
  */
 @Injectable()
 export class InvoicesService {
@@ -175,9 +185,12 @@ export class InvoicesService {
         'Eingangsrechnungen werden nicht mehr angelegt (DATEV)',
       );
     }
-    if (dto.invoiceType === InvoiceType.CREDIT_NOTE) {
+    if (
+      dto.invoiceType === InvoiceType.STORNO ||
+      dto.invoiceType === InvoiceType.CORRECTION
+    ) {
       throw new BadRequestException(
-        'Gutschriften entstehen nur über Storno einer finalisierten Rechnung',
+        'Stornorechnungen und Korrekturen entstehen nur über die entsprechenden Aktionen an einer finalisierten RE',
       );
     }
 
@@ -216,6 +229,7 @@ export class InvoicesService {
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
+        taxBreakdown: toJsonBreakdown(totals.taxBreakdown),
         isPartialInvoice: dto.isPartialInvoice ?? false,
         partialNumber: dto.partialNumber ?? null,
         partialPercentage: dto.partialPercentage ?? null,
@@ -367,17 +381,18 @@ export class InvoicesService {
   // ── Status-Workflow ──────────────────────────────────────────
 
   /**
-   * Finalisiert eine Ausgangsrechnung (nur SUPERADMIN): vergibt RE-Nummer,
-   * setzt Status SENT, issueDate/dueDate und archiviert PDF.
+   * Finalisiert einen Entwurf: vergibt RE-/ST-/KO-Nummer, setzt Status SENT,
+   * issueDate/dueDate und archiviert PDF. Bei KO: Ursprungs-RE → PARTIALLY_CORRECTED.
    */
   async finalize(id: string, userId: string | null) {
     const invoice = await this.findOne(id);
     if (invoice.status !== InvoiceStatus.DRAFT) {
       throw new ConflictException('Nur Entwürfe können finalisiert werden');
     }
-    if (invoice.invoiceType !== InvoiceType.OUTGOING) {
+    const seriesCode = seriesCodeForType(invoice.invoiceType);
+    if (!seriesCode) {
       throw new BadRequestException(
-        'Nur Ausgangsrechnungen können finalisiert werden',
+        'Dieser Belegtyp kann nicht finalisiert werden',
       );
     }
     if (!invoice.lines.length) {
@@ -396,6 +411,13 @@ export class InvoicesService {
       await this.assertReverseChargeAllowed(invoice.customerId);
     }
 
+    if (
+      invoice.invoiceType === InvoiceType.STORNO ||
+      invoice.invoiceType === InvoiceType.CORRECTION
+    ) {
+      await this.assertStornoOrCorrectionReady(invoice);
+    }
+
     const billing = await this.billingSettings.getSettingsOnly();
     const termDays =
       invoice.paymentTermDays ??
@@ -407,9 +429,29 @@ export class InvoicesService {
     const dueDate = new Date(issueDate);
     dueDate.setDate(dueDate.getDate() + termDays);
 
+    const totals = computeTotals(
+      invoice.lines.map((l) => ({ total: l.total, taxRate: l.taxRate })),
+      invoice.taxRate,
+    );
+
+    const taxPeriod = this.resolveTaxPeriod(
+      invoice.invoiceType,
+      invoice.correctionReason,
+      invoice.creditedInvoice?.issueDate ?? null,
+      issueDate,
+    );
+
     await this.prisma.$transaction(async (tx) => {
+      if (invoice.invoiceType === InvoiceType.CORRECTION) {
+        await this.assertCorrectionWithinRemaining(tx, invoice);
+      }
+
       const invoiceNumber = await this.billingSettings.allocateNumber(
-        InvoiceSeriesCode.OUTGOING,
+        seriesCode === 'OUTGOING'
+          ? InvoiceSeriesCode.OUTGOING
+          : seriesCode === 'STORNO'
+            ? InvoiceSeriesCode.STORNO
+            : InvoiceSeriesCode.CORRECTION,
         tx,
       );
       await tx.invoice.update({
@@ -419,11 +461,34 @@ export class InvoicesService {
           status: InvoiceStatus.SENT,
           issueDate,
           paymentTermDays: termDays,
-          dueDate,
+          dueDate:
+            invoice.invoiceType === InvoiceType.OUTGOING ? dueDate : issueDate,
           finalizedAt: issueDate,
           finalizedByUserId: userId,
+          subtotal: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          total: totals.total,
+          taxBreakdown: toJsonBreakdown(totals.taxBreakdown),
+          taxPeriodFrom: taxPeriod?.from ?? null,
+          taxPeriodTo: taxPeriod?.to ?? null,
         },
       });
+
+      if (
+        invoice.invoiceType === InvoiceType.CORRECTION &&
+        invoice.creditedInvoiceId
+      ) {
+        const source = await tx.invoice.findUnique({
+          where: { id: invoice.creditedInvoiceId },
+          select: { status: true },
+        });
+        if (source && source.status !== InvoiceStatus.CANCELLED) {
+          await tx.invoice.update({
+            where: { id: invoice.creditedInvoiceId },
+            data: { status: InvoiceStatus.PARTIALLY_CORRECTED },
+          });
+        }
+      }
     });
 
     const finalized = await this.findOne(id);
@@ -439,15 +504,18 @@ export class InvoicesService {
   }
 
   /**
-   * Storno einer finalisierten Ausgangsrechnung über Gutschrift.
-   * Erzeugt CREDIT_NOTE mit gleicher Nummer wie die RE (GS-114 zu RE-114),
-   * Original → CANCELLED (Beträge/PDF bleiben).
+   * Storno einer finalisierten Ausgangsrechnung: erzeugt finalisierte ST
+   * als exakte Spiegelung (negative Totals), Original → CANCELLED.
    */
-  async createCreditNote(id: string, userId: string | null) {
+  async createStorno(
+    id: string,
+    dto: CreateStornoDto,
+    userId: string | null,
+  ) {
     const source = await this.findOne(id);
     if (source.invoiceType !== InvoiceType.OUTGOING) {
       throw new BadRequestException(
-        'Gutschriften sind nur für Ausgangsrechnungen möglich',
+        'Stornorechnungen sind nur für Ausgangsrechnungen möglich',
       );
     }
     if (source.status === InvoiceStatus.DRAFT) {
@@ -463,83 +531,253 @@ export class InvoicesService {
         'Nur finalisierte Rechnungen können storniert werden',
       );
     }
-    if (source.creditNotes?.length) {
+
+    const related = source.creditNotes ?? [];
+    if (related.some((r) => r.status !== InvoiceStatus.CANCELLED)) {
+      const hasStorno = await this.prisma.invoice.findFirst({
+        where: {
+          creditedInvoiceId: source.id,
+          invoiceType: InvoiceType.STORNO,
+        },
+        select: { id: true, invoiceType: true },
+      });
+      const hasKo = await this.prisma.invoice.findFirst({
+        where: {
+          creditedInvoiceId: source.id,
+          invoiceType: InvoiceType.CORRECTION,
+        },
+        select: { id: true },
+      });
+      if (hasStorno) {
+        throw new ConflictException(
+          'Zu dieser Rechnung existiert bereits eine Stornorechnung',
+        );
+      }
+      if (hasKo) {
+        throw new ConflictException(
+          'Storno nicht möglich: es existiert bereits eine Rechnungskorrektur',
+        );
+      }
+    }
+
+    // Explizit nochmal prüfen (auch Entwurfs-KO blockiert ST)
+    const anyKo = await this.prisma.invoice.count({
+      where: {
+        creditedInvoiceId: source.id,
+        invoiceType: InvoiceType.CORRECTION,
+      },
+    });
+    if (anyKo > 0) {
       throw new ConflictException(
-        'Zu dieser Rechnung existiert bereits eine Gutschrift',
+        'Storno nicht möglich: es existiert bereits eine Rechnungskorrektur',
+      );
+    }
+    const anySt = await this.prisma.invoice.count({
+      where: {
+        creditedInvoiceId: source.id,
+        invoiceType: InvoiceType.STORNO,
+      },
+    });
+    if (anySt > 0) {
+      throw new ConflictException(
+        'Zu dieser Rechnung existiert bereits eine Stornorechnung',
       );
     }
 
     const issueDate = new Date();
-    const creditId = await this.prisma.$transaction(async (tx) => {
-      const invoiceNumber = await this.billingSettings.allocateCreditNoteNumber(
-        source.invoiceNumber!,
+    const taxPeriod = this.resolveTaxPeriod(
+      InvoiceType.STORNO,
+      dto.correctionReason,
+      source.issueDate,
+      issueDate,
+    )!;
+
+    const mirroredLines = source.lines.map((l) => ({
+      lineType: l.lineType,
+      position: l.position,
+      description: l.description,
+      quantity: l.quantity,
+      unit: l.unit,
+      unitPrice: l.unitPrice,
+      discountPercent: l.discountPercent,
+      discountAmount: l.discountAmount,
+      productId: l.productId,
+      taxRate: l.taxRate,
+      total: -Math.abs(l.total),
+      weeklyTimesheetId: l.weeklyTimesheetId,
+    }));
+    const totals = computeTotals(
+      mirroredLines.map((l) => ({ total: l.total, taxRate: l.taxRate })),
+      source.taxRate,
+    );
+
+    // Invariante 9: Spiegelbild inkl. Steuer je Satz
+    if (
+      Math.abs(totals.subtotal + source.subtotal) > 0.001 ||
+      Math.abs(totals.taxAmount + source.taxAmount) > 0.001 ||
+      Math.abs(totals.total + source.total) > 0.001
+    ) {
+      // Recalculate source breakdown for mirror check if legacy without breakdown
+      const sourceTotals = computeTotals(
+        source.lines.map((l) => ({ total: l.total, taxRate: l.taxRate })),
+        source.taxRate,
+      );
+      if (
+        Math.abs(totals.subtotal + sourceTotals.subtotal) > 0.001 ||
+        Math.abs(totals.taxAmount + sourceTotals.taxAmount) > 0.001 ||
+        Math.abs(totals.total + sourceTotals.total) > 0.001
+      ) {
+        throw new ConflictException(
+          'Storno-Spiegelung der Beträge fehlgeschlagen',
+        );
+      }
+    }
+
+    const stornoId = await this.prisma.$transaction(async (tx) => {
+      const invoiceNumber = await this.billingSettings.allocateNumber(
+        InvoiceSeriesCode.STORNO,
         tx,
       );
 
-      const credit = await tx.invoice.create({
+      const storno = await tx.invoice.create({
         data: {
           invoiceNumber,
-          invoiceType: InvoiceType.CREDIT_NOTE,
+          invoiceType: InvoiceType.STORNO,
           status: InvoiceStatus.SENT,
           projectId: source.projectId,
           customerId: source.customerId,
           creditedInvoiceId: source.id,
+          correctionReason: dto.correctionReason,
+          taxPeriodFrom: taxPeriod.from,
+          taxPeriodTo: taxPeriod.to,
           periodFrom: source.periodFrom,
           periodTo: source.periodTo,
           performanceCountryCode: source.performanceCountryCode,
           taxKind: source.taxKind,
           taxRate: source.taxRate,
-          subtotal: source.subtotal,
-          taxAmount: source.taxAmount,
-          total: source.total,
+          subtotal: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          total: totals.total,
+          taxBreakdown: toJsonBreakdown(totals.taxBreakdown),
           isPartialInvoice: source.isPartialInvoice,
           partialNumber: source.partialNumber,
           partialPercentage: source.partialPercentage,
           paymentTermDays: source.paymentTermDays,
           issueDate,
           dueDate: issueDate,
-          notes: source.notes
-            ? `Gutschrift zu ${source.invoiceNumber}\n${source.notes}`
-            : `Gutschrift zu ${source.invoiceNumber}`,
+          notes: `Storno zu Rechnung ${source.invoiceNumber} vom ${formatDeDate(source.issueDate)}${
+            source.notes ? `\n${source.notes}` : ''
+          }`,
           internalNotes: source.internalNotes,
           finalizedAt: issueDate,
           finalizedByUserId: userId,
           createdByUserId: userId,
           lines: {
-            create: source.lines.map((l) => ({
-              lineType: l.lineType,
-              position: l.position,
-              description: l.description,
-              quantity: l.quantity,
-              unit: l.unit,
-              unitPrice: l.unitPrice,
-              discountPercent: l.discountPercent,
-              discountAmount: l.discountAmount,
-              productId: l.productId,
-              total: l.total,
-              weeklyTimesheetId: l.weeklyTimesheetId,
-            })),
+            create: mirroredLines,
           },
         },
         select: { id: true },
       });
 
-      // Original stornieren – Beträge und PDF bleiben nachvollziehbar
       await tx.invoice.update({
         where: { id: source.id },
         data: { status: InvoiceStatus.CANCELLED },
       });
 
-      return credit.id;
+      return storno.id;
     });
 
-    const creditNote = await this.findOne(creditId);
-    this.exportService.exportInvoicePdfAsync(creditNote);
-    return creditNote;
+    const storno = await this.findOne(stornoId);
+    this.exportService.exportInvoicePdfAsync(storno);
+    return storno;
   }
 
   /**
-   * Storniert nur Entwürfe (ohne Gutschrift). Finalisierte RE → createCreditNote.
+   * Erzeugt einen KO-Entwurf zu einer finalisierten RE (Positionen editierbar).
+   */
+  async createCorrection(
+    id: string,
+    dto: CreateCorrectionDto,
+    userId: string | null,
+  ) {
+    const source = await this.findOne(id);
+    if (source.invoiceType !== InvoiceType.OUTGOING) {
+      throw new BadRequestException(
+        'Korrekturen sind nur für Ausgangsrechnungen möglich',
+      );
+    }
+    if (source.status === InvoiceStatus.CANCELLED) {
+      throw new ConflictException(
+        'Stornierte Rechnungen können nicht korrigiert werden',
+      );
+    }
+    if (source.status === InvoiceStatus.DRAFT || !source.finalizedAt) {
+      throw new BadRequestException(
+        'Nur finalisierte Rechnungen können korrigiert werden',
+      );
+    }
+    const anySt = await this.prisma.invoice.count({
+      where: {
+        creditedInvoiceId: source.id,
+        invoiceType: InvoiceType.STORNO,
+      },
+    });
+    if (anySt > 0) {
+      throw new ConflictException(
+        'Korrektur nicht möglich: Rechnung ist bereits storniert',
+      );
+    }
+
+    const lineDtos = (dto.lines ?? []).map((l) => ({
+      lineType: l.lineType,
+      description: l.description,
+      quantity: l.quantity,
+      unit: l.unit,
+      unitPrice: l.unitPrice,
+      taxRate: l.taxRate,
+      discountPercent: l.discountPercent,
+      discountAmount: l.discountAmount,
+    }));
+    const lines = buildLineData(lineDtos, { negateTotals: true });
+    const totals = computeTotals(
+      lines.map((l) => ({
+        total: typeof l.total === 'number' ? l.total : 0,
+        taxRate: typeof l.taxRate === 'number' ? l.taxRate : null,
+      })),
+      source.taxRate,
+    );
+
+    const created = await this.prisma.invoice.create({
+      data: {
+        invoiceNumber: null,
+        invoiceType: InvoiceType.CORRECTION,
+        status: InvoiceStatus.DRAFT,
+        projectId: source.projectId,
+        customerId: source.customerId,
+        creditedInvoiceId: source.id,
+        correctionReason: dto.correctionReason,
+        periodFrom: source.periodFrom,
+        periodTo: source.periodTo,
+        performanceCountryCode: source.performanceCountryCode,
+        taxKind: source.taxKind,
+        taxRate: source.taxRate,
+        subtotal: totals.subtotal,
+        taxAmount: totals.taxAmount,
+        total: totals.total,
+        taxBreakdown: toJsonBreakdown(totals.taxBreakdown),
+        isPartialInvoice: false,
+        paymentTermDays: source.paymentTermDays,
+        notes: `Korrektur zu Rechnung ${source.invoiceNumber} vom ${formatDeDate(source.issueDate)}`,
+        createdByUserId: userId,
+        lines: lines.length ? { create: lines } : undefined,
+      },
+      select: { id: true },
+    });
+    return this.findOne(created.id);
+  }
+
+  /**
+   * Storniert nur Entwürfe. Finalisierte RE → createStorno.
    */
   async cancel(id: string) {
     const invoice = await this.findOne(id);
@@ -548,8 +786,11 @@ export class InvoicesService {
     }
     if (invoice.status !== InvoiceStatus.DRAFT) {
       throw new BadRequestException(
-        'Finalisierte Rechnungen bitte über Gutschrift stornieren',
+        'Finalisierte Rechnungen bitte über Stornorechnung stornieren',
       );
+    }
+    if (invoice.invoiceType === InvoiceType.STORNO) {
+      throw new BadRequestException('Stornorechnungen können nicht storniert werden');
     }
     await this.prisma.invoice.update({
       where: { id },
@@ -576,7 +817,8 @@ export class InvoicesService {
     }
 
     const invoiceType =
-      source.invoiceType === InvoiceType.CREDIT_NOTE
+      source.invoiceType === InvoiceType.STORNO ||
+      source.invoiceType === InvoiceType.CORRECTION
         ? InvoiceType.OUTGOING
         : source.invoiceType;
 
@@ -590,12 +832,21 @@ export class InvoicesService {
         unitPrice: l.unitPrice,
         discountPercent: l.discountPercent,
         discountAmount: l.discountAmount,
+        taxRate: l.taxRate,
         product: l.productId ? { connect: { id: l.productId } } : undefined,
-        total: l.total,
+        total: Math.abs(l.total),
         weeklyTimesheet: l.weeklyTimesheetId
           ? { connect: { id: l.weeklyTimesheetId } }
           : undefined,
       }),
+    );
+
+    const copyTotals = computeTotals(
+      lines.map((l) => ({
+        total: typeof l.total === 'number' ? l.total : 0,
+        taxRate: typeof l.taxRate === 'number' ? l.taxRate : null,
+      })),
+      source.taxRate,
     );
 
     const copy = await this.prisma.invoice.create({
@@ -611,9 +862,10 @@ export class InvoicesService {
         performanceCountryCode: source.performanceCountryCode,
         taxKind: source.taxKind,
         taxRate: source.taxRate,
-        subtotal: source.subtotal,
-        taxAmount: source.taxAmount,
-        total: source.total,
+        subtotal: copyTotals.subtotal,
+        taxAmount: copyTotals.taxAmount,
+        total: copyTotals.total,
+        taxBreakdown: toJsonBreakdown(copyTotals.taxBreakdown),
         isPartialInvoice: source.isPartialInvoice,
         partialNumber: source.partialNumber,
         partialPercentage: source.partialPercentage,
@@ -652,12 +904,23 @@ export class InvoicesService {
    * @returns Die erstellte Position
    */
   async addLine(invoiceId: string, dto: CreateInvoiceLineDto) {
-    await this.ensureDraft(invoiceId);
+    const invoice = await this.ensureDraft(invoiceId);
     const position = dto.position ?? (await this.nextLinePosition(invoiceId));
     const quantity = dto.quantity ?? 1;
     const unitPrice = dto.unitPrice ?? 0;
     const discountPercent = dto.discountPercent ?? null;
     const discountAmount = dto.discountAmount ?? null;
+    const taxRate = dto.taxRate ?? null;
+
+    let total = computeLineNet({
+      quantity,
+      unitPrice,
+      discountPercent,
+      discountAmount,
+    });
+    if (isNegativeTotalType(invoice.invoiceType)) {
+      total = -Math.abs(total);
+    }
 
     const line = await this.prisma.invoiceLine.create({
       data: {
@@ -670,13 +933,9 @@ export class InvoicesService {
         unitPrice,
         discountPercent,
         discountAmount,
+        taxRate,
         productId: dto.productId ?? null,
-        total: computeLineNet({
-          quantity,
-          unitPrice,
-          discountPercent,
-          discountAmount,
-        }),
+        total,
         weeklyTimesheetId: dto.weeklyTimesheetId ?? null,
       },
     });
@@ -693,7 +952,7 @@ export class InvoicesService {
    * @returns Die aktualisierte Position
    */
   async updateLine(invoiceId: string, lineId: string, dto: UpdateInvoiceLineDto) {
-    await this.ensureDraft(invoiceId);
+    const invoice = await this.ensureDraft(invoiceId);
     const line = await this.ensureLine(invoiceId, lineId);
 
     const quantity = dto.quantity ?? line.quantity;
@@ -706,6 +965,18 @@ export class InvoicesService {
       dto.discountAmount === undefined
         ? line.discountAmount
         : dto.discountAmount;
+    const taxRate =
+      dto.taxRate === undefined ? line.taxRate : dto.taxRate;
+
+    let total = computeLineNet({
+      quantity,
+      unitPrice,
+      discountPercent,
+      discountAmount,
+    });
+    if (isNegativeTotalType(invoice.invoiceType)) {
+      total = -Math.abs(total);
+    }
 
     const updated = await this.prisma.invoiceLine.update({
       where: { id: lineId },
@@ -722,16 +993,12 @@ export class InvoicesService {
           dto.discountPercent === undefined ? undefined : dto.discountPercent,
         discountAmount:
           dto.discountAmount === undefined ? undefined : dto.discountAmount,
+        taxRate: dto.taxRate === undefined ? undefined : dto.taxRate,
         weeklyTimesheetId:
           dto.weeklyTimesheetId === undefined
             ? undefined
             : dto.weeklyTimesheetId || null,
-        total: computeLineNet({
-          quantity,
-          unitPrice,
-          discountPercent,
-          discountAmount,
-        }),
+        total,
       },
     });
     await this.recomputeTotals(invoiceId);
@@ -891,7 +1158,13 @@ export class InvoicesService {
       }),
       this.prisma.invoice.findMany({
         where: {
-          invoiceType: { in: [InvoiceType.OUTGOING, InvoiceType.CREDIT_NOTE] },
+          invoiceType: {
+            in: [
+              InvoiceType.OUTGOING,
+              InvoiceType.STORNO,
+              InvoiceType.CORRECTION,
+            ],
+          },
           status: { not: InvoiceStatus.CANCELLED },
           issueDate: { gte: startOfYear },
         },
@@ -907,19 +1180,12 @@ export class InvoicesService {
     const countOf = (rows: typeof open, type: InvoiceType) =>
       rows.filter((r) => r.invoiceType === type).length;
 
-    // Umsatz: Ausgang positiv, Gutschriften abziehen
+    // Umsatz: ST/KO haben bereits negative subtotals
     const revenueMonth = revenueRows
       .filter((r) => r.issueDate >= startOfMonth)
-      .reduce(
-        (sum, r) =>
-          sum +
-          (r.invoiceType === InvoiceType.CREDIT_NOTE ? -r.subtotal : r.subtotal),
-        0,
-      );
+      .reduce((sum, r) => sum + r.subtotal, 0);
     const revenueYear = revenueRows.reduce(
-      (sum, r) =>
-        sum +
-        (r.invoiceType === InvoiceType.CREDIT_NOTE ? -r.subtotal : r.subtotal),
+      (sum, r) => sum + r.subtotal,
       0,
     );
 
@@ -1140,16 +1406,17 @@ export class InvoicesService {
   }
 
   /**
-   * Finalisierte RE/GS per E-Mail an Billing-Adresse senden.
+   * Finalisierte RE/ST/KO per E-Mail an Billing-Adresse senden.
    */
   async sendEmail(id: string, dto: SendInvoiceEmailDto) {
     const invoice = await this.findOne(id);
     if (
       invoice.invoiceType !== InvoiceType.OUTGOING &&
-      invoice.invoiceType !== InvoiceType.CREDIT_NOTE
+      invoice.invoiceType !== InvoiceType.STORNO &&
+      invoice.invoiceType !== InvoiceType.CORRECTION
     ) {
       throw new BadRequestException(
-        'Nur Ausgangsrechnungen und Gutschriften können per E-Mail versendet werden',
+        'Nur Ausgangsrechnungen, Stornorechnungen und Korrekturen können per E-Mail versendet werden',
       );
     }
     if (
@@ -1236,12 +1503,17 @@ export class InvoicesService {
       });
     }
 
-    const docTitle =
-      invoice.invoiceType === InvoiceType.CREDIT_NOTE ? 'Gutschrift' : 'Rechnung';
+    const docTitle = documentTitleForType(invoice.invoiceType);
+    const article =
+      invoice.invoiceType === InvoiceType.STORNO
+        ? 'die Stornorechnung'
+        : invoice.invoiceType === InvoiceType.CORRECTION
+          ? 'die Rechnungskorrektur'
+          : 'die Rechnung';
     const subject = `${docTitle} ${invoice.invoiceNumber} – ${invoice.customer?.companyName ?? ''}`;
     const html = `<div style="font-family: sans-serif; padding: 20px; max-width: 560px;">
   <h2 style="color: #333;">${docTitle} ${invoice.invoiceNumber}</h2>
-  <p>anbei erhalten Sie ${docTitle === 'Gutschrift' ? 'die Gutschrift' : 'die Rechnung'} als PDF.</p>
+  <p>anbei erhalten Sie ${article} als PDF.</p>
   <p style="color: #666; font-size: 12px; margin-top: 24px;">Diese E-Mail wurde aus Office versendet.</p>
 </div>`;
 
@@ -1289,7 +1561,10 @@ export class InvoicesService {
   ): Promise<void> {
     const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
-      select: { taxRate: true, lines: { select: { total: true } } },
+      select: {
+        taxRate: true,
+        lines: { select: { total: true, taxRate: true } },
+      },
     });
     if (!invoice) return;
     const totals = computeTotals(
@@ -1302,6 +1577,7 @@ export class InvoicesService {
         subtotal: totals.subtotal,
         taxAmount: totals.taxAmount,
         total: totals.total,
+        taxBreakdown: toJsonBreakdown(totals.taxBreakdown),
       },
     });
   }
@@ -1495,4 +1771,124 @@ export class InvoicesService {
     }
     return line;
   }
+
+  /** Steuerperiode aus Korrekturgrund ableiten (Client darf nicht setzen). */
+  private resolveTaxPeriod(
+    type: InvoiceType,
+    reason: CorrectionReason | null | undefined,
+    sourceIssueDate: Date | null,
+    docIssueDate: Date,
+  ): { from: Date; to: Date } | null {
+    if (type !== InvoiceType.STORNO && type !== InvoiceType.CORRECTION) {
+      return null;
+    }
+    if (!reason) {
+      throw new BadRequestException('Korrekturgrund ist erforderlich');
+    }
+    if (reason === CorrectionReason.INVOICE_ERROR) {
+      if (!sourceIssueDate) {
+        throw new BadRequestException(
+          'Ursprungsrechnung hat kein Ausstellungsdatum für die Steuerperiode',
+        );
+      }
+      return taxPeriodBounds(sourceIssueDate);
+    }
+    return taxPeriodBounds(docIssueDate);
+  }
+
+  private async assertStornoOrCorrectionReady(invoice: {
+    invoiceType: InvoiceType;
+    creditedInvoiceId: string | null;
+    correctionReason: CorrectionReason | null;
+    creditedInvoice: { status: InvoiceStatus; invoiceType?: InvoiceType } | null;
+  }): Promise<void> {
+    if (!invoice.creditedInvoiceId) {
+      throw new BadRequestException(
+        'ST/KO benötigen einen Bezug auf eine Ausgangsrechnung',
+      );
+    }
+    if (!invoice.correctionReason) {
+      throw new BadRequestException('Korrekturgrund ist erforderlich');
+    }
+    const source = await this.prisma.invoice.findUnique({
+      where: { id: invoice.creditedInvoiceId },
+      select: { invoiceType: true, status: true },
+    });
+    if (!source || source.invoiceType !== InvoiceType.OUTGOING) {
+      throw new BadRequestException(
+        'Bezug muss eine Ausgangsrechnung (RE) sein',
+      );
+    }
+    if (source.status === InvoiceStatus.CANCELLED) {
+      throw new ConflictException(
+        'Bezug auf stornierte Rechnung nicht erlaubt',
+      );
+    }
+    if (invoice.invoiceType === InvoiceType.CORRECTION) {
+      const anySt = await this.prisma.invoice.count({
+        where: {
+          creditedInvoiceId: invoice.creditedInvoiceId,
+          invoiceType: InvoiceType.STORNO,
+        },
+      });
+      if (anySt > 0) {
+        throw new ConflictException(
+          'Korrektur nicht möglich: Rechnung ist bereits storniert',
+        );
+      }
+    }
+  }
+
+  private async assertCorrectionWithinRemaining(
+    tx: Prisma.TransactionClient,
+    invoice: {
+      id: string;
+      creditedInvoiceId: string | null;
+      total: number;
+    },
+  ): Promise<void> {
+    if (!invoice.creditedInvoiceId) {
+      throw new BadRequestException('Korrektur ohne Bezugsrechnung');
+    }
+    const source = await tx.invoice.findUnique({
+      where: { id: invoice.creditedInvoiceId },
+      select: { total: true },
+    });
+    if (!source) {
+      throw new NotFoundException('Bezugsrechnung nicht gefunden');
+    }
+    const otherKos = await tx.invoice.findMany({
+      where: {
+        creditedInvoiceId: invoice.creditedInvoiceId,
+        invoiceType: InvoiceType.CORRECTION,
+        id: { not: invoice.id },
+        status: {
+          in: [
+            InvoiceStatus.SENT,
+            InvoiceStatus.PARTIALLY_PAID,
+            InvoiceStatus.PAID,
+            InvoiceStatus.PARTIALLY_CORRECTED,
+          ],
+        },
+      },
+      select: { total: true },
+    });
+    // KO-Totals sind negativ → Summe der Absolutbeträge
+    const used = round2(
+      otherKos.reduce((sum, k) => sum + Math.abs(k.total), 0),
+    );
+    const thisAbs = Math.abs(invoice.total);
+    if (round2(used + thisAbs) > round2(source.total) + 0.001) {
+      throw new BadRequestException(
+        `Korrekturbetrag übersteigt den Restbetrag der Rechnung (max. ${round2(source.total - used).toFixed(2)} €)`,
+      );
+    }
+  }
+}
+
+function formatDeDate(d: Date): string {
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}.${mm}.${yyyy}`;
 }

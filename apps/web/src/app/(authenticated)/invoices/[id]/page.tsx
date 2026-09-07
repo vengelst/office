@@ -67,6 +67,7 @@ import {
   paidTotal,
   type InvoiceDetail,
   type InvoiceTaxKind,
+  type CorrectionReason,
 } from '@/lib/invoices';
 import { settingsApi } from '@/lib/settings';
 import { texts } from '@/lib/texts';
@@ -76,6 +77,11 @@ const TAX_KINDS: InvoiceTaxKind[] = [
   'REDUCED',
   'REVERSE_CHARGE',
   'TAX_EXEMPT',
+];
+
+const CORRECTION_REASONS: CorrectionReason[] = [
+  'INVOICE_ERROR',
+  'CONSIDERATION_REDUCTION',
 ];
 
 export default function InvoiceDetailPage(): React.ReactNode {
@@ -92,7 +98,10 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const [payOpen, setPayOpen] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
-  const [creditOpen, setCreditOpen] = useState(false);
+  const [stornoOpen, setStornoOpen] = useState(false);
+  const [correctionOpen, setCorrectionOpen] = useState(false);
+  const [correctionReason, setCorrectionReason] =
+    useState<CorrectionReason>('INVOICE_ERROR');
   const [cancelOpen, setCancelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [nextPreview, setNextPreview] = useState('RE-…');
@@ -134,7 +143,13 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const openFinalize = async (): Promise<void> => {
     try {
       const billing = await settingsApi.getBilling();
-      setNextPreview(billing.series.re.preview);
+      const preview =
+        invoice?.invoiceType === 'CORRECTION'
+          ? billing.series.ko.preview
+          : invoice?.invoiceType === 'STORNO'
+            ? billing.series.st.preview
+            : billing.series.re.preview;
+      setNextPreview(preview);
     } catch {
       setNextPreview('RE-…');
     }
@@ -167,14 +182,24 @@ export default function InvoiceDetailPage(): React.ReactNode {
     !isDraft &&
     !isCancelled &&
     !!invoice.finalizedAt &&
-    (invoice.invoiceType === 'OUTGOING' || invoice.invoiceType === 'CREDIT_NOTE');
-  const canCredit =
+    (invoice.invoiceType === 'OUTGOING' ||
+      invoice.invoiceType === 'STORNO' ||
+      invoice.invoiceType === 'CORRECTION');
+  const hasRelated = (invoice.creditNotes?.length ?? 0) > 0;
+  const canStorno =
     isSuperadmin &&
     invoice.invoiceType === 'OUTGOING' &&
     !isDraft &&
     !isCancelled &&
     !!invoice.finalizedAt &&
-    (invoice.creditNotes?.length ?? 0) === 0;
+    !hasRelated;
+  const canCorrection =
+    isSuperadmin &&
+    invoice.invoiceType === 'OUTGOING' &&
+    !isDraft &&
+    !isCancelled &&
+    !!invoice.finalizedAt &&
+    !invoice.creditNotes?.some((d) => d.invoiceType === 'STORNO');
   const numberLabel = invoiceNumberLabel(invoice, t.draftNumber);
 
   return (
@@ -242,14 +267,24 @@ export default function InvoiceDetailPage(): React.ReactNode {
           <Copy className="h-4 w-4" />
           {t.actions.duplicate}
         </Button>
-        {canCredit && (
+        {canStorno && (
           <Button
             variant="outline"
             className="min-h-[44px] text-destructive"
-            onClick={() => setCreditOpen(true)}
+            onClick={() => setStornoOpen(true)}
           >
             <XCircle className="h-4 w-4" />
-            {t.actions.creditNote}
+            {t.actions.storno}
+          </Button>
+        )}
+        {canCorrection && (
+          <Button
+            variant="outline"
+            className="min-h-[44px]"
+            onClick={() => setCorrectionOpen(true)}
+          >
+            <XCircle className="h-4 w-4" />
+            {t.actions.correction}
           </Button>
         )}
         {isDraft && (
@@ -374,27 +409,97 @@ export default function InvoiceDetailPage(): React.ReactNode {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={creditOpen} onOpenChange={setCreditOpen}>
+      <AlertDialog open={stornoOpen} onOpenChange={setStornoOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t.creditNoteDialog.title}</AlertDialogTitle>
+            <AlertDialogTitle>{t.stornoDialog.title}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t.creditNoteDialog.description}
+              {t.stornoDialog.description}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1.5 px-1">
+            <Label>{t.stornoDialog.reason}</Label>
+            <Select
+              value={correctionReason}
+              onValueChange={(v) =>
+                setCorrectionReason(v as CorrectionReason)
+              }
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CORRECTION_REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {t.correctionReason[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t.creditNoteDialog.cancel}</AlertDialogCancel>
+            <AlertDialogCancel>{t.stornoDialog.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setCreditOpen(false);
+                setStornoOpen(false);
                 void runAction(async () => {
-                  const gs = await invoicesApi.creditNote(invoice.id);
-                  router.push(`/invoices/${gs.id}`);
-                  return gs;
-                }, t.toast.creditNote);
+                  const st = await invoicesApi.storno(invoice.id, {
+                    correctionReason,
+                  });
+                  router.push(`/invoices/${st.id}`);
+                  return st;
+                }, t.toast.storno);
               }}
             >
-              {t.creditNoteDialog.confirm}
+              {t.stornoDialog.confirm}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={correctionOpen} onOpenChange={setCorrectionOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t.correctionDialog.title}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t.correctionDialog.description}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-1.5 px-1">
+            <Label>{t.correctionDialog.reason}</Label>
+            <Select
+              value={correctionReason}
+              onValueChange={(v) =>
+                setCorrectionReason(v as CorrectionReason)
+              }
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CORRECTION_REASONS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {t.correctionReason[r]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t.correctionDialog.cancel}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setCorrectionOpen(false);
+                void runAction(async () => {
+                  const ko = await invoicesApi.correction(invoice.id, {
+                    correctionReason,
+                  });
+                  router.push(`/invoices/${ko.id}`);
+                  return ko;
+                }, t.toast.correction);
+              }}
+            >
+              {t.correctionDialog.confirm}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -719,13 +824,23 @@ function DetailsTab({
                 }
               />
             )}
+            {invoice.correctionReason && (
+              <Field
+                label={t.correctionReason}
+                value={
+                  texts.invoices.correctionReason[invoice.correctionReason]
+                }
+              />
+            )}
             {(invoice.creditNotes?.length ?? 0) > 0 &&
-              invoice.creditNotes.map((gs) => (
+              invoice.creditNotes.map((doc) => (
                 <FieldLink
-                  key={gs.id}
-                  label={t.creditNotes}
-                  href={`/invoices/${gs.id}`}
-                  value={gs.invoiceNumber ?? texts.invoices.draftNumber}
+                  key={doc.id}
+                  label={t.relatedDocs}
+                  href={`/invoices/${doc.id}`}
+                  value={
+                    doc.invoiceNumber ?? texts.invoices.draftNumber
+                  }
                 />
               ))}
           </div>

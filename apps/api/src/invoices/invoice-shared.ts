@@ -30,7 +30,62 @@ export const DEFAULT_PAYMENT_TERM_DAYS = 14;
 export const OPEN_STATUSES: InvoiceStatus[] = [
   InvoiceStatus.SENT,
   InvoiceStatus.PARTIALLY_PAID,
+  InvoiceStatus.PARTIALLY_CORRECTED,
 ];
+
+/** Steuer je Satz (aus Netto je Satz, kaufmännisch 2 NK). */
+export interface TaxBreakdownLine {
+  rate: number;
+  net: number;
+  tax: number;
+  gross: number;
+}
+
+/**
+ * Vorzeichen-Konvention ST/KO: Positionen und Header-Summen negativ
+ * (Spiegelung der RE). OUTGOING bleibt positiv.
+ */
+export const NEGATIVE_TOTAL_TYPES: InvoiceType[] = [
+  InvoiceType.STORNO,
+  InvoiceType.CORRECTION,
+];
+
+export function isNegativeTotalType(type: InvoiceType): boolean {
+  return NEGATIVE_TOTAL_TYPES.includes(type);
+}
+
+/** Kalendermonat (UTC) als Steuerperiode. */
+export function taxPeriodBounds(date: Date): { from: Date; to: Date } {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth();
+  return {
+    from: new Date(Date.UTC(y, m, 1, 0, 0, 0, 0)),
+    to: new Date(Date.UTC(y, m + 1, 0, 23, 59, 59, 999)),
+  };
+}
+
+/** PDF-/UI-Titel je Belegart (ohne „Gutschrift“). */
+export function documentTitleForType(type: InvoiceType): string {
+  switch (type) {
+    case InvoiceType.STORNO:
+      return 'Stornorechnung';
+    case InvoiceType.CORRECTION:
+      return 'Rechnungskorrektur';
+    case InvoiceType.INCOMING:
+      return 'Eingangsrechnung';
+    default:
+      return 'Rechnung';
+  }
+}
+
+export function seriesCodeForType(
+  type: InvoiceType,
+): 'OUTGOING' | 'STORNO' | 'CORRECTION' | null {
+  if (type === InvoiceType.OUTGOING) return 'OUTGOING';
+  if (type === InvoiceType.STORNO) return 'STORNO';
+  if (type === InvoiceType.CORRECTION) return 'CORRECTION';
+  return null;
+}
 
 export interface ListInvoicesParams {
   page?: number;
@@ -70,6 +125,10 @@ export const listSelect = {
   paidDate: true,
   finalizedAt: true,
   creditedInvoiceId: true,
+  correctionReason: true,
+  taxPeriodFrom: true,
+  taxPeriodTo: true,
+  taxBreakdown: true,
   createdAt: true,
   project: { select: { id: true, projectNumber: true, title: true } },
   customer: { select: { id: true, companyName: true } },
@@ -129,15 +188,18 @@ export const detailInclude = {
       status: true,
       total: true,
       issueDate: true,
+      invoiceType: true,
     },
   },
   creditNotes: {
     select: {
       id: true,
       invoiceNumber: true,
+      invoiceType: true,
       status: true,
       total: true,
       issueDate: true,
+      correctionReason: true,
     },
     orderBy: { createdAt: 'asc' as const },
   },
@@ -177,12 +239,23 @@ export function round2(value: number): number {
  */
 export function buildLineData(
   lines: CreateInvoiceLineDto[],
+  options?: { negateTotals?: boolean },
 ): Prisma.InvoiceLineCreateWithoutInvoiceInput[] {
   return lines.map((l, index) => {
     const quantity = l.quantity ?? 1;
     const unitPrice = l.unitPrice ?? 0;
     const discountPercent = l.discountPercent ?? null;
     const discountAmount = l.discountAmount ?? null;
+    const taxRate = l.taxRate ?? null;
+    let total = computeLineNet({
+      quantity,
+      unitPrice,
+      discountPercent,
+      discountAmount,
+    });
+    if (options?.negateTotals) {
+      total = -Math.abs(total);
+    }
     return {
       lineType: l.lineType,
       position: l.position ?? index,
@@ -192,13 +265,9 @@ export function buildLineData(
       unitPrice,
       discountPercent,
       discountAmount,
+      taxRate,
       product: l.productId ? { connect: { id: l.productId } } : undefined,
-      total: computeLineNet({
-        quantity,
-        unitPrice,
-        discountPercent,
-        discountAmount,
-      }),
+      total,
       weeklyTimesheet: l.weeklyTimesheetId
         ? { connect: { id: l.weeklyTimesheetId } }
         : undefined,
@@ -206,15 +275,55 @@ export function buildLineData(
   });
 }
 
-/** Summen aus Positionsdaten berechnen. */
+/**
+ * Steuer je Satz: Nettosumme je Steuersatz → Steuer = round2(net * rate / 100).
+ * Nicht Summe positionsweise gerundeter Steuer.
+ */
+export function computeTaxBreakdown(
+  lines: Array<{ total?: number; taxRate?: number | null }>,
+  defaultTaxRate: number,
+): {
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  taxBreakdown: TaxBreakdownLine[];
+} {
+  const byRate = new Map<number, number>();
+  for (const l of lines) {
+    const rate = l.taxRate != null && !Number.isNaN(l.taxRate)
+      ? l.taxRate
+      : defaultTaxRate;
+    byRate.set(rate, round2((byRate.get(rate) ?? 0) + (l.total ?? 0)));
+  }
+  const taxBreakdown: TaxBreakdownLine[] = [];
+  let subtotal = 0;
+  let taxAmount = 0;
+  for (const [rate, net] of [...byRate.entries()].sort((a, b) => a[0] - b[0])) {
+    const tax = round2((net * rate) / 100);
+    const gross = round2(net + tax);
+    taxBreakdown.push({ rate, net, tax, gross });
+    subtotal = round2(subtotal + net);
+    taxAmount = round2(taxAmount + tax);
+  }
+  return {
+    subtotal,
+    taxAmount,
+    total: round2(subtotal + taxAmount),
+    taxBreakdown,
+  };
+}
+
+/** Summen aus Positionsdaten berechnen (inkl. Steuer je Satz). */
 export function computeTotals(
-  lines: Array<{ total?: number }>,
+  lines: Array<{ total?: number; taxRate?: number | null }>,
   taxRate: number,
-): { subtotal: number; taxAmount: number; total: number } {
-  const subtotal = round2(lines.reduce((sum, l) => sum + (l.total ?? 0), 0));
-  const taxAmount = round2((subtotal * taxRate) / 100);
-  const total = round2(subtotal + taxAmount);
-  return { subtotal, taxAmount, total };
+): {
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  taxBreakdown: TaxBreakdownLine[];
+} {
+  return computeTaxBreakdown(lines, taxRate);
 }
 
 /** Effektiver Steuersatz aus taxKind + Länderliste / explizitem Satz. */
@@ -235,6 +344,13 @@ export function effectiveTaxRateForKind(
   }
   if (explicitRate != null && !Number.isNaN(explicitRate)) return explicitRate;
   return countryRates?.standardRate ?? 19;
+}
+
+/** Cast taxBreakdown for Prisma Json field. */
+export function toJsonBreakdown(
+  taxBreakdown: TaxBreakdownLine[],
+): Prisma.InputJsonValue {
+  return taxBreakdown as unknown as Prisma.InputJsonValue;
 }
 
 export { InvoiceLineType, InvoiceStatus, InvoiceType, InvoiceTaxKind };
