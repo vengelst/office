@@ -1,6 +1,6 @@
 # Office
 
-**Version 1.0.0 (Production)** · Release: https://github.com/vengelst/office/releases/tag/v1.0.0
+**Version 1.1.0 (Production)** · Release: https://github.com/vengelst/office/releases/tag/v1.1.0
 
 Webanwendung für CRM, Projektverwaltung, Monteurverwaltung, mobile Zeiterfassung
 mit GPS, Wochen-Stundenzettel mit Signatur, Dokumentenmanagement und Kiosk-/PIN-Modus.

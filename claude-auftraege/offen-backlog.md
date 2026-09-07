@@ -1,6 +1,6 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-09-06** · **Version 1.0.1 (Production)** · Tag [`v1.0.1`](https://github.com/vengelst/office/releases/tag/v1.0.1) · Branch `main`
+Stand: **2026-09-07** · **Version 1.1.0 (Production)** · Tag [`v1.1.0`](https://github.com/vengelst/office/releases/tag/v1.1.0) · Branch `main`
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**  
 **Letzte Übergabe:** [`session-uebergabe-2026-09-01-spie-ki-import.md`](./session-uebergabe-2026-09-01-spie-ki-import.md)
