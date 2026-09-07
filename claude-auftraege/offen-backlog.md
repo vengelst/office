@@ -7,12 +7,23 @@ Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kur
 
 ---
 
+## Session-Notiz Cursor 07.09.2026 – Rechnungswesen + Pipeline
+
+- **#27–#29** Rechnungswesen (RE/ST/KO, Steuer je Satz) – **Prod**
+- **#30** Stundenzettel Arbeiten (projektbezogene Checkboxen, Pflicht nach Clock-Out) – **in Umsetzung** (Cloud)
+- **Als Nächstes (nach #30):** `#20` Google Calendar, dann `#31` Kommunikation v2
+- Spec `#31`: [`claude-arbeitsitems-31-kommunikation-v2.md`](./claude-arbeitsitems-31-kommunikation-v2.md) – **nur Spec, noch keine Umsetzung**
+- Spec `#20`: [`claude-arbeitsitems-20-google-calendar.md`](./claude-arbeitsitems-20-google-calendar.md) – startklar (Google Admin Calendar-Scope)
+
+---
+
 ## Session-Notiz Cursor 06.09.2026 – Rechnungswesen
 
 - Konzept Ausgangsrechnungen (GoBD): Nummer erst Finalisieren, Format **`RE-40000113`**, Gutschrift **`GS-…`**, Finalisieren nur SUPERADMIN
 - Nummernkreise + Verrechnung in Settings durch Admin pflegbar
 - **Cloud-Auftrag `#27` Phase 1** Spec: [`claude-arbeitsitems-27-rechnungswesen-phase1.md`](./claude-arbeitsitems-27-rechnungswesen-phase1.md) – **umgesetzt & Prod**
-- **Cloud-Auftrag `#28` Phase 2** Spec: [`claude-arbeitsitems-28-rechnungswesen-phase2.md`](./claude-arbeitsitems-28-rechnungswesen-phase2.md) – RC/VIES, Produkte, Rabatt, Skonto-Zahlung, E-Mail
+- **Cloud-Auftrag `#28` Phase 2** Spec: [`claude-arbeitsitems-28-rechnungswesen-phase2.md`](./claude-arbeitsitems-28-rechnungswesen-phase2.md) – **umgesetzt & Prod**
+- **Cloud-Auftrag `#29`** Belegarten ST/KO – **umgesetzt & Prod**
 
 ---
 
@@ -125,16 +136,15 @@ Prod: `office.vivahome.de` · Branch `main` · Kiosk: `work.vivahome.de`
 - Release-Tag **v1.0.0** (Ende Beta / Produktivstart)
 
 **Noch zu tun (Priorität):**
-1. **Google Admin (manuell, Voraussetzung für #20-Test):** Calendar API aktivieren + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
-2. **Cloud-Auftrag `#20`** – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`) – Spec startklar
-3. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk nur aktuelle Version (`claude-arbeitsitems-26-projektplaene-kiosk.md`) – Spec startklar (ggf. bereits umgesetzt prüfen)
-4. **Cloud-Auftrag `#27`** – Rechnungswesen Phase 1 (`claude-arbeitsitems-27-rechnungswesen-phase1.md`) – **Prod**
-5. **Cloud-Auftrag `#28`** – Rechnungswesen Phase 2: RC/VIES, Produkte, Rabatt, Skonto, E-Mail (`claude-arbeitsitems-28-rechnungswesen-phase2.md`) – Spec / Umsetzung
-4. Phase 2 optional: Rück-Sync / Kalender pro Mitarbeiter
-5. Optional: UNIT_BASED-Abrechnung aus geprüften Arbeitsitems
-6. Optional später: Kiosk-Konfig im Office (statt nur Tablet-Setup)
+1. **#30** Stundenzettel Arbeiten – Cloud läuft / danach Abnahme
+2. **Google Admin (manuell, Voraussetzung für #20):** Calendar API + DWD-Scope `https://www.googleapis.com/auth/calendar` für SA `office-drive-sync@vivahome-office.iam.gserviceaccount.com`
+3. **Cloud-Auftrag `#20`** – Termine + Sync Office → Google (`claude-arbeitsitems-20-google-calendar.md`)
+4. **Cloud-Auftrag `#31`** – Kommunikation v2: Kontakt, Übersicht, To-Do/Termin aus Eintrag (`claude-arbeitsitems-31-kommunikation-v2.md`) – Spec ready, **warten bis nach #30/#20**
+5. **Cloud-Auftrag `#26`** – Projektpläne + Kiosk – Spec; Ist teilweise da → Abnahme
+6. SPIE-PDF KI-Import einmal E2E abnehmen
+7. Optional später: Calendar Phase 2; WhatsApp Business API; UNIT_BASED
 
-~~#22 Master-Tätigkeitsbereiche~~ ✅ · ~~#23 Stempeluhr Zeitraum / Pause / Korrekturen~~ ✅ (in v1.0.1)
+~~#22~~ ~~#23~~ ~~#24~~ ~~#25~~ ~~#27~~ ~~#28~~ ~~#29~~ ✅
 
 ---
 
