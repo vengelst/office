@@ -1,5 +1,5 @@
 ---
-description: Office Offener Backlog – v1.0.1; #20 Calendar Code; SPIE/KI 2026-09-01
+description: Office Offener Backlog – v1.1.0; SPIE/KI-Import Übergabe 2026-09-01
 alwaysApply: false
 ---
 
@@ -7,30 +7,24 @@ alwaysApply: false
 
 Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Contacts, Calendar, Kiosk, Stempel, Handbuch, GPS, Stempeluhr, **KI-Import** oder **SPIE** anspricht: **`claude-auftraege/offen-backlog.md`** und ggf. **`HANDBUCH.md`** / Übergabe lesen.
 
-## Session-Übergabe (Stand 2026-09-07 · Version 1.0.1)
+## Session-Übergabe (Stand 2026-09-07 · Version 1.1.0)
 
-**Erledigt & auf Prod:**
+**Erledigt & auf Prod (Auswahl):**
 1. Stempel-API-Rollen; eigene App; PIN bleibt
 2. Google Contacts UI + **produktiv**
 3. Kiosk #21a–c; Master-Monteur; Stundenzettel; Backup Berlin; kein Prod-Seed
-4. Release **v1.0.0** + Handbuch (+ PDF)
-5. GPS; Baustellenfotos; Kiosk-Fixes
-6. **#22** Master-Tätigkeiten · **#23** Stempeluhr Zeitraum/Pause
-7. Release **v1.0.1**
-8. SPIE manuell `K-2026-0012` · **#24/#25** KI-Kontakt-Import live · KI-Settings aktiv
-9. **#27–#29** Rechnungswesen (RE/ST/KO)
-
-**Code fertig (Merge/Deploy):**
-- **#20** Google Calendar Phase 1 – Termine, Settings, Sync Office → Google (`/calendar`)
+4. Release **v1.0.0** / **v1.0.1** + Handbuch
+5. GPS; Baustellenfotos; Kiosk-Fixes; #22/#23
+6. SPIE manuell · **#24/#25** KI-Import
+7. **#27–#29** Rechnungswesen · **#30** Arbeiten · **#20** Calendar · **#31** Kommunikation v2 → **v1.1.0**
 
 **Deploy-Regel:** immer `docker compose … --env-file .env.production` (ohne Env = „leere App“).
 
 **Offen (Prio):**
-- Google Admin: Calendar API + DWD-Scope `calendar` (für grünen Settings-Test)
-- Cloud-Auftrag `#31` Kommunikation v2 (nach #20-Merge)
-- Cloud-Auftrag `#26` Projektpläne + Kiosk-Download (nur aktuell)
+- Google Admin: Calendar API + DWD-Scope `calendar` (Sync-Test)
+- Cloud-Auftrag `#26` Projektpläne – Abnahme / Rest
 - KI-Import SPIE-PDF einmal E2E fachlich abnehmen
-- Phase 2 Calendar / UNIT_BASED
+- Optional: Calendar Phase 2 / WhatsApp Business
 
 **Übergabe-Datei:** `claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`  
 Details: `claude-auftraege/offen-backlog.md` · `#20`: `claude-arbeitsitems-20-google-calendar.md`
