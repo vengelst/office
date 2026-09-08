@@ -21,14 +21,13 @@ Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Con
 **Deploy-Regel:** immer `docker compose … --env-file .env.production` (ohne Env = „leere App“).
 
 **Offen (Prio):**
-- **P3** `#34` Stunden-Tätigkeiten mid-day (HOURLY_PACKAGE) – Umsetzung
 - **P4** No-Show-Reminder
 - Google Admin: Calendar API + DWD-Scope `calendar` (Sync-Test)
 - Cloud-Auftrag `#26` Projektpläne – Abnahme / Rest
 - KI-Import SPIE-PDF einmal E2E fachlich abnehmen
 - Optional: Calendar Phase 2 / WhatsApp Business / Geofence
 
-**Erledigt (Zeiterfassung):** **P1** `#32` · **P2** `#33` Monteur-Signatur – Prod
+**Erledigt (Zeiterfassung):** **P1** `#32` · **P2** `#33` · **P3** `#34` Stunden-Tätigkeiten – Prod
 
 **Übergabe-Datei:** `claude-auftraege/session-uebergabe-2026-09-01-spie-ki-import.md`  
 Details: `claude-auftraege/offen-backlog.md` · `#20`: `claude-arbeitsitems-20-google-calendar.md`
