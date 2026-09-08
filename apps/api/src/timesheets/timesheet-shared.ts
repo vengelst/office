@@ -42,6 +42,35 @@ export const FINAL_STATUSES: WeeklyTimesheetStatus[] = [
   WeeklyTimesheetStatus.ARCHIVED,
 ];
 
+/**
+ * Status, in denen Stempelungen (In/Out/Pause/manuell) für Projekt+KW gesperrt sind.
+ * Ab Monteur-Unterschrift bzw. Einreichung bis Archiv.
+ */
+export const STAMP_LOCKED_STATUSES: WeeklyTimesheetStatus[] = [
+  WeeklyTimesheetStatus.WORKER_SIGNED,
+  WeeklyTimesheetStatus.SUBMITTED,
+  WeeklyTimesheetStatus.APPROVED,
+  WeeklyTimesheetStatus.COMPLETED,
+  WeeklyTimesheetStatus.LOCKED,
+  WeeklyTimesheetStatus.ARCHIVED,
+];
+
+/** Status, die Kunden-PL / Büro abzeichnen (approve) dürfen. */
+export const APPROVABLE_STATUSES: WeeklyTimesheetStatus[] = [
+  WeeklyTimesheetStatus.SUBMITTED,
+  WeeklyTimesheetStatus.WORKER_SIGNED,
+];
+
+/** Status, die das Büro zurückweisen darf (Unlock für Korrektur). */
+export const REJECTABLE_STATUSES: WeeklyTimesheetStatus[] = [
+  WeeklyTimesheetStatus.SUBMITTED,
+  WeeklyTimesheetStatus.WORKER_SIGNED,
+];
+
+/** DE-Fehlermeldung bei Stempelversuch auf gesperrte Projekt-KW. */
+export const STAMP_LOCKED_MESSAGE =
+  'Stundenzettel für diese Projekt-Kalenderwoche ist unterschrieben oder freigegeben – keine weiteren Stempelungen möglich. Bitte das Büro kontaktieren.';
+
 export const listSelect = {
   id: true,
   weekYear: true,

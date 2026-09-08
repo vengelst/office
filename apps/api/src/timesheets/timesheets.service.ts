@@ -48,25 +48,52 @@ export class TimesheetsService {
     private readonly workflow: TimesheetWorkflowService,
   ) {}
 
-  // ── Projekt-Einschränkung für Kunden-PLs ─────────────────────
+  // ── Scope: Kunden-PL (Projekte) / Worker (eigene Sheets) ─────
+
+  /** JWT-Akteur ist ein Monteur (Worker-App / Mobile). */
+  isWorkerActor(user?: AuthUser): boolean {
+    return !!user && user.type === 'worker';
+  }
 
   /**
    * Projekt-Einschränkung des angemeldeten Benutzers.
    * Interne Rollen (SUPERADMIN/OFFICE/PROJECT_MANAGER) bleiben unbeschränkt;
    * ein reiner Kunden-PL sieht nur Projekte mit aktiver Zuordnung
    * (`ProjectCustomerPlAssignment`, siehe SPEZ-arbeitsitems.md 4.2).
+   * Worker werden hier nicht über Projekte gescope't (eigene workerId).
    *
    * @param user - Angemeldeter Benutzer (JWT); ohne Angabe keine Einschränkung
    * @returns `null` = alle Projekte, sonst die erlaubten Projekt-IDs
    */
   async projectScopeFor(user?: AuthUser): Promise<string[] | null> {
     if (!user) return null;
+    if (this.isWorkerActor(user)) return null;
     if (user.roles.some((role) => INTERNAL_ROLES.includes(role))) return null;
     return this.workItems.findCustomerPlProjectIds(user);
   }
 
   /**
    * Stellt sicher, dass der Benutzer auf den Stundenzettel zugreifen darf.
+   * Worker: nur eigener `workerId`. Kunden-PL: zugewiesene Projekte.
+   *
+   * @throws ForbiddenException wenn kein Zugriff
+   */
+  async assertSheetAccess(
+    sheet: { workerId: string; projectId: string },
+    user?: AuthUser,
+  ): Promise<void> {
+    if (!user) return;
+    if (this.isWorkerActor(user)) {
+      if (sheet.workerId !== user.id) {
+        throw new ForbiddenException('Kein Zugriff auf diesen Stundenzettel');
+      }
+      return;
+    }
+    await this.assertProjectAccess(sheet.projectId, user);
+  }
+
+  /**
+   * Stellt sicher, dass der Benutzer auf das Projekt zugreifen darf.
    *
    * @throws ForbiddenException wenn das Projekt nicht zugewiesen ist
    */
@@ -78,7 +105,7 @@ export class TimesheetsService {
   }
 
   /**
-   * Detail inkl. Zugriffsprüfung (Kunden-PL nur eigene Projekte).
+   * Detail inkl. Zugriffsprüfung (Worker: eigene Sheets; Kunden-PL: eigene Projekte).
    *
    * @param id - Primärschlüssel der Entität (string)
    * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
@@ -87,7 +114,7 @@ export class TimesheetsService {
    */
   async findOneForUser(id: string, user?: AuthUser) {
     const sheet = await this.findOne(id);
-    await this.assertProjectAccess(sheet.projectId, user);
+    await this.assertSheetAccess(sheet, user);
     return sheet;
   }
 
@@ -100,12 +127,14 @@ export class TimesheetsService {
    */
   async approveForUser(id: string, user: AuthUser) {
     const sheet = await this.findOne(id);
-    await this.assertProjectAccess(sheet.projectId, user);
+    await this.assertSheetAccess(sheet, user);
     return this.approve(id, user.type === 'user' ? user.id : null);
   }
 
   /**
-   * Digitale Unterschrift mit Projekt-Zugriffsprüfung. Reine Kunden-PLs dürfen nur als `CUSTOMER` unterschreiben.
+   * Digitale Unterschrift mit Zugriffsprüfung.
+   * Worker: nur eigener Sheet und nur `signerType: WORKER`.
+   * Reine Kunden-PLs: nur als `CUSTOMER`.
    *
    * @param id - Primärschlüssel der Entität (string)
    * @param dto - Request-Body / Eingabedaten (SignTimesheetDto)
@@ -120,7 +149,16 @@ export class TimesheetsService {
     meta: SignatureMeta,
   ) {
     const sheet = await this.findOne(id);
-    await this.assertProjectAccess(sheet.projectId, user);
+    await this.assertSheetAccess(sheet, user);
+
+    if (this.isWorkerActor(user)) {
+      if (dto.signerType !== SignerType.WORKER) {
+        throw new ForbiddenException(
+          'Monteure dürfen Stundenzettel nur als Monteur unterschreiben',
+        );
+      }
+      return this.sign(id, dto, meta);
+    }
 
     const isCustomerPlOnly =
       user.type === 'user' &&
@@ -180,15 +218,20 @@ export class TimesheetsService {
       if (statuses.length) where.status = { in: statuses };
     }
 
-    // Kunden-PL: harte Einschränkung auf zugewiesene Projekte. Ein Projektfilter
-    // außerhalb des Scopes ergibt eine leere Liste statt fremder Daten.
-    const scope = await this.projectScopeFor(user);
-    if (scope) {
-      where.projectId = {
-        in: params.projectId
-          ? scope.filter((id) => id === params.projectId)
-          : scope,
-      };
+    // Worker: hart auf eigene Sheets (Query-workerId wird überschrieben).
+    if (this.isWorkerActor(user)) {
+      where.workerId = user!.id;
+    } else {
+      // Kunden-PL: harte Einschränkung auf zugewiesene Projekte. Ein Projektfilter
+      // außerhalb des Scopes ergibt eine leere Liste statt fremder Daten.
+      const scope = await this.projectScopeFor(user);
+      if (scope) {
+        where.projectId = {
+          in: params.projectId
+            ? scope.filter((id) => id === params.projectId)
+            : scope,
+        };
+      }
     }
 
     const orderBy: Prisma.WeeklyTimesheetOrderByWithRelationInput[] =

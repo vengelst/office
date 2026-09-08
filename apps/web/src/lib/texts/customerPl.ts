@@ -111,7 +111,7 @@ export const customerPl = {
       reload: 'Aktualisieren',
       notFound: 'Stundenzettel nicht gefunden oder nicht freigegeben.',
       onlySubmitted:
-        'Abgezeichnet werden können nur eingereichte Stundenzettel (Status „Eingereicht“).',
+        'Abgezeichnet werden können eingereichte oder vom Monteur unterschriebene Stundenzettel.',
       hint: 'Sie sehen ausschließlich Stundenzettel Ihrer freigegebenen Projekte.',
       approve: 'Abzeichnen',
       approving: 'Wird abgezeichnet …',

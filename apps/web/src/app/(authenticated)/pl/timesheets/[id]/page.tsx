@@ -111,7 +111,8 @@ export default function CustomerPlTimesheetDetailPage(): React.ReactNode {
     );
   }
 
-  const canApprove = sheet.status === 'SUBMITTED';
+  const canApprove =
+    sheet.status === 'SUBMITTED' || sheet.status === 'WORKER_SIGNED';
   const isApproved =
     sheet.status === 'APPROVED' || sheet.status === 'ARCHIVED';
 

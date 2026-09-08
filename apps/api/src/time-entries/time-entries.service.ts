@@ -35,7 +35,10 @@ import {
   selectBreakRule,
   isoWeekOf,
 } from '../timesheets/timesheet.util';
-import { FINAL_STATUSES } from '../timesheets/timesheet-shared';
+import {
+  STAMP_LOCKED_MESSAGE,
+  STAMP_LOCKED_STATUSES,
+} from '../timesheets/timesheet-shared';
 import { TimesheetGenerationService } from '../timesheets/timesheet-generation.service';
 import { WorkDocumentationDto } from './dto/work-documentation.dto';
 import { validateWorkDocumentation } from './work-documentation.util';
@@ -203,6 +206,11 @@ export class TimeEntriesService {
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
+    await this.assertStampAllowed(
+      dto.workerId,
+      dto.projectId,
+      occurredAtClient,
+    );
     const workerMeta = await this.prisma.worker.findUnique({
       where: { id: dto.workerId },
       select: { masterEngineer: true },
@@ -299,6 +307,14 @@ export class TimeEntriesService {
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
     try {
+      const open = await this.getOpenClockIn(dto.workerId);
+      if (open) {
+        await this.assertStampAllowed(
+          dto.workerId,
+          open.projectId,
+          occurredAtClient,
+        );
+      }
       return await this.performClockOut({
         workerId: dto.workerId,
         occurredAtClient,
@@ -1084,7 +1100,7 @@ export class TimeEntriesService {
       },
       select: { id: true, status: true, days: { select: { id: true, workDate: true } } },
     });
-    if (!sheet || FINAL_STATUSES.includes(sheet.status)) return;
+    if (!sheet || STAMP_LOCKED_STATUSES.includes(sheet.status)) return;
 
     const day = sheet.days.find((d) => berlinDateKey(d.workDate) === dateKey);
     if (!day) return;
@@ -1447,6 +1463,11 @@ export class TimeEntriesService {
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
+    await this.assertStampAllowed(
+      dto.workerId,
+      open.projectId,
+      occurredAtClient,
+    );
     try {
       const entry = await this.prisma.timeEntry.create({
         data: {
@@ -1499,6 +1520,11 @@ export class TimeEntriesService {
     }
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
+    await this.assertStampAllowed(
+      dto.workerId,
+      open.projectId,
+      occurredAtClient,
+    );
     try {
       const entry = await this.prisma.timeEntry.create({
         data: {
@@ -1838,12 +1864,11 @@ export class TimeEntriesService {
     if (!worker) throw new NotFoundException('Monteur nicht gefunden');
 
     const occurredAtClient = coerceDate(dto.occurredAtClient);
-    const dateKey = berlinDateKey(occurredAtClient);
-    if (await this.isDayLocked(dto.workerId, dateKey)) {
-      throw new ConflictException(
-        'Tag ist in freigegebenem/gesperrtem Stundenzettel – zuerst zurücksetzen',
-      );
-    }
+    await this.assertStampAllowed(
+      dto.workerId,
+      dto.projectId,
+      occurredAtClient,
+    );
     if (!dto.comment?.trim()) {
       throw new BadRequestException(
         'Kommentar bei manueller Korrektur Pflicht',
@@ -1900,10 +1925,8 @@ export class TimeEntriesService {
     if (!entry) throw new NotFoundException('Eintrag nicht gefunden');
 
     const dateKey = berlinDateKey(entry.occurredAtClient);
-    if (await this.isDayLocked(entry.workerId, dateKey)) {
-      throw new ConflictException(
-        'Tag ist in freigegebenem/gesperrtem Stundenzettel – zuerst zurücksetzen',
-      );
+    if (await this.isDayLocked(entry.workerId, dateKey, entry.projectId)) {
+      throw new ConflictException(STAMP_LOCKED_MESSAGE);
     }
     if (dto.occurredAtClient && !dto.comment?.trim()) {
       throw new BadRequestException('Kommentar bei Zeitänderung Pflicht');
@@ -1944,10 +1967,8 @@ export class TimeEntriesService {
     if (!entry) throw new NotFoundException('Eintrag nicht gefunden');
 
     const dateKey = berlinDateKey(entry.occurredAtClient);
-    if (await this.isDayLocked(entry.workerId, dateKey)) {
-      throw new ConflictException(
-        'Tag ist in freigegebenem/gesperrtem Stundenzettel – zuerst zurücksetzen',
-      );
+    if (await this.isDayLocked(entry.workerId, dateKey, entry.projectId)) {
+      throw new ConflictException(STAMP_LOCKED_MESSAGE);
     }
 
     await this.prisma.timeEntry.update({
@@ -1968,9 +1989,25 @@ export class TimeEntriesService {
     return { ok: true };
   }
 
+  /**
+   * Sperrt Stempelungen, wenn für worker+project+ISO-KW ein Sheet in
+   * STAMP_LOCKED_STATUSES existiert (ab Monteur-Unterschrift).
+   */
+  private async assertStampAllowed(
+    workerId: string,
+    projectId: string,
+    at: Date,
+  ): Promise<void> {
+    const dateKey = berlinDateKey(at);
+    if (await this.isDayLocked(workerId, dateKey, projectId)) {
+      throw new ConflictException(STAMP_LOCKED_MESSAGE);
+    }
+  }
+
   private async isDayLocked(
     workerId: string,
     dateStr: string,
+    projectId?: string,
   ): Promise<boolean> {
     const day = berlinDayRange(dateStr).from;
     const { weekYear, weekNumber } = isoWeekOf(day);
@@ -1979,7 +2016,8 @@ export class TimeEntriesService {
         workerId,
         weekYear,
         weekNumber,
-        status: { in: FINAL_STATUSES },
+        ...(projectId ? { projectId } : {}),
+        status: { in: STAMP_LOCKED_STATUSES },
       },
       select: { id: true },
     });

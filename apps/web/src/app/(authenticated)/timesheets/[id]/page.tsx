@@ -100,7 +100,8 @@ export default function TimesheetDetailPage(): React.ReactNode {
 
   const editable = EDITABLE.has(sheet.status);
   const canSubmit = EDITABLE.has(sheet.status);
-  const canApprove = sheet.status === 'SUBMITTED';
+  const canApprove =
+    sheet.status === 'SUBMITTED' || sheet.status === 'WORKER_SIGNED';
   const canSign = !FINAL.has(sheet.status);
   const canArchive = sheet.status === 'APPROVED';
 

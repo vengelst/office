@@ -633,6 +633,49 @@ export const workerApi = {
       method: 'POST',
       body,
     }),
+
+  /**
+   * GET /timesheets – Eigene Wochen-Stundenzettel (Worker-Scope serverseitig).
+   */
+  listTimesheets: (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    projectId?: string;
+    sortBy?: string;
+    sortDir?: 'asc' | 'desc';
+  }) => {
+    const q = new URLSearchParams();
+    if (params?.page) q.set('page', String(params.page));
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.status) q.set('status', params.status);
+    if (params?.projectId) q.set('projectId', params.projectId);
+    if (params?.sortBy) q.set('sortBy', params.sortBy);
+    if (params?.sortDir) q.set('sortDir', params.sortDir);
+    const qs = q.toString();
+    return workerFetch<TimesheetListResponse>(
+      `/timesheets${qs ? `?${qs}` : ''}`,
+    );
+  },
+
+  /** GET /timesheets/:id – Eigener Stundenzettel inkl. Tage/Signaturen. */
+  getTimesheet: (id: string) =>
+    workerFetch<TimesheetDetail>(`/timesheets/${id}`),
+
+  /** POST /timesheets/:id/sign – Nur signerType WORKER (serverseitig erzwungen). */
+  signTimesheet: (
+    id: string,
+    body: {
+      signerType: 'WORKER';
+      signerName: string;
+      signerRole?: string;
+      signatureBase64: string;
+    },
+  ) =>
+    workerFetch<TimesheetDetail>(`/timesheets/${id}/sign`, {
+      method: 'POST',
+      body,
+    }),
 };
 
 // ──────────────────────────────────────────────────────────────

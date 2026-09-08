@@ -43,8 +43,9 @@ import { RejectTimesheetDto } from './dto/reject-timesheet.dto';
  * Der Kunden-PL (`CUSTOMER_PL`) ist bewusst nur für die lesenden Endpunkte und
  * das Abzeichnen (`approve`) freigeschaltet – und dort zusätzlich auf seine
  * zugewiesenen Projekte beschränkt (SPEZ-arbeitsitems.md 4.2/8.1).
- * Generieren, Korrigieren, Einreichen, Zurückweisen, Archivieren und
- * Unterschreiben bleiben den internen Rollen vorbehalten.
+ * Monteure (`WORKER`) dürfen eigene Sheets listen/lesen/PDF/als WORKER signen.
+ * Generieren, Korrigieren, Einreichen, Zurückweisen und Archivieren bleiben
+ * den internen Rollen vorbehalten.
  */
 @ApiTags('timesheets')
 @ApiBearerAuth()
@@ -59,10 +60,10 @@ export class TimesheetsController {
   ) {}
 
   @Get()
-  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL', 'WORKER')
   @ApiOperation({
     summary:
-      'Stundenzettel auflisten (Filter, Pagination); Kunden-PL nur eigene Projekte',
+      'Stundenzettel auflisten (Filter, Pagination); Kunden-PL nur eigene Projekte; Worker nur eigene Sheets',
   })
   /**
    * Liefert eine (ggf. gefilterte/paginierte) Liste.
@@ -129,8 +130,11 @@ export class TimesheetsController {
    */
 
   @Get(':id')
-  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
-  @ApiOperation({ summary: 'Stundenzettel-Detail (Tage + Unterschriften)' })
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL', 'WORKER')
+  @ApiOperation({
+    summary:
+      'Stundenzettel-Detail (Tage + Unterschriften); Worker nur eigene Sheets',
+  })
   findOne(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.timesheets.findOneForUser(id, user);
   }
@@ -233,11 +237,11 @@ export class TimesheetsController {
   }
 
   @Post(':id/sign')
-  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL', 'WORKER')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Digitale Unterschrift (Base64-PNG); Kunden-PL nur Typ CUSTOMER auf eigenen Projekten',
+      'Digitale Unterschrift (Base64-PNG); Kunden-PL nur Typ CUSTOMER; Worker nur Typ WORKER auf eigenen Sheets',
   })
   /**
    * Erfasst die Unterschrift / Abzeichnung.
@@ -266,8 +270,10 @@ export class TimesheetsController {
    */
 
   @Get(':id/pdf')
-  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL')
-  @ApiOperation({ summary: 'Stundenzettel als PDF exportieren' })
+  @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'CUSTOMER_PL', 'WORKER')
+  @ApiOperation({
+    summary: 'Stundenzettel als PDF exportieren; Worker nur eigene Sheets',
+  })
   async exportPdf(
     @Param('id') id: string,
     @CurrentUser() user: AuthUser,

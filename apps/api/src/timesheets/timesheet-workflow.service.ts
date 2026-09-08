@@ -21,8 +21,10 @@ import { EmailService } from '../email/email.service';
 import { TimesheetPdfService } from './pdf.service';
 import { SignTimesheetDto } from './dto/sign-timesheet.dto';
 import {
+  APPROVABLE_STATUSES,
   EDITABLE_STATUSES,
   FINAL_STATUSES,
+  REJECTABLE_STATUSES,
   detailInclude,
   decodeBase64Png,
   type SignatureMeta,
@@ -80,7 +82,7 @@ export class TimesheetWorkflowService {
   }
 
   /**
-   * Genehmigt einen eingereichten Stundenzettel (SUBMITTED → APPROVED).
+   * Genehmigt einen Stundenzettel (SUBMITTED oder WORKER_SIGNED → APPROVED).
    * Löst asynchron den PDF-Export aus.
    *
    * @param id - UUID des Stundenzettels
@@ -89,9 +91,9 @@ export class TimesheetWorkflowService {
    */
   async approve(id: string, userId: string | null) {
     const sheet = await this.findOne(id);
-    if (sheet.status !== WeeklyTimesheetStatus.SUBMITTED) {
+    if (!APPROVABLE_STATUSES.includes(sheet.status)) {
       throw new ConflictException(
-        'Nur eingereichte Stundenzettel können genehmigt werden',
+        'Nur eingereichte oder vom Monteur unterschriebene Stundenzettel können genehmigt werden',
       );
     }
     const now = new Date();
@@ -227,7 +229,8 @@ export class TimesheetWorkflowService {
   }
 
   /**
-   * Weist einen eingereichten Stundenzettel mit Begründung zurück (SUBMITTED → REJECTED).
+   * Weist einen Stundenzettel mit Begründung zurück
+   * (SUBMITTED / WORKER_SIGNED → REJECTED), damit Korrektur und erneutes Stempeln möglich sind.
    *
    * @param id - UUID des Stundenzettels
    * @param reason - Begründung für die Zurückweisung
@@ -236,9 +239,9 @@ export class TimesheetWorkflowService {
    */
   async reject(id: string, reason: string, userId: string | null) {
     const sheet = await this.findOne(id);
-    if (sheet.status !== WeeklyTimesheetStatus.SUBMITTED) {
+    if (!REJECTABLE_STATUSES.includes(sheet.status)) {
       throw new ConflictException(
-        'Nur eingereichte Stundenzettel können zurückgewiesen werden',
+        'Nur eingereichte oder vom Monteur unterschriebene Stundenzettel können zurückgewiesen werden',
       );
     }
     await this.prisma.weeklyTimesheet.update({
@@ -281,7 +284,7 @@ export class TimesheetWorkflowService {
   /**
    * Fügt eine digitale Unterschrift (Base64-PNG) zum Stundenzettel hinzu.
    * Ersetzt ggf. eine bestehende Unterschrift desselben Typs.
-   * Bei Worker-Signatur im DRAFT-Status → automatischer Übergang zu WORKER_SIGNED.
+   * Bei Worker-Signatur im DRAFT/REJECTED-Status → automatischer Übergang zu WORKER_SIGNED.
    *
    * @param id - UUID des Stundenzettels
    * @param dto - Signatur-Daten (Base64, Typ, Name)
@@ -316,10 +319,10 @@ export class TimesheetWorkflowService {
       },
     });
 
-    // Status-Übergang bei Monteur-Unterschrift im Entwurf.
+    // Status-Übergang bei Monteur-Unterschrift (Entwurf oder nach Zurückweisung).
     if (
       dto.signerType === SignerType.WORKER &&
-      sheet.status === WeeklyTimesheetStatus.DRAFT
+      EDITABLE_STATUSES.includes(sheet.status)
     ) {
       await this.prisma.weeklyTimesheet.update({
         where: { id },
