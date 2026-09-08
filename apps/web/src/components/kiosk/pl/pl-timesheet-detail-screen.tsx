@@ -46,7 +46,8 @@ export function PlTimesheetDetailScreen({
   const t = texts.kiosk.pl;
   const tTimesheets = texts.timesheets;
 
-  const canApprove = detail.status === 'SUBMITTED';
+  const canApprove =
+    detail.status === 'SUBMITTED' || detail.status === 'WORKER_SIGNED';
   const hasCustomerSig = detail.signatures.some((s) => s.signerType === 'CUSTOMER');
 
   return (

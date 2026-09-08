@@ -14,6 +14,7 @@ import { PhotoSection } from '@/components/worker-app/dashboard/photo-section';
 import { TodayEntriesSection } from '@/components/worker-app/dashboard/today-entries-section';
 import { useWorkerDashboard } from '@/components/worker-app/dashboard/use-worker-dashboard';
 import { WorkItemsLink } from '@/components/worker-app/dashboard/work-items-link';
+import { TimesheetsLink } from '@/components/worker-app/dashboard/timesheets-link';
 import { WorkDocumentationModal } from '@/components/timesheets/work-documentation-modal';
 import { texts } from '@/lib/texts';
 
@@ -125,6 +126,10 @@ export default function WorkerDashboardPage(): React.ReactNode {
           }
         />
       )}
+
+      <TimesheetsLink
+        onNavigate={() => dashboard.router.push('/worker-app/timesheets')}
+      />
 
       <PhotoSection
         photoOpen={dashboard.photoOpen}

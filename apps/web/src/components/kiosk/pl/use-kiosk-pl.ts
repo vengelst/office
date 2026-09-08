@@ -149,7 +149,7 @@ export function useKioskPl() {
     if (!config) return;
     setSheetsLoading(true);
     kioskPlFetch<{ data: TimesheetListItem[] }>(
-      `/timesheets?projectId=${config.projectId}&status=SUBMITTED&limit=100&sortBy=weekNumber&sortDir=desc`,
+      `/timesheets?projectId=${config.projectId}&status=WORKER_SIGNED,SUBMITTED&limit=100&sortBy=weekNumber&sortDir=desc`,
     )
       .then((res) => setSheets(res.data ?? []))
       .catch(() => setSheets([]))
