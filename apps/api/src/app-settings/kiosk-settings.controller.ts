@@ -1,5 +1,5 @@
 /**
- * Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-Einstellungen.
+ * Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-/Auto-Clock-Out-Einstellungen.
  */
 
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
@@ -27,6 +27,15 @@ import {
   parsePinLength,
   PIN_LENGTH_KEY,
 } from './pin-length';
+import {
+  AUTO_CLOCK_OUT_ENABLED_KEY,
+  AUTO_CLOCK_OUT_HOURS_KEY,
+  DEFAULT_AUTO_CLOCK_OUT_HOURS,
+  MAX_AUTO_CLOCK_OUT_HOURS,
+  MIN_AUTO_CLOCK_OUT_HOURS,
+  parseAutoClockOutEnabled,
+  parseAutoClockOutHours,
+} from './auto-clock-out';
 import {
   DEFAULT_OVERTIME_ALERT_HOURS,
   DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
@@ -99,6 +108,17 @@ class KioskGeneralSettingsDto {
   @Min(MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES)
   @Max(MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES)
   overtimeAlertReminderIntervalMinutes!: number;
+
+  /** Auto-Clock-Out nach Maximaldauer aktiv. */
+  @IsBoolean()
+  autoClockOutEnabled!: boolean;
+
+  /** Schwelle in Stunden (1–24) für systemseitiges Ausstempeln. */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_AUTO_CLOCK_OUT_HOURS)
+  @Max(MAX_AUTO_CLOCK_OUT_HOURS)
+  autoClockOutHours!: number;
 }
 
 export type KioskGeneralSettings = {
@@ -109,6 +129,8 @@ export type KioskGeneralSettings = {
   overtimeAlertHours: number;
   overtimeAlertReminders: number;
   overtimeAlertReminderIntervalMinutes: number;
+  autoClockOutEnabled: boolean;
+  autoClockOutHours: number;
 };
 
 @ApiTags('kiosk-settings')
@@ -125,6 +147,8 @@ export class KioskSettingsController {
       OVERTIME_ALERT_HOURS_KEY,
       OVERTIME_ALERT_REMINDERS_KEY,
       OVERTIME_ALERT_REMINDER_INTERVAL_KEY,
+      AUTO_CLOCK_OUT_ENABLED_KEY,
+      AUTO_CLOCK_OUT_HOURS_KEY,
     ]);
     const rawInterval = map[GPS_INTERVAL_MINUTES_KEY];
     const parsed = rawInterval ? Number.parseInt(rawInterval, 10) : NaN;
@@ -146,6 +170,12 @@ export class KioskSettingsController {
         parseOvertimeAlertReminderIntervalMinutes(
           map[OVERTIME_ALERT_REMINDER_INTERVAL_KEY],
         ),
+      autoClockOutEnabled: parseAutoClockOutEnabled(
+        map[AUTO_CLOCK_OUT_ENABLED_KEY],
+      ),
+      autoClockOutHours: parseAutoClockOutHours(
+        map[AUTO_CLOCK_OUT_HOURS_KEY],
+      ),
     };
   }
 
@@ -197,6 +227,10 @@ export class KioskSettingsController {
       parseOvertimeAlertReminderIntervalMinutes(
         String(dto.overtimeAlertReminderIntervalMinutes),
       );
+    const autoClockOutEnabled = Boolean(dto.autoClockOutEnabled);
+    const autoClockOutHours = parseAutoClockOutHours(
+      String(dto.autoClockOutHours),
+    );
 
     const previous = await this.readAll();
     const overtimeChanged =
@@ -221,6 +255,10 @@ export class KioskSettingsController {
         overtimeAlertReminderIntervalMinutes ||
           DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
       ),
+      [AUTO_CLOCK_OUT_ENABLED_KEY]: autoClockOutEnabled ? 'true' : 'false',
+      [AUTO_CLOCK_OUT_HOURS_KEY]: String(
+        autoClockOutHours || DEFAULT_AUTO_CLOCK_OUT_HOURS,
+      ),
     };
     // Bei geänderter Schwelle/Adresse erneut alarmieren dürfen (Dedup zurücksetzen).
     if (overtimeChanged) {
@@ -236,6 +274,8 @@ export class KioskSettingsController {
       overtimeAlertHours,
       overtimeAlertReminders,
       overtimeAlertReminderIntervalMinutes,
+      autoClockOutEnabled,
+      autoClockOutHours,
     };
   }
 }

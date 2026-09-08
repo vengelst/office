@@ -297,98 +297,19 @@ export class TimeEntriesService {
       }
     }
 
-    const open = await this.getOpenClockIn(dto.workerId);
-    if (!open) {
-      throw new ConflictException('Monteur ist nicht eingestempelt');
-    }
-
     const occurredAtClient = coerceDate(dto.occurredAtClient);
     try {
-      // Pause während Clock-Out automatisch schließen (Auftrag #23).
-      const openBreakForOut = await this.getOpenBreakStart(
-        dto.workerId,
-        open.occurredAtClient,
-      );
-      if (openBreakForOut) {
-        const breakEndAt = new Date(occurredAtClient.getTime() - 1);
-        await this.prisma.timeEntry.create({
-          data: {
-            workerId: dto.workerId,
-            projectId: open.projectId,
-            entryType: TimeEntryType.BREAK_END,
-            occurredAtClient: breakEndAt,
-            comment: 'Automatisch beendet vor Ausstempeln',
-            sourceDevice: dto.sourceDevice,
-            createdByUserId: actor.type === 'user' ? actor.id : null,
-          },
-        });
-      }
-
-      const entry = await this.prisma.timeEntry.create({
-        data: {
-          workerId: dto.workerId,
-          projectId: open.projectId,
-          entryType: TimeEntryType.CLOCK_OUT,
-          occurredAtClient,
-          latitude: dto.latitude,
-          longitude: dto.longitude,
-          accuracy: dto.accuracy,
-          comment: dto.comment,
-          sourceDevice: dto.sourceDevice,
-          clientEventId: dto.clientEventId ?? null,
-          createdByUserId: actor.type === 'user' ? actor.id : null,
-          // workDocumentedAt bleibt null → Pending bis Doku gespeichert
-          workDocumentedAt: null,
-        },
+      return await this.performClockOut({
+        workerId: dto.workerId,
+        occurredAtClient,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        accuracy: dto.accuracy,
+        comment: dto.comment,
+        sourceDevice: dto.sourceDevice,
+        clientEventId: dto.clientEventId ?? null,
+        createdByUserId: actor.type === 'user' ? actor.id : null,
       });
-
-      await this.maybeRecordGps(
-        entry.id,
-        dto,
-        GpsEventType.CLOCK_OUT,
-        open.projectId,
-      );
-
-      await this.closeOpenActivitySegment(dto.workerId, occurredAtClient);
-
-      // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
-      // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
-      const closedItemSessions =
-        await this.workItemWorkflow.closeOpenSessionsForWorker(
-          dto.workerId,
-          occurredAtClient,
-        );
-
-      const grossMinutes = diffMinutes(
-        open.occurredAtClient,
-        occurredAtClient,
-      );
-
-      await this.syncTimesheetsForStamp(
-        dto.workerId,
-        open.projectId,
-        open.occurredAtClient,
-        occurredAtClient,
-      );
-
-      const workMeta = await this.loadProjectWorkMeta(open.projectId);
-      const status = await this.getStatus(dto.workerId);
-      return {
-        ...status,
-        lastGrossMinutes: grossMinutes,
-        closedItemSessions,
-        workDocumentationRequired: true,
-        workNotesEnabled: workMeta.workNotesEnabled,
-        workActivities: workMeta.workActivities,
-        clockOutTimeEntryId: entry.id,
-        pendingWorkDocumentation: {
-          timeEntryId: entry.id,
-          projectId: open.projectId,
-          workNotesEnabled: workMeta.workNotesEnabled,
-          workActivities: workMeta.workActivities,
-          configurationError: workMeta.configurationError,
-        },
-      };
     } catch (err) {
       if (dto.clientEventId && isUniqueClientEventConflict(err)) {
         const status = await this.getStatus(dto.workerId);
@@ -405,6 +326,141 @@ export class TimeEntriesService {
       }
       throw err;
     }
+  }
+
+  /**
+   * Systemseitiges Ausstempeln (Auto-Clock-Out Cron).
+   * Kein Actor-/PIN-Check – nur intern aus dem Cron/Admin-Run aufrufen.
+   */
+  async systemClockOut(params: {
+    workerId: string;
+    occurredAtClient: Date;
+    comment: string;
+    sourceDevice: string;
+  }): Promise<ClockOutResult> {
+    await this.assertWorker(params.workerId);
+    return this.performClockOut({
+      workerId: params.workerId,
+      occurredAtClient: params.occurredAtClient,
+      comment: params.comment,
+      sourceDevice: params.sourceDevice,
+      clientEventId: null,
+      createdByUserId: null,
+    });
+  }
+
+  /**
+   * Gemeinsamer Schließpfad: offene Pause, CLOCK_OUT, Segmente, Item-Sessions.
+   * workDocumentedAt bleibt null (Pending Arbeitsdoku #30).
+   */
+  private async performClockOut(params: {
+    workerId: string;
+    occurredAtClient: Date;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    comment?: string | null;
+    sourceDevice?: string | null;
+    clientEventId?: string | null;
+    createdByUserId?: string | null;
+  }): Promise<ClockOutResult> {
+    const open = await this.getOpenClockIn(params.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+
+    const occurredAtClient = params.occurredAtClient;
+
+    // Pause während Clock-Out automatisch schließen (Auftrag #23).
+    const openBreakForOut = await this.getOpenBreakStart(
+      params.workerId,
+      open.occurredAtClient,
+    );
+    if (openBreakForOut) {
+      const breakEndAt = new Date(occurredAtClient.getTime() - 1);
+      await this.prisma.timeEntry.create({
+        data: {
+          workerId: params.workerId,
+          projectId: open.projectId,
+          entryType: TimeEntryType.BREAK_END,
+          occurredAtClient: breakEndAt,
+          comment: 'Automatisch beendet vor Ausstempeln',
+          sourceDevice: params.sourceDevice ?? null,
+          createdByUserId: params.createdByUserId ?? null,
+        },
+      });
+    }
+
+    const entry = await this.prisma.timeEntry.create({
+      data: {
+        workerId: params.workerId,
+        projectId: open.projectId,
+        entryType: TimeEntryType.CLOCK_OUT,
+        occurredAtClient,
+        latitude: params.latitude,
+        longitude: params.longitude,
+        accuracy: params.accuracy,
+        comment: params.comment ?? null,
+        sourceDevice: params.sourceDevice ?? null,
+        clientEventId: params.clientEventId ?? null,
+        createdByUserId: params.createdByUserId ?? null,
+        // workDocumentedAt bleibt null → Pending bis Doku gespeichert
+        workDocumentedAt: null,
+      },
+    });
+
+    if (params.latitude != null && params.longitude != null) {
+      await this.maybeRecordGps(
+        entry.id,
+        {
+          workerId: params.workerId,
+          occurredAtClient: occurredAtClient.toISOString(),
+          latitude: params.latitude,
+          longitude: params.longitude,
+          accuracy: params.accuracy,
+        } as ClockOutDto,
+        GpsEventType.CLOCK_OUT,
+        open.projectId,
+      );
+    }
+
+    await this.closeOpenActivitySegment(params.workerId, occurredAtClient);
+
+    // Item-Zeit läuft nicht über Nacht weiter (SPEZ-arbeitsitems.md Abschnitt 5.1):
+    // offene Item-Sessions enden mit dem Ausstempeln, die Zuordnung bleibt bestehen.
+    const closedItemSessions =
+      await this.workItemWorkflow.closeOpenSessionsForWorker(
+        params.workerId,
+        occurredAtClient,
+      );
+
+    const grossMinutes = diffMinutes(open.occurredAtClient, occurredAtClient);
+
+    await this.syncTimesheetsForStamp(
+      params.workerId,
+      open.projectId,
+      open.occurredAtClient,
+      occurredAtClient,
+    );
+
+    const workMeta = await this.loadProjectWorkMeta(open.projectId);
+    const status = await this.getStatus(params.workerId);
+    return {
+      ...status,
+      lastGrossMinutes: grossMinutes,
+      closedItemSessions,
+      workDocumentationRequired: true,
+      workNotesEnabled: workMeta.workNotesEnabled,
+      workActivities: workMeta.workActivities,
+      clockOutTimeEntryId: entry.id,
+      pendingWorkDocumentation: {
+        timeEntryId: entry.id,
+        projectId: open.projectId,
+        workNotesEnabled: workMeta.workNotesEnabled,
+        workActivities: workMeta.workActivities,
+        configurationError: workMeta.configurationError,
+      },
+    };
   }
 
   // ── Abfragen ─────────────────────────────────────────────────

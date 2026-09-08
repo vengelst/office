@@ -1,5 +1,5 @@
 /**
- * Client für allgemeine Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-Einstellungen.
+ * Client für allgemeine Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-/Auto-Clock-Out-Einstellungen.
  */
 
 import { apiClient } from './api-client';
@@ -20,6 +20,14 @@ export const DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES = 30;
 export const MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES = 5;
 export const MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES = 240;
 
+export const DEFAULT_AUTO_CLOCK_OUT_ENABLED = false;
+export const DEFAULT_AUTO_CLOCK_OUT_HOURS = 12;
+export const MIN_AUTO_CLOCK_OUT_HOURS = 1;
+export const MAX_AUTO_CLOCK_OUT_HOURS = 24;
+
+/** sourceDevice-Wert für systemseitige Ausstempelungen. */
+export const SYSTEM_AUTO_CLOCK_OUT_DEVICE = 'SYSTEM_AUTO_CLOCK_OUT';
+
 export interface KioskPublicSettings {
   debugLogEnabled: boolean;
   gpsIntervalMinutes: number;
@@ -36,6 +44,10 @@ export interface KioskGeneralSettings extends KioskPublicSettings {
   overtimeAlertReminders: number;
   /** Minuten zwischen Erinnerungen (5–240). */
   overtimeAlertReminderIntervalMinutes: number;
+  /** Auto-Clock-Out aktiv. */
+  autoClockOutEnabled: boolean;
+  /** Nach wie vielen Stunden automatisch ausstempeln (1–24). */
+  autoClockOutHours: number;
 }
 
 function withPublicDefaults(
@@ -95,6 +107,18 @@ function clampReminderInterval(raw: number | undefined): number {
   return DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES;
 }
 
+function clampAutoClockOutHours(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_AUTO_CLOCK_OUT_HOURS &&
+    raw <= MAX_AUTO_CLOCK_OUT_HOURS
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_AUTO_CLOCK_OUT_HOURS;
+}
+
 function withGeneralDefaults(
   partial: Partial<KioskGeneralSettings> | null | undefined,
 ): KioskGeneralSettings {
@@ -106,6 +130,8 @@ function withGeneralDefaults(
     overtimeAlertReminderIntervalMinutes: clampReminderInterval(
       partial?.overtimeAlertReminderIntervalMinutes,
     ),
+    autoClockOutEnabled: Boolean(partial?.autoClockOutEnabled),
+    autoClockOutHours: clampAutoClockOutHours(partial?.autoClockOutHours),
   };
 }
 
@@ -143,6 +169,8 @@ export const kioskSettingsApi = {
         overtimeAlertReminders: body.overtimeAlertReminders,
         overtimeAlertReminderIntervalMinutes:
           body.overtimeAlertReminderIntervalMinutes,
+        autoClockOutEnabled: body.autoClockOutEnabled,
+        autoClockOutHours: body.autoClockOutHours,
       }),
     ),
 
@@ -172,4 +200,22 @@ export const kioskSettingsApi = {
       reminders: number;
       intervalMinutes: number;
     }>('/kiosk-settings/overtime-alert/run', {}),
+
+  /** Sofort: Auto-Clock-Out prüfen und bei Überschreitung schließen. */
+  runAutoClockOutCheck: async (): Promise<{
+    checked: number;
+    closed: number;
+    mailed: number;
+    enabled: boolean;
+    hours: number;
+    to: string;
+  }> =>
+    apiClient.post<{
+      checked: number;
+      closed: number;
+      mailed: number;
+      enabled: boolean;
+      hours: number;
+      to: string;
+    }>('/kiosk-settings/auto-clock-out/run', {}),
 };

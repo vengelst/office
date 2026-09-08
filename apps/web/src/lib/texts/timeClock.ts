@@ -91,6 +91,8 @@ export const timeClock = {
         BREAK_END: 'Pause beenden',
         MANUAL_ADJUSTMENT: 'Korrektur',
       },
+      autoClockOutBadge: 'Auto',
+      autoClockOutHint: 'System-Ausstempelung',
       segments: 'Tätigkeiten',
       toastSaved: 'Gespeichert.',
       toastDeleted: 'Gelöscht.',
