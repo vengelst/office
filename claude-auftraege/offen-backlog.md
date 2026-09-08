@@ -14,7 +14,7 @@ Soll-Ablauf Kiosk/Stundenzettel abgeglichen. Reihenfolge:
 | Prio | Thema | Status |
 |------|--------|--------|
 | **P1** | Auto-Clock-Out nach Max-Stunden (Settings) | **Prod** (`23f7e20`, PR #29) |
-| **P2** | Monteur signiert Stundenzettel mobil → Woche zu | Spec `#33` – Umsetzung |
+| **P2** | Monteur signiert Stundenzettel mobil → Woche zu | **Prod** (PR #30) |
 | **P3** | Stunden-Tätigkeiten mid-day (stundenbasierte Projekte) | geplant |
 | **P4** | Reminder „nie eingestempelt“ | geplant |
 | später | Geofence | bewusst später |
