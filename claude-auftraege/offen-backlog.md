@@ -17,7 +17,8 @@ Soll-Ablauf Kiosk/Stundenzettel abgeglichen. Reihenfolge:
 | **P2** | Monteur signiert Stundenzettel mobil → Woche zu | **Prod** (PR #30) |
 | **P3** | Stunden-Tätigkeiten mid-day (nur HOURLY_PACKAGE) | **Prod** (PR #31) |
 | **P4** | Reminder „nie eingestempelt“ (Mo–Fr, Default 10:00) | **Prod** (PR #32) |
-| später | Geofence | bewusst später |
+| später | Geofence (nach Expo Phase 1) | geplant – siehe Plan |
+| **Expo** | Mobile Stempel-Parität → dann Geofence | Plan [`plan-expo-mobile-phase1-2.md`](./plan-expo-mobile-phase1-2.md) |
 
 Spec P1: [`claude-arbeitsitems-32-auto-clock-out.md`](./claude-arbeitsitems-32-auto-clock-out.md)  
 Spec P2: [`claude-arbeitsitems-33-monteur-stundenzettel-signatur.md`](./claude-arbeitsitems-33-monteur-stundenzettel-signatur.md)  
