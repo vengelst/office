@@ -21,7 +21,8 @@ Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Con
 **Deploy-Regel:** immer `docker compose … --env-file .env.production` (ohne Env = „leere App“).
 
 **Offen (Prio):**
-- **P2** Monteur-Signatur mobil · **P3** Stunden-Tätigkeiten · **P4** No-Show-Reminder
+- **P2** `#33` Monteur-Signatur mobil – Umsetzung
+- **P3** Stunden-Tätigkeiten · **P4** No-Show-Reminder
 - Google Admin: Calendar API + DWD-Scope `calendar` (Sync-Test)
 - Cloud-Auftrag `#26` Projektpläne – Abnahme / Rest
 - KI-Import SPIE-PDF einmal E2E fachlich abnehmen
