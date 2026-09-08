@@ -263,6 +263,17 @@ export const settings = {
         'Optional: Benachrichtigung an dieselbe Empfänger-E-Mail wie beim Arbeitszeit-Alarm.',
       autoClockOutRunButton: 'Jetzt prüfen',
       autoClockOutRunning: 'Wird geprüft …',
+      noShowAlertTitle: 'Erinnerung: nicht eingestempelt',
+      noShowAlertHint:
+        'Wenn aktiv, prüft das System Mo–Fr ab der eingestellten Uhrzeit (Europe/Berlin), ob zugewiesene Monteure auf aktiven Projekten noch keinen Clock-In haben. Krank / Urlaub / nicht verfügbar werden ausgenommen.',
+      noShowAlertHourLabel: 'Stunde',
+      noShowAlertMinuteLabel: 'Minute',
+      noShowAlertTimeHint:
+        'Check-Zeit Europe/Berlin (Mo–Fr). Standard: 10:00.',
+      noShowAlertEmailHint:
+        'Empfänger ist dieselbe E-Mail wie beim Arbeitszeit-Alarm. Ohne gültige Adresse kein Versand.',
+      noShowAlertRunButton: 'Jetzt prüfen',
+      noShowAlertRunning: 'Wird geprüft …',
       on: 'An',
       off: 'Aus',
       save: 'Speichern',
@@ -276,6 +287,10 @@ export const settings = {
         autoClockOutDone: 'Auto-Ausstempelung abgeschlossen.',
         autoClockOutNone: 'Keine Schicht geschlossen.',
         autoClockOutDisabled: 'Auto-Ausstempelung ist deaktiviert.',
+        noShowAlertDone: 'No-Show-Prüfung abgeschlossen.',
+        noShowAlertNone: 'Alle zugewiesenen Monteure haben eingestempelt.',
+        noShowAlertDisabled: 'No-Show-Erinnerung ist deaktiviert – kein Versand.',
+        noShowAlertWeekend: 'Wochenende: manuelle Prüfung trotzdem ausgeführt.',
         error: 'Speichern fehlgeschlagen.',
       },
     },
