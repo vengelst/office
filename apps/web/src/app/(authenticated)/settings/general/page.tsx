@@ -16,6 +16,7 @@ import {
   Play,
   SlidersHorizontal,
   TimerReset,
+  UserX,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -28,16 +29,23 @@ import { ApiError } from '@/lib/api-client';
 import {
   DEFAULT_AUTO_CLOCK_OUT_ENABLED,
   DEFAULT_AUTO_CLOCK_OUT_HOURS,
+  DEFAULT_NO_SHOW_ALERT_ENABLED,
+  DEFAULT_NO_SHOW_ALERT_HOUR,
+  DEFAULT_NO_SHOW_ALERT_MINUTE,
   DEFAULT_OVERTIME_ALERT_HOURS,
   DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   DEFAULT_OVERTIME_ALERT_REMINDERS,
   DEFAULT_PIN_LENGTH,
   MAX_AUTO_CLOCK_OUT_HOURS,
+  MAX_NO_SHOW_ALERT_HOUR,
+  MAX_NO_SHOW_ALERT_MINUTE,
   MAX_OVERTIME_ALERT_HOURS,
   MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   MAX_OVERTIME_ALERT_REMINDERS,
   MAX_PIN_LENGTH,
   MIN_AUTO_CLOCK_OUT_HOURS,
+  MIN_NO_SHOW_ALERT_HOUR,
+  MIN_NO_SHOW_ALERT_MINUTE,
   MIN_OVERTIME_ALERT_HOURS,
   MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   MIN_OVERTIME_ALERT_REMINDERS,
@@ -73,6 +81,16 @@ export default function GeneralSettingsPage(): React.ReactNode {
     DEFAULT_AUTO_CLOCK_OUT_HOURS,
   );
   const [autoClockOutRunning, setAutoClockOutRunning] = useState(false);
+  const [noShowAlertEnabled, setNoShowAlertEnabled] = useState(
+    DEFAULT_NO_SHOW_ALERT_ENABLED,
+  );
+  const [noShowAlertHour, setNoShowAlertHour] = useState(
+    DEFAULT_NO_SHOW_ALERT_HOUR,
+  );
+  const [noShowAlertMinute, setNoShowAlertMinute] = useState(
+    DEFAULT_NO_SHOW_ALERT_MINUTE,
+  );
+  const [noShowAlertRunning, setNoShowAlertRunning] = useState(false);
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -102,6 +120,15 @@ export default function GeneralSettingsPage(): React.ReactNode {
         setAutoClockOutHours(
           data.autoClockOutHours ?? DEFAULT_AUTO_CLOCK_OUT_HOURS,
         );
+        setNoShowAlertEnabled(
+          data.noShowAlertEnabled ?? DEFAULT_NO_SHOW_ALERT_ENABLED,
+        );
+        setNoShowAlertHour(
+          data.noShowAlertHour ?? DEFAULT_NO_SHOW_ALERT_HOUR,
+        );
+        setNoShowAlertMinute(
+          data.noShowAlertMinute ?? DEFAULT_NO_SHOW_ALERT_MINUTE,
+        );
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
@@ -130,6 +157,14 @@ export default function GeneralSettingsPage(): React.ReactNode {
       MAX_AUTO_CLOCK_OUT_HOURS,
       Math.max(MIN_AUTO_CLOCK_OUT_HOURS, Math.round(autoClockOutHours)),
     );
+    const noShowHour = Math.min(
+      MAX_NO_SHOW_ALERT_HOUR,
+      Math.max(MIN_NO_SHOW_ALERT_HOUR, Math.round(noShowAlertHour)),
+    );
+    const noShowMinute = Math.min(
+      MAX_NO_SHOW_ALERT_MINUTE,
+      Math.max(MIN_NO_SHOW_ALERT_MINUTE, Math.round(noShowAlertMinute)),
+    );
     return {
       debugLogEnabled,
       gpsIntervalMinutes: Math.min(
@@ -146,6 +181,9 @@ export default function GeneralSettingsPage(): React.ReactNode {
       overtimeAlertReminderIntervalMinutes: reminderInterval,
       autoClockOutEnabled,
       autoClockOutHours: autoHours,
+      noShowAlertEnabled,
+      noShowAlertHour: noShowHour,
+      noShowAlertMinute: noShowMinute,
     };
   };
 
@@ -232,6 +270,43 @@ export default function GeneralSettingsPage(): React.ReactNode {
     }
   };
 
+  const handleNoShowAlertRun = async (): Promise<void> => {
+    if (!canEdit) return;
+    setNoShowAlertRunning(true);
+    try {
+      await kioskSettingsApi.putGeneral(buildGeneralBody());
+      const result = await kioskSettingsApi.runNoShowAlertCheck(false);
+      const weekendHint = result.weekend
+        ? ` ${t.toast.noShowAlertWeekend}`
+        : '';
+      if (!result.enabled) {
+        toast({
+          description: `${t.toast.noShowAlertDisabled} Soll ${result.checked}, fehlend ${result.missing}.${weekendHint}`,
+        });
+      } else if (result.sent > 0) {
+        toast({
+          description: `${t.toast.noShowAlertDone} ${result.missing} fehlend, Mail an ${result.to}.${weekendHint}`,
+        });
+      } else if (result.missing > 0) {
+        toast({
+          description: `${t.toast.noShowAlertDone} ${result.missing} fehlend (bereits gemeldet oder kein Versand).${weekendHint}`,
+        });
+      } else {
+        toast({
+          description: `${t.toast.noShowAlertNone} (${result.checked} geprüft).${weekendHint}`,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setNoShowAlertRunning(false);
+    }
+  };
+
   const handleSave = async (): Promise<void> => {
     if (!canEdit) return;
     setSaving(true);
@@ -248,6 +323,9 @@ export default function GeneralSettingsPage(): React.ReactNode {
       );
       setAutoClockOutEnabled(saved.autoClockOutEnabled);
       setAutoClockOutHours(saved.autoClockOutHours);
+      setNoShowAlertEnabled(saved.noShowAlertEnabled);
+      setNoShowAlertHour(saved.noShowAlertHour);
+      setNoShowAlertMinute(saved.noShowAlertMinute);
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -581,6 +659,98 @@ export default function GeneralSettingsPage(): React.ReactNode {
                     {autoClockOutRunning
                       ? t.autoClockOutRunning
                       : t.autoClockOutRunButton}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 border-t pt-5">
+            <UserX className="mt-0.5 h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-sm">{t.noShowAlertTitle}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t.noShowAlertHint}
+                  </p>
+                </div>
+                <label className="flex shrink-0 cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-primary"
+                    checked={noShowAlertEnabled}
+                    disabled={!canEdit}
+                    onChange={(e) => setNoShowAlertEnabled(e.target.checked)}
+                  />
+                  <span className="text-sm">
+                    {noShowAlertEnabled ? t.on : t.off}
+                  </span>
+                </label>
+              </div>
+              <div className="flex max-w-md flex-col gap-3 sm:flex-row sm:items-end">
+                <div className="w-full space-y-1.5 sm:w-28">
+                  <label className="text-xs text-muted-foreground">
+                    {t.noShowAlertHourLabel}
+                  </label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_NO_SHOW_ALERT_HOUR}
+                    max={MAX_NO_SHOW_ALERT_HOUR}
+                    step={1}
+                    disabled={!canEdit || !noShowAlertEnabled}
+                    value={noShowAlertHour}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      setNoShowAlertHour(
+                        Number.isFinite(n) ? n : DEFAULT_NO_SHOW_ALERT_HOUR,
+                      );
+                    }}
+                    className="min-h-[44px]"
+                  />
+                </div>
+                <div className="w-full space-y-1.5 sm:w-28">
+                  <label className="text-xs text-muted-foreground">
+                    {t.noShowAlertMinuteLabel}
+                  </label>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_NO_SHOW_ALERT_MINUTE}
+                    max={MAX_NO_SHOW_ALERT_MINUTE}
+                    step={1}
+                    disabled={!canEdit || !noShowAlertEnabled}
+                    value={noShowAlertMinute}
+                    onChange={(e) => {
+                      const n = Number.parseInt(e.target.value, 10);
+                      setNoShowAlertMinute(
+                        Number.isFinite(n) ? n : DEFAULT_NO_SHOW_ALERT_MINUTE,
+                      );
+                    }}
+                    className="min-h-[44px]"
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t.noShowAlertTimeHint}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t.noShowAlertEmailHint}
+              </p>
+              {canEdit && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px]"
+                    disabled={noShowAlertRunning}
+                    onClick={() => void handleNoShowAlertRun()}
+                  >
+                    <Play className="h-4 w-4" />
+                    {noShowAlertRunning
+                      ? t.noShowAlertRunning
+                      : t.noShowAlertRunButton}
                   </Button>
                 </div>
               )}

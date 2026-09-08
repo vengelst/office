@@ -25,6 +25,14 @@ export const DEFAULT_AUTO_CLOCK_OUT_HOURS = 12;
 export const MIN_AUTO_CLOCK_OUT_HOURS = 1;
 export const MAX_AUTO_CLOCK_OUT_HOURS = 24;
 
+export const DEFAULT_NO_SHOW_ALERT_ENABLED = false;
+export const DEFAULT_NO_SHOW_ALERT_HOUR = 10;
+export const MIN_NO_SHOW_ALERT_HOUR = 0;
+export const MAX_NO_SHOW_ALERT_HOUR = 23;
+export const DEFAULT_NO_SHOW_ALERT_MINUTE = 0;
+export const MIN_NO_SHOW_ALERT_MINUTE = 0;
+export const MAX_NO_SHOW_ALERT_MINUTE = 59;
+
 /** sourceDevice-Wert für systemseitige Ausstempelungen. */
 export const SYSTEM_AUTO_CLOCK_OUT_DEVICE = 'SYSTEM_AUTO_CLOCK_OUT';
 
@@ -48,6 +56,12 @@ export interface KioskGeneralSettings extends KioskPublicSettings {
   autoClockOutEnabled: boolean;
   /** Nach wie vielen Stunden automatisch ausstempeln (1–24). */
   autoClockOutHours: number;
+  /** No-Show-Reminder aktiv. */
+  noShowAlertEnabled: boolean;
+  /** Check-Stunde Europe/Berlin (0–23). */
+  noShowAlertHour: number;
+  /** Check-Minute Europe/Berlin (0–59). */
+  noShowAlertMinute: number;
 }
 
 function withPublicDefaults(
@@ -119,6 +133,30 @@ function clampAutoClockOutHours(raw: number | undefined): number {
   return DEFAULT_AUTO_CLOCK_OUT_HOURS;
 }
 
+function clampNoShowHour(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_NO_SHOW_ALERT_HOUR &&
+    raw <= MAX_NO_SHOW_ALERT_HOUR
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_NO_SHOW_ALERT_HOUR;
+}
+
+function clampNoShowMinute(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_NO_SHOW_ALERT_MINUTE &&
+    raw <= MAX_NO_SHOW_ALERT_MINUTE
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_NO_SHOW_ALERT_MINUTE;
+}
+
 function withGeneralDefaults(
   partial: Partial<KioskGeneralSettings> | null | undefined,
 ): KioskGeneralSettings {
@@ -132,6 +170,9 @@ function withGeneralDefaults(
     ),
     autoClockOutEnabled: Boolean(partial?.autoClockOutEnabled),
     autoClockOutHours: clampAutoClockOutHours(partial?.autoClockOutHours),
+    noShowAlertEnabled: Boolean(partial?.noShowAlertEnabled),
+    noShowAlertHour: clampNoShowHour(partial?.noShowAlertHour),
+    noShowAlertMinute: clampNoShowMinute(partial?.noShowAlertMinute),
   };
 }
 
@@ -171,6 +212,9 @@ export const kioskSettingsApi = {
           body.overtimeAlertReminderIntervalMinutes,
         autoClockOutEnabled: body.autoClockOutEnabled,
         autoClockOutHours: body.autoClockOutHours,
+        noShowAlertEnabled: body.noShowAlertEnabled,
+        noShowAlertHour: body.noShowAlertHour,
+        noShowAlertMinute: body.noShowAlertMinute,
       }),
     ),
 
@@ -218,4 +262,30 @@ export const kioskSettingsApi = {
       hours: number;
       to: string;
     }>('/kiosk-settings/auto-clock-out/run', {}),
+
+  /** Sofort: No-Show-Reminder prüfen (auch am Wochenende). */
+  runNoShowAlertCheck: async (
+    force = false,
+  ): Promise<{
+    checked: number;
+    missing: number;
+    sent: number;
+    to: string;
+    enabled: boolean;
+    hour: number;
+    minute: number;
+    dateKey: string;
+    weekend: boolean;
+  }> =>
+    apiClient.post<{
+      checked: number;
+      missing: number;
+      sent: number;
+      to: string;
+      enabled: boolean;
+      hour: number;
+      minute: number;
+      dateKey: string;
+      weekend: boolean;
+    }>('/kiosk-settings/no-show-alert/run', { force }),
 };

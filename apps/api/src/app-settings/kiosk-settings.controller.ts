@@ -1,5 +1,5 @@
 /**
- * Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-/Auto-Clock-Out-Einstellungen.
+ * Kiosk-/GPS-/PIN-/Arbeitszeit-Alarm-/Auto-Clock-Out-/No-Show-Einstellungen.
  */
 
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
@@ -36,6 +36,21 @@ import {
   parseAutoClockOutEnabled,
   parseAutoClockOutHours,
 } from './auto-clock-out';
+import {
+  DEFAULT_NO_SHOW_ALERT_HOUR,
+  DEFAULT_NO_SHOW_ALERT_MINUTE,
+  MAX_NO_SHOW_ALERT_HOUR,
+  MAX_NO_SHOW_ALERT_MINUTE,
+  MIN_NO_SHOW_ALERT_HOUR,
+  MIN_NO_SHOW_ALERT_MINUTE,
+  NO_SHOW_ALERT_ENABLED_KEY,
+  NO_SHOW_ALERT_HOUR_KEY,
+  NO_SHOW_ALERT_MINUTE_KEY,
+  NO_SHOW_ALERT_SENT_KEY,
+  parseNoShowAlertEnabled,
+  parseNoShowAlertHour,
+  parseNoShowAlertMinute,
+} from './no-show-alert';
 import {
   DEFAULT_OVERTIME_ALERT_HOURS,
   DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
@@ -119,6 +134,24 @@ class KioskGeneralSettingsDto {
   @Min(MIN_AUTO_CLOCK_OUT_HOURS)
   @Max(MAX_AUTO_CLOCK_OUT_HOURS)
   autoClockOutHours!: number;
+
+  /** No-Show-Reminder aktiv (Mo–Fr ab Check-Zeit). */
+  @IsBoolean()
+  noShowAlertEnabled!: boolean;
+
+  /** Check-Stunde Europe/Berlin (0–23). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_NO_SHOW_ALERT_HOUR)
+  @Max(MAX_NO_SHOW_ALERT_HOUR)
+  noShowAlertHour!: number;
+
+  /** Check-Minute Europe/Berlin (0–59). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_NO_SHOW_ALERT_MINUTE)
+  @Max(MAX_NO_SHOW_ALERT_MINUTE)
+  noShowAlertMinute!: number;
 }
 
 export type KioskGeneralSettings = {
@@ -131,6 +164,9 @@ export type KioskGeneralSettings = {
   overtimeAlertReminderIntervalMinutes: number;
   autoClockOutEnabled: boolean;
   autoClockOutHours: number;
+  noShowAlertEnabled: boolean;
+  noShowAlertHour: number;
+  noShowAlertMinute: number;
 };
 
 @ApiTags('kiosk-settings')
@@ -149,6 +185,9 @@ export class KioskSettingsController {
       OVERTIME_ALERT_REMINDER_INTERVAL_KEY,
       AUTO_CLOCK_OUT_ENABLED_KEY,
       AUTO_CLOCK_OUT_HOURS_KEY,
+      NO_SHOW_ALERT_ENABLED_KEY,
+      NO_SHOW_ALERT_HOUR_KEY,
+      NO_SHOW_ALERT_MINUTE_KEY,
     ]);
     const rawInterval = map[GPS_INTERVAL_MINUTES_KEY];
     const parsed = rawInterval ? Number.parseInt(rawInterval, 10) : NaN;
@@ -176,6 +215,11 @@ export class KioskSettingsController {
       autoClockOutHours: parseAutoClockOutHours(
         map[AUTO_CLOCK_OUT_HOURS_KEY],
       ),
+      noShowAlertEnabled: parseNoShowAlertEnabled(
+        map[NO_SHOW_ALERT_ENABLED_KEY],
+      ),
+      noShowAlertHour: parseNoShowAlertHour(map[NO_SHOW_ALERT_HOUR_KEY]),
+      noShowAlertMinute: parseNoShowAlertMinute(map[NO_SHOW_ALERT_MINUTE_KEY]),
     };
   }
 
@@ -231,6 +275,11 @@ export class KioskSettingsController {
     const autoClockOutHours = parseAutoClockOutHours(
       String(dto.autoClockOutHours),
     );
+    const noShowAlertEnabled = Boolean(dto.noShowAlertEnabled);
+    const noShowAlertHour = parseNoShowAlertHour(String(dto.noShowAlertHour));
+    const noShowAlertMinute = parseNoShowAlertMinute(
+      String(dto.noShowAlertMinute),
+    );
 
     const previous = await this.readAll();
     const overtimeChanged =
@@ -239,6 +288,11 @@ export class KioskSettingsController {
       previous.overtimeAlertReminders !== overtimeAlertReminders ||
       previous.overtimeAlertReminderIntervalMinutes !==
         overtimeAlertReminderIntervalMinutes;
+    const noShowChanged =
+      previous.noShowAlertEnabled !== noShowAlertEnabled ||
+      previous.noShowAlertHour !== noShowAlertHour ||
+      previous.noShowAlertMinute !== noShowAlertMinute ||
+      previous.overtimeAlertEmail !== overtimeAlertEmail;
 
     const updates: Record<string, string> = {
       [KIOSK_DEBUG_ENABLED_KEY]: dto.debugLogEnabled ? 'true' : 'false',
@@ -259,10 +313,24 @@ export class KioskSettingsController {
       [AUTO_CLOCK_OUT_HOURS_KEY]: String(
         autoClockOutHours || DEFAULT_AUTO_CLOCK_OUT_HOURS,
       ),
+      [NO_SHOW_ALERT_ENABLED_KEY]: noShowAlertEnabled ? 'true' : 'false',
+      [NO_SHOW_ALERT_HOUR_KEY]: String(
+        Number.isFinite(noShowAlertHour)
+          ? noShowAlertHour
+          : DEFAULT_NO_SHOW_ALERT_HOUR,
+      ),
+      [NO_SHOW_ALERT_MINUTE_KEY]: String(
+        Number.isFinite(noShowAlertMinute)
+          ? noShowAlertMinute
+          : DEFAULT_NO_SHOW_ALERT_MINUTE,
+      ),
     };
     // Bei geänderter Schwelle/Adresse erneut alarmieren dürfen (Dedup zurücksetzen).
     if (overtimeChanged) {
       updates[OVERTIME_ALERT_SENT_KEY] = '{}';
+    }
+    if (noShowChanged) {
+      updates[NO_SHOW_ALERT_SENT_KEY] = serializeResetSent();
     }
 
     await this.settings.setMany(updates);
@@ -276,6 +344,13 @@ export class KioskSettingsController {
       overtimeAlertReminderIntervalMinutes,
       autoClockOutEnabled,
       autoClockOutHours,
+      noShowAlertEnabled,
+      noShowAlertHour,
+      noShowAlertMinute,
     };
   }
+}
+
+function serializeResetSent(): string {
+  return JSON.stringify({ cronRunDate: null, sent: {} });
 }

@@ -11,10 +11,12 @@ import { OvertimeAlertController } from './overtime-alert.controller';
 import { OvertimeAlertService } from './overtime-alert.service';
 import { AutoClockOutController } from './auto-clock-out.controller';
 import { AutoClockOutService } from './auto-clock-out.service';
+import { NoShowAlertController } from './no-show-alert.controller';
+import { NoShowAlertService } from './no-show-alert.service';
 
 @Module({
   // WorkItemsModule: Ausstempeln schließt offene Item-Sessions.
-  // EmailModule + AppSettings: Cron-Alarm und Auto-Clock-Out.
+  // EmailModule + AppSettings: Cron-Alarm, Auto-Clock-Out, No-Show.
   // TimesheetsModule: Auto-Anlage/Sync Wochenstundenzettel bei Stempelung.
   imports: [
     DocumentsModule,
@@ -28,8 +30,14 @@ import { AutoClockOutService } from './auto-clock-out.service';
     TimeEntriesController,
     OvertimeAlertController,
     AutoClockOutController,
+    NoShowAlertController,
   ],
-  providers: [TimeEntriesService, OvertimeAlertService, AutoClockOutService],
+  providers: [
+    TimeEntriesService,
+    OvertimeAlertService,
+    AutoClockOutService,
+    NoShowAlertService,
+  ],
   exports: [TimeEntriesService],
 })
 export class TimeEntriesModule {}
