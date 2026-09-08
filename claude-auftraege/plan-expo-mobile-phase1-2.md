@@ -112,4 +112,4 @@ Web-Kiosk und Worker-PWA bleiben parallel; Handy wird zum **primären** Feld-Cli
 
 ## Nächster Schritt
 
-Cloud-Auftrag **#36 Phase 1 Expo Stempel-Parität** spezifizieren und umsetzen, sobald du grün gibst.
+Cloud-Auftrag **#36 Phase 1 Expo Stempel-Parität** – Spec: `claude-arbeitsitems-36-expo-phase1-stempel.md`
