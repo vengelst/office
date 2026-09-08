@@ -15,6 +15,7 @@ import {
   MapPin,
   Play,
   SlidersHorizontal,
+  TimerReset,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
@@ -25,14 +26,18 @@ import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 import {
+  DEFAULT_AUTO_CLOCK_OUT_ENABLED,
+  DEFAULT_AUTO_CLOCK_OUT_HOURS,
   DEFAULT_OVERTIME_ALERT_HOURS,
   DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   DEFAULT_OVERTIME_ALERT_REMINDERS,
   DEFAULT_PIN_LENGTH,
+  MAX_AUTO_CLOCK_OUT_HOURS,
   MAX_OVERTIME_ALERT_HOURS,
   MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   MAX_OVERTIME_ALERT_REMINDERS,
   MAX_PIN_LENGTH,
+  MIN_AUTO_CLOCK_OUT_HOURS,
   MIN_OVERTIME_ALERT_HOURS,
   MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   MIN_OVERTIME_ALERT_REMINDERS,
@@ -61,6 +66,13 @@ export default function GeneralSettingsPage(): React.ReactNode {
     useState(DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES);
   const [overtimeTesting, setOvertimeTesting] = useState(false);
   const [overtimeRunning, setOvertimeRunning] = useState(false);
+  const [autoClockOutEnabled, setAutoClockOutEnabled] = useState(
+    DEFAULT_AUTO_CLOCK_OUT_ENABLED,
+  );
+  const [autoClockOutHours, setAutoClockOutHours] = useState(
+    DEFAULT_AUTO_CLOCK_OUT_HOURS,
+  );
+  const [autoClockOutRunning, setAutoClockOutRunning] = useState(false);
 
   const canEdit = Boolean(
     user?.roles?.includes('SUPERADMIN') || user?.roles?.includes('OFFICE'),
@@ -84,10 +96,58 @@ export default function GeneralSettingsPage(): React.ReactNode {
           data.overtimeAlertReminderIntervalMinutes ??
             DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
         );
+        setAutoClockOutEnabled(
+          data.autoClockOutEnabled ?? DEFAULT_AUTO_CLOCK_OUT_ENABLED,
+        );
+        setAutoClockOutHours(
+          data.autoClockOutHours ?? DEFAULT_AUTO_CLOCK_OUT_HOURS,
+        );
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
   }, []);
+
+  const buildGeneralBody = () => {
+    const hours = Math.min(
+      MAX_OVERTIME_ALERT_HOURS,
+      Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
+    );
+    const reminders = Math.min(
+      MAX_OVERTIME_ALERT_REMINDERS,
+      Math.max(
+        MIN_OVERTIME_ALERT_REMINDERS,
+        Math.round(overtimeAlertReminders),
+      ),
+    );
+    const reminderInterval = Math.min(
+      MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+      Math.max(
+        MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
+        Math.round(overtimeAlertReminderIntervalMinutes),
+      ),
+    );
+    const autoHours = Math.min(
+      MAX_AUTO_CLOCK_OUT_HOURS,
+      Math.max(MIN_AUTO_CLOCK_OUT_HOURS, Math.round(autoClockOutHours)),
+    );
+    return {
+      debugLogEnabled,
+      gpsIntervalMinutes: Math.min(
+        240,
+        Math.max(1, Math.round(gpsIntervalMinutes)),
+      ),
+      pinLength: Math.min(
+        MAX_PIN_LENGTH,
+        Math.max(MIN_PIN_LENGTH, Math.round(pinLength)),
+      ),
+      overtimeAlertEmail: overtimeAlertEmail.trim(),
+      overtimeAlertHours: hours,
+      overtimeAlertReminders: reminders,
+      overtimeAlertReminderIntervalMinutes: reminderInterval,
+      autoClockOutEnabled,
+      autoClockOutHours: autoHours,
+    };
+  };
 
   const handleOvertimeTest = async (): Promise<void> => {
     if (!canEdit) return;
@@ -122,39 +182,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
     setOvertimeRunning(true);
     try {
       // Zuerst speichern, damit Test die aktuellen Werte nutzt
-      const hours = Math.min(
-        MAX_OVERTIME_ALERT_HOURS,
-        Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
-      );
-      const reminders = Math.min(
-        MAX_OVERTIME_ALERT_REMINDERS,
-        Math.max(
-          MIN_OVERTIME_ALERT_REMINDERS,
-          Math.round(overtimeAlertReminders),
-        ),
-      );
-      const reminderInterval = Math.min(
-        MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
-        Math.max(
-          MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
-          Math.round(overtimeAlertReminderIntervalMinutes),
-        ),
-      );
-      await kioskSettingsApi.putGeneral({
-        debugLogEnabled,
-        gpsIntervalMinutes: Math.min(
-          240,
-          Math.max(1, Math.round(gpsIntervalMinutes)),
-        ),
-        pinLength: Math.min(
-          MAX_PIN_LENGTH,
-          Math.max(MIN_PIN_LENGTH, Math.round(pinLength)),
-        ),
-        overtimeAlertEmail: overtimeAlertEmail.trim(),
-        overtimeAlertHours: hours,
-        overtimeAlertReminders: reminders,
-        overtimeAlertReminderIntervalMinutes: reminderInterval,
-      });
+      await kioskSettingsApi.putGeneral(buildGeneralBody());
       const result = await kioskSettingsApi.runOvertimeAlertCheck();
       if (result.sent > 0) {
         toast({
@@ -176,42 +204,39 @@ export default function GeneralSettingsPage(): React.ReactNode {
     }
   };
 
+  const handleAutoClockOutRun = async (): Promise<void> => {
+    if (!canEdit) return;
+    setAutoClockOutRunning(true);
+    try {
+      await kioskSettingsApi.putGeneral(buildGeneralBody());
+      const result = await kioskSettingsApi.runAutoClockOutCheck();
+      if (!result.enabled) {
+        toast({ description: t.toast.autoClockOutDisabled });
+      } else if (result.closed > 0) {
+        toast({
+          description: `${t.toast.autoClockOutDone} ${result.closed} Schicht(en), Schwelle ${result.hours}h.`,
+        });
+      } else {
+        toast({
+          description: `${t.toast.autoClockOutNone} (${result.checked} offen, Schwelle ${result.hours}h).`,
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        description:
+          err instanceof ApiError ? err.message : t.toast.error,
+      });
+    } finally {
+      setAutoClockOutRunning(false);
+    }
+  };
+
   const handleSave = async (): Promise<void> => {
     if (!canEdit) return;
-    const interval = Math.min(240, Math.max(1, Math.round(gpsIntervalMinutes)));
-    const length = Math.min(
-      MAX_PIN_LENGTH,
-      Math.max(MIN_PIN_LENGTH, Math.round(pinLength)),
-    );
-    const hours = Math.min(
-      MAX_OVERTIME_ALERT_HOURS,
-      Math.max(MIN_OVERTIME_ALERT_HOURS, Math.round(overtimeAlertHours)),
-    );
-    const reminders = Math.min(
-      MAX_OVERTIME_ALERT_REMINDERS,
-      Math.max(
-        MIN_OVERTIME_ALERT_REMINDERS,
-        Math.round(overtimeAlertReminders),
-      ),
-    );
-    const reminderInterval = Math.min(
-      MAX_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
-      Math.max(
-        MIN_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
-        Math.round(overtimeAlertReminderIntervalMinutes),
-      ),
-    );
     setSaving(true);
     try {
-      const saved = await kioskSettingsApi.putGeneral({
-        debugLogEnabled,
-        gpsIntervalMinutes: interval,
-        pinLength: length,
-        overtimeAlertEmail: overtimeAlertEmail.trim(),
-        overtimeAlertHours: hours,
-        overtimeAlertReminders: reminders,
-        overtimeAlertReminderIntervalMinutes: reminderInterval,
-      });
+      const saved = await kioskSettingsApi.putGeneral(buildGeneralBody());
       setDebugLogEnabled(saved.debugLogEnabled);
       setGpsIntervalMinutes(saved.gpsIntervalMinutes);
       setPinLength(saved.pinLength);
@@ -221,6 +246,8 @@ export default function GeneralSettingsPage(): React.ReactNode {
       setOvertimeAlertReminderIntervalMinutes(
         saved.overtimeAlertReminderIntervalMinutes,
       );
+      setAutoClockOutEnabled(saved.autoClockOutEnabled);
+      setAutoClockOutHours(saved.autoClockOutHours);
       toast({ description: t.toast.saved });
     } catch (err) {
       toast({
@@ -480,6 +507,80 @@ export default function GeneralSettingsPage(): React.ReactNode {
                     {overtimeRunning
                       ? t.overtimeAlertRunning
                       : t.overtimeAlertRunButton}
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 border-t pt-5">
+            <TimerReset className="mt-0.5 h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-sm">{t.autoClockOutTitle}</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {t.autoClockOutHint}
+                  </p>
+                </div>
+                <label className="flex shrink-0 cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 accent-primary"
+                    checked={autoClockOutEnabled}
+                    disabled={!canEdit}
+                    onChange={(e) => setAutoClockOutEnabled(e.target.checked)}
+                  />
+                  <span className="text-sm">
+                    {autoClockOutEnabled ? t.on : t.off}
+                  </span>
+                </label>
+              </div>
+              <div className="w-full max-w-xs space-y-1.5">
+                <label className="text-xs text-muted-foreground">
+                  {t.autoClockOutHoursLabel}
+                </label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    min={MIN_AUTO_CLOCK_OUT_HOURS}
+                    max={MAX_AUTO_CLOCK_OUT_HOURS}
+                    step={1}
+                    disabled={!canEdit || !autoClockOutEnabled}
+                    value={autoClockOutHours}
+                    onChange={(e) =>
+                      setAutoClockOutHours(
+                        Number.parseInt(e.target.value, 10) ||
+                          DEFAULT_AUTO_CLOCK_OUT_HOURS,
+                      )
+                    }
+                    className="min-h-[44px] w-28"
+                  />
+                  <span className="shrink-0 text-sm text-muted-foreground">
+                    {t.autoClockOutHoursUnit}
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t.autoClockOutHoursHint}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {t.autoClockOutEmailHint}
+              </p>
+              {canEdit && (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="min-h-[44px]"
+                    disabled={autoClockOutRunning || !autoClockOutEnabled}
+                    onClick={() => void handleAutoClockOutRun()}
+                  >
+                    <Play className="h-4 w-4" />
+                    {autoClockOutRunning
+                      ? t.autoClockOutRunning
+                      : t.autoClockOutRunButton}
                   </Button>
                 </div>
               )}

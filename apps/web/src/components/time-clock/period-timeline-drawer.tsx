@@ -50,6 +50,7 @@ import {
   type TimeTimelineEntry,
   type TimeTimelineResponse,
 } from '@/lib/timesheets';
+import { SYSTEM_AUTO_CLOCK_OUT_DEVICE } from '@/lib/kiosk-settings';
 import { texts } from '@/lib/texts';
 import { cn } from '@/lib/utils';
 
@@ -336,6 +337,14 @@ export function PeriodTimelineDrawer({
                         >
                           {entryTypeLabel(e.entryType)}
                         </span>
+                        {e.sourceDevice === SYSTEM_AUTO_CLOCK_OUT_DEVICE && (
+                          <span
+                            className="rounded bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-800"
+                            title={t.autoClockOutHint}
+                          >
+                            {t.autoClockOutBadge}
+                          </span>
+                        )}
                         <span className="font-mono tabular-nums">
                           {formatTime(e.occurredAtClient)}
                         </span>
@@ -348,6 +357,12 @@ export function PeriodTimelineDrawer({
                           {e.comment}
                         </p>
                       )}
+                      {e.sourceDevice === SYSTEM_AUTO_CLOCK_OUT_DEVICE &&
+                        !e.comment && (
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t.autoClockOutHint}
+                          </p>
+                        )}
                     </div>
                     {!locked && (
                       <div className="flex shrink-0 gap-1">
