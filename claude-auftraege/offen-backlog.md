@@ -1,9 +1,25 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-09-07** · **Version 1.1.0 (Production)** · Tag [`v1.1.0`](https://github.com/vengelst/office/releases/tag/v1.1.0) · Branch `main`
+Stand: **2026-09-08** · **Version 1.1.0 (Production)** · Tag [`v1.1.0`](https://github.com/vengelst/office/releases/tag/v1.1.0) · Branch `main`
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**  
 **Letzte Übergabe:** [`session-uebergabe-2026-09-01-spie-ki-import.md`](./session-uebergabe-2026-09-01-spie-ki-import.md)
+
+---
+
+## Session-Notiz Cursor 08.09.2026 – Zeiterfassung Roadmap P1–P4
+
+Soll-Ablauf Kiosk/Stundenzettel abgeglichen. Reihenfolge:
+
+| Prio | Thema | Status |
+|------|--------|--------|
+| **P1** | Auto-Clock-Out nach Max-Stunden (Settings) | Spec `#32` – Umsetzung |
+| **P2** | Monteur signiert Stundenzettel mobil → Woche zu | geplant |
+| **P3** | Stunden-Tätigkeiten mid-day (stundenbasierte Projekte) | geplant |
+| **P4** | Reminder „nie eingestempelt“ | geplant |
+| später | Geofence | bewusst später |
+
+Spec P1: [`claude-arbeitsitems-32-auto-clock-out.md`](./claude-arbeitsitems-32-auto-clock-out.md)
 
 ---
 
