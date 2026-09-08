@@ -88,7 +88,7 @@ export default function WorkerDashboardPage(): React.ReactNode {
         onBreak={dashboard.onBreak}
         status={dashboard.status}
         elapsedSeconds={dashboard.elapsedSeconds}
-        masterEngineer={worker.masterEngineer ?? false}
+        activityRequired={dashboard.activityRequired}
         activityTypes={dashboard.activityTypes}
         selectedActivityTypeId={dashboard.selectedActivityTypeId}
         onActivityChange={(id) => void dashboard.handleSwitchActivity(id)}

@@ -19,6 +19,8 @@ interface TerminalActionScreenProps {
   clockStatus: ClockStatus | null;
   activityTypes: ActivityTypeItem[];
   selectedActivityTypeId: string | null;
+  activityRequired: boolean;
+  actionError: string;
   liveWorkers: KioskWorkerStatus[];
   activeProjectId: string;
   displayProjectTitle: string;
@@ -62,6 +64,8 @@ export function TerminalActionScreen({
   clockStatus,
   activityTypes,
   selectedActivityTypeId,
+  activityRequired,
+  actionError,
   liveWorkers,
   activeProjectId,
   displayProjectTitle,
@@ -137,16 +141,23 @@ export function TerminalActionScreen({
         />
       )}
 
-      {worker.masterEngineer && activityTypes.length > 0 && (
+      {activityRequired && activityTypes.length > 0 && (
         <MasterActivitySelect
           activityTypes={activityTypes}
           selectedActivityTypeId={selectedActivityTypeId}
           clockStatus={clockStatus}
           isIn={isIn}
+          onBreak={clockStatus?.onBreak ?? false}
           t={t}
           resetActivity={resetActivity}
           onActivityTypeChange={handleActivityTypeChange}
         />
+      )}
+
+      {actionError && (
+        <p className="mx-auto mt-3 max-w-md text-center text-sm text-red-400">
+          {actionError}
+        </p>
       )}
 
       {worker.masterEngineer && liveWorkers.length > 0 && (
@@ -159,7 +170,15 @@ export function TerminalActionScreen({
         isIn={isIn}
         onBreak={clockStatus?.onBreak ?? false}
         processing={processing}
-        canClockInOnKioskProject={canClockInOnKioskProject}
+        canClockInOnKioskProject={
+          canClockInOnKioskProject &&
+          !(
+            !isIn &&
+            activityRequired &&
+            activityTypes.length > 0 &&
+            !selectedActivityTypeId
+          )
+        }
         itemBasedProject={itemBasedProject}
         dateLocale={dateLocale}
         t={t}

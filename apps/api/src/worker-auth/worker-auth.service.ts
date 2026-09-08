@@ -15,7 +15,7 @@ export class WorkerAuthService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Liefert das Profil des über das Worker-Token identifizierten Monteurs inkl. seiner aktiven Projektzuweisungen. Die Zuweisungen werden von der Monteur-App benötigt, um das einzustempelnde Projekt auszuwählen (aktuell = startDate <= heute, zukünftig = startDate > heute). `project.itemBased` sagt der App, ob für dieses Projekt der Arbeitsitems-Bereich angeboten wird – so entfällt ein Extra-Call.
+   * Liefert das Profil des über das Worker-Token identifizierten Monteurs inkl. seiner aktiven Projektzuweisungen. Die Zuweisungen werden von der Monteur-App benötigt, um das einzustempelnde Projekt auszuwählen (aktuell = startDate <= heute, zukünftig = startDate > heute). `project.itemBased` sagt der App, ob für dieses Projekt der Arbeitsitems-Bereich angeboten wird; `project.billingMode` steuert den Tätigkeits-Select für Normal-Monteure (#34).
    *
    * Master-Monteure erhalten zusätzlich alle aktiven Projekte als virtuelle Zuweisungen (ohne echte Assignment-Zeile).
    *
@@ -51,6 +51,7 @@ export class WorkerAuthService {
                 projectNumber: true,
                 title: true,
                 itemBased: true,
+                billingMode: true,
                 customer: { select: { companyName: true } },
               },
             },
@@ -78,6 +79,7 @@ export class WorkerAuthService {
         projectNumber: true,
         title: true,
         itemBased: true,
+        billingMode: true,
         customer: { select: { companyName: true } },
       },
     });

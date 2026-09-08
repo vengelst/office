@@ -17,7 +17,7 @@ interface ClockStatusSectionProps {
   onBreak: boolean;
   status: ClockStatus | null;
   elapsedSeconds: number;
-  masterEngineer: boolean;
+  activityRequired: boolean;
   activityTypes: ActivityTypeItem[];
   selectedActivityTypeId: string;
   onActivityChange: (activityTypeId: string) => void;
@@ -47,7 +47,7 @@ export function ClockStatusSection({
   onBreak,
   status,
   elapsedSeconds,
-  masterEngineer,
+  activityRequired,
   activityTypes,
   selectedActivityTypeId,
   onActivityChange,
@@ -83,7 +83,7 @@ export function ClockStatusSection({
         </p>
       )}
 
-      {masterEngineer && activityTypes.length > 0 && (
+      {activityRequired && activityTypes.length > 0 && (
         <div className="w-full max-w-sm space-y-2">
           <p className="text-center text-sm text-muted-foreground">
             {clockedIn ? labels.switchActivity : labels.chooseActivity}
@@ -137,7 +137,7 @@ export function ClockStatusSection({
           busy ||
           (!clockedIn && currentAssignments.length === 0) ||
           (!clockedIn &&
-            masterEngineer &&
+            activityRequired &&
             activityTypes.length > 0 &&
             !selectedActivityTypeId)
         }

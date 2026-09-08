@@ -240,7 +240,10 @@ export class TimeEntriesController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
-  @ApiOperation({ summary: 'Master: Tätigkeit während der Schicht wechseln' })
+  @ApiOperation({
+    summary:
+      'Tätigkeit während der Schicht wechseln (Master oder HOURLY_PACKAGE)',
+  })
   switchActivity(
     @Body() dto: SwitchActivityDto,
     @CurrentUser() user: AuthUser,
