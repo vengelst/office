@@ -58,7 +58,8 @@ export class ClockInDto {
   clientEventId?: string;
 
   @ApiPropertyOptional({
-    description: 'Tätigkeitsbereich (Pflicht für Master-Monteur)',
+    description:
+      'Tätigkeitsbereich (Pflicht für Master; für Normal bei HOURLY_PACKAGE)',
   })
   @IsOptional()
   @IsString()

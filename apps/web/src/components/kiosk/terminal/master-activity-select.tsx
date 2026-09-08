@@ -10,6 +10,7 @@ interface MasterActivitySelectProps {
   selectedActivityTypeId: string | null;
   clockStatus: ClockStatus | null;
   isIn: boolean;
+  onBreak?: boolean;
   t: TerminalTranslate;
   resetActivity: () => void;
   onActivityTypeChange: (id: string | null) => void;
@@ -20,6 +21,7 @@ export function MasterActivitySelect({
   selectedActivityTypeId,
   clockStatus,
   isIn,
+  onBreak = false,
   t,
   resetActivity,
   onActivityTypeChange,
@@ -36,11 +38,12 @@ export function MasterActivitySelect({
       )}
       <select
         value={selectedActivityTypeId ?? ''}
+        disabled={onBreak}
         onChange={(e) => {
           resetActivity();
           onActivityTypeChange(e.target.value || null);
         }}
-        className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-4 text-lg text-white"
+        className="w-full rounded-xl border border-gray-700 bg-gray-800 px-4 py-4 text-lg text-white disabled:opacity-60"
         style={{ minHeight: '56px' }}
       >
         {activityTypes.map((a) => (

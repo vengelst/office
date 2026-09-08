@@ -174,9 +174,9 @@ export const KT = {
     sl: 'Čas se knjiži na',
   },
   chooseActivity: {
-    de: 'Tätigkeit wählen',
-    sk: 'Vyberte činnosť',
-    sl: 'Izberite dejavnost',
+    de: 'Tätigkeit (stundenbasiert)',
+    sk: 'Činnosť (hodinová)',
+    sl: 'Dejavnost (urnsko)',
   },
   switchActivity: {
     de: 'Tätigkeit wechseln',
@@ -192,6 +192,11 @@ export const KT = {
     de: 'Bitte Tätigkeit wählen',
     sk: 'Prosím vyberte činnosť',
     sl: 'Prosimo izberite dejavnost',
+  },
+  activitySwitchError: {
+    de: 'Tätigkeit konnte nicht gewechselt werden',
+    sk: 'Činnosť sa nepodarilo zmeniť',
+    sl: 'Dejavnosti ni bilo mogoče zamenjati',
   },
   photoCommentTitle: {
     de: 'Kommentar zum Foto',

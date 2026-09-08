@@ -20,6 +20,7 @@ import {
   activityTypesApi,
   type ActivityTypeItem,
 } from '@/lib/activity-types';
+import { isActivityTrackingRequired } from '@/lib/activity-gate';
 import {
   getOptimisticClockStatus,
   startOfflineClockSync,
@@ -97,34 +98,6 @@ export function useWorkerDashboard() {
     void getGeo().then((g) => setGpsOk(g !== null));
   }, [refresh]);
 
-  useEffect(() => {
-    if (!worker?.masterEngineer) {
-      setActivityTypes([]);
-      setSelectedActivityTypeId('');
-      return;
-    }
-    void activityTypesApi
-      .listActiveForWorker()
-      .then((list) => {
-        setActivityTypes(list);
-        setSelectedActivityTypeId((prev) => {
-          if (prev && list.some((a) => a.id === prev)) return prev;
-          const fromStatus = status?.currentActivity?.id;
-          if (fromStatus && list.some((a) => a.id === fromStatus)) {
-            return fromStatus;
-          }
-          return list[0]?.id ?? '';
-        });
-      })
-      .catch(() => setActivityTypes([]));
-  }, [worker?.masterEngineer, worker?.id, status?.currentActivity?.id]);
-
-  useEffect(() => {
-    if (!status?.clockedIn) return;
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, [status?.clockedIn]);
-
   const { current, future } = useMemo(() => {
     const todayMs = dayStart(new Date());
     const cur: WorkerMeAssignment[] = [];
@@ -144,6 +117,53 @@ export function useWorkerDashboard() {
     }
   }, [current, selectedProjectId]);
 
+  const relevantProjectId = status?.clockedIn
+    ? status.project?.id ?? selectedProjectId
+    : selectedProjectId;
+
+  const relevantBillingMode = useMemo(() => {
+    if (status?.clockedIn && status.project?.billingMode !== undefined) {
+      return status.project.billingMode ?? null;
+    }
+    const fromAssignment = (worker?.assignments ?? []).find(
+      (a) => a.project.id === relevantProjectId,
+    )?.project.billingMode;
+    return fromAssignment ?? null;
+  }, [status, worker, relevantProjectId]);
+
+  const activityRequired = isActivityTrackingRequired(
+    worker?.masterEngineer ?? false,
+    relevantBillingMode,
+  );
+
+  useEffect(() => {
+    if (!activityRequired) {
+      setActivityTypes([]);
+      setSelectedActivityTypeId('');
+      return;
+    }
+    void activityTypesApi
+      .listActiveForWorker()
+      .then((list) => {
+        setActivityTypes(list);
+        setSelectedActivityTypeId((prev) => {
+          if (prev && list.some((a) => a.id === prev)) return prev;
+          const fromStatus = status?.currentActivity?.id;
+          if (fromStatus && list.some((a) => a.id === fromStatus)) {
+            return fromStatus;
+          }
+          return list[0]?.id ?? '';
+        });
+      })
+      .catch(() => setActivityTypes([]));
+  }, [activityRequired, worker?.id, status?.currentActivity?.id]);
+
+  useEffect(() => {
+    if (!status?.clockedIn) return;
+    const id = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [status?.clockedIn]);
+
   const elapsedSeconds = status?.clockedIn && status.since
     ? Math.floor((Date.now() - new Date(status.since).getTime()) / 1000)
     : 0;
@@ -157,13 +177,17 @@ export function useWorkerDashboard() {
       toast({ description: t.toast.noProject });
       return;
     }
-    if (worker.masterEngineer && !selectedActivityTypeId) {
-      toast({ description: t.toast.noActivity });
-      return;
-    }
     const assignment = (worker.assignments ?? []).find(
       (a) => a.project.id === projectId,
     );
+    const gate = isActivityTrackingRequired(
+      worker.masterEngineer ?? false,
+      assignment?.project.billingMode ?? status?.project?.billingMode,
+    );
+    if (gate && !selectedActivityTypeId) {
+      toast({ description: t.toast.noActivity });
+      return;
+    }
     setBusy(true);
     try {
       const geo = await getGeo();
@@ -175,9 +199,7 @@ export function useWorkerDashboard() {
         occurredAtClient: new Date().toISOString(),
         sourceDevice:
           typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-        activityTypeId: worker.masterEngineer
-          ? selectedActivityTypeId
-          : undefined,
+        activityTypeId: gate ? selectedActivityTypeId : undefined,
         projectSnapshot: assignment
           ? {
               id: assignment.project.id,
@@ -434,6 +456,7 @@ export function useWorkerDashboard() {
     activityTypes,
     selectedActivityTypeId,
     setSelectedActivityTypeId,
+    activityRequired,
     busy,
     gpsOk,
     photoOpen,

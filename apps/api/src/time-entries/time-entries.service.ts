@@ -42,6 +42,7 @@ import {
 import { TimesheetGenerationService } from '../timesheets/timesheet-generation.service';
 import { WorkDocumentationDto } from './dto/work-documentation.dto';
 import { validateWorkDocumentation } from './work-documentation.util';
+import { isActivityTrackingRequired } from './activity-gate.util';
 
 /** Maximale Foto-Größe: 10 MB. */
 const MAX_PHOTO_SIZE = 10 * 1024 * 1024;
@@ -79,7 +80,13 @@ export interface ClockStatus {
   clockedIn: boolean;
   since: Date | null;
   durationMinutes: number;
-  project: { id: string; projectNumber: string; title: string } | null;
+  project: {
+    id: string;
+    projectNumber: string;
+    title: string;
+    /** Für UI-Gate Tätigkeits-Select (#34). */
+    billingMode?: string | null;
+  } | null;
   timeEntryId: string | null;
   /** Pause aktiv (BREAK_START ohne BREAK_END seit offenem CLOCK_IN). */
   onBreak: boolean;
@@ -215,10 +222,20 @@ export class TimeEntriesService {
       where: { id: dto.workerId },
       select: { masterEngineer: true },
     });
-    if (workerMeta?.masterEngineer) {
+    const projectBilling = await this.prisma.project.findFirst({
+      where: { id: dto.projectId, deletedAt: null },
+      select: { billingMode: true },
+    });
+    const activityRequired = isActivityTrackingRequired(
+      !!workerMeta?.masterEngineer,
+      projectBilling?.billingMode,
+    );
+    if (activityRequired) {
       if (!dto.activityTypeId) {
         throw new BadRequestException(
-          'Master-Monteur: Tätigkeitsbereich ist Pflicht',
+          workerMeta?.masterEngineer
+            ? 'Master-Monteur: Tätigkeitsbereich ist Pflicht'
+            : 'Tätigkeitsbereich ist Pflicht (stundenbasiertes Projekt)',
         );
       }
       await this.assertActiveActivityType(dto.activityTypeId);
@@ -248,7 +265,7 @@ export class TimeEntriesService {
         dto.projectId,
       );
 
-      if (workerMeta?.masterEngineer && dto.activityTypeId) {
+      if (activityRequired && dto.activityTypeId) {
         await this.prisma.timeActivitySegment.create({
           data: {
             workerId: dto.workerId,
@@ -809,7 +826,14 @@ export class TimeEntriesService {
         projectId: true,
         latitude: true,
         longitude: true,
-        project: { select: { id: true, projectNumber: true, title: true } },
+        project: {
+          select: {
+            id: true,
+            projectNumber: true,
+            title: true,
+            billingMode: true,
+          },
+        },
       },
     });
   }
@@ -1125,7 +1149,8 @@ export class TimeEntriesService {
   }
 
   /**
-   * Master wechselt die Tätigkeit ohne Ausstempeln (schließt Segment, öffnet neues).
+   * Tätigkeit ohne Ausstempeln wechseln (schließt Segment, öffnet neues).
+   * Erlaubt für Master immer; für Normal-Monteure nur bei HOURLY_PACKAGE (#34).
    */
   async switchActivity(
     dto: {
@@ -1141,19 +1166,28 @@ export class TimeEntriesService {
     this.assertOwnWorker(dto.workerId, actor);
     await this.assertWorker(dto.workerId);
 
+    const open = await this.getOpenClockIn(dto.workerId);
+    if (!open) {
+      throw new ConflictException('Monteur ist nicht eingestempelt');
+    }
+
     const worker = await this.prisma.worker.findUnique({
       where: { id: dto.workerId },
       select: { masterEngineer: true },
     });
-    if (!worker?.masterEngineer) {
+    const projectBilling = await this.prisma.project.findFirst({
+      where: { id: open.projectId, deletedAt: null },
+      select: { billingMode: true },
+    });
+    if (
+      !isActivityTrackingRequired(
+        !!worker?.masterEngineer,
+        projectBilling?.billingMode,
+      )
+    ) {
       throw new ForbiddenException(
-        'Tätigkeitswechsel nur für Master-Monteure',
+        'Tätigkeitswechsel nur für Master oder stundenbasierte Projekte',
       );
-    }
-
-    const open = await this.getOpenClockIn(dto.workerId);
-    if (!open) {
-      throw new ConflictException('Monteur ist nicht eingestempelt');
     }
 
     await this.assertActiveActivityType(dto.activityTypeId);

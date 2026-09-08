@@ -90,6 +90,8 @@ export default function KioskTerminalPage() {
         clockStatus={terminal.clockStatus}
         activityTypes={terminal.activityTypes}
         selectedActivityTypeId={terminal.selectedActivityTypeId}
+        activityRequired={terminal.activityRequired}
+        actionError={terminal.actionError}
         liveWorkers={terminal.liveWorkers}
         activeProjectId={terminal.activeProjectId}
         displayProjectTitle={terminal.displayProjectTitle}

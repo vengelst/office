@@ -45,6 +45,8 @@ export interface WorkerMeAssignment {
     title: string;
     /** Item-Modus des Projekts – schaltet die Arbeitsitems-Oberfläche frei. */
     itemBased: boolean;
+    /** Abrechnungsart – steuert Tätigkeits-Select für Normal-Monteure (#34). */
+    billingMode?: 'HOURLY_PACKAGE' | 'UNIT_BASED' | 'MIXED' | null;
     customer: { companyName: string } | null;
   };
 }
@@ -71,6 +73,7 @@ export interface ClockProject {
   id: string;
   projectNumber: string;
   title: string;
+  billingMode?: 'HOURLY_PACKAGE' | 'UNIT_BASED' | 'MIXED' | null;
 }
 
 /** Aktueller Stempel-Status eines Monteurs (eingestempelt, Projekt, Dauer). */
