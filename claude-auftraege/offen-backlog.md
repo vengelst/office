@@ -16,12 +16,13 @@ Soll-Ablauf Kiosk/Stundenzettel abgeglichen. Reihenfolge:
 | **P1** | Auto-Clock-Out nach Max-Stunden (Settings) | **Prod** (`23f7e20`, PR #29) |
 | **P2** | Monteur signiert Stundenzettel mobil → Woche zu | **Prod** (PR #30) |
 | **P3** | Stunden-Tätigkeiten mid-day (nur HOURLY_PACKAGE) | **Prod** (PR #31) |
-| **P4** | Reminder „nie eingestempelt“ | geplant |
+| **P4** | Reminder „nie eingestempelt“ (Mo–Fr, Default 10:00) | Spec `#35` – Umsetzung |
 | später | Geofence | bewusst später |
 
 Spec P1: [`claude-arbeitsitems-32-auto-clock-out.md`](./claude-arbeitsitems-32-auto-clock-out.md)  
 Spec P2: [`claude-arbeitsitems-33-monteur-stundenzettel-signatur.md`](./claude-arbeitsitems-33-monteur-stundenzettel-signatur.md)  
-Spec P3: [`claude-arbeitsitems-34-stunden-taetigkeiten-midday.md`](./claude-arbeitsitems-34-stunden-taetigkeiten-midday.md)
+Spec P3: [`claude-arbeitsitems-34-stunden-taetigkeiten-midday.md`](./claude-arbeitsitems-34-stunden-taetigkeiten-midday.md)  
+Spec P4: [`claude-arbeitsitems-35-no-show-reminder.md`](./claude-arbeitsitems-35-no-show-reminder.md)
 
 ---
 
