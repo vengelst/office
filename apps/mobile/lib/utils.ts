@@ -45,3 +45,46 @@ export function dayStart(d: Date): number {
   x.setHours(0, 0, 0, 0);
   return x.getTime();
 }
+
+/** Minuten → "Xh YYm" */
+export function formatMinutes(min: number | null | undefined): string {
+  if (min == null) return '–';
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return `${h}h ${`${m}`.padStart(2, '0')}m`;
+}
+
+/** Minuten → Dezimalstunden (z. B. 510 → "8,5 h") */
+export function formatHours(min: number | null | undefined): string {
+  if (min == null) return '–';
+  return `${(min / 60).toLocaleString('de-DE', {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 2,
+  })} h`;
+}
+
+const DAY_LABELS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'] as const;
+
+export function weekdayShort(iso: string): string {
+  return DAY_LABELS[new Date(iso).getDay()] ?? '';
+}
+
+/** Status-Label für Stundenzettel (kurz, DE). */
+export function timesheetStatusLabel(status: string): string {
+  switch (status) {
+    case 'DRAFT':
+      return 'Entwurf';
+    case 'WORKER_SIGNED':
+      return 'Unterschrieben';
+    case 'SUBMITTED':
+      return 'Eingereicht';
+    case 'APPROVED':
+      return 'Freigegeben';
+    case 'REJECTED':
+      return 'Abgelehnt';
+    case 'ARCHIVED':
+      return 'Archiviert';
+    default:
+      return status;
+  }
+}

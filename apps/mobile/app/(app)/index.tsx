@@ -26,18 +26,25 @@ import {
   type TodayEntry,
   type WorkerMeAssignment,
   type PendingWorkDocumentation,
+  type ActivityTypeItem,
   ApiError,
+  stampErrorTitle,
 } from '../../lib/api';
 import { formatDuration, formatTime, initials, dayStart } from '../../lib/utils';
 import { getCurrentPosition } from '../../lib/location';
+import { isActivityTrackingRequired } from '../../lib/activity-gate';
+import { usePeriodicGpsPing } from '../../lib/use-periodic-gps-ping';
 import { T, both } from '../../lib/i18n-work-items';
 
 export default function DashboardScreen() {
-  const { worker, logout } = useAuth();
+  const { worker, logout, refresh: refreshWorker } = useAuth();
 
   const [status, setStatus] = useState<ClockStatus | null>(null);
   const [todayEntries, setTodayEntries] = useState<TodayEntry[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  const [activityTypes, setActivityTypes] = useState<ActivityTypeItem[]>([]);
+  const [selectedActivityTypeId, setSelectedActivityTypeId] = useState('');
+  const [activityPickerOpen, setActivityPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [gpsOk, setGpsOk] = useState<boolean | null>(null);
@@ -58,6 +65,12 @@ export default function DashboardScreen() {
   const [workNotes, setWorkNotes] = useState('');
   const [workBusy, setWorkBusy] = useState(false);
 
+  usePeriodicGpsPing({
+    active: Boolean(status?.clockedIn && worker?.id),
+    workerId: worker?.id,
+    projectId: status?.project?.id ?? selectedProjectId ?? null,
+  });
+
   const refresh = useCallback(
     async (workerId: string) => {
       try {
@@ -72,14 +85,17 @@ export default function DashboardScreen() {
           setWorkSelected([]);
           setWorkNotes('');
         }
+        await refreshWorker();
       } catch (err) {
         Alert.alert(
-          'Fehler',
-          err instanceof ApiError ? err.message : 'Daten konnten nicht geladen werden.',
+          stampErrorTitle(err),
+          err instanceof ApiError
+            ? err.message
+            : 'Daten konnten nicht geladen werden.',
         );
       }
     },
-    [],
+    [refreshWorker],
   );
 
   useEffect(() => {
@@ -119,7 +135,49 @@ export default function DashboardScreen() {
   }, [current, selectedProjectId]);
 
   const clockedIn = status?.clockedIn ?? false;
+  const onBreak = Boolean(status?.onBreak);
   const activeProject = clockedIn ? status?.project : null;
+
+  const relevantProjectId = clockedIn
+    ? status?.project?.id ?? selectedProjectId
+    : selectedProjectId;
+
+  const relevantBillingMode = useMemo(() => {
+    if (clockedIn && status?.project?.billingMode !== undefined) {
+      return status.project.billingMode ?? null;
+    }
+    const fromAssignment = (worker?.assignments ?? []).find(
+      (a) => a.project.id === relevantProjectId,
+    )?.project.billingMode;
+    return fromAssignment ?? null;
+  }, [clockedIn, status, worker, relevantProjectId]);
+
+  const activityRequired = isActivityTrackingRequired(
+    worker?.masterEngineer ?? false,
+    relevantBillingMode,
+  );
+
+  useEffect(() => {
+    if (!activityRequired) {
+      setActivityTypes([]);
+      setSelectedActivityTypeId('');
+      return;
+    }
+    void workerApi
+      .listActivityTypes()
+      .then((list) => {
+        setActivityTypes(list);
+        setSelectedActivityTypeId((prev) => {
+          if (prev && list.some((a) => a.id === prev)) return prev;
+          const fromStatus = status?.currentActivity?.id;
+          if (fromStatus && list.some((a) => a.id === fromStatus)) {
+            return fromStatus;
+          }
+          return list[0]?.id ?? '';
+        });
+      })
+      .catch(() => setActivityTypes([]));
+  }, [activityRequired, worker?.id, status?.currentActivity?.id]);
 
   /**
    * Arbeitsitems gibt es nur für item-basierte Projekte. `itemBased` liefert
@@ -145,6 +203,17 @@ export default function DashboardScreen() {
       Alert.alert('Hinweis', 'Bitte wähle ein Projekt aus.');
       return;
     }
+    const assignment = (worker.assignments ?? []).find(
+      (a) => a.project.id === projectId,
+    );
+    const gate = isActivityTrackingRequired(
+      worker.masterEngineer ?? false,
+      assignment?.project.billingMode ?? status?.project?.billingMode,
+    );
+    if (gate && activityTypes.length > 0 && !selectedActivityTypeId) {
+      Alert.alert('Hinweis', 'Bitte Tätigkeit wählen.');
+      return;
+    }
     setBusy(true);
     try {
       const geo = await getCurrentPosition();
@@ -155,6 +224,7 @@ export default function DashboardScreen() {
         ...(geo ?? {}),
         occurredAtClient: new Date().toISOString(),
         sourceDevice: 'mobile-app',
+        activityTypeId: gate ? selectedActivityTypeId : undefined,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Vibration.vibrate(60);
@@ -162,8 +232,70 @@ export default function DashboardScreen() {
       await refresh(worker.id);
     } catch (err) {
       Alert.alert(
-        'Fehler',
+        stampErrorTitle(err),
         err instanceof ApiError ? err.message : 'Einstempeln fehlgeschlagen.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleSwitchActivity = async (activityTypeId: string) => {
+    if (!worker || !status?.clockedIn) return;
+    if (activityTypeId === status.currentActivity?.id) {
+      setSelectedActivityTypeId(activityTypeId);
+      setActivityPickerOpen(false);
+      return;
+    }
+    setSelectedActivityTypeId(activityTypeId);
+    setActivityPickerOpen(false);
+    setBusy(true);
+    try {
+      const geo = await getCurrentPosition();
+      setGpsOk(geo !== null);
+      const next = await workerApi.switchActivity({
+        workerId: worker.id,
+        activityTypeId,
+        ...(geo ?? {}),
+        occurredAtClient: new Date().toISOString(),
+      });
+      setStatus(next);
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      Alert.alert(
+        stampErrorTitle(err),
+        err instanceof ApiError ? err.message : 'Wechsel fehlgeschlagen.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleBreakToggle = async () => {
+    if (!worker || !clockedIn) return;
+    setBusy(true);
+    try {
+      const geo = await getCurrentPosition();
+      setGpsOk(geo !== null);
+      const body = {
+        workerId: worker.id,
+        ...(geo ?? {}),
+        occurredAtClient: new Date().toISOString(),
+        sourceDevice: 'mobile-app',
+      };
+      const result = onBreak
+        ? await workerApi.breakEnd(body)
+        : await workerApi.breakStart(body);
+      setStatus(result);
+      await refresh(worker.id);
+    } catch (err) {
+      Alert.alert(
+        stampErrorTitle(err),
+        err instanceof ApiError
+          ? err.message
+          : onBreak
+            ? 'Pause beenden fehlgeschlagen.'
+            : 'Pause starten fehlgeschlagen.',
       );
     } finally {
       setBusy(false);
@@ -217,7 +349,7 @@ export default function DashboardScreen() {
       }
     } catch (err) {
       Alert.alert(
-        'Fehler',
+        stampErrorTitle(err),
         err instanceof ApiError ? err.message : 'Ausstempeln fehlgeschlagen.',
       );
     } finally {
@@ -507,10 +639,97 @@ export default function DashboardScreen() {
               <Text style={styles.clockedInLabel}>
                 Eingestempelt seit {formatTime(status?.since)}
               </Text>
+              {onBreak && (
+                <Text style={styles.breakLabel}>
+                  Pause seit {formatTime(status?.breakStartedAt)}
+                </Text>
+              )}
               <Text style={styles.timer}>{formatDuration(elapsedSeconds)}</Text>
             </>
           ) : (
             <Text style={styles.notClockedInLabel}>Nicht eingestempelt</Text>
+          )}
+
+          {activityRequired && activityTypes.length > 0 && (
+            <View style={styles.activityBlock}>
+              <Text style={styles.activityHint}>
+                {clockedIn ? 'Tätigkeit wechseln' : 'Tätigkeit (stundenbasiert)'}
+              </Text>
+              {clockedIn && status?.currentActivity && (
+                <Text style={styles.currentActivity}>
+                  Aktuelle Tätigkeit: {status.currentActivity.name}
+                </Text>
+              )}
+              <TouchableOpacity
+                style={[
+                  styles.pickerButton,
+                  (busy || onBreak) && styles.clockButtonDisabled,
+                ]}
+                onPress={() => {
+                  if (busy || onBreak) return;
+                  setActivityPickerOpen(!activityPickerOpen);
+                }}
+                disabled={busy || onBreak}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.pickerButtonText}>
+                  {activityTypes.find((a) => a.id === selectedActivityTypeId)
+                    ?.name ?? 'Tätigkeit auswählen…'}
+                </Text>
+                <Ionicons
+                  name={activityPickerOpen ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#9ca3af"
+                />
+              </TouchableOpacity>
+              {activityPickerOpen && (
+                <View style={styles.pickerDropdown}>
+                  {activityTypes.map((a) => (
+                    <TouchableOpacity
+                      key={a.id}
+                      style={[
+                        styles.pickerItem,
+                        a.id === selectedActivityTypeId &&
+                          styles.pickerItemSelected,
+                      ]}
+                      onPress={() => {
+                        if (clockedIn) {
+                          void handleSwitchActivity(a.id);
+                        } else {
+                          setSelectedActivityTypeId(a.id);
+                          setActivityPickerOpen(false);
+                        }
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.pickerItemText,
+                          a.id === selectedActivityTypeId &&
+                            styles.pickerItemTextSelected,
+                        ]}
+                      >
+                        {a.name}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          )}
+
+          {clockedIn && (
+            <TouchableOpacity
+              style={[styles.breakButton, busy && styles.clockButtonDisabled]}
+              onPress={() => void handleBreakToggle()}
+              disabled={busy}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="cafe-outline" size={20} color="#f9fafb" />
+              <Text style={styles.breakButtonText}>
+                {onBreak ? 'Pause beenden' : 'Pause starten'}
+              </Text>
+            </TouchableOpacity>
           )}
 
           {/* Stempel-Button */}
@@ -518,11 +737,23 @@ export default function DashboardScreen() {
             style={[
               styles.clockButton,
               clockedIn ? styles.clockButtonOut : styles.clockButtonIn,
-              (busy || (!clockedIn && current.length === 0)) &&
+              (busy ||
+                (!clockedIn && current.length === 0) ||
+                (!clockedIn &&
+                  activityRequired &&
+                  activityTypes.length > 0 &&
+                  !selectedActivityTypeId)) &&
                 styles.clockButtonDisabled,
             ]}
             onPress={clockedIn ? handleClockOut : handleClockIn}
-            disabled={busy || (!clockedIn && current.length === 0)}
+            disabled={
+              busy ||
+              (!clockedIn && current.length === 0) ||
+              (!clockedIn &&
+                activityRequired &&
+                activityTypes.length > 0 &&
+                !selectedActivityTypeId)
+            }
             activeOpacity={0.8}
           >
             {busy ? (
@@ -545,6 +776,24 @@ export default function DashboardScreen() {
             <Text style={styles.clockOutHint}>{both(T.openItemsStay)}</Text>
           )}
         </View>
+
+        {/* Stundenzettel */}
+        <TouchableOpacity
+          style={styles.workItemsCard}
+          onPress={() => router.push('/(app)/timesheets')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.workItemsIcon}>
+            <Ionicons name="document-text-outline" size={24} color="#3b82f6" />
+          </View>
+          <View style={styles.workItemsTexts}>
+            <Text style={styles.workItemsTitle}>Stundenzettel</Text>
+            <Text style={styles.workItemsSubtitle}>
+              Wochenzettel ansehen und unterschreiben
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={22} color="#6b7280" />
+        </TouchableOpacity>
 
         {/* Arbeitsitems – nur bei item-basiertem, aktuell gestempeltem Projekt */}
         {itemBasedActive && activeProject && (
@@ -973,9 +1222,47 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#22c55e',
   },
+  breakLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#f59e0b',
+  },
   notClockedInLabel: {
     fontSize: 14,
     color: '#6b7280',
+  },
+  activityBlock: {
+    width: '100%',
+    gap: 8,
+    marginBottom: 4,
+  },
+  activityHint: {
+    fontSize: 13,
+    color: '#9ca3af',
+    textAlign: 'center',
+  },
+  currentActivity: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#22c55e',
+    textAlign: 'center',
+  },
+  breakButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    minHeight: 52,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#374151',
+    backgroundColor: '#111827',
+  },
+  breakButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#f9fafb',
   },
   timer: {
     fontSize: 48,
