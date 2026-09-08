@@ -24,9 +24,9 @@ Wenn der Nutzer offenen Backlog, „noch offen“, Time-Entries, PIN, Google Con
 - Google Admin: Calendar API + DWD-Scope `calendar` (Sync-Test)
 - Cloud-Auftrag `#26` Projektpläne – Abnahme / Rest
 - KI-Import SPIE-PDF einmal E2E fachlich abnehmen
-- **Expo `#36`** Phase 1 Stempel-Parität (Android) – Umsetzung
 - Optional: Calendar Phase 2 / WhatsApp Business / Geofence nach Expo Phase 1
   (Plan: `claude-auftraege/plan-expo-mobile-phase1-2.md`)
+- Expo `#36` Phase 1 auf main – **neues Android-APK** via EAS bauen/installieren
 
 **Erledigt (Zeiterfassung):** **P1–P4** `#32`–`#35` – Prod
 
