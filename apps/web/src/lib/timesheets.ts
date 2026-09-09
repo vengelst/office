@@ -85,7 +85,7 @@ export interface ClockStatus {
   timeEntryId: string | null;
   /** Nur bei clock-out: Brutto-Minuten des gerade beendeten Intervalls. */
   lastGrossMinutes?: number;
-  /** Offene Tätigkeit (Master). */
+  /** Offene Tätigkeit (Master / Stundenprojekt). */
   currentActivity?: {
     id: string;
     code: string;

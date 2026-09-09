@@ -154,6 +154,12 @@ export function TerminalActionScreen({
         />
       )}
 
+      {activityRequired && activityTypes.length === 0 && (
+        <p className="mx-auto mt-4 max-w-lg rounded-xl border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-center text-base text-amber-200">
+          {t(KT.activityTypesMissing)}
+        </p>
+      )}
+
       {actionError && (
         <p className="mx-auto mt-3 max-w-md text-center text-sm text-red-400">
           {actionError}
@@ -175,8 +181,7 @@ export function TerminalActionScreen({
           !(
             !isIn &&
             activityRequired &&
-            activityTypes.length > 0 &&
-            !selectedActivityTypeId
+            (activityTypes.length === 0 || !selectedActivityTypeId)
           )
         }
         itemBasedProject={itemBasedProject}

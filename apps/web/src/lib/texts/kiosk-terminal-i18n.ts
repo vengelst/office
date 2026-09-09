@@ -174,14 +174,19 @@ export const KT = {
     sl: 'Čas se knjiži na',
   },
   chooseActivity: {
-    de: 'Tätigkeit (stundenbasiert)',
-    sk: 'Činnosť (hodinová)',
-    sl: 'Dejavnost (urnsko)',
+    de: 'Woran arbeitest du?',
+    sk: 'Na čom pracuješ?',
+    sl: 'Na čem delaš?',
   },
   switchActivity: {
     de: 'Tätigkeit wechseln',
     sk: 'Zmeniť činnosť',
     sl: 'Zamenjaj dejavnost',
+  },
+  activityHint: {
+    de: 'Bitte wählen – erscheint auf dem Stundenzettel',
+    sk: 'Prosím vyberte – zobrazí sa na výkaze',
+    sl: 'Prosimo izberite – prikaže se na seznamu ur',
   },
   currentActivity: {
     de: 'Aktuelle Tätigkeit',
@@ -192,6 +197,11 @@ export const KT = {
     de: 'Bitte Tätigkeit wählen',
     sk: 'Prosím vyberte činnosť',
     sl: 'Prosimo izberite dejavnost',
+  },
+  activityTypesMissing: {
+    de: 'Keine Tätigkeiten konfiguriert. Büro muss Tätigkeiten unter Einstellungen → Tätigkeitsbereiche anlegen.',
+    sk: 'Žiadne činnosti. Kancelária musí vytvoriť činnosti v Nastavenia → Oblasti činností.',
+    sl: 'Ni dejavnosti. Pisarna mora ustvariti dejavnosti pod Nastavitve → Področja dejavnosti.',
   },
   activitySwitchError: {
     de: 'Tätigkeit konnte nicht gewechselt werden',

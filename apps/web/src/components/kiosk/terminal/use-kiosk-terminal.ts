@@ -31,7 +31,7 @@ import {
   activityTypesApi,
   type ActivityTypeItem,
 } from '@/lib/activity-types';
-import { isActivityTrackingRequired } from '@/lib/activity-gate';
+import { isActivityTrackingRequired, resolveActivityBillingMode } from '@/lib/activity-gate';
 import { ApiError } from '@/lib/api-client';
 import type { KioskConfig } from '@/app/kiosk/setup/page';
 import {
@@ -336,18 +336,37 @@ export function useKioskTerminal() {
         (a) => a.project.id === (defaultProjectId ?? config?.projectId),
       )?.project.billingMode;
       const billingFromStatus = merged.project?.billingMode;
+      const configBilling =
+        (defaultProjectId ?? config?.projectId) === config?.projectId
+          ? config?.billingMode
+          : undefined;
       const needActivity = isActivityTrackingRequired(
         me.masterEngineer ?? false,
-        billingFromStatus ?? billingFromAssignment,
+        resolveActivityBillingMode({
+          clockedIn: merged.clockedIn,
+          statusBillingMode: billingFromStatus,
+          assignmentBillingMode: billingFromAssignment,
+          configBillingMode: configBilling,
+        }),
       );
       if (needActivity) {
         void activityTypesApi
           .listActiveForWorker()
           .then((list) => {
             setActivityTypes(list);
-            if (list[0]) setSelectedActivityTypeId(list[0].id);
+            setSelectedActivityTypeId((prev) => {
+              if (prev && list.some((a) => a.id === prev)) return prev;
+              const fromStatus = merged.currentActivity?.id;
+              if (fromStatus && list.some((a) => a.id === fromStatus)) {
+                return fromStatus;
+              }
+              return list[0]?.id ?? null;
+            });
           })
-          .catch(() => setActivityTypes([]));
+          .catch(() => {
+            setActivityTypes([]);
+            setSelectedActivityTypeId(null);
+          });
       } else {
         setActivityTypes([]);
       }
@@ -379,8 +398,19 @@ export function useKioskTerminal() {
     );
     const gate = isActivityTrackingRequired(
       worker.masterEngineer ?? false,
-      assignment?.project.billingMode,
+      resolveActivityBillingMode({
+        clockedIn: false,
+        assignmentBillingMode: assignment?.project.billingMode,
+        configBillingMode:
+          clockInProjectId === config.projectId
+            ? config.billingMode
+            : undefined,
+      }),
     );
+    if (gate && activityTypes.length === 0) {
+      setActionError(t(KT.activityTypesMissing));
+      return;
+    }
     if (gate && !selectedActivityTypeId) {
       setActionError(t(KT.activityRequired));
       return;
@@ -675,13 +705,15 @@ export function useKioskTerminal() {
     (a) => a.project.id === activeProjectId && a.project.itemBased === true,
   );
 
-  const activityBillingMode =
-    (clockStatus?.clockedIn
-      ? clockStatus.project?.billingMode
-      : undefined) ??
-    (worker?.assignments ?? []).find((a) => a.project.id === activeProjectId)
-      ?.project.billingMode ??
-    null;
+  const activityBillingMode = resolveActivityBillingMode({
+    clockedIn: clockStatus?.clockedIn,
+    statusBillingMode: clockStatus?.project?.billingMode,
+    assignmentBillingMode: (worker?.assignments ?? []).find(
+      (a) => a.project.id === activeProjectId,
+    )?.project.billingMode,
+    configBillingMode:
+      activeProjectId === config?.projectId ? config?.billingMode : undefined,
+  });
 
   const activityRequired = isActivityTrackingRequired(
     worker?.masterEngineer ?? false,
@@ -696,10 +728,24 @@ export function useKioskTerminal() {
       .listActiveForWorker()
       .then((list) => {
         setActivityTypes(list);
-        if (list[0]) setSelectedActivityTypeId(list[0].id);
+        setSelectedActivityTypeId((prev) => {
+          if (prev && list.some((a) => a.id === prev)) return prev;
+          const fromStatus = clockStatus?.currentActivity?.id;
+          if (fromStatus && list.some((a) => a.id === fromStatus)) {
+            return fromStatus;
+          }
+          return list[0]?.id ?? null;
+        });
       })
       .catch(() => setActivityTypes([]));
-  }, [state, worker, activityRequired, activityTypes.length, activeProjectId]);
+  }, [
+    state,
+    worker,
+    activityRequired,
+    activityTypes.length,
+    activeProjectId,
+    clockStatus?.currentActivity?.id,
+  ]);
 
   const canClockInOnKioskProject = assignmentValidToday(worker, activeProjectId);
 

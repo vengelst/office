@@ -16,6 +16,7 @@ import {
   Play,
   SlidersHorizontal,
   TimerReset,
+  Upload,
   UserX,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/page-header';
@@ -35,8 +36,10 @@ import {
   DEFAULT_OVERTIME_ALERT_HOURS,
   DEFAULT_OVERTIME_ALERT_REMINDER_INTERVAL_MINUTES,
   DEFAULT_OVERTIME_ALERT_REMINDERS,
+  DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
   DEFAULT_PIN_LENGTH,
   MAX_AUTO_CLOCK_OUT_HOURS,
+  MAX_DOCUMENT_UPLOAD_MAX_MB,
   MAX_NO_SHOW_ALERT_HOUR,
   MAX_NO_SHOW_ALERT_MINUTE,
   MAX_OVERTIME_ALERT_HOURS,
@@ -44,6 +47,7 @@ import {
   MAX_OVERTIME_ALERT_REMINDERS,
   MAX_PIN_LENGTH,
   MIN_AUTO_CLOCK_OUT_HOURS,
+  MIN_DOCUMENT_UPLOAD_MAX_MB,
   MIN_NO_SHOW_ALERT_HOUR,
   MIN_NO_SHOW_ALERT_MINUTE,
   MIN_OVERTIME_ALERT_HOURS,
@@ -63,6 +67,9 @@ export default function GeneralSettingsPage(): React.ReactNode {
   const [debugLogEnabled, setDebugLogEnabled] = useState(false);
   const [gpsIntervalMinutes, setGpsIntervalMinutes] = useState(20);
   const [pinLength, setPinLength] = useState(DEFAULT_PIN_LENGTH);
+  const [documentUploadMaxMb, setDocumentUploadMaxMb] = useState(
+    DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+  );
   const [overtimeAlertEmail, setOvertimeAlertEmail] = useState('');
   const [overtimeAlertHours, setOvertimeAlertHours] = useState(
     DEFAULT_OVERTIME_ALERT_HOURS,
@@ -103,6 +110,9 @@ export default function GeneralSettingsPage(): React.ReactNode {
         setDebugLogEnabled(data.debugLogEnabled);
         setGpsIntervalMinutes(data.gpsIntervalMinutes ?? 20);
         setPinLength(data.pinLength ?? DEFAULT_PIN_LENGTH);
+        setDocumentUploadMaxMb(
+          data.documentUploadMaxMb ?? DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+        );
         setOvertimeAlertEmail(data.overtimeAlertEmail ?? '');
         setOvertimeAlertHours(
           data.overtimeAlertHours ?? DEFAULT_OVERTIME_ALERT_HOURS,
@@ -165,6 +175,10 @@ export default function GeneralSettingsPage(): React.ReactNode {
       MAX_NO_SHOW_ALERT_MINUTE,
       Math.max(MIN_NO_SHOW_ALERT_MINUTE, Math.round(noShowAlertMinute)),
     );
+    const uploadMb = Math.min(
+      MAX_DOCUMENT_UPLOAD_MAX_MB,
+      Math.max(MIN_DOCUMENT_UPLOAD_MAX_MB, Math.round(documentUploadMaxMb)),
+    );
     return {
       debugLogEnabled,
       gpsIntervalMinutes: Math.min(
@@ -184,6 +198,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
       noShowAlertEnabled,
       noShowAlertHour: noShowHour,
       noShowAlertMinute: noShowMinute,
+      documentUploadMaxMb: uploadMb,
     };
   };
 
@@ -315,6 +330,7 @@ export default function GeneralSettingsPage(): React.ReactNode {
       setDebugLogEnabled(saved.debugLogEnabled);
       setGpsIntervalMinutes(saved.gpsIntervalMinutes);
       setPinLength(saved.pinLength);
+      setDocumentUploadMaxMb(saved.documentUploadMaxMb);
       setOvertimeAlertEmail(saved.overtimeAlertEmail);
       setOvertimeAlertHours(saved.overtimeAlertHours);
       setOvertimeAlertReminders(saved.overtimeAlertReminders);
@@ -437,6 +453,37 @@ export default function GeneralSettingsPage(): React.ReactNode {
                 </select>
                 <span className="text-sm text-muted-foreground">
                   {t.pinLengthUnit}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-3 border-t pt-5">
+            <Upload className="mt-0.5 h-5 w-5 text-muted-foreground" />
+            <div className="flex-1 space-y-2">
+              <p className="font-medium text-sm">{t.documentUploadTitle}</p>
+              <p className="text-xs text-muted-foreground">
+                {t.documentUploadHint}
+              </p>
+              <div className="flex max-w-xs items-center gap-2">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min={MIN_DOCUMENT_UPLOAD_MAX_MB}
+                  max={MAX_DOCUMENT_UPLOAD_MAX_MB}
+                  step={1}
+                  disabled={!canEdit}
+                  value={documentUploadMaxMb}
+                  onChange={(e) =>
+                    setDocumentUploadMaxMb(
+                      Number.parseInt(e.target.value, 10) ||
+                        DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+                    )
+                  }
+                  className="min-h-[44px] w-28"
+                />
+                <span className="text-sm text-muted-foreground">
+                  {t.documentUploadUnit}
                 </span>
               </div>
             </div>

@@ -11,6 +11,14 @@ import {
 } from '@nestjs/common';
 import { DocumentType, Prisma } from '@prisma/client';
 import type { Readable } from 'node:stream';
+import { AppSettingsService } from '../app-settings/app-settings.service';
+import {
+  DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+  DOCUMENT_UPLOAD_MAX_MB_KEY,
+  documentUploadMaxBytes,
+  documentUploadTooLargeMessage,
+  parseDocumentUploadMaxMb,
+} from '../app-settings/document-upload-limit';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from './storage.service';
 import { StoragePathService } from '../common/storage-path.service';
@@ -22,8 +30,14 @@ import {
 } from './dto/upload-document.dto';
 import { LinkDocumentDto } from './dto/link-document.dto';
 
-/** Maximale Dateigröße (Dokument-/Plan-Upload): 50 MB (nginx client_max_body_size 64m). */
-export const MAX_FILE_SIZE = 50 * 1024 * 1024;
+/**
+ * Fallback-Maximalgröße (Bytes), wenn kein AppSetting gelesen wird
+ * (z. B. Block-PDF-Override-Kontext oder Tests).
+ * Konfigurierbar unter Settings → Allgemein (`document_upload_max_mb`, Default 50, Max 64).
+ */
+export const MAX_FILE_SIZE = documentUploadMaxBytes(
+  DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+);
 
 /** Erhöhtes Limit nur für Block-PDF-Import (Work Items): 50 MB. */
 export const MAX_BLOCK_PDF_FILE_SIZE = 50 * 1024 * 1024;
@@ -139,7 +153,19 @@ export class DocumentsService {
     private readonly storage: StorageService,
     private readonly storagePath: StoragePathService,
     private readonly driveService: GoogleDriveService,
+    private readonly settings: AppSettingsService,
   ) {}
+
+  /** Liest konfiguriertes Upload-Limit in MB (Default 50, Clamp 5–64). */
+  async resolveMaxUploadMb(): Promise<number> {
+    const raw = await this.settings.get(DOCUMENT_UPLOAD_MAX_MB_KEY);
+    return parseDocumentUploadMaxMb(raw);
+  }
+
+  /** MB → Bytes (für Multer limits.fileSize). */
+  maxUploadBytesFromMb(maxMb: number): number {
+    return documentUploadMaxBytes(maxMb);
+  }
 
   /**
    * Lädt eine Datei in den MinIO-Storage hoch und persistiert die Metadaten in der DB.
@@ -161,11 +187,15 @@ export class DocumentsService {
     if (!file) {
       throw new BadRequestException('Keine Datei übermittelt');
     }
-    const maxSize = options?.maxFileSize ?? MAX_FILE_SIZE;
+    const maxMb =
+      options?.maxFileSize != null
+        ? Math.round(options.maxFileSize / 1024 / 1024)
+        : await this.resolveMaxUploadMb();
+    const maxSize =
+      options?.maxFileSize ?? this.maxUploadBytesFromMb(maxMb);
     if (file.size > maxSize) {
-      const maxMb = (maxSize / 1024 / 1024).toFixed(0);
       throw new BadRequestException(
-        `Datei überschreitet ${maxMb} MB (${(file.size / 1024 / 1024).toFixed(1)} MB)`,
+        documentUploadTooLargeMessage(maxMb, file.size),
       );
     }
     if (!isAllowedMime(file.mimetype)) {
@@ -287,8 +317,12 @@ export class DocumentsService {
     if (!file) {
       throw new BadRequestException('Keine Datei übermittelt');
     }
-    if (file.size > MAX_FILE_SIZE) {
-      throw new BadRequestException('Datei überschreitet 10 MB');
+    const maxMb = await this.resolveMaxUploadMb();
+    const maxSize = this.maxUploadBytesFromMb(maxMb);
+    if (file.size > maxSize) {
+      throw new BadRequestException(
+        documentUploadTooLargeMessage(maxMb, file.size),
+      );
     }
     if (!isAllowedMime(file.mimetype)) {
       throw new BadRequestException(`Dateityp nicht erlaubt: ${file.mimetype}`);
