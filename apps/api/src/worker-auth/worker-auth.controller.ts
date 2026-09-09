@@ -13,6 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthUser, LoginResponse } from '@office/types';
 import { AuthService } from '../auth/auth.service';
 import { PinLoginDto } from '../auth/dto/pin-login.dto';
@@ -38,6 +39,7 @@ export class WorkerAuthController {
    */
 
   @Public()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @Post('pin-login')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Monteur-Login per PIN → Worker-Token' })

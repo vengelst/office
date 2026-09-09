@@ -59,9 +59,11 @@ const LIMIT = 25;
 const ALL = '__all__';
 const STATUSES: WeeklyTimesheetStatus[] = [
   'DRAFT',
+  'WORKER_SIGNED',
   'SUBMITTED',
   'APPROVED',
   'REJECTED',
+  'ARCHIVED',
 ];
 
 export default function TimesheetsPage(): React.ReactNode {
