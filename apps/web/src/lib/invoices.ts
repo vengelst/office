@@ -41,6 +41,13 @@ export type InvoiceTaxKind =
   | 'REVERSE_CHARGE'
   | 'TAX_EXEMPT';
 
+/** Kundenpräferenz für E-Rechnungsversand. */
+export type EInvoicePreference =
+  | 'NONE'
+  | 'ZUGFERD_COMFORT'
+  | 'XRECHNUNG'
+  | 'BOTH';
+
 /** Einzelne Rechnungsposition mit Menge, Einzelpreis und Gesamtbetrag. */
 export interface InvoiceLine {
   id: string;
@@ -514,6 +521,7 @@ export const invoicesApi = {
         label: string | null;
         emailType: string;
       } | null;
+      eInvoicePreference?: EInvoicePreference;
       customerDocuments: Array<{
         id: string;
         title: string | null;

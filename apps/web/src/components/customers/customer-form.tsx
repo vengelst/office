@@ -185,7 +185,7 @@ export function CustomerForm({
       taxNumber: customer?.taxNumber ?? '',
       leitwegId: customer?.leitwegId ?? '',
       eInvoicePreference:
-        customer?.eInvoicePreference ?? 'ZUGFERD_COMFORT',
+        customer?.eInvoicePreference ?? 'NONE',
       notes: customer?.notes ?? '',
     },
   });
@@ -524,7 +524,7 @@ export function CustomerForm({
           </Field>
           <Field label="E-Rechnungsformat">
             <Select
-              value={watch('eInvoicePreference') ?? 'ZUGFERD_COMFORT'}
+              value={watch('eInvoicePreference') ?? 'NONE'}
               onValueChange={(v) =>
                 setValue(
                   'eInvoicePreference',
@@ -536,12 +536,12 @@ export function CustomerForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="NONE">Nur normales PDF</SelectItem>
                 <SelectItem value="ZUGFERD_COMFORT">
-                  ZUGFeRD Comfort (Standard)
+                  ZUGFeRD Comfort
                 </SelectItem>
                 <SelectItem value="XRECHNUNG">XRechnung</SelectItem>
-                <SelectItem value="BOTH">Beide (PDF + XML)</SelectItem>
-                <SelectItem value="NONE">Nur normales PDF</SelectItem>
+                <SelectItem value="BOTH">Beide (ZUGFeRD + XRechnung)</SelectItem>
               </SelectContent>
             </Select>
           </Field>

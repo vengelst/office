@@ -391,7 +391,7 @@ model Customer {
   /// Leitweg-ID / Buyer Reference (BT-10) für XRechnung / ZUGFeRD
   leitwegId       String?
   /// Bevorzugtes E-Rechnungsformat beim Versand
-  eInvoicePreference EInvoicePreference @default(ZUGFERD_COMFORT)
+  eInvoicePreference EInvoicePreference @default(NONE)
   /// VIES-Prüfergebnis (EU USt-IdNr.)
   vatIdValidatedAt   DateTime?
   vatIdValid         Boolean?

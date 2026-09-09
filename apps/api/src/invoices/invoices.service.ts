@@ -1390,6 +1390,8 @@ export class InvoicesService {
             emailType: billingEmail.emailType,
           }
         : null,
+      eInvoicePreference:
+        invoice.customer?.eInvoicePreference ?? 'NONE',
       customerDocuments: customerDocs.map((d) => ({
         id: d.id,
         title: d.title,
@@ -1446,7 +1448,7 @@ export class InvoicesService {
 
     const attachments: EmailAttachment[] = [];
 
-    const pref = invoice.customer?.eInvoicePreference ?? 'ZUGFERD_COMFORT';
+    const pref = invoice.customer?.eInvoicePreference ?? 'NONE';
     const wantZugferd =
       dto.attachZugferd ??
       (pref === 'ZUGFERD_COMFORT' || pref === 'BOTH');

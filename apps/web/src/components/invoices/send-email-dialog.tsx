@@ -16,8 +16,25 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
 import { ApiError } from '@/lib/api-client';
-import { invoicesApi } from '@/lib/invoices';
+import { invoicesApi, type EInvoicePreference } from '@/lib/invoices';
 import { texts } from '@/lib/texts';
+
+function prefsFromCustomer(pref: EInvoicePreference | undefined): {
+  zugferd: boolean;
+  xrechnung: boolean;
+} {
+  switch (pref) {
+    case 'ZUGFERD_COMFORT':
+      return { zugferd: true, xrechnung: false };
+    case 'XRECHNUNG':
+      return { zugferd: false, xrechnung: true };
+    case 'BOTH':
+      return { zugferd: true, xrechnung: true };
+    case 'NONE':
+    default:
+      return { zugferd: false, xrechnung: false };
+  }
+}
 
 export function SendEmailDialog({
   invoiceId,
@@ -33,6 +50,7 @@ export function SendEmailDialog({
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [recipient, setRecipient] = useState<string | null>(null);
+  const [prefLabel, setPrefLabel] = useState<string>('Nur PDF');
   const [docs, setDocs] = useState<
     Array<{ id: string; title: string | null; originalFilename: string }>
   >([]);
@@ -41,7 +59,7 @@ export function SendEmailDialog({
   >([]);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [selectedTs, setSelectedTs] = useState<Set<string>>(new Set());
-  const [attachZugferd, setAttachZugferd] = useState(true);
+  const [attachZugferd, setAttachZugferd] = useState(false);
   const [attachXRechnung, setAttachXRechnung] = useState(false);
 
   useEffect(() => {
@@ -52,6 +70,19 @@ export function SendEmailDialog({
         setDocs(data.customerDocuments);
         setTimesheets(data.timesheets);
         setSelectedTs(new Set(data.timesheets.map((x) => x.id)));
+        const pref = data.eInvoicePreference ?? 'NONE';
+        const flags = prefsFromCustomer(pref);
+        setAttachZugferd(flags.zugferd);
+        setAttachXRechnung(flags.xrechnung);
+        setPrefLabel(
+          pref === 'ZUGFERD_COMFORT'
+            ? 'ZUGFeRD'
+            : pref === 'XRECHNUNG'
+              ? 'XRechnung'
+              : pref === 'BOTH'
+                ? 'ZUGFeRD + XRechnung'
+                : 'Nur PDF',
+        );
       })
       .catch((err) => {
         toast({
@@ -112,6 +143,9 @@ export function SendEmailDialog({
             </div>
             <div className="space-y-2">
               <Label>E-Rechnung</Label>
+              <p className="text-xs text-muted-foreground">
+                Kundenstandard: {prefLabel} – für diesen Versand anpassbar.
+              </p>
               <label className="flex min-h-[44px] items-center gap-3 cursor-pointer">
                 <input
                   type="checkbox"
@@ -130,6 +164,11 @@ export function SendEmailDialog({
                 />
                 <span className="text-sm">XRechnung XML zusätzlich</span>
               </label>
+              {!attachZugferd && !attachXRechnung && (
+                <p className="text-xs text-muted-foreground">
+                  Ohne Haken wird nur das normale Rechnungs-PDF angehängt.
+                </p>
+              )}
             </div>
             <div className="space-y-2">
               <Label>{t.attachments}</Label>
