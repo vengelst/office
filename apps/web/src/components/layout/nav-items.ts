@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { AuthUser } from '@office/types';
+import { hasPermission } from '@/lib/auth-context';
 import { isCustomerPlOnly } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 
@@ -33,6 +34,8 @@ export interface NavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Optionale Permission – Eintrag nur sichtbar wenn vorhanden (oder SUPERADMIN). */
+  permission?: string;
 }
 
 /**
@@ -49,32 +52,96 @@ export const navGroups: NavGroup[] = [
   {
     items: [
       { href: '/dashboard', label: texts.nav.dashboard, icon: LayoutDashboard },
-      { href: '/todos', label: texts.todos.title, icon: CheckSquare },
-      { href: '/customers', label: texts.nav.customers, icon: Users },
-      { href: '/projects', label: texts.nav.projects, icon: FolderKanban },
-      { href: '/calendar', label: texts.nav.calendar, icon: CalendarDays },
+      {
+        href: '/todos',
+        label: texts.todos.title,
+        icon: CheckSquare,
+        permission: 'todos.view',
+      },
+      {
+        href: '/customers',
+        label: texts.nav.customers,
+        icon: Users,
+        permission: 'customers.view',
+      },
+      {
+        href: '/projects',
+        label: texts.nav.projects,
+        icon: FolderKanban,
+        permission: 'projects.view',
+      },
+      {
+        href: '/calendar',
+        label: texts.nav.calendar,
+        icon: CalendarDays,
+        permission: 'calendar.view',
+      },
       {
         href: '/communication',
         label: texts.nav.communication,
         icon: MessageSquare,
+        permission: 'communication.view',
       },
-      { href: '/workers', label: texts.nav.workers, icon: HardHat },
-      { href: '/teams', label: texts.nav.teams, icon: UsersRound },
+      {
+        href: '/workers',
+        label: texts.nav.workers,
+        icon: HardHat,
+        permission: 'workers.view',
+      },
+      {
+        href: '/teams',
+        label: texts.nav.teams,
+        icon: UsersRound,
+        permission: 'teams.view',
+      },
       {
         href: '/subcontractors',
         label: texts.nav.subcontractors,
         icon: Building2,
+        permission: 'subcontractors.view',
       },
-      { href: '/vehicles', label: texts.nav.vehicles, icon: Truck },
-      { href: '/equipment', label: texts.equipment.title, icon: Wrench },
-      { href: '/time-clock', label: texts.nav.timeClock, icon: Clock },
-      { href: '/timesheets', label: texts.nav.timesheets, icon: ClipboardList },
-      { href: '/documents', label: texts.documents.nav, icon: FolderArchive },
+      {
+        href: '/vehicles',
+        label: texts.nav.vehicles,
+        icon: Truck,
+        permission: 'vehicles.view',
+      },
+      {
+        href: '/equipment',
+        label: texts.equipment.title,
+        icon: Wrench,
+        permission: 'equipment.view',
+      },
+      {
+        href: '/time-clock',
+        label: texts.nav.timeClock,
+        icon: Clock,
+        permission: 'timeclock.view',
+      },
+      {
+        href: '/timesheets',
+        label: texts.nav.timesheets,
+        icon: ClipboardList,
+        permission: 'timesheets.view',
+      },
+      {
+        href: '/documents',
+        label: texts.documents.nav,
+        icon: FolderArchive,
+        permission: 'documents.view',
+      },
     ],
   },
   {
     label: texts.nav.sections.finance,
-    items: [{ href: '/invoices', label: texts.nav.invoices, icon: Receipt }],
+    items: [
+      {
+        href: '/invoices',
+        label: texts.nav.invoices,
+        icon: Receipt,
+        permission: 'invoices.view',
+      },
+    ],
   },
   {
     label: texts.nav.sections.settings,
@@ -89,8 +156,6 @@ export const navItems: NavItem[] = navGroups.flatMap((g) => g.items);
 
 /**
  * Navigation des Kunden-PLs – bewusst nur Item-Prüfung und Stundenzettel.
- * Interne Bereiche (Kunden, Stammdaten, Rechnungen, Einstellungen …) fehlen
- * hier vollständig (SPEZ-arbeitsitems.md 4.2).
  */
 export const customerPlNavGroups: NavGroup[] = [
   {
@@ -111,10 +176,29 @@ export const customerPlNavGroups: NavGroup[] = [
 
 /**
  * Navigationsgruppen passend zu den Rollen des angemeldeten Benutzers.
- *
- * @param user - Parameter `user` (AuthUser | null | undefined)
- * @returns NavGroup[]
  */
 export function navGroupsForUser(user: AuthUser | null | undefined): NavGroup[] {
   return isCustomerPlOnly(user) ? customerPlNavGroups : navGroups;
+}
+
+/**
+ * Filtert Nav-Items nach Feature-Flags und Permissions.
+ */
+export function filterNavGroups(
+  groups: NavGroup[],
+  user: AuthUser | null | undefined,
+  flagAllows: (href: string) => boolean,
+): NavGroup[] {
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!flagAllows(item.href)) return false;
+        if (item.permission && !hasPermission(user, item.permission)) {
+          return false;
+        }
+        return true;
+      }),
+    }))
+    .filter((group) => group.items.length > 0);
 }

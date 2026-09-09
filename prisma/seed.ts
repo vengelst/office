@@ -59,6 +59,24 @@ const PERMISSIONS: string[] = [
   'timesheets.view',
   'timesheets.create',
   'timesheets.sign',
+  'invoices.view',
+  'invoices.create',
+  'invoices.edit',
+  'invoices.finalize',
+  'invoices.send',
+  'documents.view',
+  'documents.manage',
+  'equipment.view',
+  'equipment.manage',
+  'calendar.view',
+  'communication.view',
+  'vehicles.view',
+  'vehicles.manage',
+  'subcontractors.view',
+  'teams.view',
+  'todos.view',
+  'todos.manage',
+  'timeclock.view',
   'settings.manage',
   'users.manage',
 ];
@@ -68,7 +86,9 @@ const ROLE_PERMISSIONS: Record<RoleCode, (perm: string) => boolean> = {
   [RoleCode.SUPERADMIN]: () => true,
   [RoleCode.OFFICE]: (perm) => perm !== 'users.manage',
   [RoleCode.PROJECT_MANAGER]: (perm) =>
-    perm.endsWith('.view') || perm === 'projects.edit' || perm.startsWith('timesheets.'),
+    (perm.endsWith('.view') && !perm.startsWith('invoices.')) ||
+    perm === 'projects.edit' ||
+    perm.startsWith('timesheets.'),
   [RoleCode.WORKER]: (perm) => perm.endsWith('.view'),
   // Kunden-PL: nur Projekt-Einsicht und Stundenzettel-Abzeichnung
   [RoleCode.CUSTOMER_PL]: (perm) =>

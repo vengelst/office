@@ -1,5 +1,5 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsArray, IsOptional, IsString } from 'class-validator';
+import { IsArray, IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class SendInvoiceEmailDto {
   @ApiPropertyOptional({
@@ -20,4 +20,18 @@ export class SendInvoiceEmailDto {
   @IsArray()
   @IsString({ each: true })
   weeklyTimesheetIds?: string[];
+
+  @ApiPropertyOptional({
+    description: 'ZUGFeRD-PDF anhängen (Default je Kundenpräferenz)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  attachZugferd?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'XRechnung-XML anhängen (Default je Kundenpräferenz)',
+  })
+  @IsOptional()
+  @IsBoolean()
+  attachXRechnung?: boolean;
 }

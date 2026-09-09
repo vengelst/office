@@ -92,6 +92,8 @@ export const customers = {
       vatIdCheckedAt: 'Geprüft am',
       vatIdViesName: 'Name laut VIES',
       taxNumber: 'Steuernummer',
+      leitwegId: 'Leitweg-ID',
+      eInvoicePreference: 'E-Rechnungsformat',
       notes: 'Notizen',
       email: 'E-Mail',
       emailType: 'Typ',

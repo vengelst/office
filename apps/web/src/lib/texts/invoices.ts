@@ -180,6 +180,9 @@ export const invoices = {
     timesheets: 'Verknüpfte Stundenzettel-PDFs',
     noAttachments: 'Keine Kundendokumente vorhanden.',
     noTimesheets: 'Keine Stundenzettel an Positionen verknüpft.',
+    eInvoice: 'E-Rechnung',
+    attachZugferd: 'ZUGFeRD-PDF anhängen',
+    attachXRechnung: 'XRechnung-XML anhängen',
     send: 'Senden',
     sending: 'Wird gesendet …',
     cancel: 'Abbrechen',
@@ -217,6 +220,8 @@ export const invoices = {
   actions: {
     finalize: 'Finalisieren',
     pdf: 'PDF Vorschau',
+    xrechnung: 'XRechnung XML',
+    zugferd: 'ZUGFeRD PDF',
     sendEmail: 'Per E-Mail senden',
     cancel: 'Entwurf stornieren',
     storno: 'Stornorechnung erstellen',
@@ -315,6 +320,9 @@ export const invoices = {
     paymentDeleted: 'Zahlung gelöscht.',
     emailSent: 'E-Mail gesendet.',
     pdf: 'PDF wird heruntergeladen.',
+    xrechnung: 'XRechnung wird heruntergeladen.',
+    zugferd: 'ZUGFeRD wird heruntergeladen.',
     error: 'Aktion fehlgeschlagen.',
   },
+  permissionDenied: 'Keine Berechtigung für Rechnungen.',
 } as const;

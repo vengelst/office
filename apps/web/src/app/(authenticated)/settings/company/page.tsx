@@ -36,6 +36,7 @@ const FIELDS = {
     { key: 'phone', label: 'Telefon' },
     { key: 'fax', label: 'Fax' },
     { key: 'email', label: 'E-Mail' },
+    { key: 'electronicAddress', label: 'Elektronische Adresse (E-Rechnung)' },
     { key: 'website', label: 'Website' },
   ],
   rechtliches: [

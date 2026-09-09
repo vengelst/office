@@ -27,6 +27,14 @@ enum CustomerStatus {
   INACTIVE
 }
 
+/// Präferenz für elektronische Rechnungsformate (EN 16931).
+enum EInvoicePreference {
+  ZUGFERD_COMFORT
+  XRECHNUNG
+  BOTH
+  NONE
+}
+
 enum ProjectStatus {
   DRAFT
   PLANNED
@@ -398,6 +406,10 @@ model Customer {
   longitude       Float?
   mapsUrl         String?
   notes           String?
+  /// Leitweg-ID / Buyer reference (BT-10) für XRechnung an öffentliche Auftraggeber
+  leitwegId       String?
+  /// Bevorzugtes E-Rechnungsformat beim Versand
+  eInvoicePreference EInvoicePreference @default(BOTH)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
   deletedAt       DateTime?

@@ -127,6 +127,8 @@ export interface CustomerDetail {
   longitude: number | null;
   mapsUrl: string | null;
   notes: string | null;
+  leitwegId: string | null;
+  eInvoicePreference: 'ZUGFERD_COMFORT' | 'XRECHNUNG' | 'BOTH' | 'NONE';
   createdAt: string;
   updatedAt: string;
   branches: CustomerBranch[];

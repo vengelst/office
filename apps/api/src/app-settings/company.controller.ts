@@ -49,6 +49,8 @@ export class CompanyInfoDto {
   @IsOptional() @IsString() bankName?: string;
   @IsOptional() @IsString() bankIban?: string;
   @IsOptional() @IsString() bankBic?: string;
+  /** Elektronische Adresse (BT-34), z. B. E-Mail für E-Rechnung */
+  @IsOptional() @IsString() electronicAddress?: string;
 }
 
 const COMPANY_SETTINGS_KEY = 'company_info';

@@ -22,43 +22,97 @@ interface AuthContextValue {
   /** Meldet an und liefert den angemeldeten Benutzer (für rollenabhängige Weiterleitung). */
   login: (email: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
+  /** Frische Rollen/Permissions von GET /auth/me. */
+  refreshMe: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+/**
+ * Prüft, ob der Benutzer eine Permission besitzt.
+ * SUPERADMIN gilt als Vollzugriff.
+ */
+export function hasPermission(
+  user: AuthUser | null | undefined,
+  code: string,
+): boolean {
+  if (!user) return false;
+  if (user.roles?.includes('SUPERADMIN')) return true;
+  return Boolean(user.permissions?.includes(code));
+}
+
+/**
+ * True, wenn mindestens eine der Permissions vorhanden ist.
+ */
+export function hasAnyPermission(
+  user: AuthUser | null | undefined,
+  codes: string[],
+): boolean {
+  return codes.some((c) => hasPermission(user, c));
+}
 
 export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Token/User aus localStorage wiederherstellen.
-  useEffect(() => {
-    try {
-      const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
-      const storedUser = window.localStorage.getItem(USER_STORAGE_KEY);
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser) as AuthUser);
-      }
-    } catch {
-      // Ungültiger Storage-Inhalt – ignorieren.
-    } finally {
-      setIsLoading(false);
+  const persistUser = useCallback((next: AuthUser, accessToken?: string) => {
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(next));
+    setUser(next);
+    if (accessToken) {
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, accessToken);
+      setToken(accessToken);
     }
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const res = await apiClient.post<LoginResponse>(
-      '/auth/login',
-      { email, password },
-      { skipAuth: true },
-    );
-    window.localStorage.setItem(TOKEN_STORAGE_KEY, res.accessToken);
-    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
-    setToken(res.accessToken);
-    setUser(res.user);
-    return res.user;
+  const refreshMe = useCallback(async () => {
+    const me = await apiClient.get<AuthUser>('/auth/me');
+    persistUser(me);
+  }, [persistUser]);
+
+  // Token/User aus localStorage wiederherstellen, dann Permissions frisch laden.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const storedToken = window.localStorage.getItem(TOKEN_STORAGE_KEY);
+        const storedUser = window.localStorage.getItem(USER_STORAGE_KEY);
+        if (storedToken && storedUser) {
+          setToken(storedToken);
+          setUser(JSON.parse(storedUser) as AuthUser);
+          try {
+            const me = await apiClient.get<AuthUser>('/auth/me');
+            if (!cancelled) {
+              window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(me));
+              setUser(me);
+            }
+          } catch {
+            // /me fehlgeschlagen – gespeicherten User behalten
+          }
+        }
+      } catch {
+        // Ungültiger Storage-Inhalt – ignorieren.
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
+
+  const login = useCallback(
+    async (email: string, password: string) => {
+      const res = await apiClient.post<LoginResponse>(
+        '/auth/login',
+        { email, password },
+        { skipAuth: true },
+      );
+      persistUser(res.user, res.accessToken);
+      return res.user;
+    },
+    [persistUser],
+  );
 
   const logout = useCallback(async () => {
     try {
@@ -80,8 +134,9 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       isLoading,
       login,
       logout,
+      refreshMe,
     }),
-    [user, token, isLoading, login, logout],
+    [user, token, isLoading, login, logout, refreshMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

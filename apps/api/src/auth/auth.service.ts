@@ -19,6 +19,10 @@ import {
 } from '@office/types';
 import { PinLengthService } from '../app-settings/pin-length.service';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  loadPermissionsForUser,
+  loadRolesAndPermissionsForUser,
+} from './permissions.util';
 
 /**
  * Service für Authentifizierung und Session-Management.
@@ -36,11 +40,6 @@ export class AuthService {
 
   /**
    * E-Mail + Passwort → JWT für einen Office-Benutzer.
-   *
-   * @param email - E-Mail-Adresse (string)
-   * @param password - Klartext-Passwort (wird gehasht geprüft) (string)
-   * @returns LoginResponse mit Token und Benutzer (LoginResponse)
-   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
    */
   async login(email: string, password: string): Promise<LoginResponse> {
     const user = await this.prisma.user.findUnique({
@@ -58,10 +57,12 @@ export class AuthService {
     }
 
     const roles = user.roles.map((ur) => ur.role.code);
+    const permissions = await loadPermissionsForUser(this.prisma, user.id);
     const authUser: AuthUser = {
       id: user.id,
       type: 'user',
       roles,
+      permissions,
       displayName: user.displayName,
     };
 
@@ -70,10 +71,7 @@ export class AuthService {
 
   /**
    * Worker-PIN → JWT für einen Monteur (type: 'worker').
-   *
-   * @param pin - PIN-Code (Klartext, Abgleich gegen Hash) (string)
-   * @returns LoginResponse (LoginResponse)
-   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
+   * Permissions bewusst leer – Zugang steuern die Worker-Guards/Rollen.
    */
   async pinLogin(
     pin: string,
@@ -107,6 +105,7 @@ export class AuthService {
           id: workerPin.worker.id,
           type: 'worker',
           roles: ['WORKER'],
+          permissions: [],
           displayName: `${workerPin.worker.firstName} ${workerPin.worker.lastName}`,
         };
         return this.issueToken(authUser);
@@ -118,10 +117,6 @@ export class AuthService {
 
   /**
    * User-PIN → JWT für einen Benutzer (type: 'user', mind. CUSTOMER_PL).
-   *
-   * @param pin - PIN-Code (Klartext, Abgleich gegen Hash) (string)
-   * @returns LoginResponse (LoginResponse)
-   * @throws {UnauthorizedException} Bei fehlender oder ungültiger Authentifizierung
    */
   async userPinLogin(pin: string): Promise<LoginResponse> {
     if (!(await this.pinLength.matchesConfiguredLength(pin))) {
@@ -149,10 +144,15 @@ export class AuthService {
             'Nur Benutzer mit Rolle CUSTOMER_PL können sich per PIN anmelden',
           );
         }
+        const permissions = await loadPermissionsForUser(
+          this.prisma,
+          userPin.user.id,
+        );
         const authUser: AuthUser = {
           id: userPin.user.id,
           type: 'user',
           roles,
+          permissions,
           displayName: userPin.user.displayName,
         };
         return this.issueToken(authUser);
@@ -164,9 +164,6 @@ export class AuthService {
 
   /**
    * Invalidiert die Session anhand des übergebenen Tokens.
-   *
-   * @param token - JWT bzw. Session-Token (string)
-   * @returns Erfolgsbestätigung
    */
   async logout(token: string): Promise<{ success: true }> {
     await this.prisma.session.deleteMany({ where: { token } });
@@ -174,30 +171,82 @@ export class AuthService {
   }
 
   /**
-   * Erneuert das Token eines bereits authentifizierten Akteurs.
-   *
-   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
-   * @returns LoginResponse mit neuem Token (LoginResponse)
+   * Erneuert das Token. Für type=user werden Rollen+Permissions frisch aus der DB geladen.
    */
   async refresh(user: AuthUser): Promise<LoginResponse> {
-    return this.issueToken(user);
+    if (user.type === 'user') {
+      const dbUser = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { isActive: true, displayName: true },
+      });
+      if (!dbUser?.isActive) {
+        throw new UnauthorizedException('Benutzer deaktiviert');
+      }
+      const { roles, permissions } = await loadRolesAndPermissionsForUser(
+        this.prisma,
+        user.id,
+      );
+      return this.issueToken({
+        id: user.id,
+        type: 'user',
+        roles,
+        permissions,
+        displayName: dbUser.displayName,
+      });
+    }
+
+    return this.issueToken({
+      ...user,
+      permissions: user.permissions ?? [],
+    });
+  }
+
+  /**
+   * Aktueller Benutzer mit frischen Rollen+Permissions aus der DB (nur type=user).
+   */
+  async me(user: AuthUser): Promise<AuthUser> {
+    if (user.type !== 'user') {
+      return {
+        id: user.id,
+        type: user.type,
+        roles: user.roles,
+        permissions: user.permissions ?? [],
+        displayName: user.displayName,
+      };
+    }
+
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { isActive: true, displayName: true },
+    });
+    if (!dbUser?.isActive) {
+      throw new UnauthorizedException('Benutzer deaktiviert');
+    }
+    const { roles, permissions } = await loadRolesAndPermissionsForUser(
+      this.prisma,
+      user.id,
+    );
+    return {
+      id: user.id,
+      type: 'user',
+      roles,
+      permissions,
+      displayName: dbUser.displayName,
+    };
   }
 
   /**
    * Erstellt ein JWT und persistiert eine Session (nur für Office-User).
-   *
-   * @param user - Authentifizierter Akteur aus dem Request-Kontext (AuthUser)
-   * @returns LoginResponse (LoginResponse)
    */
   private async issueToken(user: AuthUser): Promise<LoginResponse> {
+    const permissions = user.permissions ?? [];
     const payload: JwtPayload = {
       sub: user.id,
       type: user.type as ActorType,
       roles: user.roles,
+      permissions,
     };
 
-    // Eindeutige jti, damit aufeinanderfolgende Tokens (z.B. Login + Refresh
-    // innerhalb derselben Sekunde) sich garantiert unterscheiden.
     const accessToken = await this.jwtService.signAsync(payload, {
       jwtid: randomUUID(),
     });
@@ -211,13 +260,19 @@ export class AuthService {
       });
     }
 
-    return { accessToken, user };
+    const authUser: AuthUser = {
+      id: user.id,
+      type: user.type,
+      roles: user.roles,
+      permissions,
+      displayName: user.displayName,
+    };
+
+    return { accessToken, user: authUser };
   }
 
   /**
    * Berechnet das Ablaufdatum aus JWT_EXPIRES_IN (unterstützt z.B. "8h", "30m", "7d").
-   *
-   * @returns Date (Date)
    */
   private computeExpiry(): Date {
     const raw = this.configService.get<string>('JWT_EXPIRES_IN') ?? '8h';

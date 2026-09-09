@@ -70,6 +70,10 @@ const schema = z.object({
   vatId: z.string().optional(),
   taxNumber: z.string().optional(),
   notes: z.string().optional(),
+  leitwegId: z.string().optional(),
+  eInvoicePreference: z
+    .enum(['ZUGFERD_COMFORT', 'XRECHNUNG', 'BOTH', 'NONE'])
+    .optional(),
 });
 
 export type CustomerFormValues = z.infer<typeof schema>;
@@ -105,6 +109,8 @@ function toPayload(v: CustomerFormValues): Record<string, unknown> {
     vatId: v.vatId || undefined,
     taxNumber: v.taxNumber || undefined,
     notes: v.notes || undefined,
+    leitwegId: v.leitwegId || undefined,
+    eInvoicePreference: v.eInvoicePreference || undefined,
   };
 }
 
@@ -178,6 +184,8 @@ export function CustomerForm({
       vatId: customer?.vatId ?? '',
       taxNumber: customer?.taxNumber ?? '',
       notes: customer?.notes ?? '',
+      leitwegId: customer?.leitwegId ?? '',
+      eInvoicePreference: customer?.eInvoicePreference ?? 'BOTH',
     },
   });
 
@@ -509,6 +517,30 @@ export function CustomerForm({
           </Field>
           <Field label={f.taxNumber}>
             <Input {...register('taxNumber')} className="min-h-[44px]" />
+          </Field>
+          <Field label={f.leitwegId}>
+            <Input {...register('leitwegId')} className="min-h-[44px]" />
+          </Field>
+          <Field label={f.eInvoicePreference}>
+            <Select
+              value={watch('eInvoicePreference') ?? 'BOTH'}
+              onValueChange={(v) =>
+                setValue(
+                  'eInvoicePreference',
+                  v as 'ZUGFERD_COMFORT' | 'XRECHNUNG' | 'BOTH' | 'NONE',
+                )
+              }
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="BOTH">ZUGFeRD + XRechnung</SelectItem>
+                <SelectItem value="ZUGFERD_COMFORT">ZUGFeRD Comfort</SelectItem>
+                <SelectItem value="XRECHNUNG">XRechnung</SelectItem>
+                <SelectItem value="NONE">Keine E-Rechnung</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       </section>

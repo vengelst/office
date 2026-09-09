@@ -55,10 +55,12 @@ import { LineEditor } from '@/components/invoices/line-editor';
 import { PaymentDialog } from '@/components/invoices/payment-dialog';
 import { SendEmailDialog } from '@/components/invoices/send-email-dialog';
 import { ApiError } from '@/lib/api-client';
-import { useAuth } from '@/lib/auth-context';
+import { hasPermission, useAuth } from '@/lib/auth-context';
 import { formatDate } from '@/lib/format';
 import {
   downloadInvoicePdf,
+  downloadInvoiceXRechnung,
+  downloadInvoiceZugferd,
   formatCurrency,
   invoiceNumberLabel,
   invoicePartyName,
@@ -92,6 +94,8 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const { toast } = useToast();
   const { user } = useAuth();
   const isSuperadmin = Boolean(user?.roles?.includes('SUPERADMIN'));
+  const canFinalize = hasPermission(user, 'invoices.finalize');
+  const canSend = hasPermission(user, 'invoices.send');
 
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +182,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const isDraft = invoice.status === 'DRAFT';
   const isCancelled = invoice.status === 'CANCELLED';
   const canEmail =
-    (isSuperadmin || Boolean(user?.roles?.includes('OFFICE'))) &&
+    canSend &&
     !isDraft &&
     !isCancelled &&
     !!invoice.finalizedAt &&
@@ -220,7 +224,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
       </PageHeader>
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {isDraft && isSuperadmin && (
+        {isDraft && canFinalize && (
           <Button
             className="min-h-[44px]"
             onClick={() => void openFinalize()}
@@ -244,6 +248,50 @@ export default function InvoiceDetailPage(): React.ReactNode {
           <Download className="h-4 w-4" />
           {t.actions.pdf}
         </Button>
+        {!isDraft && !!invoice.finalizedAt && (
+          <>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => {
+                downloadInvoiceXRechnung(
+                  invoice.id,
+                  `${invoice.invoiceNumber}_xrechnung.xml`,
+                )
+                  .then(() => toast({ description: t.toast.xrechnung }))
+                  .catch((err) =>
+                    toast({
+                      description:
+                        err instanceof ApiError ? err.message : t.toast.error,
+                    }),
+                  );
+              }}
+            >
+              <Download className="h-4 w-4" />
+              {t.actions.xrechnung}
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => {
+                downloadInvoiceZugferd(
+                  invoice.id,
+                  `${invoice.invoiceNumber}_zugferd.pdf`,
+                )
+                  .then(() => toast({ description: t.toast.zugferd }))
+                  .catch((err) =>
+                    toast({
+                      description:
+                        err instanceof ApiError ? err.message : t.toast.error,
+                    }),
+                  );
+              }}
+            >
+              <Download className="h-4 w-4" />
+              {t.actions.zugferd}
+            </Button>
+          </>
+        )}
         {canEmail && (
           <Button
             variant="outline"

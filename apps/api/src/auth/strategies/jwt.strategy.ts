@@ -1,6 +1,7 @@
 /**
  * Passport-JWT-Strategy für die Office-API.
  * Extrahiert Bearer-Tokens, prüft die Signatur und validiert bei User-Tokens die Session.
+ * Für type=user werden Rollen+Permissions bei jedem Request aus der DB nachgeladen.
  */
 
 import { Injectable, UnauthorizedException } from '@nestjs/common';
@@ -10,6 +11,7 @@ import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthUser, JwtPayload } from '@office/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { loadRolesAndPermissionsForUser } from '../permissions.util';
 
 /**
  * Strategie `jwt`: wandelt ein gültiges Access-Token in ein AuthUser-Objekt um.
@@ -31,11 +33,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   /**
    * Validiert Payload und Session; Ergebnis landet als `request.user`.
-   *
-   * @param req - HTTP-Request (für Authorization-Header / Session-Lookup)
-   * @param payload - Dekodiertes JWT-Payload
-   * @returns AuthUser für Guards und `@CurrentUser()`
-   * @throws {UnauthorizedException} Bei ungültigem Payload oder fehlender Session
    */
   async validate(req: Request, payload: JwtPayload): Promise<AuthUser> {
     if (!payload?.sub || !payload.type) {
@@ -58,12 +55,34 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           throw new UnauthorizedException('Sitzung abgelaufen oder ungültig');
         }
       }
+
+      const dbUser = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { isActive: true, displayName: true },
+      });
+      if (!dbUser?.isActive) {
+        throw new UnauthorizedException('Benutzer deaktiviert');
+      }
+
+      const { roles, permissions } = await loadRolesAndPermissionsForUser(
+        this.prisma,
+        payload.sub,
+      );
+
+      return {
+        id: payload.sub,
+        type: 'user',
+        roles,
+        permissions,
+        displayName: dbUser.displayName,
+      };
     }
 
     return {
       id: payload.sub,
       type: payload.type,
       roles: payload.roles ?? [],
+      permissions: payload.permissions ?? [],
     };
   }
 }

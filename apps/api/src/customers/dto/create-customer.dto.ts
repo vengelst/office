@@ -108,4 +108,16 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({ description: 'Leitweg-ID / Buyer reference (BT-10)' })
+  @IsOptional()
+  @IsString()
+  leitwegId?: string;
+
+  @ApiPropertyOptional({
+    enum: ['ZUGFERD_COMFORT', 'XRECHNUNG', 'BOTH', 'NONE'],
+  })
+  @IsOptional()
+  @IsEnum(['ZUGFERD_COMFORT', 'XRECHNUNG', 'BOTH', 'NONE'] as const)
+  eInvoicePreference?: 'ZUGFERD_COMFORT' | 'XRECHNUNG' | 'BOTH' | 'NONE';
 }

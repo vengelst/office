@@ -14,6 +14,7 @@ import {
   Briefcase,
   Sparkles,
   Receipt,
+  Users,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -25,6 +26,12 @@ const settingsLinks = [
     label: texts.settings.nav.general,
     description: texts.settings.general.subtitle,
     icon: SlidersHorizontal,
+  },
+  {
+    href: '/settings/users',
+    label: texts.settings.nav.users,
+    description: texts.settings.users.subtitle,
+    icon: Users,
   },
   {
     href: '/settings/company',
