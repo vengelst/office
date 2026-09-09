@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AppSettingsModule } from '../app-settings/app-settings.module';
 import { GoogleDriveModule } from '../google-drive/google-drive.module';
 import { StoragePathService } from '../common/storage-path.service';
 import { DocumentsController } from './documents.controller';
@@ -7,7 +8,7 @@ import { KioskPlansController } from './kiosk-plans.controller';
 import { StorageService } from './storage.service';
 
 @Module({
-  imports: [GoogleDriveModule],
+  imports: [GoogleDriveModule, AppSettingsModule],
   controllers: [DocumentsController, KioskPlansController],
   providers: [DocumentsService, StorageService, StoragePathService],
   exports: [DocumentsService, StorageService, StoragePathService],

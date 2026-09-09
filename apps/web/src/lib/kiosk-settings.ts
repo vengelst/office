@@ -33,6 +33,10 @@ export const DEFAULT_NO_SHOW_ALERT_MINUTE = 0;
 export const MIN_NO_SHOW_ALERT_MINUTE = 0;
 export const MAX_NO_SHOW_ALERT_MINUTE = 59;
 
+export const DEFAULT_DOCUMENT_UPLOAD_MAX_MB = 50;
+export const MIN_DOCUMENT_UPLOAD_MAX_MB = 5;
+export const MAX_DOCUMENT_UPLOAD_MAX_MB = 64;
+
 /** sourceDevice-Wert für systemseitige Ausstempelungen. */
 export const SYSTEM_AUTO_CLOCK_OUT_DEVICE = 'SYSTEM_AUTO_CLOCK_OUT';
 
@@ -62,6 +66,8 @@ export interface KioskGeneralSettings extends KioskPublicSettings {
   noShowAlertHour: number;
   /** Check-Minute Europe/Berlin (0–59). */
   noShowAlertMinute: number;
+  /** Max. Upload-Größe Pläne/Dokumente in MB (5–64). */
+  documentUploadMaxMb: number;
 }
 
 function withPublicDefaults(
@@ -157,6 +163,18 @@ function clampNoShowMinute(raw: number | undefined): number {
   return DEFAULT_NO_SHOW_ALERT_MINUTE;
 }
 
+function clampDocumentUploadMaxMb(raw: number | undefined): number {
+  if (
+    typeof raw === 'number' &&
+    Number.isFinite(raw) &&
+    raw >= MIN_DOCUMENT_UPLOAD_MAX_MB &&
+    raw <= MAX_DOCUMENT_UPLOAD_MAX_MB
+  ) {
+    return Math.round(raw);
+  }
+  return DEFAULT_DOCUMENT_UPLOAD_MAX_MB;
+}
+
 function withGeneralDefaults(
   partial: Partial<KioskGeneralSettings> | null | undefined,
 ): KioskGeneralSettings {
@@ -173,6 +191,9 @@ function withGeneralDefaults(
     noShowAlertEnabled: Boolean(partial?.noShowAlertEnabled),
     noShowAlertHour: clampNoShowHour(partial?.noShowAlertHour),
     noShowAlertMinute: clampNoShowMinute(partial?.noShowAlertMinute),
+    documentUploadMaxMb: clampDocumentUploadMaxMb(
+      partial?.documentUploadMaxMb,
+    ),
   };
 }
 
@@ -215,6 +236,7 @@ export const kioskSettingsApi = {
         noShowAlertEnabled: body.noShowAlertEnabled,
         noShowAlertHour: body.noShowAlertHour,
         noShowAlertMinute: body.noShowAlertMinute,
+        documentUploadMaxMb: body.documentUploadMaxMb,
       }),
     ),
 

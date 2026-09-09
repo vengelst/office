@@ -37,6 +37,13 @@ import {
   parseAutoClockOutHours,
 } from './auto-clock-out';
 import {
+  DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+  DOCUMENT_UPLOAD_MAX_MB_KEY,
+  MAX_DOCUMENT_UPLOAD_MAX_MB,
+  MIN_DOCUMENT_UPLOAD_MAX_MB,
+  parseDocumentUploadMaxMb,
+} from './document-upload-limit';
+import {
   DEFAULT_NO_SHOW_ALERT_HOUR,
   DEFAULT_NO_SHOW_ALERT_MINUTE,
   MAX_NO_SHOW_ALERT_HOUR,
@@ -152,6 +159,13 @@ class KioskGeneralSettingsDto {
   @Min(MIN_NO_SHOW_ALERT_MINUTE)
   @Max(MAX_NO_SHOW_ALERT_MINUTE)
   noShowAlertMinute!: number;
+
+  /** Max. Upload-Größe für Pläne/Dokumente in MB (5–64, nginx 64m). */
+  @Type(() => Number)
+  @IsInt()
+  @Min(MIN_DOCUMENT_UPLOAD_MAX_MB)
+  @Max(MAX_DOCUMENT_UPLOAD_MAX_MB)
+  documentUploadMaxMb!: number;
 }
 
 export type KioskGeneralSettings = {
@@ -167,6 +181,7 @@ export type KioskGeneralSettings = {
   noShowAlertEnabled: boolean;
   noShowAlertHour: number;
   noShowAlertMinute: number;
+  documentUploadMaxMb: number;
 };
 
 @ApiTags('kiosk-settings')
@@ -188,6 +203,7 @@ export class KioskSettingsController {
       NO_SHOW_ALERT_ENABLED_KEY,
       NO_SHOW_ALERT_HOUR_KEY,
       NO_SHOW_ALERT_MINUTE_KEY,
+      DOCUMENT_UPLOAD_MAX_MB_KEY,
     ]);
     const rawInterval = map[GPS_INTERVAL_MINUTES_KEY];
     const parsed = rawInterval ? Number.parseInt(rawInterval, 10) : NaN;
@@ -220,6 +236,9 @@ export class KioskSettingsController {
       ),
       noShowAlertHour: parseNoShowAlertHour(map[NO_SHOW_ALERT_HOUR_KEY]),
       noShowAlertMinute: parseNoShowAlertMinute(map[NO_SHOW_ALERT_MINUTE_KEY]),
+      documentUploadMaxMb: parseDocumentUploadMaxMb(
+        map[DOCUMENT_UPLOAD_MAX_MB_KEY],
+      ),
     };
   }
 
@@ -280,6 +299,9 @@ export class KioskSettingsController {
     const noShowAlertMinute = parseNoShowAlertMinute(
       String(dto.noShowAlertMinute),
     );
+    const documentUploadMaxMb = parseDocumentUploadMaxMb(
+      String(dto.documentUploadMaxMb),
+    );
 
     const previous = await this.readAll();
     const overtimeChanged =
@@ -324,6 +346,9 @@ export class KioskSettingsController {
           ? noShowAlertMinute
           : DEFAULT_NO_SHOW_ALERT_MINUTE,
       ),
+      [DOCUMENT_UPLOAD_MAX_MB_KEY]: String(
+        documentUploadMaxMb || DEFAULT_DOCUMENT_UPLOAD_MAX_MB,
+      ),
     };
     // Bei geänderter Schwelle/Adresse erneut alarmieren dürfen (Dedup zurücksetzen).
     if (overtimeChanged) {
@@ -347,6 +372,7 @@ export class KioskSettingsController {
       noShowAlertEnabled,
       noShowAlertHour,
       noShowAlertMinute,
+      documentUploadMaxMb,
     };
   }
 }

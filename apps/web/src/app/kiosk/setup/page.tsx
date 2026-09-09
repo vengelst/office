@@ -16,6 +16,7 @@ interface Project {
   id: string;
   projectNumber: string;
   title: string;
+  billingMode?: 'HOURLY_PACKAGE' | 'UNIT_BASED' | 'MIXED' | null;
   customer: { companyName: string } | null;
 }
 
@@ -24,6 +25,8 @@ export type KioskMode = 'worker' | 'customer_pl';
 export interface KioskConfig {
   projectId: string;
   projectTitle: string;
+  /** Abrechnungsart des Kiosk-Projekts – Fallback für Tätigkeits-Gate (#34). */
+  billingMode?: 'HOURLY_PACKAGE' | 'UNIT_BASED' | 'MIXED' | null;
   autoLogoutSeconds: number;
   cameraEnabled: boolean;
   fullscreen: boolean;
@@ -69,6 +72,7 @@ export default function KioskSetupPage() {
     const config: KioskConfig = {
       projectId,
       projectTitle: project?.title ?? 'Projekt',
+      billingMode: project?.billingMode ?? null,
       autoLogoutSeconds: autoLogout,
       cameraEnabled,
       fullscreen,

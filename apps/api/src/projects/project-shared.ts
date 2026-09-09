@@ -34,6 +34,8 @@ export const listSelect = {
   status: true,
   priority: true,
   serviceType: true,
+  /** Für Kiosk-Tätigkeits-Gate (#34) ohne Extra-Fetch. */
+  billingMode: true,
   plannedStartDate: true,
   plannedEndDate: true,
   actualStartDate: true,

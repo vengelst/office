@@ -18,7 +18,6 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
   ApiConsumes,
@@ -34,7 +33,8 @@ import { RequireFeature } from '../feature-flags/require-feature.decorator';
 import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
 import { BulkDeleteDto } from '../common/dto/bulk-delete.dto';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { DocumentsService, MAX_FILE_SIZE } from './documents.service';
+import { DocumentUploadInterceptor } from './document-upload.interceptor';
+import { DocumentsService } from './documents.service';
 import {
   ReplaceDocumentDto,
   UploadDocumentDto,
@@ -67,9 +67,7 @@ export class DocumentsController {
   @Post('upload')
   @ApiOperation({ summary: 'Datei hochladen (Multipart) + Metadaten' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }),
-  )
+  @UseInterceptors(DocumentUploadInterceptor('file'))
   /**
    * Lädt eine Datei hoch und speichert Metadaten.
    *
@@ -102,9 +100,7 @@ export class DocumentsController {
   @Post('upload-multiple')
   @ApiOperation({ summary: 'Mehrere Dateien hochladen (gleicher Kontext)' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FilesInterceptor('files', 10, { limits: { fileSize: MAX_FILE_SIZE } }),
-  )
+  @UseInterceptors(DocumentUploadInterceptor('files', 10))
   /**
    * Lädt mehrere Dateien hoch.
    *
@@ -139,9 +135,7 @@ export class DocumentsController {
   @Post(':id/replace')
   @ApiOperation({ summary: 'Dokument durch neue Version ersetzen' })
   @ApiConsumes('multipart/form-data')
-  @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: MAX_FILE_SIZE } }),
-  )
+  @UseInterceptors(DocumentUploadInterceptor('file'))
   /**
    * Ersetzt eine vorhandene Datei.
    *

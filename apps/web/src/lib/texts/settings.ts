@@ -274,6 +274,10 @@ export const settings = {
         'Empfänger ist dieselbe E-Mail wie beim Arbeitszeit-Alarm. Ohne gültige Adresse kein Versand.',
       noShowAlertRunButton: 'Jetzt prüfen',
       noShowAlertRunning: 'Wird geprüft …',
+      documentUploadTitle: 'Max. Upload-Größe (MB)',
+      documentUploadHint:
+        'Obergrenze für Pläne und Dokumente (5–64 MB). Standard: 50. Max. 64 MB wegen nginx (client_max_body_size 64m).',
+      documentUploadUnit: 'MB',
       on: 'An',
       off: 'Aus',
       save: 'Speichern',

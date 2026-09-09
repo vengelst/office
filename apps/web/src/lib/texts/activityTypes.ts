@@ -4,7 +4,7 @@
 
 export const activityTypes = {
   title: 'Tätigkeitsbereiche',
-  subtitle: 'Katalog für Master-Monteure (abrechnungsrelevant)',
+  subtitle: 'Katalog für abrechnungsrelevante Tätigkeiten (Master / Stundenprojekte)',
   newItem: 'Neuer Tätigkeitsbereich',
   editItem: 'Tätigkeitsbereich bearbeiten',
   empty: 'Noch keine Tätigkeitsbereiche vorhanden.',
