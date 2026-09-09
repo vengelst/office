@@ -22,8 +22,8 @@ import {
 } from './dto/upload-document.dto';
 import { LinkDocumentDto } from './dto/link-document.dto';
 
-/** Maximale Dateigröße (allgemeiner Dokument-Upload): 10 MB. */
-export const MAX_FILE_SIZE = 10 * 1024 * 1024;
+/** Maximale Dateigröße (Dokument-/Plan-Upload): 50 MB (nginx client_max_body_size 64m). */
+export const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 /** Erhöhtes Limit nur für Block-PDF-Import (Work Items): 50 MB. */
 export const MAX_BLOCK_PDF_FILE_SIZE = 50 * 1024 * 1024;
