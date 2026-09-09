@@ -8,6 +8,7 @@ import { InvoicesService } from './invoices.service';
 import { InvoicePdfService } from './invoice-pdf.service';
 import { InvoiceExportService } from './invoice-export.service';
 import { InvoiceGenerationService } from './invoice-generation.service';
+import { EInvoiceService } from './e-invoice/e-invoice.service';
 
 @Module({
   imports: [DocumentsModule, AppSettingsModule, EmailModule, TimesheetsModule],
@@ -17,7 +18,8 @@ import { InvoiceGenerationService } from './invoice-generation.service';
     InvoicePdfService,
     InvoiceExportService,
     InvoiceGenerationService,
+    EInvoiceService,
   ],
-  exports: [InvoicesService],
+  exports: [InvoicesService, EInvoiceService],
 })
 export class InvoicesModule {}

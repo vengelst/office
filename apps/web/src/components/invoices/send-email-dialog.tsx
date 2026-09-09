@@ -41,6 +41,8 @@ export function SendEmailDialog({
   >([]);
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [selectedTs, setSelectedTs] = useState<Set<string>>(new Set());
+  const [attachZugferd, setAttachZugferd] = useState(true);
+  const [attachXRechnung, setAttachXRechnung] = useState(false);
 
   useEffect(() => {
     invoicesApi
@@ -78,6 +80,8 @@ export function SendEmailDialog({
       await invoicesApi.sendEmail(invoiceId, {
         documentIds: [...selectedDocs],
         weeklyTimesheetIds: [...selectedTs],
+        attachZugferd,
+        attachXRechnung,
       });
       toast({ description: texts.invoices.toast.emailSent });
       onSent();
@@ -105,6 +109,27 @@ export function SendEmailDialog({
               <p className="mt-1 text-sm font-medium">
                 {recipient ?? t.noRecipient}
               </p>
+            </div>
+            <div className="space-y-2">
+              <Label>E-Rechnung</Label>
+              <label className="flex min-h-[44px] items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={attachZugferd}
+                  onChange={(e) => setAttachZugferd(e.target.checked)}
+                />
+                <span className="text-sm">ZUGFeRD Comfort (PDF mit XML)</span>
+              </label>
+              <label className="flex min-h-[44px] items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="h-5 w-5"
+                  checked={attachXRechnung}
+                  onChange={(e) => setAttachXRechnung(e.target.checked)}
+                />
+                <span className="text-sm">XRechnung XML zusätzlich</span>
+              </label>
             </div>
             <div className="space-y-2">
               <Label>{t.attachments}</Label>

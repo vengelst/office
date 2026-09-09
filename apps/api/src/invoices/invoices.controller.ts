@@ -19,16 +19,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { RoleCode } from '@prisma/client';
 import type { Response } from 'express';
 import { AuthUser } from '@office/types';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { RequirePermission } from '../auth/decorators/require-permission.decorator';
 import { RequireFeature } from '../feature-flags/require-feature.decorator';
 import { FeatureFlagGuard } from '../feature-flags/feature-flag.guard';
+import { PermissionsGuard } from '../auth/guards/permissions.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { InvoicesService } from './invoices.service';
 import { InvoicePdfService } from './invoice-pdf.service';
+import { EInvoiceService } from './e-invoice/e-invoice.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { GenerateFromTimesheetsDto } from './dto/generate-from-timesheets.dto';
@@ -49,19 +50,18 @@ function userIdOf(user: AuthUser): string | null {
 
 /**
  * Controller für die Rechnungsverwaltung.
- * Stellt Endpunkte für CRUD, Status-Workflow, Positionsverwaltung,
- * Zahlungserfassung und PDF-Export bereit.
  */
 @ApiTags('invoices')
 @ApiBearerAuth()
-@UseGuards(RolesGuard, FeatureFlagGuard)
+@UseGuards(RolesGuard, PermissionsGuard, FeatureFlagGuard)
 @RequireFeature('invoices')
-@Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE, RoleCode.PROJECT_MANAGER)
+@RequirePermission('invoices.view')
 @Controller('invoices')
 export class InvoicesController {
   constructor(
     private readonly invoices: InvoicesService,
     private readonly pdf: InvoicePdfService,
+    private readonly eInvoice: EInvoiceService,
   ) {}
 
   // ── Statische Routen zuerst (vor :id) ────────────────────────
@@ -105,6 +105,7 @@ export class InvoicesController {
    */
 
   @Post('generate-from-timesheets')
+  @RequirePermission('invoices.create')
   @ApiOperation({ summary: 'Rechnung aus genehmigten Stundenzetteln generieren' })
   generateFromTimesheets(
     @Body() dto: GenerateFromTimesheetsDto,
@@ -187,6 +188,7 @@ export class InvoicesController {
    */
 
   @Post()
+  @RequirePermission('invoices.create')
   @ApiOperation({ summary: 'Neue Rechnung anlegen (manuell)' })
   create(@Body() dto: CreateInvoiceDto, @CurrentUser() user: AuthUser) {
     return this.invoices.create(dto, userIdOf(user));
@@ -201,6 +203,7 @@ export class InvoicesController {
    */
 
   @Patch(':id')
+  @RequirePermission('invoices.edit')
   @ApiOperation({ summary: 'Rechnung bearbeiten (nur DRAFT)' })
   update(@Param('id') id: string, @Body() dto: UpdateInvoiceDto) {
     return this.invoices.update(id, dto);
@@ -214,6 +217,7 @@ export class InvoicesController {
    */
 
   @Delete(':id')
+  @RequirePermission('invoices.edit')
   @ApiOperation({ summary: 'Rechnung löschen (nur DRAFT)' })
   remove(@Param('id') id: string) {
     return this.invoices.remove(id);
@@ -224,9 +228,9 @@ export class InvoicesController {
    */
   @Post(':id/finalize')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleCode.SUPERADMIN)
+  @RequirePermission('invoices.finalize')
   @ApiOperation({
-    summary: 'Rechnung finalisieren (SUPERADMIN, vergibt RE-Nummer)',
+    summary: 'Rechnung finalisieren (vergibt RE-Nummer)',
   })
   finalize(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.invoices.finalize(id, userIdOf(user));
@@ -237,7 +241,7 @@ export class InvoicesController {
    */
   @Post(':id/send')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleCode.SUPERADMIN)
+  @RequirePermission('invoices.finalize')
   @ApiOperation({
     summary: 'Alias für Finalisieren (Legacy)',
     deprecated: true,
@@ -251,9 +255,9 @@ export class InvoicesController {
    */
   @Post(':id/storno')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleCode.SUPERADMIN)
+  @RequirePermission('invoices.finalize')
   @ApiOperation({
-    summary: 'Storno → Stornorechnung ST (SUPERADMIN, eigener Nummernkreis)',
+    summary: 'Storno → Stornorechnung ST (eigener Nummernkreis)',
   })
   storno(
     @Param('id') id: string,
@@ -267,9 +271,9 @@ export class InvoicesController {
    * Rechnungskorrektur (KO) als Entwurf anlegen.
    */
   @Post(':id/correction')
-  @Roles(RoleCode.SUPERADMIN)
+  @RequirePermission('invoices.finalize')
   @ApiOperation({
-    summary: 'Rechnungskorrektur KO als Entwurf (SUPERADMIN)',
+    summary: 'Rechnungskorrektur KO als Entwurf',
   })
   correction(
     @Param('id') id: string,
@@ -284,7 +288,7 @@ export class InvoicesController {
    */
   @Post(':id/credit-note')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleCode.SUPERADMIN)
+  @RequirePermission('invoices.finalize')
   @ApiOperation({
     summary: 'Deprecated: Alias für /storno (Body: correctionReason)',
     deprecated: true,
@@ -317,13 +321,14 @@ export class InvoicesController {
    */
 
   @Post(':id/duplicate')
+  @RequirePermission('invoices.create')
   @ApiOperation({ summary: 'Rechnung als neuen Entwurf duplizieren' })
   duplicate(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.invoices.duplicate(id, userIdOf(user));
   }
 
   @Get(':id/email-attachments')
-  @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
+  @RequirePermission('invoices.send')
   @ApiOperation({
     summary: 'E-Mail-Anhang-Vorschläge (Kundendokumente + Stundenzettel)',
   })
@@ -333,7 +338,7 @@ export class InvoicesController {
 
   @Post(':id/send-email')
   @HttpCode(HttpStatus.OK)
-  @Roles(RoleCode.SUPERADMIN, RoleCode.OFFICE)
+  @RequirePermission('invoices.send')
   @ApiOperation({
     summary: 'Finalisierte RE/ST/KO per E-Mail an Billing-Adresse senden',
   })
@@ -344,6 +349,36 @@ export class InvoicesController {
   /**
    * Erzeugt bzw. liefert das PDF-Dokument.
    */
+
+  @Get(':id/xrechnung')
+  @RequirePermission('invoices.view')
+  @ApiOperation({ summary: 'XRechnung XML (EN 16931 / UBL) herunterladen' })
+  async exportXRechnung(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.eInvoice.generateXRechnung(id);
+    res.set({
+      'Content-Type': 'application/xml',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+    });
+    return new StreamableFile(buffer);
+  }
+
+  @Get(':id/zugferd')
+  @RequirePermission('invoices.view')
+  @ApiOperation({ summary: 'ZUGFeRD 2.2 Comfort PDF herunterladen' })
+  async exportZugferd(
+    @Param('id') id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, filename } = await this.eInvoice.generateZugferd(id);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${encodeURIComponent(filename)}"`,
+    });
+    return new StreamableFile(buffer);
+  }
 
   @Get(':id/pdf')
   @ApiOperation({ summary: 'Rechnung als PDF erzeugen/herunterladen' })
@@ -383,6 +418,7 @@ export class InvoicesController {
    */
 
   @Post(':id/lines')
+  @RequirePermission('invoices.edit')
   @ApiOperation({ summary: 'Position hinzufügen (nur DRAFT)' })
   addLine(@Param('id') id: string, @Body() dto: CreateInvoiceLineDto) {
     return this.invoices.addLine(id, dto);
@@ -455,6 +491,7 @@ export class InvoicesController {
    */
 
   @Post(':id/payments')
+  @RequirePermission('invoices.edit')
   @ApiOperation({ summary: 'Zahlung erfassen (Status-Auto-Update)' })
   addPayment(@Param('id') id: string, @Body() dto: CreatePaymentDto) {
     return this.invoices.addPayment(id, dto);

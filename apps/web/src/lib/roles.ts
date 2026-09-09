@@ -66,6 +66,16 @@ export function homeRouteFor(user: AuthUser | null | undefined): string {
   return isCustomerPlOnly(user) ? CUSTOMER_PL_HOME : '/dashboard';
 }
 
+/** True, wenn der User die Permission hat (SUPERADMIN immer). */
+export function hasPermission(
+  user: AuthUser | null | undefined,
+  code: string,
+): boolean {
+  if (!user) return false;
+  if (user.roles?.includes('SUPERADMIN')) return true;
+  return Boolean(user.permissions?.includes(code));
+}
+
 /**
  * True, wenn der Pfad zum Kunden-PL-Bereich gehört.
  *

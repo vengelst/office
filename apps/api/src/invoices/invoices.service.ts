@@ -38,6 +38,7 @@ import {
 import { InvoiceExportService } from './invoice-export.service';
 import { InvoiceGenerationService } from './invoice-generation.service';
 import { InvoicePdfService } from './invoice-pdf.service';
+import { EInvoiceService } from './e-invoice/e-invoice.service';
 import { computeLineNet } from './line-totals';
 import {
   DEFAULT_PAYMENT_TERM_DAYS,
@@ -77,6 +78,7 @@ export class InvoicesService {
     private readonly documentsService: DocumentsService,
     private readonly timesheetPdf: TimesheetPdfService,
     private readonly pdfService: InvoicePdfService,
+    private readonly eInvoice: EInvoiceService,
   ) {}
 
   // ── Liste / Detail ───────────────────────────────────────────
@@ -1444,14 +1446,42 @@ export class InvoicesService {
 
     const attachments: EmailAttachment[] = [];
 
-    // Rechnungs-PDF
-    const { buffer: pdfBuffer, filename: pdfFilename } =
-      await this.pdfService.generate(id);
-    attachments.push({
-      filename: pdfFilename,
-      content: pdfBuffer,
-      contentType: 'application/pdf',
-    });
+    const pref = invoice.customer?.eInvoicePreference ?? 'ZUGFERD_COMFORT';
+    const wantZugferd =
+      dto.attachZugferd ??
+      (pref === 'ZUGFERD_COMFORT' || pref === 'BOTH');
+    const wantXRechnung =
+      dto.attachXRechnung ?? (pref === 'XRECHNUNG' || pref === 'BOTH');
+
+    if (wantZugferd || wantXRechnung) {
+      await this.eInvoice.validateForSend(id);
+    }
+
+    if (wantZugferd) {
+      const { buffer, filename } = await this.eInvoice.generateZugferd(id);
+      attachments.push({
+        filename,
+        content: buffer,
+        contentType: 'application/pdf',
+      });
+    } else {
+      const { buffer: pdfBuffer, filename: pdfFilename } =
+        await this.pdfService.generate(id);
+      attachments.push({
+        filename: pdfFilename,
+        content: pdfBuffer,
+        contentType: 'application/pdf',
+      });
+    }
+
+    if (wantXRechnung) {
+      const { buffer, filename } = await this.eInvoice.generateXRechnung(id);
+      attachments.push({
+        filename,
+        content: buffer,
+        contentType: 'application/xml',
+      });
+    }
 
     // Kundendokumente
     const docIds = [...new Set(dto.documentIds ?? [])];
@@ -1510,10 +1540,15 @@ export class InvoicesService {
         : invoice.invoiceType === InvoiceType.CORRECTION
           ? 'die Rechnungskorrektur'
           : 'die Rechnung';
+    const eInvoiceHint = wantZugferd
+      ? ' als E-Rechnung (ZUGFeRD)'
+      : wantXRechnung
+        ? ' als E-Rechnung (XRechnung)'
+        : ' als PDF';
     const subject = `${docTitle} ${invoice.invoiceNumber} – ${invoice.customer?.companyName ?? ''}`;
     const html = `<div style="font-family: sans-serif; padding: 20px; max-width: 560px;">
   <h2 style="color: #333;">${docTitle} ${invoice.invoiceNumber}</h2>
-  <p>anbei erhalten Sie ${article} als PDF.</p>
+  <p>anbei erhalten Sie ${article}${eInvoiceHint}.</p>
   <p style="color: #666; font-size: 12px; margin-top: 24px;">Diese E-Mail wurde aus Office versendet.</p>
 </div>`;
 
@@ -1529,7 +1564,7 @@ export class InvoicesService {
         recipientEmail: billing.email,
         subject,
         body: html,
-        attachmentPath: pdfFilename,
+        attachmentPath: attachments[0]?.filename ?? null,
         sentAt: result.success ? new Date() : null,
         status: result.success ? 'SENT' : 'FAILED',
         errorMessage: result.error ?? null,

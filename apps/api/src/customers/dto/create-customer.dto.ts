@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { CustomerStatus } from '@prisma/client';
+import { CustomerStatus, EInvoicePreference } from '@prisma/client';
 import {
   IsEnum,
   IsInt,
@@ -46,6 +46,16 @@ export class CreateCustomerDto {
   @IsOptional()
   @IsString()
   taxNumber?: string;
+
+  @ApiPropertyOptional({ description: 'Leitweg-ID / Buyer Reference (BT-10)' })
+  @IsOptional()
+  @IsString()
+  leitwegId?: string;
+
+  @ApiPropertyOptional({ enum: EInvoicePreference })
+  @IsOptional()
+  @IsEnum(EInvoicePreference)
+  eInvoicePreference?: EInvoicePreference;
 
   @ApiPropertyOptional()
   @IsOptional()

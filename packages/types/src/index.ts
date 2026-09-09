@@ -15,6 +15,8 @@ export interface JwtPayload {
   sub: string;
   type: ActorType;
   roles: string[];
+  /** Permission-Codes (Union der Rollen); bei User-Requests ggf. frisch aus DB. */
+  permissions?: string[];
   iat?: number;
   exp?: number;
 }
@@ -23,6 +25,7 @@ export interface AuthUser {
   id: string;
   type: ActorType;
   roles: string[];
+  permissions?: string[];
   displayName?: string;
 }
 

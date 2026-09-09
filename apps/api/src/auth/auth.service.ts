@@ -19,6 +19,7 @@ import {
 } from '@office/types';
 import { PinLengthService } from '../app-settings/pin-length.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { loadRolesAndPermissionsForUser } from './permissions.util';
 
 /**
  * Service für Authentifizierung und Session-Management.
@@ -58,10 +59,15 @@ export class AuthService {
     }
 
     const roles = user.roles.map((ur) => ur.role.code);
+    const { permissions } = await loadRolesAndPermissionsForUser(
+      this.prisma,
+      user.id,
+    );
     const authUser: AuthUser = {
       id: user.id,
       type: 'user',
       roles,
+      permissions,
       displayName: user.displayName,
     };
 
@@ -107,6 +113,7 @@ export class AuthService {
           id: workerPin.worker.id,
           type: 'worker',
           roles: ['WORKER'],
+          permissions: [],
           displayName: `${workerPin.worker.firstName} ${workerPin.worker.lastName}`,
         };
         return this.issueToken(authUser);
@@ -149,10 +156,15 @@ export class AuthService {
             'Nur Benutzer mit Rolle CUSTOMER_PL können sich per PIN anmelden',
           );
         }
+        const { permissions } = await loadRolesAndPermissionsForUser(
+          this.prisma,
+          userPin.user.id,
+        );
         const authUser: AuthUser = {
           id: userPin.user.id,
           type: 'user',
           roles,
+          permissions,
           displayName: userPin.user.displayName,
         };
         return this.issueToken(authUser);
@@ -180,7 +192,46 @@ export class AuthService {
    * @returns LoginResponse mit neuem Token (LoginResponse)
    */
   async refresh(user: AuthUser): Promise<LoginResponse> {
+    if (user.type === 'user') {
+      const fresh = await loadRolesAndPermissionsForUser(this.prisma, user.id);
+      if (!fresh.roles.length) {
+        throw new UnauthorizedException('Benutzer inaktiv oder nicht gefunden');
+      }
+      return this.issueToken({
+        id: user.id,
+        type: 'user',
+        roles: fresh.roles,
+        permissions: fresh.permissions,
+        displayName: fresh.displayName,
+      });
+    }
     return this.issueToken(user);
+  }
+
+  /**
+   * Aktuelles Profil inkl. frischer Rollen/Permissions (Office-User).
+   */
+  async me(user: AuthUser): Promise<AuthUser> {
+    if (user.type === 'worker') {
+      return {
+        id: user.id,
+        type: 'worker',
+        roles: user.roles,
+        permissions: user.permissions ?? [],
+        displayName: user.displayName,
+      };
+    }
+    const fresh = await loadRolesAndPermissionsForUser(this.prisma, user.id);
+    if (!fresh.roles.length) {
+      throw new UnauthorizedException('Benutzer inaktiv oder nicht gefunden');
+    }
+    return {
+      id: user.id,
+      type: 'user',
+      roles: fresh.roles,
+      permissions: fresh.permissions,
+      displayName: fresh.displayName,
+    };
   }
 
   /**
@@ -194,6 +245,7 @@ export class AuthService {
       sub: user.id,
       type: user.type as ActorType,
       roles: user.roles,
+      permissions: user.permissions ?? [],
     };
 
     // Eindeutige jti, damit aufeinanderfolgende Tokens (z.B. Login + Refresh

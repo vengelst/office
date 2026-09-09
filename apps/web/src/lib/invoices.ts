@@ -532,7 +532,12 @@ export const invoicesApi = {
 
   sendEmail: (
     id: string,
-    body: { documentIds?: string[]; weeklyTimesheetIds?: string[] },
+    body: {
+      documentIds?: string[];
+      weeklyTimesheetIds?: string[];
+      attachZugferd?: boolean;
+      attachXRechnung?: boolean;
+    },
   ) =>
     apiClient.post<{
       success: boolean;
@@ -546,6 +551,8 @@ export const invoicesApi = {
    * @param id - Rechnungs-ID
    */
   pdfUrl: (id: string) => `${API_BASE_URL}/invoices/${id}/pdf`,
+  xrechnungUrl: (id: string) => `${API_BASE_URL}/invoices/${id}/xrechnung`,
+  zugferdUrl: (id: string) => `${API_BASE_URL}/invoices/${id}/zugferd`,
 };
 
 // ── Helfer ─────────────────────────────────────────────────────
@@ -635,23 +642,31 @@ export async function downloadInvoicePdf(
   id: string,
   filename: string,
 ): Promise<void> {
+  return downloadAuthenticated(invoicesApi.pdfUrl(id), filename);
+}
+
+/** Authentifizierter Datei-Download (Bearer-Token). */
+export async function downloadAuthenticated(
+  url: string,
+  filename: string,
+): Promise<void> {
   const token =
     typeof window !== 'undefined'
       ? window.localStorage.getItem('office_token')
       : null;
-  const res = await fetch(invoicesApi.pdfUrl(id), {
+  const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
   if (!res.ok) {
-    throw new ApiError(`PDF-Export fehlgeschlagen (${res.status})`, res.status);
+    throw new ApiError(`Download fehlgeschlagen (${res.status})`, res.status);
   }
   const blob = await res.blob();
-  const url = URL.createObjectURL(blob);
+  const objectUrl = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url;
+  a.href = objectUrl;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
-  URL.revokeObjectURL(url);
+  URL.revokeObjectURL(objectUrl);
 }

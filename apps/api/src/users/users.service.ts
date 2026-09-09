@@ -253,4 +253,61 @@ export class UsersService {
     }
     return roles.map((r) => r.id);
   }
+
+  /** Alle Rollen inkl. Permission-Codes. */
+  async listRoles() {
+    const roles = await this.prisma.role.findMany({
+      orderBy: { code: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+        permissions: {
+          select: { permission: { select: { code: true, description: true } } },
+        },
+      },
+    });
+    return roles.map((r) => ({
+      id: r.id,
+      code: r.code,
+      name: r.name,
+      description: r.description,
+      permissions: r.permissions.map((p) => p.permission.code).sort(),
+    }));
+  }
+
+  /** Alle Permission-Codes. */
+  async listPermissions() {
+    return this.prisma.permission.findMany({
+      orderBy: { code: 'asc' },
+      select: { id: true, code: true, description: true },
+    });
+  }
+
+  /** Ersetzt die Permission-Liste einer Rolle. */
+  async setRolePermissions(roleCode: RoleCode, permissionCodes: string[]) {
+    const role = await this.prisma.role.findUnique({ where: { code: roleCode } });
+    if (!role) throw new NotFoundException('Rolle nicht gefunden');
+
+    const unique = [...new Set(permissionCodes)];
+    const perms = await this.prisma.permission.findMany({
+      where: { code: { in: unique } },
+      select: { id: true, code: true },
+    });
+    if (perms.length !== unique.length) {
+      throw new BadRequestException('Unbekannter Permission-Code');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.rolePermission.deleteMany({ where: { roleId: role.id } }),
+      this.prisma.rolePermission.createMany({
+        data: perms.map((p) => ({ roleId: role.id, permissionId: p.id })),
+      }),
+    ]);
+
+    return this.listRoles().then((all) =>
+      all.find((r) => r.code === roleCode),
+    );
+  }
 }

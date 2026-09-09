@@ -27,6 +27,13 @@ enum CustomerStatus {
   INACTIVE
 }
 
+enum EInvoicePreference {
+  NONE
+  ZUGFERD_COMFORT
+  XRECHNUNG
+  BOTH
+}
+
 enum ProjectStatus {
   DRAFT
   PLANNED
@@ -381,6 +388,10 @@ model Customer {
   website         String?
   vatId           String?
   taxNumber       String?
+  /// Leitweg-ID / Buyer Reference (BT-10) für XRechnung / ZUGFeRD
+  leitwegId       String?
+  /// Bevorzugtes E-Rechnungsformat beim Versand
+  eInvoicePreference EInvoicePreference @default(ZUGFERD_COMFORT)
   /// VIES-Prüfergebnis (EU USt-IdNr.)
   vatIdValidatedAt   DateTime?
   vatIdValid         Boolean?

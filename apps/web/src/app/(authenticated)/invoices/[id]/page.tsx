@@ -57,7 +57,9 @@ import { SendEmailDialog } from '@/components/invoices/send-email-dialog';
 import { ApiError } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth-context';
 import { formatDate } from '@/lib/format';
+import { hasPermission } from '@/lib/roles';
 import {
+  downloadAuthenticated,
   downloadInvoicePdf,
   formatCurrency,
   invoiceNumberLabel,
@@ -91,7 +93,8 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const t = texts.invoices;
   const { toast } = useToast();
   const { user } = useAuth();
-  const isSuperadmin = Boolean(user?.roles?.includes('SUPERADMIN'));
+  const canFinalize = hasPermission(user, 'invoices.finalize');
+  const canSend = hasPermission(user, 'invoices.send');
 
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -178,7 +181,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
   const isDraft = invoice.status === 'DRAFT';
   const isCancelled = invoice.status === 'CANCELLED';
   const canEmail =
-    (isSuperadmin || Boolean(user?.roles?.includes('OFFICE'))) &&
+    canSend &&
     !isDraft &&
     !isCancelled &&
     !!invoice.finalizedAt &&
@@ -187,14 +190,14 @@ export default function InvoiceDetailPage(): React.ReactNode {
       invoice.invoiceType === 'CORRECTION');
   const hasRelated = (invoice.creditNotes?.length ?? 0) > 0;
   const canStorno =
-    isSuperadmin &&
+    canFinalize &&
     invoice.invoiceType === 'OUTGOING' &&
     !isDraft &&
     !isCancelled &&
     !!invoice.finalizedAt &&
     !hasRelated;
   const canCorrection =
-    isSuperadmin &&
+    canFinalize &&
     invoice.invoiceType === 'OUTGOING' &&
     !isDraft &&
     !isCancelled &&
@@ -220,7 +223,7 @@ export default function InvoiceDetailPage(): React.ReactNode {
       </PageHeader>
 
       <div className="mb-4 flex flex-wrap gap-2">
-        {isDraft && isSuperadmin && (
+        {isDraft && canFinalize && (
           <Button
             className="min-h-[44px]"
             onClick={() => void openFinalize()}
@@ -244,6 +247,40 @@ export default function InvoiceDetailPage(): React.ReactNode {
           <Download className="h-4 w-4" />
           {t.actions.pdf}
         </Button>
+        {invoice.finalizedAt && (
+          <>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => {
+                downloadAuthenticated(
+                  invoicesApi.zugferdUrl(invoice.id),
+                  `${invoice.invoiceNumber}_zugferd.pdf`,
+                )
+                  .then(() => toast({ description: 'ZUGFeRD heruntergeladen' }))
+                  .catch(() => toast({ description: t.toast.error }));
+              }}
+            >
+              <Download className="h-4 w-4" />
+              ZUGFeRD
+            </Button>
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
+              onClick={() => {
+                downloadAuthenticated(
+                  invoicesApi.xrechnungUrl(invoice.id),
+                  `${invoice.invoiceNumber}_xrechnung.xml`,
+                )
+                  .then(() => toast({ description: 'XRechnung heruntergeladen' }))
+                  .catch(() => toast({ description: t.toast.error }));
+              }}
+            >
+              <Download className="h-4 w-4" />
+              XRechnung
+            </Button>
+          </>
+        )}
         {canEmail && (
           <Button
             variant="outline"

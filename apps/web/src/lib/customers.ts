@@ -115,6 +115,13 @@ export interface CustomerDetail {
   vatIdViesName: string | null;
   vatIdViesRequestId: string | null;
   taxNumber: string | null;
+  leitwegId: string | null;
+  eInvoicePreference:
+    | 'NONE'
+    | 'ZUGFERD_COMFORT'
+    | 'XRECHNUNG'
+    | 'BOTH'
+    | null;
   industry: string | null;
   rating: string | null;
   paymentTermDays: number | null;

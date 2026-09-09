@@ -1,3 +1,5 @@
+'use client';
+
 import Link from 'next/link';
 import {
   Mail,
@@ -14,12 +16,22 @@ import {
   Briefcase,
   Sparkles,
   Receipt,
+  UserCog,
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { PageHeader } from '@/components/layout/page-header';
+import { useAuth } from '@/lib/auth-context';
+import { hasPermission } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 
 const settingsLinks = [
+  {
+    href: '/settings/users',
+    label: 'Benutzerverwaltung',
+    description: 'Benutzer anlegen, Rollen und Rechte zuweisen',
+    icon: UserCog,
+    permission: 'users.manage',
+  },
   {
     href: '/settings/general',
     label: texts.settings.nav.general,
@@ -113,11 +125,17 @@ const settingsLinks = [
 ];
 
 export default function SettingsPage(): React.ReactNode {
+  const { user } = useAuth();
+  const links = settingsLinks.filter((item) => {
+    if (!('permission' in item) || !item.permission) return true;
+    return hasPermission(user, item.permission);
+  });
+
   return (
     <div>
       <PageHeader title={texts.settings.title} />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {settingsLinks.map((item) => (
+        {links.map((item) => (
           <Link key={item.href} href={item.href}>
             <Card className="transition-colors hover:border-primary/50">
               <CardContent className="flex items-start gap-3 py-5">

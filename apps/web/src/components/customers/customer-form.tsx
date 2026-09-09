@@ -69,6 +69,10 @@ const schema = z.object({
   website: z.string().optional(),
   vatId: z.string().optional(),
   taxNumber: z.string().optional(),
+  leitwegId: z.string().optional(),
+  eInvoicePreference: z
+    .enum(['NONE', 'ZUGFERD_COMFORT', 'XRECHNUNG', 'BOTH'])
+    .optional(),
   notes: z.string().optional(),
 });
 
@@ -104,6 +108,8 @@ function toPayload(v: CustomerFormValues): Record<string, unknown> {
     website: v.website || undefined,
     vatId: v.vatId || undefined,
     taxNumber: v.taxNumber || undefined,
+    leitwegId: v.leitwegId || undefined,
+    eInvoicePreference: v.eInvoicePreference || undefined,
     notes: v.notes || undefined,
   };
 }
@@ -177,6 +183,9 @@ export function CustomerForm({
       website: customer?.website ?? '',
       vatId: customer?.vatId ?? '',
       taxNumber: customer?.taxNumber ?? '',
+      leitwegId: customer?.leitwegId ?? '',
+      eInvoicePreference:
+        customer?.eInvoicePreference ?? 'ZUGFERD_COMFORT',
       notes: customer?.notes ?? '',
     },
   });
@@ -509,6 +518,32 @@ export function CustomerForm({
           </Field>
           <Field label={f.taxNumber}>
             <Input {...register('taxNumber')} className="min-h-[44px]" />
+          </Field>
+          <Field label="Leitweg-ID (E-Rechnung)">
+            <Input {...register('leitwegId')} className="min-h-[44px]" />
+          </Field>
+          <Field label="E-Rechnungsformat">
+            <Select
+              value={watch('eInvoicePreference') ?? 'ZUGFERD_COMFORT'}
+              onValueChange={(v) =>
+                setValue(
+                  'eInvoicePreference',
+                  v as CustomerFormValues['eInvoicePreference'],
+                )
+              }
+            >
+              <SelectTrigger className="min-h-[44px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ZUGFERD_COMFORT">
+                  ZUGFeRD Comfort (Standard)
+                </SelectItem>
+                <SelectItem value="XRECHNUNG">XRechnung</SelectItem>
+                <SelectItem value="BOTH">Beide (PDF + XML)</SelectItem>
+                <SelectItem value="NONE">Nur normales PDF</SelectItem>
+              </SelectContent>
+            </Select>
           </Field>
         </div>
       </section>

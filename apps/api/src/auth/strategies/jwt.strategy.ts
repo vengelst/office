@@ -10,6 +10,7 @@ import { Request } from 'express';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { AuthUser, JwtPayload } from '@office/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { loadRolesAndPermissionsForUser } from '../permissions.util';
 
 /**
  * Strategie `jwt`: wandelt ein gültiges Access-Token in ein AuthUser-Objekt um.
@@ -58,12 +59,27 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
           throw new UnauthorizedException('Sitzung abgelaufen oder ungültig');
         }
       }
+      const fresh = await loadRolesAndPermissionsForUser(
+        this.prisma,
+        payload.sub,
+      );
+      if (!fresh.roles.length) {
+        throw new UnauthorizedException('Benutzer inaktiv oder nicht gefunden');
+      }
+      return {
+        id: payload.sub,
+        type: 'user',
+        roles: fresh.roles,
+        permissions: fresh.permissions,
+        displayName: fresh.displayName,
+      };
     }
 
     return {
       id: payload.sub,
       type: payload.type,
       roles: payload.roles ?? [],
+      permissions: payload.permissions ?? [],
     };
   }
 }

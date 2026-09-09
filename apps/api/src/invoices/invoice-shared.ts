@@ -167,6 +167,8 @@ export const detailInclude = {
       vatIdValid: true,
       vatIdValidatedAt: true,
       vatIdViesName: true,
+      leitwegId: true,
+      eInvoicePreference: true,
       emails: {
         select: {
           id: true,
