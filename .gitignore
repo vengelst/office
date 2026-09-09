@@ -37,6 +37,8 @@ coverage/
 # Docker volumes (if mapped locally)
 docker/data/
 kiosk.apk
+apps/mobile/*.apk
+*.apk
 
 # local PDF build venv
 .pdf-venv/
