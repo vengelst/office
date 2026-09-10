@@ -1,13 +1,13 @@
 {
   "name": "@office/mobile",
-  "version": "1.3.1",
+  "version": "1.3.2",
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "test:unit": "tsx --test lib/activity-gate.spec.ts lib/app-update.spec.ts",
+    "test:unit": "tsx --test lib/activity-gate.spec.ts lib/app-update.spec.ts lib/live-presence.spec.ts",
     "build:preview": "eas build --platform android --profile preview",
     "build:production": "eas build --platform android --profile production"
   },

@@ -106,6 +106,24 @@ export interface TodayEntry {
   project: ClockProject;
 }
 
+/** Live-Anwesenheit scoped (GET /time-entries/live/scoped) – analog Web ScopedLiveEntry. */
+export interface ScopedLiveEntry {
+  worker: {
+    id: string;
+    workerNumber: string;
+    firstName: string;
+    lastName: string;
+    photoPath: string | null;
+  };
+  project: (ClockProject & {
+    customer?: { id: string; companyName: string };
+  }) | null;
+  since: string;
+  durationMinutes: number;
+  timeEntryId: string;
+  activity?: { id: string; code: string; name: string } | null;
+}
+
 export interface ClockInBody {
   workerId: string;
   projectId: string;
@@ -398,6 +416,17 @@ export const workerApi = {
 
   today: (workerId: string) =>
     apiFetch<TodayEntry[]>(`/time-entries/today/${workerId}`),
+
+  /**
+   * GET /time-entries/live/scoped – wer ist auf zugewiesenen Projekten eingestempelt (#38).
+   * Optionaler projectId-Filter (aktuelles/gewähltes Projekt).
+   */
+  liveScoped: (projectId?: string) => {
+    const q = projectId
+      ? `?projectId=${encodeURIComponent(projectId)}`
+      : '';
+    return apiFetch<ScopedLiveEntry[]>(`/time-entries/live/scoped${q}`);
+  },
 
   clockIn: (body: ClockInBody) =>
     apiFetch<ClockStatus>('/time-entries/clock-in', { method: 'POST', body }),
