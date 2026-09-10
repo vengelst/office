@@ -7,17 +7,18 @@ Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kur
 
 ---
 
-## Session-Notiz Cursor 10.09.2026 – Personal-App statt Kiosk (#37)
+## Session-Notiz Cursor 10.09.2026 – Personal-App statt Kiosk (#37 / #38)
 
 **Produktentscheidung:** Kein Baustellen-Tablet-Kiosk als Primärweg. Monteur, Projektleiter/Kunden-PL und Kunde arbeiten auf **persönlichen Handys** (Web-Personal-App + Android-Parität). Web-Kiosk wird weich abgekündigt, später entfernt.
 
 | Phase | Inhalt | Status |
 |-------|--------|--------|
-| **#37 Phase 1** | Live in Personal-App, PL/Kunde ohne Kiosk-Setup, Kiosk-Banner, Web↔Android-Checkliste | **PR / Umsetzung** (siehe `claude-arbeitsitems-37-notizen.md`) |
-| Phase 2 | Android-Live / Feinschliff Parität | geplant |
+| **#37 Phase 1** | Live Web, PL ohne Kiosk-Setup, Kiosk-Banner | **Prod** (siehe `claude-arbeitsitems-37-notizen.md`) |
+| **#38 Phase 2** | Android-Live + Pflicht-Foto-Stempel (Datum/Zeit/Ort) | **Cloud-Auftrag** |
 | Phase 3 | Kiosk Hard-Delete / Redirect | geplant |
 
-Spec: [`claude-arbeitsitems-37-personal-app-statt-kiosk.md`](./claude-arbeitsitems-37-personal-app-statt-kiosk.md)
+Spec #37: [`claude-arbeitsitems-37-personal-app-statt-kiosk.md`](./claude-arbeitsitems-37-personal-app-statt-kiosk.md)  
+Spec #38: [`claude-arbeitsitems-38-android-live-foto-stempel.md`](./claude-arbeitsitems-38-android-live-foto-stempel.md)
 
 ---
 
