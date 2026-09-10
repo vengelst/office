@@ -1,7 +1,9 @@
 /**
  * Gate für abrechnungsrelevante Tätigkeitssegmente (#22 / #34).
  *
- * Master immer; Normal-Monteure nur bei stundenbasiertem Projekt.
+ * Master immer; Normal-Monteure bei stundenbasiertem oder gemischtem Projekt
+ * (HOURLY_PACKAGE / MIXED) – dort fallen Stunden an und sollen je Tätigkeit
+ * erfasst werden.
  */
 
 export type BillingModeLike =
@@ -18,7 +20,7 @@ export function isActivityTrackingRequired(
   billingMode: BillingModeLike,
 ): boolean {
   if (masterEngineer) return true;
-  return billingMode === 'HOURLY_PACKAGE';
+  return billingMode === 'HOURLY_PACKAGE' || billingMode === 'MIXED';
 }
 
 function firstBillingMode(...values: BillingModeLike[]): string | null {

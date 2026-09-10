@@ -47,7 +47,7 @@ export const workerApp = {
       photoCancel: 'Abbrechen',
       photoSkip: 'Ohne Kommentar',
       logout: 'Abmelden',
-      chooseActivity: 'Tätigkeit (stundenbasiert)',
+      chooseActivity: 'Tätigkeit (Stunden / gemischt)',
       switchActivity: 'Tätigkeit wechseln',
       currentActivity: 'Aktuelle Tätigkeit',
       workDocTitle: 'Arbeiten dokumentieren',

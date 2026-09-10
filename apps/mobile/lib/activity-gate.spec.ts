@@ -17,9 +17,12 @@ describe('isActivityTrackingRequired (mobile)', () => {
     assert.equal(isActivityTrackingRequired(false, 'HOURLY_PACKAGE'), true);
   });
 
-  it('Normal + UNIT_BASED / MIXED / null → false', () => {
+  it('Normal + MIXED → true (Stundenanteil)', () => {
+    assert.equal(isActivityTrackingRequired(false, 'MIXED'), true);
+  });
+
+  it('Normal + UNIT_BASED / null → false', () => {
     assert.equal(isActivityTrackingRequired(false, 'UNIT_BASED'), false);
-    assert.equal(isActivityTrackingRequired(false, 'MIXED'), false);
     assert.equal(isActivityTrackingRequired(false, null), false);
     assert.equal(isActivityTrackingRequired(false, undefined), false);
   });

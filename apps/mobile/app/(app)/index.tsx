@@ -670,7 +670,7 @@ export default function DashboardScreen() {
           {activityRequired && activityTypes.length > 0 && (
             <View style={styles.activityBlock}>
               <Text style={styles.activityHint}>
-                {clockedIn ? 'Tätigkeit wechseln' : 'Tätigkeit (stundenbasiert)'}
+                {clockedIn ? 'Tätigkeit wechseln' : 'Tätigkeit (Stunden / gemischt)'}
               </Text>
               {clockedIn && status?.currentActivity && (
                 <Text style={styles.currentActivity}>

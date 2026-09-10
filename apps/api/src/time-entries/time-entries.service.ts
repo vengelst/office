@@ -1150,7 +1150,7 @@ export class TimeEntriesService {
 
   /**
    * Tätigkeit ohne Ausstempeln wechseln (schließt Segment, öffnet neues).
-   * Erlaubt für Master immer; für Normal-Monteure nur bei HOURLY_PACKAGE (#34).
+   * Erlaubt für Master immer; für Normal-Monteure bei HOURLY_PACKAGE/MIXED (#34).
    */
   async switchActivity(
     dto: {

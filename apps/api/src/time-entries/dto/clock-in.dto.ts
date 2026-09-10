@@ -59,7 +59,7 @@ export class ClockInDto {
 
   @ApiPropertyOptional({
     description:
-      'Tätigkeitsbereich (Pflicht für Master; für Normal bei HOURLY_PACKAGE)',
+      'Tätigkeitsbereich (Pflicht für Master; für Normal bei HOURLY_PACKAGE/MIXED)',
   })
   @IsOptional()
   @IsString()

@@ -1,6 +1,7 @@
 /**
  * Gate für Tätigkeits-Select / Mid-Day-Wechsel (#34).
- * Master immer; Normal nur bei HOURLY_PACKAGE.
+ * Master immer; Normal bei HOURLY_PACKAGE und MIXED
+ * (gemischte Projekte: Stundenanteil braucht Tätigkeiten).
  */
 
 export type BillingModeLike =
@@ -16,7 +17,7 @@ export function isActivityTrackingRequired(
   billingMode: BillingModeLike,
 ): boolean {
   if (masterEngineer) return true;
-  return billingMode === 'HOURLY_PACKAGE';
+  return billingMode === 'HOURLY_PACKAGE' || billingMode === 'MIXED';
 }
 
 function firstBillingMode(

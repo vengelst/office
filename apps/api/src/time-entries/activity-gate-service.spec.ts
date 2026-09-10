@@ -299,7 +299,9 @@ describe('TimeEntriesService activity gate (#34)', () => {
     );
   });
 
-  it('switchActivity Normal + MIXED → Forbidden', async () => {
+  it('switchActivity Normal + MIXED → Segment wechseln', async () => {
+    let closed = false;
+    let created: Record<string, unknown> | null = null;
     const prisma = basePrisma({
       project: {
         findFirst: async () => ({ id: 'p1', billingMode: 'MIXED' }),
@@ -323,15 +325,38 @@ describe('TimeEntriesService activity gate (#34)', () => {
           throw new Error('nicht erwartet');
         },
       },
+      timeActivitySegment: {
+        findFirst: async () => ({
+          id: 'seg-old',
+          activityTypeId: 'act1',
+          endedAt: null,
+        }),
+        updateMany: async () => {
+          closed = true;
+          return { count: 1 };
+        },
+        create: async (args: { data: Record<string, unknown> }) => {
+          created = args.data;
+          return { id: 'seg-new', ...args.data };
+        },
+      },
     });
     const service = makeService(prisma);
-    await assert.rejects(
-      () =>
-        service.switchActivity(
-          { workerId: 'w1', activityTypeId: 'act2' },
-          actor,
-        ),
-      ForbiddenException,
+    (
+      service as unknown as {
+        getStatus: () => Promise<{ clockedIn: boolean }>;
+      }
+    ).getStatus = async () => ({ clockedIn: true });
+
+    await service.switchActivity(
+      { workerId: 'w1', activityTypeId: 'act2' },
+      actor,
+    );
+    assert.equal(closed, true);
+    assert.ok(created);
+    assert.equal(
+      (created as Record<string, unknown>).activityTypeId,
+      'act2',
     );
   });
 });

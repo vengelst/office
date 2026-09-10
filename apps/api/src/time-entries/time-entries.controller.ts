@@ -242,7 +242,7 @@ export class TimeEntriesController {
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER', 'WORKER')
   @ApiOperation({
     summary:
-      'Tätigkeit während der Schicht wechseln (Master oder HOURLY_PACKAGE)',
+      'Tätigkeit während der Schicht wechseln (Master oder HOURLY_PACKAGE/MIXED)',
   })
   switchActivity(
     @Body() dto: SwitchActivityDto,
