@@ -14,18 +14,30 @@ import {
 } from 'react-native';
 import {
   checkForAppUpdate,
+  dismissUpdateForNow,
   downloadAndInstallApk,
+  markUpdateAttempted,
   type AppUpdateManifest,
+  type DownloadProgressInfo,
 } from '../lib/app-update';
 
 type Phase = 'idle' | 'checking' | 'available' | 'downloading' | 'error';
+
+function formatMb(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return '–';
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function AppUpdateGate(): React.ReactElement | null {
   const [phase, setPhase] = useState<Phase>('checking');
   const [manifest, setManifest] = useState<AppUpdateManifest | null>(null);
   const [currentVersion, setCurrentVersion] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState<DownloadProgressInfo>({
+    ratio: 0,
+    bytesWritten: 0,
+    totalBytes: 0,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -49,24 +61,35 @@ export function AppUpdateGate(): React.ReactElement | null {
     };
   }, []);
 
-  const dismiss = useCallback(() => {
+  const dismiss = useCallback(async () => {
     if (manifest?.mandatory) return;
+    const code = manifest?.versionCode;
+    if (typeof code === 'number' && Number.isFinite(code)) {
+      try {
+        await dismissUpdateForNow(code);
+      } catch {
+        // Speichern fehlgeschlagen – Dialog trotzdem schließen
+      }
+    }
     setPhase('idle');
-  }, [manifest?.mandatory]);
+  }, [manifest?.mandatory, manifest?.versionCode]);
 
   const startUpdate = useCallback(async () => {
     if (!manifest?.apkUrl) return;
     setPhase('downloading');
-    setProgress(0);
+    setProgress({ ratio: 0, bytesWritten: 0, totalBytes: 0 });
     setError(null);
     try {
       await downloadAndInstallApk(manifest.apkUrl, setProgress);
+      if (typeof manifest.versionCode === 'number') {
+        await markUpdateAttempted(manifest.versionCode);
+      }
       // Nach dem Installer-Dialog bleibt die alte App kurz sichtbar –
       // User bestätigt „Aktualisieren“ im System-Dialog.
       setPhase('available');
       Alert.alert(
         'Installation',
-        'Bitte im System-Dialog „Aktualisieren“ bzw. „Installieren“ bestätigen.',
+        'Bitte im System-Dialog „Aktualisieren“ bzw. „Installieren“ bestätigen. Wenn die Version danach unverändert ist, erscheint der Hinweis erst nach einigen Stunden erneut.',
       );
     } catch (err) {
       const message =
@@ -74,10 +97,12 @@ export function AppUpdateGate(): React.ReactElement | null {
       setError(message);
       setPhase('error');
     }
-  }, [manifest?.apkUrl]);
+  }, [manifest?.apkUrl, manifest?.versionCode]);
 
   if (phase === 'idle' || phase === 'checking') return null;
   if (!manifest) return null;
+
+  const pct = Math.round(progress.ratio * 100);
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={dismiss}>
@@ -97,7 +122,10 @@ export function AppUpdateGate(): React.ReactElement | null {
             <View style={styles.progressBlock}>
               <ActivityIndicator color="#60a5fa" />
               <Text style={styles.progressText}>
-                Lade Update… {Math.round(progress * 100)}%
+                Lade Update… {pct}%
+                {progress.totalBytes > 0
+                  ? `\n${formatMb(progress.bytesWritten)} / ${formatMb(progress.totalBytes)}`
+                  : ''}
               </Text>
             </View>
           )}
@@ -174,6 +202,7 @@ const styles = StyleSheet.create({
   progressText: {
     color: '#93c5fd',
     fontSize: 14,
+    flex: 1,
   },
   error: {
     color: '#fca5a5',

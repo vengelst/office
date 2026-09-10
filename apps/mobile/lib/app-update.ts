@@ -6,9 +6,13 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import * as IntentLauncher from 'expo-intent-launcher';
+import * as SecureStore from 'expo-secure-store';
 import { File, Paths } from 'expo-file-system';
 import { getContentUriAsync } from 'expo-file-system/legacy';
 import { API_BASE_URL } from './api';
+import { isVersionNewer } from './version-compare';
+
+export { isVersionNewer } from './version-compare';
 
 export type AppUpdateManifest = {
   version: string;
@@ -30,6 +34,24 @@ export type AppUpdateCheckResult =
       manifest: AppUpdateManifest;
     };
 
+export type DownloadProgressInfo = {
+  ratio: number;
+  bytesWritten: number;
+  totalBytes: number;
+};
+
+const DISMISS_KEY = 'vh_kiosk_update_dismiss';
+const ATTEMPT_KEY = 'vh_kiosk_update_attempt';
+/** „Später“: so lange nicht erneut fragen (nicht-mandatory). */
+const DISMISS_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+/** Nach Installer ohne Versionswechsel: kurze Pause gegen Schleife. */
+const ATTEMPT_TTL_MS = 6 * 60 * 60 * 1000;
+
+type StoredSnooze = {
+  versionCode: number;
+  at: number;
+};
+
 function officeOrigin(): string {
   try {
     const base = API_BASE_URL.replace(/\/api\/?$/, '');
@@ -49,38 +71,64 @@ export function getUpdateManifestUrl(): string {
 
 export function getInstalledVersion(): string {
   return (
-    Constants.expoConfig?.version ??
     Constants.nativeAppVersion ??
+    Constants.expoConfig?.version ??
     '0.0.0'
   );
 }
 
+/**
+ * Maßgeblich ist der vom System installierte versionCode.
+ * expoConfig ist nur Fallback (kann von der APK abweichen).
+ */
 export function getInstalledVersionCode(): number {
   const raw =
-    Constants.expoConfig?.android?.versionCode ??
-    Constants.nativeBuildVersion;
+    Constants.nativeBuildVersion ??
+    Constants.expoConfig?.android?.versionCode;
   const n = Number(raw);
   return Number.isFinite(n) ? n : 0;
 }
 
-/** SemVer a > b ? */
-export function isVersionNewer(remote: string, local: string): boolean {
-  const parse = (v: string) =>
-    v
-      .replace(/^v/i, '')
-      .split(/[.+-]/)
-      .map((p) => Number.parseInt(p, 10))
-      .map((n) => (Number.isFinite(n) ? n : 0));
-  const a = parse(remote);
-  const b = parse(local);
-  const len = Math.max(a.length, b.length);
-  for (let i = 0; i < len; i += 1) {
-    const x = a[i] ?? 0;
-    const y = b[i] ?? 0;
-    if (x > y) return true;
-    if (x < y) return false;
+async function readSnooze(key: string): Promise<StoredSnooze | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredSnooze;
+    if (
+      typeof parsed?.versionCode !== 'number' ||
+      typeof parsed?.at !== 'number'
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
   }
-  return false;
+}
+
+async function writeSnooze(key: string, versionCode: number): Promise<void> {
+  const payload: StoredSnooze = { versionCode, at: Date.now() };
+  await SecureStore.setItemAsync(key, JSON.stringify(payload));
+}
+
+/** Nutzer hat „Später“ gewählt – für denselben versionCode eine Zeit lang ruhig. */
+export async function dismissUpdateForNow(versionCode: number): Promise<void> {
+  await writeSnooze(DISMISS_KEY, versionCode);
+}
+
+/** Installer wurde geöffnet – bei unverändertem Stand kurz nicht erneut nerven. */
+export async function markUpdateAttempted(versionCode: number): Promise<void> {
+  await writeSnooze(ATTEMPT_KEY, versionCode);
+}
+
+function isSnoozed(
+  snooze: StoredSnooze | null,
+  targetVersionCode: number,
+  ttlMs: number,
+): boolean {
+  if (!snooze) return false;
+  if (snooze.versionCode !== targetVersionCode) return false;
+  return Date.now() - snooze.at < ttlMs;
 }
 
 export async function fetchUpdateManifest(
@@ -117,6 +165,23 @@ export async function checkForAppUpdate(): Promise<AppUpdateCheckResult> {
     return { updateAvailable: false };
   }
 
+  const targetCode =
+    typeof manifest.versionCode === 'number' &&
+    Number.isFinite(manifest.versionCode)
+      ? manifest.versionCode
+      : -1;
+
+  if (!manifest.mandatory && targetCode > 0) {
+    const dismissed = await readSnooze(DISMISS_KEY);
+    if (isSnoozed(dismissed, targetCode, DISMISS_TTL_MS)) {
+      return { updateAvailable: false };
+    }
+    const attempted = await readSnooze(ATTEMPT_KEY);
+    if (isSnoozed(attempted, targetCode, ATTEMPT_TTL_MS)) {
+      return { updateAvailable: false };
+    }
+  }
+
   return {
     updateAvailable: true,
     currentVersion,
@@ -131,18 +196,29 @@ export async function checkForAppUpdate(): Promise<AppUpdateCheckResult> {
  */
 export async function downloadAndInstallApk(
   apkUrl: string,
-  onProgress?: (ratio: number) => void,
+  onProgress?: (info: DownloadProgressInfo) => void,
 ): Promise<void> {
   if (Platform.OS !== 'android') {
     throw new Error('Updates nur unter Android');
   }
 
-  onProgress?.(0.05);
+  onProgress?.({ ratio: 0, bytesWritten: 0, totalBytes: 0 });
   const target = new File(Paths.cache, 'vh-kiosk-update.apk');
   if (target.exists) target.delete();
 
-  await File.downloadFileAsync(apkUrl, target, { idempotent: true });
-  onProgress?.(0.9);
+  await File.downloadFileAsync(apkUrl, target, {
+    idempotent: true,
+    onProgress: ({ bytesWritten, totalBytes }) => {
+      const ratio =
+        totalBytes > 0 ? Math.min(1, bytesWritten / totalBytes) : 0;
+      onProgress?.({ ratio, bytesWritten, totalBytes });
+    },
+  });
+  onProgress?.({
+    ratio: 0.95,
+    bytesWritten: target.size ?? 0,
+    totalBytes: target.size ?? 0,
+  });
 
   const contentUri = await getContentUriAsync(target.uri);
   await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
@@ -150,5 +226,9 @@ export async function downloadAndInstallApk(
     type: 'application/vnd.android.package-archive',
     flags: 1,
   });
-  onProgress?.(1);
+  onProgress?.({
+    ratio: 1,
+    bytesWritten: target.size ?? 0,
+    totalBytes: target.size ?? 0,
+  });
 }

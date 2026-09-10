@@ -9,7 +9,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="light" />
-        <AppUpdateGate />
+        {!__DEV__ && <AppUpdateGate />}
         <Slot />
       </AuthProvider>
     </SafeAreaProvider>
