@@ -72,7 +72,15 @@ export interface ClockStatus {
     name: string;
     segmentId: string;
     startedAt: string;
+    projectWorkActivityId?: string | null;
   } | null;
+  currentWorkActivity?: {
+    id: string;
+    label: string;
+    segmentId: string;
+    startedAt: string;
+  } | null;
+  workActivities?: Array<{ id: string; label: string }>;
   onBreak?: boolean;
   breakStartedAt?: string | null;
   workDocumentationRequired?: boolean;
@@ -134,6 +142,8 @@ export interface ClockInBody {
   comment?: string;
   sourceDevice?: string;
   activityTypeId?: string;
+  projectWorkActivityId?: string;
+  customWorkLabel?: string;
 }
 
 export interface ClockOutBody {
@@ -158,11 +168,19 @@ export interface BreakBody {
 
 export interface SwitchActivityBody {
   workerId: string;
-  activityTypeId: string;
+  activityTypeId?: string;
+  projectWorkActivityId?: string;
+  customWorkLabel?: string;
   latitude?: number;
   longitude?: number;
   accuracy?: number;
   occurredAtClient?: string;
+}
+
+export interface ProjectWorkActivityItem {
+  id: string;
+  label: string;
+  active?: boolean;
 }
 
 export interface ActivityTypeItem {
@@ -454,6 +472,10 @@ export const workerApi = {
 
   listActivityTypes: () =>
     apiFetch<ActivityTypeItem[]>('/activity-types?active=true'),
+  listWorkActivities: (projectId: string) =>
+    apiFetch<ProjectWorkActivityItem[]>(
+      `/projects/${projectId}/work-activities`,
+    ),
 
   gpsPing: (body: GeoPingBody) =>
     apiFetch<unknown>('/time-entries/gps-ping', { method: 'POST', body }),

@@ -59,6 +59,8 @@ export interface OfflineClockEntry {
   comment?: string;
   /** Tätigkeitsbereich (Master Clock-In). */
   activityTypeId?: string;
+  projectWorkActivityId?: string;
+  customWorkLabel?: string;
   createdAt: string;
   status: OfflineQueueItemStatus;
   lastError?: string;
@@ -457,6 +459,8 @@ export async function offlineAwareClockIn(
       sourceDevice: body.sourceDevice,
       comment: body.comment,
       activityTypeId: body.activityTypeId,
+      projectWorkActivityId: body.projectWorkActivityId,
+      customWorkLabel: body.customWorkLabel,
       createdAt: new Date().toISOString(),
       status: 'pending',
       projectSnapshot: projectSnapshot ?? null,
@@ -679,8 +683,18 @@ export async function syncOfflineClockQueue(): Promise<void> {
           sourceDevice: entry.sourceDevice,
           comment: entry.comment,
           clientEventId: entry.id,
-          ...(entry.type === 'CLOCK_IN' && entry.activityTypeId
-            ? { activityTypeId: entry.activityTypeId }
+          ...(entry.type === 'CLOCK_IN'
+            ? {
+                ...(entry.activityTypeId
+                  ? { activityTypeId: entry.activityTypeId }
+                  : {}),
+                ...(entry.projectWorkActivityId
+                  ? { projectWorkActivityId: entry.projectWorkActivityId }
+                  : {}),
+                ...(entry.customWorkLabel
+                  ? { customWorkLabel: entry.customWorkLabel }
+                  : {}),
+              }
             : {}),
         };
         if (entry.type === 'CLOCK_IN') {

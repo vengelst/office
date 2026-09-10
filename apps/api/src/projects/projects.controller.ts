@@ -377,9 +377,19 @@ export class ProjectsController {
   // ── Arbeitstätigkeiten (Auftrag #30) ─────────────────────────
 
   @Get(':id/work-activities')
+  @Roles(
+    RoleCode.SUPERADMIN,
+    RoleCode.OFFICE,
+    RoleCode.PROJECT_MANAGER,
+    RoleCode.WORKER,
+    RoleCode.CUSTOMER_PL,
+  )
   @ApiOperation({ summary: 'Projektbezogene Arbeitstätigkeiten (Checkbox-Labels)' })
-  findWorkActivities(@Param('id') id: string) {
-    return this.projects.findWorkActivities(id);
+  findWorkActivities(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.projects.findWorkActivitiesForUser(id, user);
   }
 
   @Post(':id/work-activities')

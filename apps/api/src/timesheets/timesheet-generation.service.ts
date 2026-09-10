@@ -339,6 +339,7 @@ export class TimesheetGenerationService {
             Math.round((segEnd.getTime() - segStart.getTime()) / 60000),
           );
           if (mins <= 0) continue;
+          if (!seg.activityTypeId) continue;
           byType.set(
             seg.activityTypeId,
             (byType.get(seg.activityTypeId) ?? 0) + mins,

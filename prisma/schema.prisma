@@ -671,9 +671,10 @@ model ProjectWorkActivity {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project          Project                       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  timeEntryLinks   TimeEntryWorkActivity[]
+  project           Project                        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  timeEntryLinks    TimeEntryWorkActivity[]
   timesheetDayLinks WeeklyTimesheetDayWorkActivity[]
+  activitySegments  TimeActivitySegment[]
 
   @@index([projectId, active, sortOrder])
 }
@@ -1323,23 +1324,28 @@ model ActivityType {
 
 /// Zeitsegment einer Tätigkeit während einer Schicht (Master).
 model TimeActivitySegment {
-  id             String    @id @default(cuid())
-  workerId       String
-  projectId      String
-  activityTypeId String
-  startedAt      DateTime
-  endedAt        DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  id                     String    @id @default(cuid())
+  workerId               String
+  projectId              String
+  /// Legacy/globaler Katalog – optional, wenn Projekt-Arbeit gesetzt ist.
+  activityTypeId         String?
+  /// Projektbezogene Arbeit (Checkbox / Stempel-Auswahl).
+  projectWorkActivityId  String?
+  startedAt              DateTime
+  endedAt                DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  worker       Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
-  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  activityType ActivityType @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+  worker               Worker                @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  project              Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  activityType         ActivityType?         @relation(fields: [activityTypeId], references: [id], onDelete: Restrict)
+  projectWorkActivity  ProjectWorkActivity?  @relation(fields: [projectWorkActivityId], references: [id], onDelete: Restrict)
 
   @@index([workerId, startedAt])
   @@index([workerId, endedAt])
   @@index([projectId, startedAt])
   @@index([activityTypeId])
+  @@index([projectWorkActivityId])
 }
 
 /// Minuten je Tätigkeit an einem Stundenzettel-Tag (Snapshot).

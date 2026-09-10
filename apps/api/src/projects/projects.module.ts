@@ -11,6 +11,6 @@ import { ProjectAssignmentsService } from './project-assignments.service';
     ProjectResourcesService,
     ProjectAssignmentsService,
   ],
-  exports: [ProjectsService],
+  exports: [ProjectsService, ProjectResourcesService],
 })
 export class ProjectsModule {}

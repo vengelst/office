@@ -26,6 +26,7 @@ import {
   type WorkerMeAssignment,
   type PendingWorkDocumentation,
   type ActivityTypeItem,
+  type ProjectWorkActivityItem,
   ApiError,
   stampErrorTitle,
 } from '../../lib/api';
@@ -46,6 +47,11 @@ export default function DashboardScreen() {
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [activityTypes, setActivityTypes] = useState<ActivityTypeItem[]>([]);
   const [selectedActivityTypeId, setSelectedActivityTypeId] = useState('');
+  const [workActivities, setWorkActivities] = useState<
+    ProjectWorkActivityItem[]
+  >([]);
+  const [selectedWorkActivityId, setSelectedWorkActivityId] = useState('');
+  const [customWorkLabel, setCustomWorkLabel] = useState('');
   const [activityPickerOpen, setActivityPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -162,27 +168,38 @@ export default function DashboardScreen() {
     relevantBillingMode,
   );
 
+  const workProjectId =
+    (clockedIn ? status?.project?.id : null) ?? selectedProjectId ?? '';
+
   useEffect(() => {
-    if (!activityRequired) {
-      setActivityTypes([]);
-      setSelectedActivityTypeId('');
+    if (!activityRequired || !workProjectId) {
+      setWorkActivities([]);
+      setSelectedWorkActivityId('');
       return;
     }
     void workerApi
-      .listActivityTypes()
+      .listWorkActivities(workProjectId)
       .then((list) => {
-        setActivityTypes(list);
-        setSelectedActivityTypeId((prev) => {
-          if (prev && list.some((a) => a.id === prev)) return prev;
-          const fromStatus = status?.currentActivity?.id;
-          if (fromStatus && list.some((a) => a.id === fromStatus)) {
+        const active = list.filter((a) => a.active !== false);
+        setWorkActivities(active);
+        setSelectedWorkActivityId((prev) => {
+          if (prev && active.some((a) => a.id === prev)) return prev;
+          const fromStatus =
+            status?.currentWorkActivity?.id ?? status?.currentActivity?.id;
+          if (fromStatus && active.some((a) => a.id === fromStatus)) {
             return fromStatus;
           }
-          return list[0]?.id ?? '';
+          return active[0]?.id ?? '';
         });
       })
-      .catch(() => setActivityTypes([]));
-  }, [activityRequired, worker?.id, status?.currentActivity?.id]);
+      .catch(() => setWorkActivities([]));
+  }, [
+    activityRequired,
+    workProjectId,
+    worker?.id,
+    status?.currentWorkActivity?.id,
+    status?.currentActivity?.id,
+  ]);
 
   /**
    * Arbeitsitems gibt es nur für item-basierte Projekte. `itemBased` liefert
@@ -215,8 +232,9 @@ export default function DashboardScreen() {
       worker.masterEngineer ?? false,
       assignment?.project.billingMode ?? status?.project?.billingMode,
     );
-    if (gate && activityTypes.length > 0 && !selectedActivityTypeId) {
-      Alert.alert('Hinweis', 'Bitte Tätigkeit wählen.');
+    const custom = customWorkLabel.trim();
+    if (gate && !selectedWorkActivityId && !custom) {
+      Alert.alert('Hinweis', 'Bitte Arbeit wählen oder eigene Tätigkeit eintragen.');
       return;
     }
     setBusy(true);
@@ -229,7 +247,14 @@ export default function DashboardScreen() {
         ...(geo ?? {}),
         occurredAtClient: new Date().toISOString(),
         sourceDevice: 'mobile-app',
-        activityTypeId: gate ? selectedActivityTypeId : undefined,
+        projectWorkActivityId:
+          gate && !customWorkLabel.trim()
+            ? selectedWorkActivityId || undefined
+            : undefined,
+        customWorkLabel:
+          gate && customWorkLabel.trim()
+            ? customWorkLabel.trim()
+            : undefined,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Vibration.vibrate(60);
@@ -245,14 +270,18 @@ export default function DashboardScreen() {
     }
   };
 
-  const handleSwitchActivity = async (activityTypeId: string) => {
+  const handleSwitchActivity = async (workActivityId: string) => {
     if (!worker || !status?.clockedIn) return;
-    if (activityTypeId === status.currentActivity?.id) {
-      setSelectedActivityTypeId(activityTypeId);
+    if (
+      workActivityId === status.currentWorkActivity?.id ||
+      workActivityId === status.currentActivity?.id
+    ) {
+      setSelectedWorkActivityId(workActivityId);
       setActivityPickerOpen(false);
       return;
     }
-    setSelectedActivityTypeId(activityTypeId);
+    setSelectedWorkActivityId(workActivityId);
+    setCustomWorkLabel('');
     setActivityPickerOpen(false);
     setBusy(true);
     try {
@@ -260,7 +289,7 @@ export default function DashboardScreen() {
       setGpsOk(geo !== null);
       const next = await workerApi.switchActivity({
         workerId: worker.id,
-        activityTypeId,
+        projectWorkActivityId: workActivityId,
         ...(geo ?? {}),
         occurredAtClient: new Date().toISOString(),
       });
@@ -269,7 +298,39 @@ export default function DashboardScreen() {
     } catch (err) {
       Alert.alert(
         stampErrorTitle(err),
-        err instanceof ApiError ? err.message : 'Wechsel fehlgeschlagen.',
+        err instanceof ApiError ? err.message : 'Tätigkeitswechsel fehlgeschlagen.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleApplyCustomWork = async () => {
+    if (!worker || !status?.clockedIn) return;
+    const label = customWorkLabel.trim();
+    if (!label) return;
+    setBusy(true);
+    try {
+      const geo = await getCurrentPosition();
+      setGpsOk(geo !== null);
+      const next = await workerApi.switchActivity({
+        workerId: worker.id,
+        customWorkLabel: label,
+        ...(geo ?? {}),
+        occurredAtClient: new Date().toISOString(),
+      });
+      setStatus(next);
+      setSelectedWorkActivityId(next.currentWorkActivity?.id ?? '');
+      setCustomWorkLabel('');
+      if (workProjectId) {
+        const list = await workerApi.listWorkActivities(workProjectId);
+        setWorkActivities(list.filter((a) => a.active !== false));
+      }
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch (err) {
+      Alert.alert(
+        stampErrorTitle(err),
+        err instanceof ApiError ? err.message : 'Tätigkeitswechsel fehlgeschlagen.',
       );
     } finally {
       setBusy(false);
@@ -671,14 +732,16 @@ export default function DashboardScreen() {
             <Text style={styles.notClockedInLabel}>Nicht eingestempelt</Text>
           )}
 
-          {activityRequired && activityTypes.length > 0 && (
+          {activityRequired && (
             <View style={styles.activityBlock}>
               <Text style={styles.activityHint}>
-                {clockedIn ? 'Tätigkeit wechseln' : 'Tätigkeit (Stunden / gemischt)'}
+                {clockedIn ? 'Arbeit wechseln' : 'Arbeit wählen'}
               </Text>
-              {clockedIn && status?.currentActivity && (
+              {clockedIn && (status?.currentWorkActivity || status?.currentActivity) && (
                 <Text style={styles.currentActivity}>
-                  Aktuelle Tätigkeit: {status.currentActivity.name}
+                  Aktuell:{' '}
+                  {status.currentWorkActivity?.label ??
+                    status.currentActivity?.name}
                 </Text>
               )}
               <TouchableOpacity
@@ -694,8 +757,8 @@ export default function DashboardScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={styles.pickerButtonText}>
-                  {activityTypes.find((a) => a.id === selectedActivityTypeId)
-                    ?.name ?? 'Tätigkeit auswählen…'}
+                  {workActivities.find((a) => a.id === selectedWorkActivityId)
+                    ?.label ?? 'Arbeit auswählen…'}
                 </Text>
                 <Ionicons
                   name={activityPickerOpen ? 'chevron-up' : 'chevron-down'}
@@ -705,19 +768,20 @@ export default function DashboardScreen() {
               </TouchableOpacity>
               {activityPickerOpen && (
                 <View style={styles.pickerDropdown}>
-                  {activityTypes.map((a) => (
+                  {workActivities.map((a) => (
                     <TouchableOpacity
                       key={a.id}
                       style={[
                         styles.pickerItem,
-                        a.id === selectedActivityTypeId &&
+                        a.id === selectedWorkActivityId &&
                           styles.pickerItemSelected,
                       ]}
                       onPress={() => {
                         if (clockedIn) {
                           void handleSwitchActivity(a.id);
                         } else {
-                          setSelectedActivityTypeId(a.id);
+                          setSelectedWorkActivityId(a.id);
+                          setCustomWorkLabel('');
                           setActivityPickerOpen(false);
                         }
                       }}
@@ -726,16 +790,39 @@ export default function DashboardScreen() {
                       <Text
                         style={[
                           styles.pickerItemText,
-                          a.id === selectedActivityTypeId &&
+                          a.id === selectedWorkActivityId &&
                             styles.pickerItemTextSelected,
                         ]}
                       >
-                        {a.name}
+                        {a.label}
                       </Text>
                     </TouchableOpacity>
                   ))}
                 </View>
               )}
+              <TextInput
+                style={styles.customWorkInput}
+                value={customWorkLabel}
+                onChangeText={(v) => {
+                  setCustomWorkLabel(v);
+                  if (v.trim()) setSelectedWorkActivityId('');
+                }}
+                placeholder="Eigene Tätigkeit…"
+                placeholderTextColor="#6b7280"
+                editable={!busy && !onBreak}
+                maxLength={120}
+              />
+              {clockedIn && !!customWorkLabel.trim() && (
+                <TouchableOpacity
+                  style={[styles.pickerButton, busy && styles.clockButtonDisabled]}
+                  onPress={() => void handleApplyCustomWork()}
+                  disabled={busy || onBreak}
+                >
+                  <Text style={styles.pickerButtonText}>Übernehmen</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
             </View>
           )}
 
@@ -762,8 +849,8 @@ export default function DashboardScreen() {
                 (!clockedIn && current.length === 0) ||
                 (!clockedIn &&
                   activityRequired &&
-                  activityTypes.length > 0 &&
-                  !selectedActivityTypeId)) &&
+                  !selectedWorkActivityId &&
+                  !customWorkLabel.trim())) &&
                 styles.clockButtonDisabled,
             ]}
             onPress={clockedIn ? handleClockOut : handleClockIn}
@@ -772,8 +859,8 @@ export default function DashboardScreen() {
               (!clockedIn && current.length === 0) ||
               (!clockedIn &&
                 activityRequired &&
-                activityTypes.length > 0 &&
-                !selectedActivityTypeId)
+                !selectedWorkActivityId &&
+                !customWorkLabel.trim())
             }
             activeOpacity={0.8}
           >

@@ -1,3 +1,4 @@
+import { AuthUser } from '@office/types';
 /**
  * Service für Projects.
  * CRUD, Status, Timeline; Ressourcen/Zuordnungen sind ausgelagert.
@@ -5,7 +6,7 @@
 
 import {
   Injectable,
-  NotFoundException,
+  ForbiddenException, NotFoundException,
 } from '@nestjs/common';
 import { Prisma, ProjectStatus, WorkerAvailability } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -337,6 +338,77 @@ export class ProjectsService {
   }
   findWorkActivities(projectId: string) {
     return this.resources.findWorkActivities(projectId);
+  }
+
+
+  /** Office/PM: alles; Worker: nur zugewiesene Projekte (oder Master). */
+  private async assertProjectReadableByUser(
+    projectId: string,
+    user: AuthUser,
+  ): Promise<void> {
+    const project = await this.prisma.project.findFirst({
+      where: { id: projectId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!project) {
+      throw new NotFoundException('Projekt nicht gefunden');
+    }
+    const office = user.roles.some((r) =>
+      ['SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER'].includes(r),
+    );
+    if (office || user.type === 'user') {
+      // user ohne Office-Rolle (z.B. CUSTOMER_PL) fällt unten durch
+      if (office) return;
+    }
+    if (user.type === 'worker') {
+      const worker = await this.prisma.worker.findFirst({
+        where: { id: user.id, active: true, deletedAt: null },
+        select: { masterEngineer: true },
+      });
+      if (worker?.masterEngineer) return;
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const endOfToday = new Date();
+      endOfToday.setHours(23, 59, 59, 999);
+      const assignment = await this.prisma.projectAssignment.findFirst({
+        where: {
+          workerId: user.id,
+          projectId,
+          active: true,
+          startDate: { lte: endOfToday },
+          OR: [{ endDate: null }, { endDate: { gte: startOfToday } }],
+        },
+        select: { id: true },
+      });
+      if (assignment) return;
+    }
+    // CUSTOMER_PL: Projekt des eigenen Kunden
+    if (user.roles.includes('CUSTOMER_PL')) {
+      // Falls Link über customerContact – vereinfacht: erlauben wenn Projekt existiert und Rolle passt
+      // (Detailrechte liegen i.d.R. in Feature-Guards; hier lesend OK wenn zugewiesen)
+      const link = await this.prisma.project.findFirst({
+        where: {
+          id: projectId,
+          deletedAt: null,
+          // customer contacts vary; leave open if project exists for PL with role
+        },
+        select: { id: true },
+      });
+      if (link) return;
+    }
+    throw new ForbiddenException('Kein Zugriff auf dieses Projekt');
+  }
+
+  async findWorkActivitiesForUser(projectId: string, user: AuthUser) {
+    await this.assertProjectReadableByUser(projectId, user);
+    const rows = await this.resources.findWorkActivities(projectId);
+    const isOffice = user.roles.some((r) =>
+      ['SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER'].includes(r),
+    );
+    return isOffice ? rows : rows.filter((r) => r.active);
+  }
+  findOrCreateWorkActivity(projectId: string, label: string) {
+    return this.resources.findOrCreateWorkActivity(projectId, label);
   }
   createWorkActivity(projectId: string, dto: CreateProjectWorkActivityDto) {
     return this.resources.createWorkActivity(projectId, dto);

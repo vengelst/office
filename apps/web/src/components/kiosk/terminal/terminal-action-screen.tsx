@@ -4,7 +4,6 @@ import { OfflineClockBanner } from '@/components/offline-clock-banner';
 import { KT } from '@/lib/texts/kiosk-terminal-i18n';
 import type { KioskConfig } from '@/app/kiosk/setup/page';
 import type { WorkerMe, ClockStatus, KioskWorkerStatus } from '@/lib/timesheets';
-import type { ActivityTypeItem } from '@/lib/activity-types';
 import type { KioskState, TerminalTranslate } from './types';
 import { ActionWorkerInfo } from './action-worker-info';
 import { MasterProjectSelect } from './master-project-select';
@@ -17,8 +16,10 @@ interface TerminalActionScreenProps {
   worker: WorkerMe;
   config: KioskConfig;
   clockStatus: ClockStatus | null;
-  activityTypes: ActivityTypeItem[];
-  selectedActivityTypeId: string | null;
+  workActivities: Array<{ id: string; label: string }>;
+  selectedWorkActivityId: string | null;
+  customWorkLabel: string;
+  setCustomWorkLabel: (label: string) => void;
   activityRequired: boolean;
   actionError: string;
   liveWorkers: KioskWorkerStatus[];
@@ -45,7 +46,8 @@ interface TerminalActionScreenProps {
   setSelectedProjectId: (id: string) => void;
   setPhotoPending: (file: File | null) => void;
   setPhotoComment: (comment: string) => void;
-  handleActivityTypeChange: (id: string | null) => void;
+  handleWorkActivityChange: (id: string | null) => void;
+  handleApplyCustomWork: () => void;
   handleClockIn: () => void;
   handleClockOut: () => void;
   handleBreakStart: () => void;
@@ -62,8 +64,10 @@ export function TerminalActionScreen({
   worker,
   config,
   clockStatus,
-  activityTypes,
-  selectedActivityTypeId,
+  workActivities,
+  selectedWorkActivityId,
+  customWorkLabel,
+  setCustomWorkLabel,
   activityRequired,
   actionError,
   liveWorkers,
@@ -86,7 +90,8 @@ export function TerminalActionScreen({
   setSelectedProjectId,
   setPhotoPending,
   setPhotoComment,
-  handleActivityTypeChange,
+  handleWorkActivityChange,
+  handleApplyCustomWork,
   handleClockIn,
   handleClockOut,
   handleBreakStart,
@@ -141,23 +146,20 @@ export function TerminalActionScreen({
         />
       )}
 
-      {activityRequired && activityTypes.length > 0 && (
+      {activityRequired && (
         <MasterActivitySelect
-          activityTypes={activityTypes}
-          selectedActivityTypeId={selectedActivityTypeId}
+          workActivities={workActivities}
+          selectedWorkActivityId={selectedWorkActivityId}
+          customWorkLabel={customWorkLabel}
           clockStatus={clockStatus}
           isIn={isIn}
           onBreak={clockStatus?.onBreak ?? false}
           t={t}
           resetActivity={resetActivity}
-          onActivityTypeChange={handleActivityTypeChange}
+          onWorkActivityChange={handleWorkActivityChange}
+          onCustomWorkLabelChange={setCustomWorkLabel}
+          onApplyCustomWork={handleApplyCustomWork}
         />
-      )}
-
-      {activityRequired && activityTypes.length === 0 && (
-        <p className="mx-auto mt-4 max-w-lg rounded-xl border border-amber-700/50 bg-amber-950/40 px-4 py-3 text-center text-base text-amber-200">
-          {t(KT.activityTypesMissing)}
-        </p>
       )}
 
       {actionError && (
@@ -181,7 +183,8 @@ export function TerminalActionScreen({
           !(
             !isIn &&
             activityRequired &&
-            (activityTypes.length === 0 || !selectedActivityTypeId)
+            !selectedWorkActivityId &&
+            !customWorkLabel.trim()
           )
         }
         itemBasedProject={itemBasedProject}

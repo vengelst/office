@@ -25,6 +25,7 @@ function makeService(prisma: unknown) {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     { ensureForStamp: async () => undefined } as never,
   );
   (
@@ -91,6 +92,49 @@ function basePrisma(overrides: Record<string, unknown> = {}) {
 }
 
 describe('TimeEntriesService activity gate (#34)', () => {
+  it('clockIn HOURLY mit customWorkLabel → ProjectWorkActivity + Segment', async () => {
+    let segmentCreated: Record<string, unknown> | null = null;
+    let workCreated: Record<string, unknown> | null = null;
+    const prisma = basePrisma({
+      projectWorkActivity: {
+        findMany: async () => [],
+        findUniqueOrThrow: async () => ({ id: 'wa1', label: 'Kabelzug' }),
+        create: async (args: { data: Record<string, unknown> }) => {
+          workCreated = args.data;
+          return { id: 'wa1', ...args.data };
+        },
+        findFirst: async () => null,
+        aggregate: async () => ({ _max: { sortOrder: 0 } }),
+        update: async () => ({ id: 'wa1', label: 'Kabelzug', active: true }),
+      },
+      timeActivitySegment: {
+        create: async (args: { data: Record<string, unknown> }) => {
+          segmentCreated = args.data;
+          return { id: 'seg1', ...args.data };
+        },
+        findFirst: async () => null,
+        updateMany: async () => ({ count: 0 }),
+      },
+    });
+    const service = makeService(prisma);
+    await service.clockIn(
+      {
+        workerId: 'w1',
+        projectId: 'p1',
+        customWorkLabel: 'Kabelzug',
+        occurredAtClient: '2026-09-08T08:00:00.000Z',
+      },
+      actor,
+    );
+    assert.ok(workCreated);
+    assert.equal((workCreated as Record<string, unknown>).label, 'Kabelzug');
+    assert.ok(segmentCreated);
+    assert.equal(
+      (segmentCreated as Record<string, unknown>).projectWorkActivityId,
+      'wa1',
+    );
+  });
+
   it('clockIn Normal + HOURLY ohne activityTypeId → 400', async () => {
     const service = makeService(basePrisma());
     await assert.rejects(

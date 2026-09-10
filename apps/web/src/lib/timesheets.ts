@@ -92,6 +92,13 @@ export interface ClockStatus {
     name: string;
     segmentId: string;
     startedAt: string;
+    projectWorkActivityId?: string | null;
+  } | null;
+  currentWorkActivity?: {
+    id: string;
+    label: string;
+    segmentId: string;
+    startedAt: string;
   } | null;
   /** Pause aktiv. */
   onBreak?: boolean;
@@ -113,6 +120,7 @@ export interface PendingWorkDocumentation {
   workNotesEnabled: boolean;
   workActivities: Array<{ id: string; label: string }>;
   configurationError: boolean;
+  preselectedWorkActivityIds?: string[];
 }
 
 
@@ -185,8 +193,12 @@ export interface ClockInBody {
   clientEventId?: string;
   /** Optionaler Projekt-Snapshot für optimistischen Offline-Status. */
   projectSnapshot?: ClockProject | null;
-  /** Tätigkeitsbereich (Pflicht für Master-Monteur). */
+  /** Legacy-Tätigkeitskatalog (weiterhin erlaubt). */
   activityTypeId?: string;
+  /** Projekt-Arbeit (bevorzugt gegenüber activityTypeId). */
+  projectWorkActivityId?: string;
+  /** Eigene Tätigkeit – Server legt ProjectWorkActivity an. */
+  customWorkLabel?: string;
 }
 
 /** Request-Body zum Ausstempeln eines Monteurs. */
@@ -631,10 +643,18 @@ export const workerApi = {
   uploadPhoto: (form: FormData) =>
     workerUpload<unknown>('/time-entries/upload-photo', form),
 
-  /** POST /time-entries/switch-activity – Master wechselt Tätigkeit. */
+  /** GET /projects/:id/work-activities – Projekt-Arbeiten (Worker-Token). */
+  listWorkActivities: (projectId: string) =>
+    workerFetch<Array<{ id: string; label: string; active?: boolean }>>(
+      `/projects/${projectId}/work-activities`,
+    ),
+
+  /** POST /time-entries/switch-activity – Tätigkeit/Arbeit wechseln. */
   switchActivity: (body: {
     workerId: string;
-    activityTypeId: string;
+    activityTypeId?: string;
+    projectWorkActivityId?: string;
+    customWorkLabel?: string;
     latitude?: number;
     longitude?: number;
     accuracy?: number;
@@ -1069,10 +1089,14 @@ export const kioskApi = {
    */
   uploadPhoto: (form: FormData) => workerUpload<unknown>('/time-entries/upload-photo', form),
 
-  /** POST /time-entries/switch-activity – Master wechselt Tätigkeit. */
+  listWorkActivities: workerApi.listWorkActivities,
+
+  /** POST /time-entries/switch-activity – Tätigkeit/Arbeit wechseln. */
   switchActivity: (body: {
     workerId: string;
-    activityTypeId: string;
+    activityTypeId?: string;
+    projectWorkActivityId?: string;
+    customWorkLabel?: string;
     latitude?: number;
     longitude?: number;
     accuracy?: number;

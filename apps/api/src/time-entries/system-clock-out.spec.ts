@@ -136,6 +136,7 @@ describe('TimeEntriesService.systemClockOut', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       workItemWorkflow as never,
       { ensureForStamp: async () => undefined } as never,
     );

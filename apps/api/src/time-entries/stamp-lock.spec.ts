@@ -23,6 +23,7 @@ function makeService(prisma: unknown) {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     { ensureForStamp: async () => undefined } as never,
   );
   (

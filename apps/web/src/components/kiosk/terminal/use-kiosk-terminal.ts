@@ -61,6 +61,14 @@ export function useKioskTerminal() {
   const [selectedActivityTypeId, setSelectedActivityTypeId] = useState<string | null>(
     null,
   );
+  const [workActivities, setWorkActivities] = useState<
+    Array<{ id: string; label: string }>
+  >([]);
+  const [selectedWorkActivityId, setSelectedWorkActivityId] = useState<
+    string | null
+  >(null);
+  const [customWorkLabel, setCustomWorkLabel] = useState('');
+
   const [gps, setGps] = useState<GpsData | null>(null);
   const [gpsStatus, setGpsStatus] = useState<'acquiring' | 'active' | 'inactive'>('inactive');
   const [liveWorkers, setLiveWorkers] = useState<KioskWorkerStatus[]>([]);
@@ -372,6 +380,7 @@ export function useKioskTerminal() {
       }
       setState('action');
       lastInteraction.current = Date.now();
+      void loadWorkActivitiesForProject(defaultProjectId ?? config?.projectId ?? '');
       acquireGps();
       void recordWorkerGps({
         workerId: me.id,
@@ -384,6 +393,30 @@ export function useKioskTerminal() {
       setPin('');
     } finally {
       setPinLoading(false);
+    }
+  };
+
+  const loadWorkActivitiesForProject = async (projectId: string) => {
+    if (!projectId) {
+      setWorkActivities([]);
+      setSelectedWorkActivityId(null);
+      return;
+    }
+    try {
+      const list = await kioskApi.listWorkActivities(projectId);
+      const active = list
+        .filter((a) => a.active !== false)
+        .map((a) => ({ id: a.id, label: a.label }));
+      setWorkActivities(active);
+      setSelectedWorkActivityId((prev) => {
+        if (prev && active.some((a) => a.id === prev)) return prev;
+        const fromStatus = clockStatus?.currentWorkActivity?.id;
+        if (fromStatus && active.some((a) => a.id === fromStatus)) return fromStatus;
+        return active[0]?.id ?? null;
+      });
+    } catch {
+      setWorkActivities([]);
+      setSelectedWorkActivityId(null);
     }
   };
 
@@ -407,12 +440,18 @@ export function useKioskTerminal() {
             : undefined,
       }),
     );
-    if (gate && activityTypes.length === 0) {
-      setActionError(t(KT.activityTypesMissing));
-      return;
+    const custom = customWorkLabel.trim();
+    if (gate && workActivities.length === 0 && !custom) {
+      // erlaubt: eigene Tätigkeit eingeben
+      if (!custom) {
+        setActionError(
+          'Bitte Arbeit wählen oder eigene Tätigkeit eintragen',
+        );
+        return;
+      }
     }
-    if (gate && !selectedActivityTypeId) {
-      setActionError(t(KT.activityRequired));
+    if (gate && !selectedWorkActivityId && !custom) {
+      setActionError('Bitte Arbeit wählen oder eigene Tätigkeit eintragen');
       return;
     }
     resetActivity();
@@ -432,9 +471,10 @@ export function useKioskTerminal() {
         accuracy: gpsData?.accuracy,
         occurredAtClient: new Date().toISOString(),
         sourceDevice: 'kiosk',
-        activityTypeId: gate
-          ? selectedActivityTypeId ?? undefined
-          : undefined,
+        projectWorkActivityId: custom
+          ? undefined
+          : selectedWorkActivityId ?? undefined,
+        customWorkLabel: custom || undefined,
         projectSnapshot: assignment
           ? {
               id: assignment.project.id,
@@ -671,9 +711,10 @@ export function useKioskTerminal() {
     }
   };
 
-  const handleActivityTypeChange = (id: string | null) => {
+  const handleWorkActivityChange = (id: string | null) => {
     resetActivity();
-    setSelectedActivityTypeId(id);
+    setSelectedWorkActivityId(id);
+    setCustomWorkLabel('');
     setActionError('');
     const isIn = clockStatus?.clockedIn ?? false;
     if (isIn && id && worker) {
@@ -682,7 +723,7 @@ export function useKioskTerminal() {
           const gpsData = gps ?? (await acquireGps());
           const next = await kioskApi.switchActivity({
             workerId: worker.id,
-            activityTypeId: id,
+            projectWorkActivityId: id,
             latitude: gpsData?.latitude,
             longitude: gpsData?.longitude,
             accuracy: gpsData?.accuracy,
@@ -698,6 +739,38 @@ export function useKioskTerminal() {
       })();
     }
   };
+
+  const handleApplyCustomWork = () => {
+    const label = customWorkLabel.trim();
+    if (!label || !worker) return;
+    resetActivity();
+    setActionError('');
+    const isIn = clockStatus?.clockedIn ?? false;
+    if (!isIn) return;
+    void (async () => {
+      try {
+        const gpsData = gps ?? (await acquireGps());
+        const next = await kioskApi.switchActivity({
+          workerId: worker.id,
+          customWorkLabel: label,
+          latitude: gpsData?.latitude,
+          longitude: gpsData?.longitude,
+          accuracy: gpsData?.accuracy,
+        });
+        setClockStatus(next);
+        setSelectedWorkActivityId(next.currentWorkActivity?.id ?? null);
+        setCustomWorkLabel('');
+        void loadWorkActivitiesForProject(
+          selectedProjectId ?? config?.projectId ?? '',
+        );
+      } catch (err) {
+        setActionError(
+          err instanceof ApiError ? err.message : t(KT.activitySwitchError),
+        );
+      }
+    })();
+  };
+
 
   const activeProjectId = selectedProjectId ?? config?.projectId ?? '';
 
@@ -719,6 +792,11 @@ export function useKioskTerminal() {
     worker?.masterEngineer ?? false,
     activityBillingMode,
   );
+
+  useEffect(() => {
+    if (state !== 'action' || !worker) return;
+    void loadWorkActivitiesForProject(activeProjectId);
+  }, [state, worker?.id, activeProjectId]);
 
   // Bei Projektwechsel (Master) Tätigkeitskatalog nachladen, wenn Gate greift.
   useEffect(() => {
@@ -803,6 +881,10 @@ export function useKioskTerminal() {
     setSelectedProjectId,
     activityTypes,
     selectedActivityTypeId,
+    workActivities,
+    selectedWorkActivityId,
+    customWorkLabel,
+    setCustomWorkLabel,
     activityRequired,
     actionError,
     liveWorkers,
@@ -833,7 +915,9 @@ export function useKioskTerminal() {
     handlePhoto,
     uploadPhotoWithComment,
     handleAdminPinConfirm,
-    handleActivityTypeChange,
+    handleActivityTypeChange: handleWorkActivityChange,
+    handleWorkActivityChange,
+    handleApplyCustomWork,
     workDocPending,
     handleSaveWorkDocumentation,
     activeProjectId,

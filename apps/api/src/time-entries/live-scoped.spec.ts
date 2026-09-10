@@ -29,6 +29,7 @@ function makeService(prisma: unknown): TimeEntriesService {
     {} as never,
     {} as never,
     {} as never,
+    {} as never,
     { ensureForStamp: async () => undefined } as never,
   ); // TimesheetGenerationService.ensureForStamp
   (

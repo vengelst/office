@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsLatitude,
   IsLongitude,
@@ -8,34 +8,51 @@ import {
   MinLength,
 } from 'class-validator';
 
-/** Master wechselt die Tätigkeit ohne Ausstempeln. */
+/** Tätigkeit/Arbeit während der Schicht wechseln (ohne Ausstempeln). */
 export class SwitchActivityDto {
   @ApiProperty()
   @IsString()
   @MinLength(1)
   workerId!: string;
 
-  @ApiProperty()
+  @ApiPropertyOptional({
+    description: 'Legacy ActivityType – optional wenn Projekt-Arbeit gesetzt',
+  })
+  @IsOptional()
   @IsString()
   @MinLength(1)
-  activityTypeId!: string;
+  activityTypeId?: string;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional({ description: 'Projekt-Arbeit (ProjectWorkActivity)' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  projectWorkActivityId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Eigene Tätigkeit – Find-or-Create am Projekt',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  customWorkLabel?: string;
+
+  @ApiPropertyOptional()
   @IsOptional()
   @IsLatitude()
   latitude?: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsLongitude()
   longitude?: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsNumber()
   accuracy?: number;
 
-  @ApiProperty({ required: false })
+  @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   occurredAtClient?: string;

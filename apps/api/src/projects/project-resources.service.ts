@@ -2,7 +2,7 @@
  * Projekt-Ressourcen: Standorte, Equipment, E-Mail-Verteiler, Notizen.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSiteDto } from './dto/create-site.dto';
 import { UpdateSiteDto } from './dto/update-site.dto';
@@ -328,6 +328,51 @@ export class ProjectResourcesService {
     return this.prisma.projectWorkActivity.findMany({
       where: { projectId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+    });
+  }
+
+  /**
+   * Findet eine Projekt-Arbeit per Label (case-insensitive) oder legt sie an.
+   * Reaktiviert inaktive Treffer. Für Stempel-Flow (Worker).
+   */
+  async findOrCreateWorkActivity(projectId: string, rawLabel: string) {
+    await this.ensureProject(projectId);
+    const label = rawLabel.replace(/\s+/g, ' ').trim();
+    if (!label) {
+      throw new BadRequestException('Tätigkeitsbezeichnung fehlt');
+    }
+    if (label.length > 120) {
+      throw new BadRequestException('Tätigkeitsbezeichnung max. 120 Zeichen');
+    }
+    const existing = await this.prisma.projectWorkActivity.findMany({
+      where: { projectId },
+      select: { id: true, label: true, active: true, sortOrder: true },
+    });
+    const match = existing.find(
+      (a) => a.label.trim().toLocaleLowerCase('de') === label.toLocaleLowerCase('de'),
+    );
+    if (match) {
+      if (!match.active) {
+        return this.prisma.projectWorkActivity.update({
+          where: { id: match.id },
+          data: { active: true },
+        });
+      }
+      return this.prisma.projectWorkActivity.findUniqueOrThrow({
+        where: { id: match.id },
+      });
+    }
+    const max = await this.prisma.projectWorkActivity.aggregate({
+      where: { projectId },
+      _max: { sortOrder: true },
+    });
+    return this.prisma.projectWorkActivity.create({
+      data: {
+        projectId,
+        label,
+        sortOrder: (max._max.sortOrder ?? -1) + 1,
+        active: true,
+      },
     });
   }
 

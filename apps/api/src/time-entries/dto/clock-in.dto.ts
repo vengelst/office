@@ -59,10 +59,27 @@ export class ClockInDto {
 
   @ApiPropertyOptional({
     description:
-      'Tätigkeitsbereich (Pflicht für Master; für Normal bei HOURLY_PACKAGE/MIXED)',
+      'Legacy-Tätigkeitskatalog (weiterhin erlaubt). Bevorzugt projectWorkActivityId / customWorkLabel.',
   })
   @IsOptional()
   @IsString()
   @MinLength(1)
   activityTypeId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Projekt-Arbeit (ProjectWorkActivity) – bevorzugte Stempel-Auswahl',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  projectWorkActivityId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Eigene Tätigkeit als Kurztext – wird am Projekt als Arbeit angelegt/wiederverwendet',
+  })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  customWorkLabel?: string;
 }

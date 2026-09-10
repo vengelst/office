@@ -88,8 +88,10 @@ export default function KioskTerminalPage() {
         worker={terminal.worker}
         config={terminal.config}
         clockStatus={terminal.clockStatus}
-        activityTypes={terminal.activityTypes}
-        selectedActivityTypeId={terminal.selectedActivityTypeId}
+        workActivities={terminal.workActivities}
+        selectedWorkActivityId={terminal.selectedWorkActivityId}
+        customWorkLabel={terminal.customWorkLabel}
+        setCustomWorkLabel={terminal.setCustomWorkLabel}
         activityRequired={terminal.activityRequired}
         actionError={terminal.actionError}
         liveWorkers={terminal.liveWorkers}
@@ -112,7 +114,8 @@ export default function KioskTerminalPage() {
         setSelectedProjectId={terminal.setSelectedProjectId}
         setPhotoPending={terminal.setPhotoPending}
         setPhotoComment={terminal.setPhotoComment}
-        handleActivityTypeChange={terminal.handleActivityTypeChange}
+        handleWorkActivityChange={terminal.handleWorkActivityChange}
+        handleApplyCustomWork={terminal.handleApplyCustomWork}
         handleClockIn={() => void terminal.handleClockIn()}
         handleClockOut={() => void terminal.handleClockOut()}
         handleBreakStart={terminal.handleBreakStart}

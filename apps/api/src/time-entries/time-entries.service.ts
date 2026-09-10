@@ -98,7 +98,12 @@ export interface ClockStatus {
     name: string;
     segmentId: string;
     startedAt: Date;
+    projectWorkActivityId?: string | null;
   } | null;
+  /** Aktive Projekt-Arbeiten (für Stempel-UI). */
+  workActivities: Array<{ id: string; label: string }>;
+  /** Aktuell laufende Projekt-Arbeit (wenn Segment eine hat). */
+  currentWorkActivity: { id: string; label: string; segmentId: string; startedAt: Date } | null;
   /**
    * Ausstehende Arbeitsdokumentation nach Clock-Out (Auftrag #30).
    * null wenn nichts offen.
@@ -113,6 +118,8 @@ export interface PendingWorkDocumentation {
   workActivities: Array<{ id: string; label: string }>;
   /** true wenn keine Tätigkeiten und Freitext aus – Büro muss konfigurieren. */
   configurationError: boolean;
+  /** Während der Schicht genutzte Arbeiten (Checkboxen vorauswählen). */
+  preselectedWorkActivityIds: string[];
 }
 
 export interface ClockOutResult extends ClockStatus {
@@ -232,16 +239,13 @@ export class TimeEntriesService {
       !!workerMeta?.masterEngineer,
       projectBilling?.billingMode,
     );
-    if (activityRequired) {
-      if (!dto.activityTypeId) {
-        throw new BadRequestException(
-          workerMeta?.masterEngineer
-            ? 'Master-Monteur: Tätigkeitsbereich ist Pflicht'
-            : 'Tätigkeitsbereich ist Pflicht (stundenbasiertes Projekt)',
-        );
-      }
-      await this.assertActiveActivityType(dto.activityTypeId);
-    }
+    const resolved = await this.resolveStampActivity({
+      projectId: dto.projectId,
+      activityTypeId: dto.activityTypeId,
+      projectWorkActivityId: dto.projectWorkActivityId,
+      customWorkLabel: dto.customWorkLabel,
+      required: activityRequired,
+    });
 
     try {
       const entry = await this.prisma.timeEntry.create({
@@ -267,12 +271,13 @@ export class TimeEntriesService {
         dto.projectId,
       );
 
-      if (activityRequired && dto.activityTypeId) {
+      if (resolved.projectWorkActivityId || resolved.activityTypeId) {
         await this.prisma.timeActivitySegment.create({
           data: {
             workerId: dto.workerId,
             projectId: dto.projectId,
-            activityTypeId: dto.activityTypeId,
+            activityTypeId: resolved.activityTypeId,
+            projectWorkActivityId: resolved.projectWorkActivityId,
             startedAt: occurredAtClient,
           },
         });
@@ -494,6 +499,11 @@ export class TimeEntriesService {
         workNotesEnabled: workMeta.workNotesEnabled,
         workActivities: workMeta.workActivities,
         configurationError: workMeta.configurationError,
+        preselectedWorkActivityIds: await this.collectShiftWorkActivityIds(
+          params.workerId,
+          open.projectId,
+          entry.occurredAtClient,
+        ),
       },
     };
   }
@@ -669,6 +679,7 @@ export class TimeEntriesService {
       orderBy: { startedAt: 'desc' },
       include: {
         activityType: { select: { id: true, code: true, name: true } },
+        projectWorkActivity: { select: { id: true, label: true } },
       },
     });
     const activityByWorker = new Map<
@@ -677,11 +688,19 @@ export class TimeEntriesService {
     >();
     for (const seg of openSegments) {
       if (activityByWorker.has(seg.workerId)) continue;
-      activityByWorker.set(seg.workerId, {
-        id: seg.activityType.id,
-        code: seg.activityType.code,
-        name: seg.activityType.name,
-      });
+      if (seg.projectWorkActivity) {
+        activityByWorker.set(seg.workerId, {
+          id: seg.projectWorkActivity.id,
+          code: 'WORK',
+          name: seg.projectWorkActivity.label,
+        });
+      } else if (seg.activityType) {
+        activityByWorker.set(seg.workerId, {
+          id: seg.activityType.id,
+          code: seg.activityType.code,
+          name: seg.activityType.name,
+        });
+      }
     }
 
     return filtered.map((row) => ({
@@ -987,6 +1006,8 @@ export class TimeEntriesService {
         onBreak: false,
         breakStartedAt: null,
         currentActivity: null,
+        workActivities: [],
+        currentWorkActivity: null,
         pendingWorkDocumentation: pending,
       };
     }
@@ -999,8 +1020,41 @@ export class TimeEntriesService {
       orderBy: { startedAt: 'desc' },
       include: {
         activityType: { select: { id: true, code: true, name: true } },
+        projectWorkActivity: { select: { id: true, label: true } },
       },
     });
+    const workMeta = await this.loadProjectWorkMeta(latest.projectId);
+    const currentWorkActivity =
+      openSeg?.projectWorkActivity != null
+        ? {
+            id: openSeg.projectWorkActivity.id,
+            label: openSeg.projectWorkActivity.label,
+            segmentId: openSeg.id,
+            startedAt: openSeg.startedAt,
+          }
+        : null;
+    let currentActivity: ClockStatus['currentActivity'] = null;
+    if (openSeg) {
+      if (openSeg.projectWorkActivity) {
+        currentActivity = {
+          id: openSeg.projectWorkActivity.id,
+          code: 'WORK',
+          name: openSeg.projectWorkActivity.label,
+          segmentId: openSeg.id,
+          startedAt: openSeg.startedAt,
+          projectWorkActivityId: openSeg.projectWorkActivity.id,
+        };
+      } else if (openSeg.activityType) {
+        currentActivity = {
+          id: openSeg.activityType.id,
+          code: openSeg.activityType.code,
+          name: openSeg.activityType.name,
+          segmentId: openSeg.id,
+          startedAt: openSeg.startedAt,
+          projectWorkActivityId: null,
+        };
+      }
+    }
     return {
       clockedIn: true,
       since: latest.occurredAtClient,
@@ -1009,15 +1063,9 @@ export class TimeEntriesService {
       timeEntryId: latest.id,
       onBreak: !!openBreak,
       breakStartedAt: openBreak?.occurredAtClient ?? null,
-      currentActivity: openSeg
-        ? {
-            id: openSeg.activityType.id,
-            code: openSeg.activityType.code,
-            name: openSeg.activityType.name,
-            segmentId: openSeg.id,
-            startedAt: openSeg.startedAt,
-          }
-        : null,
+      currentActivity,
+      workActivities: workMeta.workActivities,
+      currentWorkActivity,
       pendingWorkDocumentation: pending,
     };
   }
@@ -1057,17 +1105,60 @@ export class TimeEntriesService {
         workDocumentedAt: null,
       },
       orderBy: { occurredAtClient: 'desc' },
-      select: { id: true, projectId: true },
+      select: { id: true, projectId: true, occurredAtClient: true },
     });
     if (!pending) return null;
     const meta = await this.loadProjectWorkMeta(pending.projectId);
+    const preselectedWorkActivityIds =
+      await this.collectShiftWorkActivityIds(
+        workerId,
+        pending.projectId,
+        pending.occurredAtClient,
+      );
     return {
       timeEntryId: pending.id,
       projectId: pending.projectId,
       workNotesEnabled: meta.workNotesEnabled,
       workActivities: meta.workActivities,
       configurationError: meta.configurationError,
+      preselectedWorkActivityIds,
     };
+  }
+
+  /** ProjectWorkActivity-IDs aus Segmenten der letzten Schicht (vor Clock-Out). */
+  private async collectShiftWorkActivityIds(
+    workerId: string,
+    projectId: string,
+    clockOutAt: Date,
+  ): Promise<string[]> {
+    const clockIn = await this.prisma.timeEntry.findFirst({
+      where: {
+        workerId,
+        projectId,
+        entryType: TimeEntryType.CLOCK_IN,
+        occurredAtClient: { lte: clockOutAt },
+      },
+      orderBy: { occurredAtClient: 'desc' },
+      select: { occurredAtClient: true },
+    });
+    if (!clockIn) return [];
+    const segs = await this.prisma.timeActivitySegment.findMany({
+      where: {
+        workerId,
+        projectId,
+        projectWorkActivityId: { not: null },
+        startedAt: { gte: clockIn.occurredAtClient, lte: clockOutAt },
+      },
+      select: { projectWorkActivityId: true },
+    });
+    const ids = [
+      ...new Set(
+        segs
+          .map((s) => s.projectWorkActivityId)
+          .filter((id): id is string => !!id),
+      ),
+    ];
+    return ids;
   }
 
   /**
@@ -1268,7 +1359,9 @@ export class TimeEntriesService {
   async switchActivity(
     dto: {
       workerId: string;
-      activityTypeId: string;
+      activityTypeId?: string;
+      projectWorkActivityId?: string;
+      customWorkLabel?: string;
       latitude?: number;
       longitude?: number;
       accuracy?: number;
@@ -1292,25 +1385,37 @@ export class TimeEntriesService {
       where: { id: open.projectId, deletedAt: null },
       select: { billingMode: true },
     });
-    if (
-      !isActivityTrackingRequired(
-        !!worker?.masterEngineer,
-        projectBilling?.billingMode,
-      )
-    ) {
+    const activityRequired = isActivityTrackingRequired(
+      !!worker?.masterEngineer,
+      projectBilling?.billingMode,
+    );
+    if (!activityRequired) {
       throw new ForbiddenException(
         'Tätigkeitswechsel nur für Master oder stundenbasierte Projekte',
       );
     }
 
-    await this.assertActiveActivityType(dto.activityTypeId);
+    const resolved = await this.resolveStampActivity({
+      projectId: open.projectId,
+      activityTypeId: dto.activityTypeId,
+      projectWorkActivityId: dto.projectWorkActivityId,
+      customWorkLabel: dto.customWorkLabel,
+      required: true,
+    });
     const at = coerceDate(dto.occurredAtClient ?? new Date().toISOString());
 
     const current = await this.prisma.timeActivitySegment.findFirst({
       where: { workerId: dto.workerId, endedAt: null },
       orderBy: { startedAt: 'desc' },
     });
-    if (current?.activityTypeId === dto.activityTypeId) {
+    const sameWork =
+      resolved.projectWorkActivityId &&
+      current?.projectWorkActivityId === resolved.projectWorkActivityId;
+    const sameType =
+      !resolved.projectWorkActivityId &&
+      resolved.activityTypeId &&
+      current?.activityTypeId === resolved.activityTypeId;
+    if (sameWork || sameType) {
       return this.getStatus(dto.workerId);
     }
 
@@ -1319,7 +1424,8 @@ export class TimeEntriesService {
       data: {
         workerId: dto.workerId,
         projectId: open.projectId,
-        activityTypeId: dto.activityTypeId,
+        activityTypeId: resolved.activityTypeId,
+        projectWorkActivityId: resolved.projectWorkActivityId,
         startedAt: at,
       },
     });
@@ -1342,6 +1448,7 @@ export class TimeEntriesService {
     return this.getStatus(dto.workerId);
   }
 
+
   private async closeOpenActivitySegment(
     workerId: string,
     endedAt: Date,
@@ -1349,6 +1456,106 @@ export class TimeEntriesService {
     await this.prisma.timeActivitySegment.updateMany({
       where: { workerId, endedAt: null },
       data: { endedAt },
+    });
+  }
+
+
+  /**
+   * Löst projectWorkActivityId / customWorkLabel / (legacy) activityTypeId auf.
+   * customWorkLabel → Find-or-Create am Projekt.
+   */
+  private async resolveStampActivity(params: {
+    projectId: string;
+    activityTypeId?: string | null;
+    projectWorkActivityId?: string | null;
+    customWorkLabel?: string | null;
+    required: boolean;
+  }): Promise<{
+    activityTypeId: string | null;
+    projectWorkActivityId: string | null;
+  }> {
+    let projectWorkActivityId =
+      params.projectWorkActivityId?.trim() || null;
+    const custom = params.customWorkLabel?.replace(/\s+/g, ' ').trim() || '';
+    let activityTypeId = params.activityTypeId?.trim() || null;
+
+    if (custom) {
+      const created = await this.findOrCreateProjectWorkActivity(
+        params.projectId,
+        custom,
+      );
+      projectWorkActivityId = created.id;
+    } else if (projectWorkActivityId) {
+      const row = await this.prisma.projectWorkActivity.findFirst({
+        where: {
+          id: projectWorkActivityId,
+          projectId: params.projectId,
+          active: true,
+        },
+        select: { id: true },
+      });
+      if (!row) {
+        throw new BadRequestException(
+          'Projekt-Arbeit nicht gefunden oder inaktiv',
+        );
+      }
+    }
+
+    if (activityTypeId) {
+      await this.assertActiveActivityType(activityTypeId);
+    }
+
+    if (params.required && !projectWorkActivityId && !activityTypeId) {
+      throw new BadRequestException(
+        'Tätigkeit/Arbeit ist Pflicht – bitte auswählen oder eigene eingeben',
+      );
+    }
+
+    return { activityTypeId, projectWorkActivityId };
+  }
+
+  private async findOrCreateProjectWorkActivity(
+    projectId: string,
+    rawLabel: string,
+  ) {
+    const label = rawLabel.replace(/\s+/g, ' ').trim();
+    if (!label) {
+      throw new BadRequestException('Tätigkeitsbezeichnung fehlt');
+    }
+    if (label.length > 120) {
+      throw new BadRequestException('Tätigkeitsbezeichnung max. 120 Zeichen');
+    }
+    const existing = await this.prisma.projectWorkActivity.findMany({
+      where: { projectId },
+      select: { id: true, label: true, active: true, sortOrder: true },
+    });
+    const match = existing.find(
+      (a) =>
+        a.label.trim().toLocaleLowerCase('de') ===
+        label.toLocaleLowerCase('de'),
+    );
+    if (match) {
+      if (!match.active) {
+        return this.prisma.projectWorkActivity.update({
+          where: { id: match.id },
+          data: { active: true },
+        });
+      }
+      return this.prisma.projectWorkActivity.findUniqueOrThrow({
+        where: { id: match.id },
+      });
+    }
+    const max = await this.prisma.projectWorkActivity.aggregate({
+      where: { projectId },
+      _max: { sortOrder: true },
+    });
+    return this.prisma.projectWorkActivity.create({
+      data: {
+        projectId,
+        label,
+        sortOrder: (max._max.sortOrder ?? -1) + 1,
+        active: true,
+      },
     });
   }
 
