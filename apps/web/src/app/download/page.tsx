@@ -70,7 +70,9 @@ export default function DownloadPage() {
         </a>
 
         <p className="text-xs text-gray-500">
-          Version 1.0.0 &middot; Android
+          Version 1.3.0 &middot; Android
+          <br />
+          Spätere Updates kommen direkt in der App (Hinweis beim Start).
         </p>
 
         {/* PWA – gleiche Funktionen wie die APK, für iPhone/iPad und Android */}

@@ -113,12 +113,12 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-    # kiosk.apk liegt NICHT im Image (~118 MB). Host-Datei bind-mounten,
-    # damit /download nach jedem Rebuild weiter funktioniert.
-    # Voraussetzung: Datei existiert auf dem Host (sonst legt Docker ein Verzeichnis an).
-    # Ablage: /opt/office/data/kiosk.apk  (Kopie von lokalem EAS-Build)
+    # kiosk.apk + kiosk-version.json liegen NICHT im Image.
+    # Host-Dateien bind-mounten, damit Download/Update nach Rebuild weiter funktioniert.
+    # Ablage: /opt/office/data/kiosk.apk und /opt/office/data/kiosk-version.json
     volumes:
       - /opt/office/data/kiosk.apk:/app/apps/web/public/kiosk.apk:ro
+      - /opt/office/data/kiosk-version.json:/app/apps/web/public/kiosk-version.json:ro
     ports:
       - "127.0.0.1:5700:3800"
     depends_on:

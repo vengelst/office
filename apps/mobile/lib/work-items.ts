@@ -207,15 +207,12 @@ export const MIN_COMPLETION_PHOTOS = 2;
 
 // ── Helfer ─────────────────────────────────────────────────────
 
+import { appendLocalImage } from './rn-form-file';
+
 /** Hängt die ausgewählten Fotos als Multipart-Feld `photos` an. */
 function appendPhotos(form: FormData, photos: PickedPhoto[]): void {
   photos.forEach((photo, index) => {
-    const name = photo.fileName ?? photo.uri.split('/').pop() ?? `foto-${index + 1}.jpg`;
-    form.append('photos', {
-      uri: photo.uri,
-      name,
-      type: photo.mimeType ?? 'image/jpeg',
-    } as unknown as Blob);
+    appendLocalImage(form, 'photos', photo, `foto-${index + 1}`);
   });
 }
 

@@ -11,7 +11,6 @@ import {
   TextInput,
   Platform,
   Vibration,
-  Image,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -35,6 +34,8 @@ import { getCurrentPosition } from '../../lib/location';
 import { isActivityTrackingRequired } from '../../lib/activity-gate';
 import { usePeriodicGpsPing } from '../../lib/use-periodic-gps-ping';
 import { T, both } from '../../lib/i18n-work-items';
+import { PhotoCommentComposer } from '../../components/photo-comment-composer';
+import { uploadSitePhoto } from '../../lib/upload-site-photo';
 
 export default function DashboardScreen() {
   const { worker, logout, refresh: refreshWorker } = useAuth();
@@ -54,6 +55,7 @@ export default function DashboardScreen() {
   const [photoOpen, setPhotoOpen] = useState(false);
   const [photoComment, setPhotoComment] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [photoMimeType, setPhotoMimeType] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -395,6 +397,13 @@ export default function DashboardScreen() {
     }
   };
 
+  const resetPhotoState = () => {
+    setPhotoOpen(false);
+    setPhotoUri(null);
+    setPhotoMimeType(null);
+    setPhotoComment('');
+  };
+
   const handleTakePhoto = async () => {
     try {
       const { status: permStatus } =
@@ -407,9 +416,13 @@ export default function DashboardScreen() {
         mediaTypes: ['images'],
         quality: 0.8,
         cameraType: ImagePicker.CameraType.back,
+        exif: false,
       });
       if (!result.canceled && result.assets[0]) {
-        setPhotoUri(result.assets[0].uri);
+        const asset = result.assets[0];
+        setPhotoUri(asset.uri);
+        setPhotoMimeType(asset.mimeType ?? 'image/jpeg');
+        setPhotoComment('');
         setPhotoOpen(true);
       }
     } catch {
@@ -417,7 +430,11 @@ export default function DashboardScreen() {
     }
   };
 
-  const handlePhotoUpload = async () => {
+  const handlePhotoUpload = async (placement: {
+    comment: string;
+    xNorm: number | null;
+    yNorm: number | null;
+  }) => {
     if (!worker || !photoUri) return;
     const projectId = clockedIn ? status?.project?.id : selectedProjectId;
     if (!projectId) {
@@ -426,21 +443,21 @@ export default function DashboardScreen() {
     }
     setPhotoBusy(true);
     try {
-      const form = new FormData();
-      const filename = photoUri.split('/').pop() ?? 'photo.jpg';
-      form.append('file', {
+      const geo = await getCurrentPosition();
+      await uploadSitePhoto({
         uri: photoUri,
-        name: filename,
-        type: 'image/jpeg',
-      } as unknown as Blob);
-      form.append('workerId', worker.id);
-      form.append('projectId', projectId);
-      if (photoComment.trim()) form.append('comment', photoComment.trim());
-      await workerApi.uploadPhoto(form);
+        mimeType: photoMimeType,
+        workerId: worker.id,
+        projectId,
+        comment: placement.comment,
+        commentX: placement.xNorm,
+        commentY: placement.yNorm,
+        latitude: geo?.latitude,
+        longitude: geo?.longitude,
+        accuracy: geo?.accuracy,
+      });
       Alert.alert('Erfolg', 'Foto wurde hochgeladen.');
-      setPhotoOpen(false);
-      setPhotoUri(null);
-      setPhotoComment('');
+      resetPhotoState();
     } catch (err) {
       Alert.alert(
         'Fehler',
@@ -833,52 +850,16 @@ export default function DashboardScreen() {
                 </Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.card}>
-                {photoUri && (
-                  <Image
-                    source={{ uri: photoUri }}
-                    style={styles.photoPreview}
-                    resizeMode="cover"
-                  />
-                )}
-                <TextInput
-                  style={styles.commentInput}
-                  value={photoComment}
-                  onChangeText={setPhotoComment}
-                  placeholder="Kommentar (optional)"
-                  placeholderTextColor="#6b7280"
-                  multiline
+              photoUri && (
+                <PhotoCommentComposer
+                  uri={photoUri}
+                  comment={photoComment}
+                  onCommentChange={setPhotoComment}
+                  uploading={photoBusy}
+                  onSave={handlePhotoUpload}
+                  onCancel={resetPhotoState}
                 />
-                <View style={styles.photoActions}>
-                  <TouchableOpacity
-                    style={styles.photoCancelButton}
-                    onPress={() => {
-                      setPhotoOpen(false);
-                      setPhotoUri(null);
-                      setPhotoComment('');
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.photoCancelText}>Abbrechen</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[
-                      styles.photoUploadButton,
-                      (!photoUri || photoBusy) &&
-                        styles.photoUploadButtonDisabled,
-                    ]}
-                    onPress={handlePhotoUpload}
-                    disabled={!photoUri || photoBusy}
-                    activeOpacity={0.7}
-                  >
-                    {photoBusy ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.photoUploadText}>Hochladen</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
+              )
             )}
           </View>
         )}
