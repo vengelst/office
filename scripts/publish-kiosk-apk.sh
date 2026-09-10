@@ -18,9 +18,28 @@ REMOTE_DIR="${REMOTE_DIR:-/opt/office/data}"
 EXPECTED_PACKAGE="${EXPECTED_PACKAGE:-de.vivahome.kiosk}"
 EXPECTED_CERT_SHA256="${EXPECTED_CERT_SHA256:-ffe291a128154573b0b2fabdbcecdf9fbbc18f303193f2f7ee871d07b9ba9f0f}"
 
-ANDROID_BUILD_TOOLS="${ANDROID_BUILD_TOOLS:-${ANDROID_HOME:-$HOME/Library/Android/sdk}/build-tools/37.0.0}"
+ANDROID_SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+# Neueste build-tools mit aapt2/apksigner bevorzugen
+if [[ -z "${ANDROID_BUILD_TOOLS:-}" ]]; then
+  ANDROID_BUILD_TOOLS="$(ls -1d "$ANDROID_SDK"/build-tools/*/ 2>/dev/null | sort -V | tail -1 | sed 's:/$::')"
+fi
 AAPT2="${AAPT2:-$ANDROID_BUILD_TOOLS/aapt2}"
 APKSIGNER="${APKSIGNER:-$ANDROID_BUILD_TOOLS/apksigner}"
+
+# macOS/Homebrew: Java für apksigner
+if [[ -z "${JAVA_HOME:-}" ]]; then
+  if [[ -x /usr/libexec/java_home ]]; then
+    JAVA_HOME="$(/usr/libexec/java_home 2>/dev/null || true)"
+  fi
+  if [[ -z "${JAVA_HOME:-}" ]]; then
+    for c in \
+      "$(brew --prefix openjdk@17 2>/dev/null)/libexec/openjdk.jdk/Contents/Home" \
+      "$(brew --prefix openjdk 2>/dev/null)/libexec/openjdk.jdk/Contents/Home"; do
+      [[ -d "$c" ]] && JAVA_HOME="$c" && break
+    done
+  fi
+  export JAVA_HOME
+fi
 
 die() { echo "✗ $*" >&2; exit 1; }
 info() { echo "→ $*"; }
@@ -36,8 +55,9 @@ fi
 info "Prüfe lokale APK…"
 BADGING="$("$AAPT2" dump badging "$APK_PATH" 2>/dev/null | head -1 || true)"
 [[ -n "$BADGING" ]] || die "aapt2 dump badging fehlgeschlagen"
+info "  $BADGING"
 
-PACKAGE="$(sed -n "s/.*name='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
+PACKAGE="$(sed -n "s/^package: name='\([^']*\)'.*/\1/p" <<<"$BADGING")"
 APK_VERSION_CODE="$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
 APK_VERSION_NAME="$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<<"$BADGING" | head -1)"
 
@@ -49,18 +69,20 @@ info "Prüfe Signatur…"
 CERT_RAW="$("$APKSIGNER" verify --print-certs "$APK_PATH" 2>&1 || true)"
 CERT_NORM="$(
   printf '%s\n' "$CERT_RAW" \
-    | grep -i 'SHA-256 digest:' \
+    | grep -iE 'SHA-256( digest)?:' \
     | head -1 \
-    | sed -E 's/.*SHA-256 digest:[[:space:]]*//I' \
+    | sed -E 's/.*SHA-256( digest)?:[[:space:]]*//I' \
     | tr -d '[:space:]:' \
     | tr '[:upper:]' '[:lower:]'
 )"
-[[ -n "$CERT_NORM" ]] || die "Keine SHA-256-Signatur aus apksigner gelesen"
+[[ -n "$CERT_NORM" ]] || die "Keine SHA-256-Signatur aus apksigner gelesen. Ausgabe: $CERT_RAW"
 [[ "$CERT_NORM" == "$EXPECTED_CERT_SHA256" ]] || die "Signatur falsch: $CERT_NORM (erwartet $EXPECTED_CERT_SHA256)"
+info "  Signatur OK ($CERT_NORM)"
 
 info "Vergleiche mit Server-APK (versionCode muss steigen)…"
 REMOTE_TMP="$(mktemp)"
-trap 'rm -f "$REMOTE_TMP" "$TMP_JSON" "$LOCAL_MD5_FILE" 2>/dev/null || true' EXIT
+TMP_JSON="$(mktemp)"
+trap 'rm -f "$REMOTE_TMP" "$TMP_JSON" 2>/dev/null || true' EXIT
 if curl -fsSL -o "$REMOTE_TMP" "https://office.vivahome.de/kiosk.apk"; then
   REMOTE_BADGING="$("$AAPT2" dump badging "$REMOTE_TMP" 2>/dev/null | head -1 || true)"
   REMOTE_CODE="$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<<"$REMOTE_BADGING" | head -1)"
@@ -68,20 +90,17 @@ if curl -fsSL -o "$REMOTE_TMP" "https://office.vivahome.de/kiosk.apk"; then
     if ! (( VERSION_CODE > REMOTE_CODE )); then
       die "Neuer versionCode ($VERSION_CODE) muss größer sein als Server ($REMOTE_CODE)"
     fi
-    info "Server versionCode=$REMOTE_CODE → neu $VERSION_CODE OK"
+    info "  Server versionCode=$REMOTE_CODE → neu $VERSION_CODE OK"
   else
-    info "Warnung: Server-APK versionCode nicht lesbar – Upload fortgesetzt"
+    info "  Warnung: Server-APK versionCode nicht lesbar – Upload fortgesetzt"
   fi
 else
-  info "Warnung: Server-APK nicht ladbar – Upload fortgesetzt (Erstveröffentlichung?)"
+  info "  Warnung: Server-APK nicht ladbar – Upload fortgesetzt (Erstveröffentlichung?)"
 fi
 
 LOCAL_SIZE="$(wc -c <"$APK_PATH" | tr -d ' ')"
 LOCAL_MD5="$(md5 -q "$APK_PATH" 2>/dev/null || md5sum "$APK_PATH" | awk '{print $1}')"
-LOCAL_MD5_FILE="$(mktemp)"
-printf '%s' "$LOCAL_MD5" >"$LOCAL_MD5_FILE"
 
-TMP_JSON="$(mktemp)"
 cat >"$TMP_JSON" <<EOF
 {
   "version": "$VERSION",
@@ -106,8 +125,16 @@ ssh "$HOST" "sudo bash -lc '
 '"
 
 info "Prüfe ausgelieferte Datei…"
-REMOTE_HEAD="$(curl -fsSI "https://office.vivahome.de/kiosk.apk")"
-REMOTE_SIZE="$(printf '%s\n' "$REMOTE_HEAD" | awk -F': ' 'tolower($1)=="content-length"{gsub(/\r/,"",$2); print $2; exit}')"
+REMOTE_SIZE=""
+for i in 1 2 3 4 5 6 7 8; do
+  REMOTE_SIZE="$(curl -fsSI "https://office.vivahome.de/kiosk.apk" 2>/dev/null | awk -F': ' 'tolower($1)=="content-length"{gsub(/\r/,"",$2); print $2; exit}')" || true
+  if [[ -n "$REMOTE_SIZE" ]]; then
+    break
+  fi
+  info "  Warte auf Web-Container… ($i/8)"
+  sleep 3
+done
+[[ -n "$REMOTE_SIZE" ]] || die "APK nach Upload nicht erreichbar (Web noch nicht bereit?)"
 [[ "$REMOTE_SIZE" == "$LOCAL_SIZE" ]] || die "Größe nach Upload stimmt nicht: remote=$REMOTE_SIZE local=$LOCAL_SIZE"
 
 REMOTE_MD5="$(ssh "$HOST" "md5sum $REMOTE_DIR/kiosk.apk | awk '{print \$1}'")"
