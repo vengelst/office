@@ -16,6 +16,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../documents/storage.service';
 import { StoragePathService } from '../common/storage-path.service';
 import { GoogleDriveService } from '../google-drive/google-drive.service';
+import { GeocodeService } from '../geocode/geocode.service';
 import { WorkItemWorkflowService } from '../work-items/work-item-workflow.service';
 import { ClockInDto } from './dto/clock-in.dto';
 import { ClockOutDto } from './dto/clock-out.dto';
@@ -144,6 +145,7 @@ export class TimeEntriesService {
     private readonly storage: StorageService,
     private readonly storagePathService: StoragePathService,
     private readonly driveService: GoogleDriveService,
+    private readonly geocode: GeocodeService,
     private readonly workItemWorkflow: WorkItemWorkflowService,
     private readonly timesheetGeneration: TimesheetGenerationService,
   ) {}
@@ -755,7 +757,19 @@ export class TimeEntriesService {
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
 
-    // Pflicht-Stempel Datum/Uhrzeit (+ Ort bei GPS) in Pixel – zentral für alle Clients (#38).
+    // Pflicht-Stempel Datum/Uhrzeit (+ Ort bei GPS via Reverse-Geocoding) – keine Roh-Koordinaten.
+    let placeLabel: string | null = null;
+    if (
+      dto.latitude != null &&
+      dto.longitude != null &&
+      Number.isFinite(dto.latitude) &&
+      Number.isFinite(dto.longitude)
+    ) {
+      placeLabel = await this.geocode.reversePlaceLabel(
+        dto.latitude,
+        dto.longitude,
+      );
+    }
     const overlay = await burnCommentIntoImage(
       file.buffer,
       file.mimetype,
@@ -763,8 +777,7 @@ export class TimeEntriesService {
       {
         xNorm: dto.commentX,
         yNorm: dto.commentY,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
+        placeLabel,
       },
     );
     const uploadBuffer = overlay.buffer;

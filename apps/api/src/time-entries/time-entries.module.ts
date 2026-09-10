@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { DocumentsModule } from '../documents/documents.module';
 import { GoogleDriveModule } from '../google-drive/google-drive.module';
+import { GeocodeModule } from '../geocode/geocode.module';
 import { WorkItemsModule } from '../work-items/work-items.module';
 import { EmailModule } from '../email/email.module';
 import { AppSettingsModule } from '../app-settings/app-settings.module';
@@ -18,9 +19,11 @@ import { NoShowAlertService } from './no-show-alert.service';
   // WorkItemsModule: Ausstempeln schließt offene Item-Sessions.
   // EmailModule + AppSettings: Cron-Alarm, Auto-Clock-Out, No-Show.
   // TimesheetsModule: Auto-Anlage/Sync Wochenstundenzettel bei Stempelung.
+  // GeocodeModule: Reverse-Geocoding für Foto-Stempel-Ort.
   imports: [
     DocumentsModule,
     GoogleDriveModule,
+    GeocodeModule,
     WorkItemsModule,
     EmailModule,
     AppSettingsModule,

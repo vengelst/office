@@ -8,8 +8,8 @@ import sharp from 'sharp';
 import {
   buildPhotoStampLines,
   burnCommentIntoImage,
-  formatPhotoStampCoords,
   formatPhotoStampDateTime,
+  formatPhotoStampPlace,
 } from './photo-overlay';
 
 describe('formatPhotoStampDateTime', () => {
@@ -25,19 +25,18 @@ describe('formatPhotoStampDateTime', () => {
   });
 });
 
-describe('formatPhotoStampCoords', () => {
-  it('6 Nachkommastellen', () => {
+describe('formatPhotoStampPlace', () => {
+  it('trimmt und behält Ortslabel', () => {
     assert.equal(
-      formatPhotoStampCoords(48.137154, 11.575382),
-      '48.137154, 11.575382',
+      formatPhotoStampPlace('  Marienplatz 1, 80331 München '),
+      'Marienplatz 1, 80331 München',
     );
   });
 
-  it('fehlt / nicht endlich → null', () => {
-    assert.equal(formatPhotoStampCoords(null, 11), null);
-    assert.equal(formatPhotoStampCoords(48, undefined), null);
-    assert.equal(formatPhotoStampCoords(Number.NaN, 11), null);
-    assert.equal(formatPhotoStampCoords(48, Number.POSITIVE_INFINITY), null);
+  it('leer / null → null', () => {
+    assert.equal(formatPhotoStampPlace(null), null);
+    assert.equal(formatPhotoStampPlace(undefined), null);
+    assert.equal(formatPhotoStampPlace('   '), null);
   });
 });
 
@@ -49,13 +48,16 @@ describe('buildPhotoStampLines', () => {
     assert.deepEqual(lines, ['10.09.2026 22:15']);
   });
 
-  it('mit GPS → zweite Zeile Koordinaten', () => {
+  it('mit Ort → zweite Zeile Adresse, keine Koordinaten', () => {
     const lines = buildPhotoStampLines({
       stampedAt: at,
-      latitude: 48.137154,
-      longitude: 11.575382,
+      placeLabel: 'Marienplatz 1, 80331 München',
     });
-    assert.deepEqual(lines, ['10.09.2026 22:15', '48.137154, 11.575382']);
+    assert.deepEqual(lines, [
+      '10.09.2026 22:15',
+      'Marienplatz 1, 80331 München',
+    ]);
+    assert.ok(!lines.some((l) => /\d+\.\d{4,}/.test(l) && l.includes(',')));
   });
 
   it('mit Kommentar → Stempel + Kommentar', () => {
@@ -102,7 +104,7 @@ describe('burnCommentIntoImage (#38 Pflicht-Stempel)', () => {
     assert.notDeepEqual(result.buffer, input);
   });
 
-  it('mit GPS und Kommentar → erfolgreicher Overlay', async () => {
+  it('mit Ort und Kommentar → erfolgreicher Overlay', async () => {
     const input = await tinyJpeg();
     const result = await burnCommentIntoImage(
       input,
@@ -110,8 +112,7 @@ describe('burnCommentIntoImage (#38 Pflicht-Stempel)', () => {
       'Testkommentar',
       {
         stampedAt: new Date('2026-09-10T20:15:00.000Z'),
-        latitude: 48.1,
-        longitude: 11.5,
+        placeLabel: 'Marienplatz 1, 80331 München',
       },
     );
     assert.equal(result.mimeType, 'image/jpeg');

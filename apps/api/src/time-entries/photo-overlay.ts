@@ -99,29 +99,21 @@ export function formatPhotoStampDateTime(at: Date = new Date()): string {
 }
 
 /**
- * Koordinatenzeile mit 6 Nachkommastellen – kein Reverse-Geocoding.
- * Fehlt lat/lng oder nicht endlich → null.
+ * Ortszeile für den Stempel – bereits reverse-geocodiert (keine Koordinaten).
+ * Leer / nur Whitespace → null.
  */
-export function formatPhotoStampCoords(
-  latitude?: number | null,
-  longitude?: number | null,
+export function formatPhotoStampPlace(
+  placeLabel?: string | null,
 ): string | null {
-  if (
-    latitude == null ||
-    longitude == null ||
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude)
-  ) {
-    return null;
-  }
-  return `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+  const trimmed = placeLabel?.replace(/\s+/g, ' ').trim();
+  return trimmed ? trimmed : null;
 }
 
 export interface PhotoStampInput {
   /** Serverzeit beim Verarbeiten (Default: now). */
   stampedAt?: Date;
-  latitude?: number | null;
-  longitude?: number | null;
+  /** Lesbarer Ort aus Reverse-Geocoding – nie Roh-Koordinaten. */
+  placeLabel?: string | null;
   /** Optionaler Nutzerkommentar – zusätzlich zum Pflicht-Stempel. */
   comment?: string | null;
   /** Max. Zeichen pro Kommentarzeile (nur wenn Kommentar in die Banner-Zeilen fließt). */
@@ -138,8 +130,8 @@ export interface PhotoStampInput {
  */
 export function buildPhotoStampLines(input: PhotoStampInput = {}): string[] {
   const lines: string[] = [formatPhotoStampDateTime(input.stampedAt ?? new Date())];
-  const coords = formatPhotoStampCoords(input.latitude, input.longitude);
-  if (coords) lines.push(coords);
+  const place = formatPhotoStampPlace(input.placeLabel);
+  if (place) lines.push(place);
   if (!input.commentSeparate) {
     const comment = input.comment?.trim();
     if (comment) {
@@ -154,9 +146,8 @@ export interface BurnCommentOptions {
   xNorm?: number | null;
   /** Relative Y-Position 0–1 (Mitte des Labels). Ohne Wert: Banner unten. */
   yNorm?: number | null;
-  /** GPS – wenn endlich, zweite Stempelzeile. */
-  latitude?: number | null;
-  longitude?: number | null;
+  /** Lesbarer Ort (Reverse-Geocoding) – zweite Stempelzeile, keine Koordinaten. */
+  placeLabel?: string | null;
   /** Override für Tests / reproduzierbare Stempelzeit. */
   stampedAt?: Date;
 }
@@ -400,8 +391,7 @@ export async function burnCommentIntoImage(
     const commentText = comment?.trim() || '';
     const stampLines = buildPhotoStampLines({
       stampedAt: options?.stampedAt,
-      latitude: options?.latitude,
-      longitude: options?.longitude,
+      placeLabel: options?.placeLabel,
       comment: hasPos ? undefined : commentText || undefined,
       maxCommentChars: maxChars,
       commentSeparate: hasPos,
