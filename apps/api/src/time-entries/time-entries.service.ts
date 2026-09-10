@@ -755,6 +755,7 @@ export class TimeEntriesService {
     await this.assertWorker(dto.workerId);
     await this.assertProject(dto.projectId);
 
+    // Pflicht-Stempel Datum/Uhrzeit (+ Ort bei GPS) in Pixel – zentral für alle Clients (#38).
     const overlay = await burnCommentIntoImage(
       file.buffer,
       file.mimetype,
@@ -762,6 +763,8 @@ export class TimeEntriesService {
       {
         xNorm: dto.commentX,
         yNorm: dto.commentY,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
       },
     );
     const uploadBuffer = overlay.buffer;

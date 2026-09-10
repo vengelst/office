@@ -35,6 +35,7 @@ import { isActivityTrackingRequired } from '../../lib/activity-gate';
 import { usePeriodicGpsPing } from '../../lib/use-periodic-gps-ping';
 import { T, both } from '../../lib/i18n-work-items';
 import { PhotoCommentComposer } from '../../components/photo-comment-composer';
+import { LivePresenceList } from '../../components/live-presence-list';
 import { uploadSitePhoto } from '../../lib/upload-site-photo';
 
 export default function DashboardScreen() {
@@ -48,6 +49,8 @@ export default function DashboardScreen() {
   const [activityPickerOpen, setActivityPickerOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  /** Erhöht bei Pull-to-Refresh → LivePresenceList neu laden. */
+  const [liveRefreshToken, setLiveRefreshToken] = useState(0);
   const [gpsOk, setGpsOk] = useState<boolean | null>(null);
   const [, setTick] = useState(0);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -474,6 +477,7 @@ export default function DashboardScreen() {
     const geo = await getCurrentPosition();
     setGpsOk(geo !== null);
     await refresh(worker.id);
+    setLiveRefreshToken((n) => n + 1);
     setRefreshing(false);
   }, [worker, refresh]);
 
@@ -793,6 +797,12 @@ export default function DashboardScreen() {
             <Text style={styles.clockOutHint}>{both(T.openItemsStay)}</Text>
           )}
         </View>
+
+        {/* Live-Anwesenheit (#38) – scoped API, Pull + 30s Polling */}
+        <LivePresenceList
+          projectId={relevantProjectId || null}
+          refreshToken={liveRefreshToken}
+        />
 
         {/* Stundenzettel */}
         <TouchableOpacity
