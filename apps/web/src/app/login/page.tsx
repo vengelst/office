@@ -15,13 +15,14 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
-import { homeRouteFor } from '@/lib/roles';
+import { homeRouteFor, isCustomerPlOnly } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 import { AppBrand } from '@/components/layout/app-brand';
 
-/** Auf der Kiosk-Domain nach Login zurück zum Setup (nicht Büro-Dashboard). */
+/** Auf der Kiosk-Domain nach Login: Kunden-PL → /pl, sonst Kiosk-Setup (#37). */
 function postLoginRoute(user: Parameters<typeof homeRouteFor>[0]): string {
   if (typeof window !== 'undefined' && window.location.hostname === 'work.vivahome.de') {
+    if (isCustomerPlOnly(user)) return homeRouteFor(user);
     return '/kiosk/setup';
   }
   return homeRouteFor(user);

@@ -272,6 +272,13 @@ People API + DWD-Scope `contacts` aktiv; Sync unter Einstellungen → Google Con
 - Stempel-Endpoints (`clock-in/out`, Status, Foto) nur für `WORKER` (eigene ID) sowie `SUPERADMIN` / `OFFICE` / `PROJECT_MANAGER`
 - `CUSTOMER_PL` und andere User-Rollen können keine fremde `workerId` mehr stempeln
 
+### #37 Personal-App statt Kiosk (Phase 1) – 10.09.2026
+- **Primärweg:** persönliche Geräte (Worker-App `/worker-app`, Kunden-PL `/pl` + PIN `/pl/login`)
+- **Live-Anwesenheit** scoped API `GET /time-entries/live/scoped` in Worker-Dashboard und `/pl`
+- **Kiosk** weich abgekündigt (Banner auf `/kiosk` + Setup); Hard-Delete → Phase 3
+- Android-Live → Phase 2 (API bereit)
+- Spec/Notizen: `claude-auftraege/claude-arbeitsitems-37-*.md`
+
 ### Erledigt 21.–24.08.2026 – Contacts, Kiosk, 1.0.0
 - Google Contacts produktiv; Calendar Phase 1 damals offen (jetzt Code #20)
 - Kiosk: Zuweisungspflicht, PIN-Freigabe, Foto-Kommentar im Bild; Domain work.vivahome.de

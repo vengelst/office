@@ -14,6 +14,7 @@ export const workerApp = {
       submitting: 'Wird geprüft …',
       error: 'Falsche PIN. Bitte erneut versuchen.',
       hint: 'PIN eingeben',
+      plLoginLink: 'Kunden-PL / Abzeichnung (PIN)',
     },
     dashboard: {
       greeting: 'Hallo',
@@ -64,6 +65,14 @@ export const workerApp = {
         'Mindestens eine Tätigkeit und/oder Freitext erforderlich.',
       timesheetsLink: 'Stundenzettel',
       timesheetsLinkHint: 'Wochenzettel ansehen und unterschreiben',
+      liveTitle: 'Wer arbeitet jetzt?',
+      liveEmpty: 'Aktuell ist niemand auf Ihren Projekten eingestempelt.',
+      liveError: 'Live-Übersicht konnte nicht geladen werden.',
+      liveReload: 'Aktualisieren',
+      liveSince: 'seit',
+      liveActivity: 'Tätigkeit',
+      liveProject: 'Projekt',
+      plLoginLink: 'Kunden-PL / Abzeichnung (PIN)',
     },
     timesheets: {
       title: 'Meine Stundenzettel',

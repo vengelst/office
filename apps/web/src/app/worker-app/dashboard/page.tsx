@@ -5,7 +5,9 @@
 
 'use client';
 
+import { useCallback } from 'react';
 import { OfflineClockBanner } from '@/components/offline-clock-banner';
+import { LivePresenceList } from '@/components/live-presence-list';
 import { ClockStatusSection } from '@/components/worker-app/dashboard/clock-status-section';
 import { CurrentProjectSection } from '@/components/worker-app/dashboard/current-project-section';
 import { DashboardHeader } from '@/components/worker-app/dashboard/dashboard-header';
@@ -16,6 +18,7 @@ import { useWorkerDashboard } from '@/components/worker-app/dashboard/use-worker
 import { WorkItemsLink } from '@/components/worker-app/dashboard/work-items-link';
 import { TimesheetsLink } from '@/components/worker-app/dashboard/timesheets-link';
 import { WorkDocumentationModal } from '@/components/timesheets/work-documentation-modal';
+import { workerApi } from '@/lib/timesheets';
 import { texts } from '@/lib/texts';
 
 /**
@@ -24,6 +27,11 @@ import { texts } from '@/lib/texts';
 export default function WorkerDashboardPage(): React.ReactNode {
   const dashboard = useWorkerDashboard();
   const t = texts.workerApp;
+
+  const loadLive = useCallback(
+    () => workerApi.liveScoped(dashboard.selectedProjectId || undefined),
+    [dashboard.selectedProjectId],
+  );
 
   if (!dashboard.worker) {
     return (
@@ -129,6 +137,20 @@ export default function WorkerDashboardPage(): React.ReactNode {
 
       <TimesheetsLink
         onNavigate={() => dashboard.router.push('/worker-app/timesheets')}
+      />
+
+      <LivePresenceList
+        projectId={dashboard.selectedProjectId || null}
+        load={loadLive}
+        labels={{
+          title: t.dashboard.liveTitle,
+          empty: t.dashboard.liveEmpty,
+          error: t.dashboard.liveError,
+          reload: t.dashboard.liveReload,
+          since: t.dashboard.liveSince,
+          activity: t.dashboard.liveActivity,
+          project: t.dashboard.liveProject,
+        }}
       />
 
       <PhotoSection
