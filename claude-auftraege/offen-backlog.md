@@ -1,9 +1,23 @@
 # Office – Offener Backlog (später aufgreifen)
 
-Stand: **2026-09-08** · **Version 1.1.0 (Production)** · Tag [`v1.1.0`](https://github.com/vengelst/office/releases/tag/v1.1.0) · Branch `main`
+Stand: **2026-09-10** · **Version 1.1.0 (Production)** · Tag [`v1.1.0`](https://github.com/vengelst/office/releases/tag/v1.1.0) · Branch `main`
 
 Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kurzstatus: **`PROJECT-STATUS.md`**  
 **Letzte Übergabe:** [`session-uebergabe-2026-09-01-spie-ki-import.md`](./session-uebergabe-2026-09-01-spie-ki-import.md)
+
+---
+
+## Session-Notiz Cursor 10.09.2026 – Personal-App statt Kiosk (#37)
+
+**Produktentscheidung:** Kein Baustellen-Tablet-Kiosk als Primärweg. Monteur, Projektleiter/Kunden-PL und Kunde arbeiten auf **persönlichen Handys** (Web-Personal-App + Android-Parität). Web-Kiosk wird weich abgekündigt, später entfernt.
+
+| Phase | Inhalt | Status |
+|-------|--------|--------|
+| **#37 Phase 1** | Live in Personal-App, PL/Kunde ohne Kiosk-Setup, Kiosk-Banner, Web↔Android-Checkliste | **Cloud-Auftrag** |
+| Phase 2 | Android-Live / Feinschliff Parität | geplant |
+| Phase 3 | Kiosk Hard-Delete / Redirect | geplant |
+
+Spec: [`claude-arbeitsitems-37-personal-app-statt-kiosk.md`](./claude-arbeitsitems-37-personal-app-statt-kiosk.md)
 
 ---
 
