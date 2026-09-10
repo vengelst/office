@@ -13,7 +13,7 @@ Handbuch Stammdaten: **`HANDBUCH.md`** · Feature-Status: **`STATUS.md`** · Kur
 
 | Phase | Inhalt | Status |
 |-------|--------|--------|
-| **#37 Phase 1** | Live in Personal-App, PL/Kunde ohne Kiosk-Setup, Kiosk-Banner, Web↔Android-Checkliste | **Cloud-Auftrag** |
+| **#37 Phase 1** | Live in Personal-App, PL/Kunde ohne Kiosk-Setup, Kiosk-Banner, Web↔Android-Checkliste | **PR / Umsetzung** (siehe `claude-arbeitsitems-37-notizen.md`) |
 | Phase 2 | Android-Live / Feinschliff Parität | geplant |
 | Phase 3 | Kiosk Hard-Delete / Redirect | geplant |
 

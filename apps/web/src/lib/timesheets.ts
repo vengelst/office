@@ -143,7 +143,12 @@ export interface LiveEntry {
   since: string;
   durationMinutes: number;
   timeEntryId: string;
+  /** Offene Tätigkeit – nur bei scoped Live (Personal-App / Kunden-PL). */
+  activity?: { id: string; code: string; name: string } | null;
 }
+
+/** Live-Eintrag der Personal-App (Worker/PL-Scope). */
+export type ScopedLiveEntry = LiveEntry;
 
 /** GPS-Ereignis aus der Stempeluhr-Historie. */
 export interface GpsEventRow {
@@ -584,6 +589,16 @@ export const workerApi = {
   today: (workerId: string) =>
     workerFetch<TodayEntry[]>(`/time-entries/today/${workerId}`),
   /**
+   * GET /time-entries/live/scoped – Live-Anwesenheit auf zugewiesenen Projekten.
+   * @param projectId - optionaler Projektfilter
+   */
+  liveScoped: (projectId?: string) => {
+    const q = projectId
+      ? `?projectId=${encodeURIComponent(projectId)}`
+      : '';
+    return workerFetch<ScopedLiveEntry[]>(`/time-entries/live/scoped${q}`);
+  },
+  /**
    * POST /time-entries/clock-in – Stempelt einen Monteur auf ein Projekt ein.
    * Offline-fähig (Auftrag #13): bei Netzfehler Queue + optimistischer Status.
    * @param body - Monteur-ID, Projekt-ID und optionale GPS-Koordinaten
@@ -783,6 +798,15 @@ export const timeEntriesApi = {
    * @returns Liste der Live-Einträge mit Monteur, Projekt und Dauer
    */
   live: () => apiClient.get<LiveEntry[]>('/time-entries/live'),
+  /**
+   * GET /time-entries/live/scoped – Live für Kunden-PL (nur zugeordnete Projekte).
+   */
+  liveScoped: (projectId?: string) => {
+    const q = projectId
+      ? `?projectId=${encodeURIComponent(projectId)}`
+      : '';
+    return apiClient.get<ScopedLiveEntry[]>(`/time-entries/live/scoped${q}`);
+  },
   /**
    * POST /time-entries/clock-out – Stempelt einen Monteur aus (Office/Admin).
    * Nutzt den normalen Office-JWT (nicht die Offline-Worker-Queue).

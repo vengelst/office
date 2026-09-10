@@ -5,6 +5,14 @@
 
 export const kiosk = {
     title: 'Kiosk-Terminal',
+    deprecation: {
+      title: 'Bitte die persönliche App nutzen',
+      body: 'Der Baustellen-Kiosk ist veraltet. Stempeln und Abzeichnen laufen über die Personal-App auf dem eigenen Handy.',
+      workerCta: 'Zur Monteur-App',
+      plCta: 'Zum Kunden-PL (PIN)',
+      continueKiosk: 'Notfall: Kiosk fortsetzen',
+      setupLegacy: 'Veraltet / nur noch Notfall',
+    },
     install: {
       title: 'Als App speichern',
       subtitle:
@@ -20,7 +28,7 @@ export const kiosk = {
     },
     setup: {
       title: 'Kiosk einrichten',
-      subtitle: 'Konfiguration für dieses Gerät',
+      subtitle: 'Veraltet / Notfall – bitte Personal-App bevorzugen',
       project: 'Projekt zuweisen',
       projectPlaceholder: 'Projekt auswählen …',
       autoLogout: 'Auto-Logout (Sekunden)',

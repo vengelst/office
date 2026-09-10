@@ -28,7 +28,13 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith('/kiosk') || pathname === '/login') {
+  // Personal-App und PL-PIN ohne Kiosk-Gerätebindung (#37)
+  if (
+    pathname.startsWith('/kiosk') ||
+    pathname === '/login' ||
+    pathname.startsWith('/worker-app') ||
+    pathname.startsWith('/pl')
+  ) {
     return NextResponse.next();
   }
 

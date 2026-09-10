@@ -20,6 +20,8 @@ interface AuthContextValue {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
+  /** Session aus LoginResponse übernehmen (z. B. User-PIN). */
+  acceptSession: (res: LoginResponse) => AuthUser;
   logout: () => Promise<void>;
   refreshMe: () => Promise<void>;
 }
@@ -87,6 +89,14 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     [],
   );
 
+  const acceptSession = useCallback((res: LoginResponse) => {
+    window.localStorage.setItem(TOKEN_STORAGE_KEY, res.accessToken);
+    window.localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(res.user));
+    setToken(res.accessToken);
+    setUser(res.user);
+    return res.user;
+  }, []);
+
   const logout = useCallback(async () => {
     try {
       await apiClient.post('/auth/logout');
@@ -106,10 +116,11 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       isAuthenticated: Boolean(token),
       isLoading,
       login,
+      acceptSession,
       logout,
       refreshMe,
     }),
-    [user, token, isLoading, login, logout, refreshMe],
+    [user, token, isLoading, login, acceptSession, logout, refreshMe],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

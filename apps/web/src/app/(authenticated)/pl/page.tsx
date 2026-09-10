@@ -18,6 +18,8 @@ import {
 import { EmptyState } from '@/components/customers/empty-state';
 import { customerPlApi, type CustomerPlProject } from '@/lib/work-items';
 import { texts } from '@/lib/texts';
+import { LivePresenceList } from '@/components/live-presence-list';
+import { timeEntriesApi } from '@/lib/timesheets';
 
 /**
  * Startseite des Kunden-PLs: alle item-basierten Projekte mit aktiver
@@ -59,6 +61,21 @@ export default function CustomerPlProjectsPage(): React.ReactNode {
           {t.reload}
         </Button>
       </PageHeader>
+
+      <div className="mb-6">
+        <LivePresenceList
+          load={() => timeEntriesApi.liveScoped()}
+          labels={{
+            title: texts.customerPl.live.title,
+            empty: texts.customerPl.live.empty,
+            error: texts.customerPl.live.error,
+            reload: texts.customerPl.live.reload,
+            since: texts.customerPl.live.since,
+            activity: texts.customerPl.live.activity,
+            project: texts.customerPl.live.project,
+          }}
+        />
+      </div>
 
       {loading ? (
         <div className="space-y-3">

@@ -73,6 +73,23 @@ export class TimeEntriesController {
     return this.timeEntries.live();
   }
 
+  /**
+   * Live-Anwesenheit für Personal-App (Worker) und Kunden-PL – nur eigene Projekte.
+   */
+  @Get('live/scoped')
+  @UseGuards(RolesGuard)
+  @Roles('WORKER', 'CUSTOMER_PL')
+  @ApiOperation({
+    summary:
+      'Eingestempelte Monteure auf zugewiesenen/zugeordneten Projekten (Personal-App)',
+  })
+  liveScoped(
+    @CurrentUser() user: AuthUser,
+    @Query('projectId') projectId?: string,
+  ) {
+    return this.timeEntries.liveScoped(user, projectId);
+  }
+
   @Get('gps-events')
   @UseGuards(RolesGuard)
   @Roles('SUPERADMIN', 'OFFICE', 'PROJECT_MANAGER')

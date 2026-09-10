@@ -7,6 +7,7 @@ export const customerPl = {
     nav: {
       projects: 'Meine Projekte',
       timesheets: 'Stundenzettel',
+      live: 'Live-Anwesenheit',
     },
     projects: {
       title: 'Meine Projekte',
@@ -102,7 +103,27 @@ export const customerPl = {
       forceCompleted: 'Item wurde fertiggesetzt.',
       error: 'Aktion fehlgeschlagen.',
     },
-    timesheets: {
+    live: {
+      title: 'Live-Anwesenheit',
+      subtitle: 'Wer gerade auf Ihren Projekten arbeitet',
+      empty: 'Aktuell ist niemand auf Ihren Projekten eingestempelt.',
+      error: 'Live-Übersicht konnte nicht geladen werden.',
+      reload: 'Aktualisieren',
+      since: 'seit',
+      activity: 'Tätigkeit',
+      project: 'Projekt',
+    },
+    pinLogin: {
+      title: 'Kunden-PL Anmeldung',
+      subtitle: 'PIN eingeben – ohne Kiosk-Gerät',
+      submitting: 'Wird geprüft …',
+      error: 'Falsche PIN oder kein Kunden-PL.',
+      hint: 'User-PIN eingeben',
+      backspace: 'Zurück',
+      emailLoginLink: 'Stattdessen mit E-Mail anmelden',
+      workerAppLink: 'Zur Monteur-App',
+    },
+        timesheets: {
       title: 'Stundenzettel',
       subtitle: 'Wochenstunden der Monteure prüfen und abzeichnen',
       empty: 'Für Ihre Projekte liegen noch keine Stundenzettel vor.',

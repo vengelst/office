@@ -1,26 +1,30 @@
 'use client';
 
+/**
+ * Mobiler PIN-Login für CUSTOMER_PL ohne Kiosk-Setup (#37).
+ * Nutzt POST /auth/user-pin-login und speichert die Office-Session.
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Clock, Delete } from 'lucide-react';
-import {
-  WORKER_TOKEN_KEY,
-  getWorkerToken,
-  setWorkerSession,
-  workerApi,
-} from '@/lib/timesheets';
-import { recordWorkerGps } from '@/lib/record-worker-gps';
+import { ClipboardCheck, Delete } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
+import { apiClient } from '@/lib/api-client';
 import {
   DEFAULT_PIN_LENGTH,
   kioskSettingsApi,
 } from '@/lib/kiosk-settings';
+import { homeRouteFor, isCustomerPl } from '@/lib/roles';
 import { texts } from '@/lib/texts';
 import { cn } from '@/lib/utils';
+import type { LoginResponse } from '@office/types';
 
-export default function WorkerPinPage(): React.ReactNode {
+export default function CustomerPlPinLoginPage(): React.ReactNode {
   const router = useRouter();
-  const t = texts.workerApp.pin;
+  const { acceptSession, isAuthenticated, isLoading, user } = useAuth();
+  const t = texts.customerPl.pinLogin;
+
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -32,38 +36,37 @@ export default function WorkerPinPage(): React.ReactNode {
     });
   }, []);
 
-  // Bereits angemeldet? → direkt zum Dashboard.
   useEffect(() => {
-    if (getWorkerToken()) {
-      router.replace('/worker-app/dashboard');
+    if (!isLoading && isAuthenticated) {
+      router.replace(homeRouteFor(user));
     }
-  }, [router]);
+  }, [isLoading, isAuthenticated, user, router]);
 
   const submit = useCallback(
     async (value: string) => {
       setSubmitting(true);
       setError(false);
       try {
-        const res = await workerApi.pinLogin(value);
-        // Token zuerst speichern, damit me() es nutzen kann.
-        window.localStorage.setItem(WORKER_TOKEN_KEY, res.accessToken);
-        const me = await workerApi.me();
-        setWorkerSession(res.accessToken, me);
-        void recordWorkerGps({
-          workerId: me.id,
-          eventType: 'LOGIN',
-          projectId: me.assignments?.[0]?.project?.id,
-          timeoutMs: 10000,
-        });
-        router.replace('/worker-app/dashboard');
+        const res = await apiClient.post<LoginResponse>(
+          '/auth/user-pin-login',
+          { pin: value },
+          { skipAuth: true },
+        );
+        if (!isCustomerPl(res.user)) {
+          setError(true);
+          setPin('');
+          setSubmitting(false);
+          return;
+        }
+        acceptSession(res);
+        router.replace(homeRouteFor(res.user));
       } catch {
-        // Ungültige PIN oder Netzwerkfehler → zurücksetzen.
         setError(true);
         setPin('');
         setSubmitting(false);
       }
     },
-    [router],
+    [acceptSession, router],
   );
 
   const press = (digit: string): void => {
@@ -94,16 +97,15 @@ export default function WorkerPinPage(): React.ReactNode {
   const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-8 px-6 py-10">
+    <main className="flex min-h-screen flex-col items-center justify-center gap-8 bg-muted/40 px-6 py-10">
       <div className="flex flex-col items-center gap-2 text-center">
         <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground">
-          <Clock className="h-8 w-8" />
+          <ClipboardCheck className="h-8 w-8" />
         </div>
         <h1 className="text-xl font-semibold">{t.title}</h1>
         <p className="text-sm text-muted-foreground">{t.subtitle}</p>
       </div>
 
-      {/* PIN-Punkte */}
       <div className="flex items-center gap-3" aria-label={t.hint}>
         {Array.from({ length: pinLength }).map((_, i) => (
           <span
@@ -128,7 +130,6 @@ export default function WorkerPinPage(): React.ReactNode {
         {error ? t.error : '·'}
       </p>
 
-      {/* Nummernpad – Tasten ≥ 80px */}
       <div className="grid grid-cols-3 gap-4">
         {keys.map((k) => (
           <PadButton key={k} onClick={() => press(k)} disabled={submitting}>
@@ -151,17 +152,25 @@ export default function WorkerPinPage(): React.ReactNode {
         </PadButton>
       </div>
 
-            <p className="h-5 text-sm text-muted-foreground">
+      <p className="h-5 text-sm text-muted-foreground">
         {submitting ? t.submitting : ''}
       </p>
 
-      <Link
-        href="/pl/login"
-        className="mt-2 min-h-[44px] text-center text-sm text-primary underline-offset-4 hover:underline"
-      >
-        {t.plLoginLink}
-      </Link>
-    </div>
+      <div className="flex flex-col items-center gap-3 text-sm">
+        <Link
+          href="/login"
+          className="min-h-[44px] px-2 py-2 text-primary underline-offset-4 hover:underline"
+        >
+          {t.emailLoginLink}
+        </Link>
+        <Link
+          href="/worker-app"
+          className="min-h-[44px] px-2 py-2 text-muted-foreground underline-offset-4 hover:underline"
+        >
+          {t.workerAppLink}
+        </Link>
+      </div>
+    </main>
   );
 }
 

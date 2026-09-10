@@ -629,6 +629,103 @@ export class TimeEntriesService {
     return live;
   }
 
+  /**
+   * Live-Anwesenheit nur für freigegebene Projekte (Personal-App / Kunden-PL).
+   * WORKER: ProjectAssignment (+ optional eigenes aktuelles Projekt).
+   * CUSTOMER_PL: ProjectCustomerPlAssignment.
+   * Kein Büro-weiter Datenleck.
+   *
+   * @param actor - JWT-Akteur (Worker oder User)
+   * @param projectId - optionaler Filter; muss in der erlaubten Menge liegen
+   */
+  async liveScoped(actor: AuthUser, projectId?: string) {
+    const allowed = await this.resolveLiveProjectIds(actor);
+    if (projectId) {
+      if (!allowed.includes(projectId)) {
+        throw new ForbiddenException(
+          'Kein Zugriff auf die Live-Anwesenheit dieses Projekts',
+        );
+      }
+    }
+    const filterIds = projectId ? [projectId] : allowed;
+    if (filterIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.live();
+    const filtered = rows.filter(
+      (row) => row.project != null && filterIds.includes(row.project.id),
+    );
+
+    if (filtered.length === 0) {
+      return [];
+    }
+
+    const workerIds = filtered.map((r) => r.worker.id);
+    const openSegments = await this.prisma.timeActivitySegment.findMany({
+      where: { workerId: { in: workerIds }, endedAt: null },
+      orderBy: { startedAt: 'desc' },
+      include: {
+        activityType: { select: { id: true, code: true, name: true } },
+      },
+    });
+    const activityByWorker = new Map<
+      string,
+      { id: string; code: string; name: string }
+    >();
+    for (const seg of openSegments) {
+      if (activityByWorker.has(seg.workerId)) continue;
+      activityByWorker.set(seg.workerId, {
+        id: seg.activityType.id,
+        code: seg.activityType.code,
+        name: seg.activityType.name,
+      });
+    }
+
+    return filtered.map((row) => ({
+      ...row,
+      activity: activityByWorker.get(row.worker.id) ?? null,
+    }));
+  }
+
+  /**
+   * Ermittelt die Projekt-IDs, für die der Akteur Live-Daten sehen darf.
+   */
+  private async resolveLiveProjectIds(actor: AuthUser): Promise<string[]> {
+    if (actor.type === 'worker') {
+      const assignments = await this.prisma.projectAssignment.findMany({
+        where: {
+          workerId: actor.id,
+          active: true,
+          project: { deletedAt: null },
+        },
+        select: { projectId: true },
+      });
+      const ids = new Set(assignments.map((a) => a.projectId));
+
+      // Aktuelles eigenes Projekt mitnehmen (z. B. Master ohne feste Zuweisung).
+      const own = await this.getStatus(actor.id);
+      if (own.clockedIn && own.project?.id) {
+        ids.add(own.project.id);
+      }
+      return [...ids];
+    }
+
+    if (actor.type === 'user' && actor.roles.includes(RoleCode.CUSTOMER_PL)) {
+      const assignments = await this.prisma.projectCustomerPlAssignment.findMany({
+        where: {
+          userId: actor.id,
+          active: true,
+          project: { deletedAt: null },
+        },
+        select: { projectId: true },
+      });
+      return assignments.map((a) => a.projectId);
+    }
+
+    throw new ForbiddenException('Keine Berechtigung für scoped Live-Anwesenheit');
+  }
+
   // ── Foto-Upload ──────────────────────────────────────────────
 
   /**

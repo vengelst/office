@@ -113,6 +113,18 @@ export default function KioskSetupPage() {
           <h1 className="text-3xl font-bold">{t.title}</h1>
           <p className="mt-1 text-gray-400">{t.subtitle}</p>
         </div>
+        <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <p className="font-semibold">{texts.kiosk.deprecation.setupLegacy}</p>
+          <p className="mt-1 text-amber-100/80">{texts.kiosk.deprecation.body}</p>
+          <div className="mt-3 flex flex-col gap-2">
+            <a href="/worker-app" className="min-h-[44px] font-medium text-blue-300 underline">
+              {texts.kiosk.deprecation.workerCta}
+            </a>
+            <a href="/pl/login" className="min-h-[44px] font-medium text-emerald-300 underline">
+              {texts.kiosk.deprecation.plCta}
+            </a>
+          </div>
+        </div>
 
         {/* Modus */}
         <div className="space-y-2">
