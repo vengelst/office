@@ -40,6 +40,7 @@ export function MasterActivitySelect({
     clockStatus?.currentWorkActivity?.label ??
     clockStatus?.currentActivity?.name ??
     null;
+  const hasCustom = !!customWorkLabel.trim();
 
   return (
     <div className="mx-auto mt-4 w-full max-w-lg">
@@ -57,7 +58,8 @@ export function MasterActivitySelect({
       )}
       <div className="grid gap-2 sm:grid-cols-2">
         {workActivities.map((a) => {
-          const selected = a.id === selectedWorkActivityId && !customWorkLabel.trim();
+          const selected =
+            a.id === selectedWorkActivityId && !hasCustom;
           return (
             <button
               key={a.id}
@@ -92,24 +94,29 @@ export function MasterActivitySelect({
             maxLength={120}
             placeholder="z. B. Kabeltrasse ziehen"
             onChange={(e) => {
-              onWorkActivityChange(null);
+              // Selection wird im Hook geleert – customWorkLabel nicht verwerfen.
               onCustomWorkLabelChange(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && hasCustom && !onBreak) {
+                e.preventDefault();
+                resetActivity();
+                onApplyCustomWork();
+              }
             }}
             className="min-h-[52px] flex-1 rounded-xl border border-gray-600 bg-gray-800 px-3 text-base text-white placeholder:text-gray-500"
           />
-          {isIn && (
-            <button
-              type="button"
-              disabled={onBreak || !customWorkLabel.trim()}
-              onClick={() => {
-                resetActivity();
-                onApplyCustomWork();
-              }}
-              className="min-h-[52px] rounded-xl bg-blue-600 px-4 text-base font-semibold text-white disabled:opacity-40"
-            >
-              Übernehmen
-            </button>
-          )}
+          <button
+            type="button"
+            disabled={onBreak || !hasCustom}
+            onClick={() => {
+              resetActivity();
+              onApplyCustomWork();
+            }}
+            className="min-h-[52px] rounded-xl bg-blue-600 px-4 text-base font-semibold text-white disabled:opacity-40"
+          >
+            {isIn ? 'Übernehmen' : 'Anlegen'}
+          </button>
         </div>
         <p className="mt-2 text-xs text-gray-500">
           Neue Bezeichnung wird am Projekt gespeichert und ist danach wählbar.

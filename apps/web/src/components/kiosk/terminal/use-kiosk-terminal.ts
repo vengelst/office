@@ -411,8 +411,12 @@ export function useKioskTerminal() {
       setSelectedWorkActivityId((prev) => {
         if (prev && active.some((a) => a.id === prev)) return prev;
         const fromStatus = clockStatus?.currentWorkActivity?.id;
-        if (fromStatus && active.some((a) => a.id === fromStatus)) return fromStatus;
-        return active[0]?.id ?? null;
+        if (fromStatus && active.some((a) => a.id === fromStatus)) {
+          return fromStatus;
+        }
+        // Keine Auto-Auswahl der ersten Tätigkeit – sonst überschreibt sie
+        // eine frisch eingegebene „Eigene Tätigkeit“ beim Einstempeln.
+        return null;
       });
     } catch {
       setWorkActivities([]);
@@ -740,29 +744,50 @@ export function useKioskTerminal() {
     }
   };
 
+  const handleCustomWorkLabelChange = (label: string) => {
+    setCustomWorkLabel(label);
+    if (label.trim()) {
+      setSelectedWorkActivityId(null);
+    }
+  };
+
   const handleApplyCustomWork = () => {
     const label = customWorkLabel.trim();
     if (!label || !worker) return;
     resetActivity();
     setActionError('');
+    const projectId = selectedProjectId ?? config?.projectId ?? '';
+    if (!projectId) return;
     const isIn = clockStatus?.clockedIn ?? false;
-    if (!isIn) return;
     void (async () => {
       try {
-        const gpsData = gps ?? (await acquireGps());
-        const next = await kioskApi.switchActivity({
-          workerId: worker.id,
-          customWorkLabel: label,
-          latitude: gpsData?.latitude,
-          longitude: gpsData?.longitude,
-          accuracy: gpsData?.accuracy,
-        });
-        setClockStatus(next);
-        setSelectedWorkActivityId(next.currentWorkActivity?.id ?? null);
-        setCustomWorkLabel('');
-        void loadWorkActivitiesForProject(
-          selectedProjectId ?? config?.projectId ?? '',
+        if (isIn) {
+          const gpsData = gps ?? (await acquireGps());
+          const next = await kioskApi.switchActivity({
+            workerId: worker.id,
+            customWorkLabel: label,
+            latitude: gpsData?.latitude,
+            longitude: gpsData?.longitude,
+            accuracy: gpsData?.accuracy,
+          });
+          setClockStatus(next);
+          setSelectedWorkActivityId(next.currentWorkActivity?.id ?? null);
+          setCustomWorkLabel('');
+          await loadWorkActivitiesForProject(projectId);
+          return;
+        }
+
+        // Vor dem Einstempeln: Tätigkeit am Projekt anlegen und auswählen.
+        const created = await kioskApi.findOrCreateWorkActivity(
+          projectId,
+          label,
         );
+        setWorkActivities((prev) => {
+          if (prev.some((a) => a.id === created.id)) return prev;
+          return [...prev, { id: created.id, label: created.label }];
+        });
+        setSelectedWorkActivityId(created.id);
+        setCustomWorkLabel('');
       } catch (err) {
         setActionError(
           err instanceof ApiError ? err.message : t(KT.activitySwitchError),
@@ -885,6 +910,7 @@ export function useKioskTerminal() {
     selectedWorkActivityId,
     customWorkLabel,
     setCustomWorkLabel,
+    handleCustomWorkLabelChange,
     activityRequired,
     actionError,
     liveWorkers,

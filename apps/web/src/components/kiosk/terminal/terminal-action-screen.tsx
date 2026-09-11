@@ -19,7 +19,7 @@ interface TerminalActionScreenProps {
   workActivities: Array<{ id: string; label: string }>;
   selectedWorkActivityId: string | null;
   customWorkLabel: string;
-  setCustomWorkLabel: (label: string) => void;
+  onCustomWorkLabelChange: (label: string) => void;
   activityRequired: boolean;
   actionError: string;
   liveWorkers: KioskWorkerStatus[];
@@ -67,7 +67,7 @@ export function TerminalActionScreen({
   workActivities,
   selectedWorkActivityId,
   customWorkLabel,
-  setCustomWorkLabel,
+  onCustomWorkLabelChange,
   activityRequired,
   actionError,
   liveWorkers,
@@ -157,7 +157,7 @@ export function TerminalActionScreen({
           t={t}
           resetActivity={resetActivity}
           onWorkActivityChange={handleWorkActivityChange}
-          onCustomWorkLabelChange={setCustomWorkLabel}
+          onCustomWorkLabelChange={onCustomWorkLabelChange}
           onApplyCustomWork={handleApplyCustomWork}
         />
       )}

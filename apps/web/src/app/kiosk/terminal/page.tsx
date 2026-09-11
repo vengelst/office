@@ -91,7 +91,7 @@ export default function KioskTerminalPage() {
         workActivities={terminal.workActivities}
         selectedWorkActivityId={terminal.selectedWorkActivityId}
         customWorkLabel={terminal.customWorkLabel}
-        setCustomWorkLabel={terminal.setCustomWorkLabel}
+        onCustomWorkLabelChange={terminal.handleCustomWorkLabelChange}
         activityRequired={terminal.activityRequired}
         actionError={terminal.actionError}
         liveWorkers={terminal.liveWorkers}

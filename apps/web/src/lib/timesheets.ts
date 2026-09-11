@@ -649,6 +649,13 @@ export const workerApi = {
       `/projects/${projectId}/work-activities`,
     ),
 
+  /** POST /projects/:id/work-activities/find-or-create – eigene Tätigkeit anlegen. */
+  findOrCreateWorkActivity: (projectId: string, label: string) =>
+    workerFetch<{ id: string; label: string; active: boolean }>(
+      `/projects/${projectId}/work-activities/find-or-create`,
+      { method: 'POST', body: { label } },
+    ),
+
   /** POST /time-entries/switch-activity – Tätigkeit/Arbeit wechseln. */
   switchActivity: (body: {
     workerId: string;
@@ -1090,6 +1097,7 @@ export const kioskApi = {
   uploadPhoto: (form: FormData) => workerUpload<unknown>('/time-entries/upload-photo', form),
 
   listWorkActivities: workerApi.listWorkActivities,
+  findOrCreateWorkActivity: workerApi.findOrCreateWorkActivity,
 
   /** POST /time-entries/switch-activity – Tätigkeit/Arbeit wechseln. */
   switchActivity: (body: {

@@ -392,6 +392,25 @@ export class ProjectsController {
     return this.projects.findWorkActivitiesForUser(id, user);
   }
 
+  @Post(':id/work-activities/find-or-create')
+  @Roles(
+    RoleCode.SUPERADMIN,
+    RoleCode.OFFICE,
+    RoleCode.PROJECT_MANAGER,
+    RoleCode.WORKER,
+  )
+  @ApiOperation({
+    summary:
+      'Eigene Tätigkeit am Projekt finden oder anlegen (Kiosk/Stempel)',
+  })
+  findOrCreateWorkActivity(
+    @Param('id') id: string,
+    @Body() dto: CreateProjectWorkActivityDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.projects.findOrCreateWorkActivityForUser(id, dto.label, user);
+  }
+
   @Post(':id/work-activities')
   @ApiOperation({ summary: 'Arbeitstätigkeit am Projekt anlegen' })
   createWorkActivity(

@@ -410,6 +410,16 @@ export class ProjectsService {
   findOrCreateWorkActivity(projectId: string, label: string) {
     return this.resources.findOrCreateWorkActivity(projectId, label);
   }
+
+  /** Worker/Office: Find-or-Create nach Zugriffscheck (Kiosk „Eigene Tätigkeit“). */
+  async findOrCreateWorkActivityForUser(
+    projectId: string,
+    label: string,
+    user: AuthUser,
+  ) {
+    await this.assertProjectReadableByUser(projectId, user);
+    return this.resources.findOrCreateWorkActivity(projectId, label);
+  }
   createWorkActivity(projectId: string, dto: CreateProjectWorkActivityDto) {
     return this.resources.createWorkActivity(projectId, dto);
   }
