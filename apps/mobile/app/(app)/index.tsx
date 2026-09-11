@@ -823,8 +823,6 @@ export default function DashboardScreen() {
               )}
             </View>
           )}
-            </View>
-          )}
 
           {clockedIn && (
             <TouchableOpacity
@@ -1324,6 +1322,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#22c55e',
     textAlign: 'center',
+  },
+  customWorkInput: {
+    width: '100%',
+    backgroundColor: '#1f2937',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 48,
+    fontSize: 16,
+    color: '#f9fafb',
   },
   breakButton: {
     flexDirection: 'row',

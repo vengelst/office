@@ -85,7 +85,6 @@ export interface ClockStatus {
   breakStartedAt?: string | null;
   workDocumentationRequired?: boolean;
   workNotesEnabled?: boolean;
-  workActivities?: Array<{ id: string; label: string }>;
   clockOutTimeEntryId?: string | null;
   pendingWorkDocumentation?: PendingWorkDocumentation | null;
 }
